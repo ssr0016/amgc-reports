@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
-	"github.com/ssr0016/template/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 )
 
 type visitor struct {

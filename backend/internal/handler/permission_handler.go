@@ -6,10 +6,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/ssr0016/template/internal/apperror"
-	"github.com/ssr0016/template/internal/model"
-	"github.com/ssr0016/template/internal/repository"
-	"github.com/ssr0016/template/pkg/pagination"
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 type PermissionHandler struct {

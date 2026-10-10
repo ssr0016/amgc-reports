@@ -27,8 +27,8 @@ echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
 ## Setup Steps
 
 ### 1. Clone
-git clone https://github.com/ssr0016/template-go-echo-squirrel.git
-cd template-go-echo-squirrel
+git clone https://github.com/ssr0016/pastoral-reports.git
+cd pastoral-reports/backend
 
 ### 2. Configure
 cp .env.example .env

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ssr0016/template/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 )
 
 // MockUserRepo is an in-memory implementation of UserRepository for testing.

@@ -1,6 +1,6 @@
 # Template Go Echo Squirrel
 
-[![CI](https://github.com/ssr0016/template-go-echo-squirrel/actions/workflows/ci.yml/badge.svg)](https://github.com/ssr0016/template-go-echo-squirrel/actions/workflows/ci.yml)
+[![CI](https://github.com/ssr0016/pastoral-reports/actions/workflows/ci.yml/badge.svg)](https://github.com/ssr0016/pastoral-reports/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat&logo=docker)](https://www.docker.com/)
@@ -65,8 +65,8 @@ Production-ready Go backend starter kit with **Echo**, **Squirrel**, **pgx**, **
 
 ## Quick Start
 
-git clone https://github.com/ssr0016/template-go-echo-squirrel.git
-cd template-go-echo-squirrel
+git clone https://github.com/ssr0016/pastoral-reports.git
+cd pastoral-reports/backend
 cp .env.example .env
 nano .env
 make db-start
@@ -209,7 +209,7 @@ Metrics: http_requests_total, http_request_duration_seconds, http_requests_in_fl
 
 ## Project Structure
 
-    template-go-echo-squirrel/
+    backend/
     ├── cmd/api/main.go
     ├── internal/
     │   ├── apperror/     Error handling

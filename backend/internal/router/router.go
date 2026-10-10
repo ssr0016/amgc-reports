@@ -5,9 +5,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
-	"github.com/ssr0016/template/internal/handler"
-	ourmiddleware "github.com/ssr0016/template/internal/middleware"
-	"github.com/ssr0016/template/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
+	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
+	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 )
 
 func Setup(

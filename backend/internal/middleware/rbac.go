@@ -4,8 +4,8 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
-	"github.com/ssr0016/template/internal/apperror"
-	"github.com/ssr0016/template/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 )
 
 // RequireRole returns a middleware that requires the user to have one of the specified roles.

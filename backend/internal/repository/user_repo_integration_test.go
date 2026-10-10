@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ssr0016/template/internal/database"
-	"github.com/ssr0016/template/internal/testutil"
+	"github.com/ssr0016/pastoral-reports/backend/internal/database"
+	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
 )
 
 func setupTestRepo(t *testing.T) (*UserRepo, *testutil.TestDB) {

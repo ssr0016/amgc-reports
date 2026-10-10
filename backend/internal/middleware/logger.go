@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/ssr0016/template/internal/logger"
+	"github.com/ssr0016/pastoral-reports/backend/internal/logger"
 )
 
 // SlogLogger returns an Echo middleware that logs requests using slog.

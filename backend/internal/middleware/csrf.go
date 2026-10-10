@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/ssr0016/template/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 )
 
 const (

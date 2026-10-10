@@ -11,8 +11,8 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/ssr0016/template/internal/database"
-	"github.com/ssr0016/template/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/internal/database"
+	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 )
 
 const PasswordResetLifetime = 1 * time.Hour

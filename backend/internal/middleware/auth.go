@@ -3,7 +3,7 @@ package middleware
 import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
-	"github.com/ssr0016/template/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 )
 
 const UserIDKey = "user_id"

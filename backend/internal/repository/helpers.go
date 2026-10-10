@@ -6,7 +6,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"github.com/ssr0016/template/internal/database"
+	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 )
 
 // deleteByID deletes a row by ID from the given table.

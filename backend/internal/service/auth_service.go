@@ -8,8 +8,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/ssr0016/template/internal/model"
-	"github.com/ssr0016/template/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 )
 
 var (

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/ssr0016/template/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 )
 
 var (

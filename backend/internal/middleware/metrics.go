@@ -6,7 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/ssr0016/template/pkg/metrics"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/metrics"
 )
 
 // PrometheusMiddleware captures HTTP metrics for Prometheus.
