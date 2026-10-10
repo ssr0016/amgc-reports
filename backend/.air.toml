@@ -1,0 +1,10 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/main ./cmd/api/main.go"
+bin = "./tmp/main"
+include_ext = ["go", "sql"]
+exclude_dir = ["tmp", "volumes", "docs", "bin"]
+delay = 500
+stop_on_error = true

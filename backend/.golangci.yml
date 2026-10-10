@@ -1,0 +1,80 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - revive
+    - bodyclose
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+    - unparam
+    - gocritic
+    - gocyclo
+    - dupl
+    - gosec
+  disable:
+    - exhaustruct
+    - varnamelen
+    - wrapcheck
+    - depguard
+
+  settings:
+    gocyclo:
+      min-complexity: 15
+    dupl:
+      threshold: 100
+    gosec:
+      excludes:
+        - G117
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+
+  exclusions:
+    paths:
+      - volumes/
+      - tmp/
+      - bin/
+    rules:
+      - path: internal/handler/
+        linters:
+          - dupl
+      - path: internal/repository/verification_repo\.go
+        linters:
+          - dupl
+      - path: internal/repository/password_reset_repo\.go
+        linters:
+          - dupl
+          - gosec
+      - path: _test\.go
+        linters:
+          - dupl
+          - gosec
+          - gocyclo
+      - path: docs/
+        linters:
+          - "*"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true

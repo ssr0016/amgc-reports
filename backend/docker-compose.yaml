@@ -1,0 +1,54 @@
+name: template-go-echo-squirrel-db
+
+services:
+  pg:
+    image: postgres:15.3-alpine
+    container_name: template-go-pg
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - ./volumes/databases/pg/data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-app_db}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-app_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  test-pg:
+    image: postgres:15.3-alpine
+    container_name: template-go-test-pg
+    ports:
+      - '${TEST_DB_PORT:-5433}:5432'
+    volumes:
+      - ./volumes/databases/test-pg/data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${TEST_DB_NAME:-app_test}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${TEST_DB_NAME:-app_test}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  pg-admin:
+    image: dpage/pgadmin4:6
+    container_name: template-go-pgadmin
+    ports:
+      - '${PGADMIN_PORT:-5050}:5050'
+    volumes:
+      - ./volumes/databases/pgadmin:/var/lib/pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_LISTEN_PORT: 5050
+    depends_on:
+      pg:
+        condition: service_healthy
+    restart: unless-stopped
