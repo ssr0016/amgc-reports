@@ -157,7 +157,7 @@ Example:
       -H "Content-Type: application/json" \
       -H "X-CSRF-Token: $CSRF" \
       -b cookies.txt -c cookies.txt \
-      -d '{"email": "admin@example.com", "password": "AdminPass123!"}'
+      -d '{"email": "<ADMIN_EMAIL>", "password": "<ADMIN_PASSWORD>"}'
 
 ## Complete Example
 

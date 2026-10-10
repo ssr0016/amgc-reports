@@ -8,9 +8,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// SeedData inserts default roles, permissions, and admin user.
+// AdminSeed holds the credentials for the initial admin user.
+// When Email or Password is empty, no admin user is seeded.
+type AdminSeed struct {
+	Email    string
+	Name     string
+	Password string
+}
+
+// SeedData inserts default roles, permissions, and (optionally) an admin user.
 // Safe to call multiple times — uses ON CONFLICT DO NOTHING.
-func SeedData(ctx context.Context, db *DB, log *slog.Logger) error {
+func SeedData(ctx context.Context, db *DB, log *slog.Logger, admin AdminSeed) error {
 	log.Info("seeding database...")
 
 	// ============================================================
@@ -106,28 +114,29 @@ func SeedData(ctx context.Context, db *DB, log *slog.Logger) error {
 	log.Info("role-permission assignments seeded")
 
 	// ============================================================
-	// 4. Admin User
+	// 4. Admin User (only when credentials are provided via env)
 	// ============================================================
-	adminEmail := "admin@example.com"
-	adminPassword := "AdminPass123!"
-	adminName := "Admin"
+	if admin.Email == "" || admin.Password == "" {
+		log.Warn("admin user not seeded: set ADMIN_EMAIL and ADMIN_PASSWORD to create one")
+		return nil
+	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(admin.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("hash admin password: %w", err)
 	}
 
 	_, err = db.Pool.Exec(ctx, `
-		INSERT INTO users (email, name, password_hash, role_id)
-		SELECT $1, $2, $3, r.id
+		INSERT INTO users (email, name, password_hash, role_id, email_verified, email_verified_at)
+		SELECT $1, $2, $3, r.id, TRUE, NOW()
 		FROM roles r
 		WHERE r.name = 'admin'
 		ON CONFLICT (email) DO NOTHING
-	`, adminEmail, adminName, string(hash))
+	`, admin.Email, admin.Name, string(hash))
 	if err != nil {
 		return fmt.Errorf("seed admin user: %w", err)
 	}
-	log.Info("admin user seeded", "email", adminEmail)
+	log.Info("admin user seeded", "email", admin.Email)
 
 	return nil
 }

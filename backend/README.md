@@ -139,9 +139,15 @@ Expected output:
 | editor | users:read, users:write |
 | user | users:read |
 
-### Default Admin
-- Email: admin@example.com
-- Password: AdminPass123!
+### Initial Admin
+No admin user is created by default. To seed one, set both variables before the first start:
+
+    ADMIN_EMAIL=you@yourdomain.com
+    ADMIN_PASSWORD=<strong unique password, min 12 chars>
+    ADMIN_NAME=Admin        # optional
+
+The user is created once (`ON CONFLICT DO NOTHING`); changing the variables later does not
+update an existing account. If the variables are unset, the server logs a warning and starts without an admin.
 
 ## Pagination
 

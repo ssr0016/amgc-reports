@@ -165,7 +165,57 @@ func cleanupEnv() {
 		"SESSION_COOKIE_NAME", "SESSION_LIFETIME", "SESSION_IDLE_TIMEOUT",
 		"LOG_LEVEL", "LOG_FORMAT",
 		"CORS_ALLOWED_ORIGINS",
+		"ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME",
 	} {
 		_ = os.Unsetenv(key)
+	}
+}
+
+func TestLoad_AdminNotSetByDefault(t *testing.T) {
+	_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+	defer cleanupEnv()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if cfg.Admin.Email != "" || cfg.Admin.Password != "" {
+		t.Errorf("Admin = %+v, want empty", cfg.Admin)
+	}
+}
+
+func TestLoad_AdminFromEnv(t *testing.T) {
+	_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+	_ = os.Setenv("ADMIN_EMAIL", "boss@example.org")
+	_ = os.Setenv("ADMIN_PASSWORD", "a-long-enough-pass")
+	defer cleanupEnv()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if cfg.Admin.Email != "boss@example.org" || cfg.Admin.Password != "a-long-enough-pass" || cfg.Admin.Name != "Admin" {
+		t.Errorf("Admin = %+v", cfg.Admin)
+	}
+}
+
+func TestLoad_AdminValidation(t *testing.T) {
+	cases := map[string]map[string]string{
+		"email without password": {"ADMIN_EMAIL": "boss@example.org"},
+		"password without email": {"ADMIN_PASSWORD": "a-long-enough-pass"},
+		"short password":         {"ADMIN_EMAIL": "boss@example.org", "ADMIN_PASSWORD": "short"},
+	}
+	for name, env := range cases {
+		t.Run(name, func(t *testing.T) {
+			_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+			for k, v := range env {
+				_ = os.Setenv(k, v)
+			}
+			defer cleanupEnv()
+
+			if _, err := Load(); err == nil {
+				t.Error("Load() succeeded, want validation error")
+			}
+		})
 	}
 }

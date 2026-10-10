@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const minAdminPasswordLen = 12
+
 // Config holds all application configuration.
 type Config struct {
 	App      AppConfig
@@ -15,7 +17,15 @@ type Config struct {
 	Session  SessionConfig
 	Logging  LoggingConfig
 	CORS     CORSConfig
+	Admin    AdminConfig
 	Stage    Stage
+}
+
+// AdminConfig holds the initial admin user credentials (optional).
+type AdminConfig struct {
+	Email    string
+	Name     string
+	Password string
 }
 
 // AppConfig holds general app settings.
@@ -83,6 +93,12 @@ func Load() (*Config, error) {
 		},
 	}
 
+	cfg.Admin = AdminConfig{
+		Email:    strings.TrimSpace(os.Getenv("ADMIN_EMAIL")),
+		Name:     getEnv("ADMIN_NAME", "Admin"),
+		Password: os.Getenv("ADMIN_PASSWORD"),
+	}
+
 	cfg.Stage = stageFromEnv(cfg.App.Env)
 
 	if err := cfg.Validate(); err != nil {
@@ -105,6 +121,12 @@ func (c *Config) Validate() error {
 	}
 	if len(c.CORS.AllowedOrigins) == 0 {
 		return fmt.Errorf("CORS_ALLOWED_ORIGINS is required")
+	}
+	if (c.Admin.Email == "") != (c.Admin.Password == "") {
+		return fmt.Errorf("ADMIN_EMAIL and ADMIN_PASSWORD must be set together")
+	}
+	if c.Admin.Password != "" && len(c.Admin.Password) < minAdminPasswordLen {
+		return fmt.Errorf("ADMIN_PASSWORD must be at least %d characters", minAdminPasswordLen)
 	}
 	return nil
 }
