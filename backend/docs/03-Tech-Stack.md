@@ -249,7 +249,7 @@ Other variables appear only in `.env.example`, compose or Makefile: `TEST_DATABA
 ### 9.2 Request Logging Middleware
 [internal/middleware/logger.go](../internal/middleware/logger.go) emits one line per request with `request_id, method, uri, status, latency_ms, remote_ip, user_agent, bytes_in, bytes_out` and `error` when present. Level by status: info (<400), warn (400-499), error (>=500).
 
-**Status resolution (fixed, C-2).** The middleware runs before `apperror.ErrorHandler` writes the response, so it derives the final status with `apperror.StatusOf(err)` (handles `*AppError`, `*echo.HTTPError` and unknown errors as 500). If the response is already committed it uses the status on the wire. 401, 403, 422 and 429 now log at `warn` with the real status.
+**Status resolution (fixed in a5ed763, C-2).** The middleware runs before `apperror.ErrorHandler` writes the response, so it derives the final status with `apperror.StatusOf(err)` (handles `*AppError`, `*echo.HTTPError` and unknown errors as 500). If the response is already committed it uses the status on the wire. 401, 403, 422 and 429 now log at `warn` with the real status.
 
 ## 10. Observability
 
@@ -259,7 +259,7 @@ Other variables appear only in `.env.example`, compose or Makefile: `TEST_DATABA
 
 | Metric | Type | Labels | State |
 |---|---|---|---|
-| `http_requests_total` | counter | method, path, status | Updated (status derived via `apperror.StatusOf`; fixed, C-1) |
+| `http_requests_total` | counter | method, path, status | Updated (status derived via `apperror.StatusOf`; fixed in a5ed763, C-1) |
 | `http_request_duration_seconds` | histogram | method, path | Updated |
 | `http_requests_in_flight` | gauge | none | Updated |
 | `db_connections_active` | gauge | none | Defined, never updated |
