@@ -39,7 +39,7 @@ func (s *PasswordResetService) RequestReset(ctx context.Context, email string) e
 		return fmt.Errorf("get user: %w", err)
 	}
 	if user == nil {
-		s.log.Info("password reset requested for non-existent email", "email", email)
+		s.log.Info("password reset requested for unknown account")
 		return nil
 	}
 
@@ -50,7 +50,6 @@ func (s *PasswordResetService) RequestReset(ctx context.Context, email string) e
 
 	s.log.Info("password reset token generated",
 		"user_id", user.ID,
-		"token", token.Token,
 		"expires_at", token.ExpiresAt,
 	)
 
