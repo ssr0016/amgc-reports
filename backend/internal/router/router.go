@@ -28,6 +28,7 @@ func Setup(
 	// ============================================================
 	auth := api.Group("/auth")
 	authLimit := ourmiddleware.RateLimit(rate.Limit(5.0/60.0), 3)
+	auth.GET("/csrf", handler.CSRFToken)
 	auth.POST("/register", authHandler.Register, authLimit)
 	auth.POST("/login", authHandler.Login, authLimit)
 

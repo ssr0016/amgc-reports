@@ -145,8 +145,12 @@ PUT /admin/users/:id/role
 
 For POST/PUT/DELETE requests, include CSRF token:
 
-1. GET /health - receives csrf_token cookie
+1. GET /api/v1/auth/csrf - returns `{"csrf_token": "<token>"}` and sets the HttpOnly `csrf_token` cookie
+   (any GET also sets the cookie, but only this endpoint exposes the value to JavaScript)
 2. Include header: X-CSRF-Token: <token>
+
+Browser clients must call the endpoint with `credentials: "include"` and send the returned
+token in the `X-CSRF-Token` header on every POST/PUT/DELETE.
 
 Example:
 

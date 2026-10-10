@@ -1,20 +1,20 @@
 basePath: /api/v1
 definitions:
-  github_com_ssr0016_template_internal_model.AssignPermissionRequest:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest:
     properties:
       permission_id:
         type: integer
     required:
     - permission_id
     type: object
-  github_com_ssr0016_template_internal_model.ChangeRoleRequest:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeRoleRequest:
     properties:
       role_id:
         type: integer
     required:
     - role_id
     type: object
-  github_com_ssr0016_template_internal_model.CreateRoleRequest:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.CreateRoleRequest:
     properties:
       description:
         maxLength: 255
@@ -26,7 +26,7 @@ definitions:
     required:
     - name
     type: object
-  github_com_ssr0016_template_internal_model.LoginRequest:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest:
     properties:
       email:
         type: string
@@ -36,7 +36,7 @@ definitions:
     - email
     - password
     type: object
-  github_com_ssr0016_template_internal_model.PermissionResponse:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse:
     properties:
       action:
         type: string
@@ -47,7 +47,7 @@ definitions:
       resource:
         type: string
     type: object
-  github_com_ssr0016_template_internal_model.RegisterRequest:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.RegisterRequest:
     properties:
       email:
         type: string
@@ -62,7 +62,7 @@ definitions:
     - name
     - password
     type: object
-  github_com_ssr0016_template_internal_model.RoleResponse:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse:
     properties:
       created_at:
         type: string
@@ -74,12 +74,12 @@ definitions:
         type: string
       permissions:
         items:
-          $ref: '#/definitions/github_com_ssr0016_template_internal_model.PermissionResponse'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse'
         type: array
       updated_at:
         type: string
     type: object
-  github_com_ssr0016_template_internal_model.UpdateRoleRequest:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateRoleRequest:
     properties:
       description:
         maxLength: 255
@@ -89,7 +89,7 @@ definitions:
         minLength: 2
         type: string
     type: object
-  github_com_ssr0016_template_internal_model.UserResponse:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse:
     properties:
       created_at:
         type: string
@@ -105,6 +105,11 @@ definitions:
         type: string
       role_id:
         type: integer
+    type: object
+  internal_handler.CSRFTokenResponse:
+    properties:
+      csrf_token:
+        type: string
     type: object
   internal_handler.CreatePermissionRequest:
     properties:
@@ -171,7 +176,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/github_com_ssr0016_template_internal_model.PermissionResponse'
+              $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse'
             type: array
       security:
       - CookieAuth: []
@@ -194,7 +199,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.PermissionResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse'
       security:
       - CookieAuth: []
       summary: Create a new permission
@@ -229,7 +234,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.PermissionResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse'
       security:
       - CookieAuth: []
       summary: Get permission by ID
@@ -244,7 +249,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/github_com_ssr0016_template_internal_model.RoleResponse'
+              $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse'
             type: array
       security:
       - CookieAuth: []
@@ -260,14 +265,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ssr0016_template_internal_model.CreateRoleRequest'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.CreateRoleRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.RoleResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse'
       security:
       - CookieAuth: []
       summary: Create a new role
@@ -302,7 +307,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.RoleResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse'
       security:
       - CookieAuth: []
       summary: Get role by ID
@@ -322,14 +327,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ssr0016_template_internal_model.UpdateRoleRequest'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateRoleRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.RoleResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse'
       security:
       - CookieAuth: []
       summary: Update a role
@@ -350,7 +355,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ssr0016_template_internal_model.AssignPermissionRequest'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest'
       responses:
         "200":
           description: OK
@@ -398,7 +403,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.UserResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
       security:
       - CookieAuth: []
       summary: Get user with role
@@ -419,19 +424,34 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ssr0016_template_internal_model.ChangeRoleRequest'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeRoleRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.UserResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
       security:
       - CookieAuth: []
       summary: Change a user's role
       tags:
       - admin/users
+  /auth/csrf:
+    get:
+      description: Returns the CSRF token for the current client. The same value is
+        set in the HttpOnly csrf_token cookie; send it back in the X-CSRF-Token header
+        on POST/PUT/DELETE requests.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.CSRFTokenResponse'
+      summary: Get CSRF token
+      tags:
+      - auth
   /auth/forgot-password:
     post:
       consumes:
@@ -473,14 +493,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ssr0016_template_internal_model.LoginRequest'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.UserResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
         "401":
           description: Unauthorized
           schema:
@@ -548,14 +568,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ssr0016_template_internal_model.RegisterRequest'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RegisterRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.UserResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
         "400":
           description: Bad Request
           schema:
@@ -707,7 +727,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/github_com_ssr0016_template_internal_model.UserResponse'
+              $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
             type: array
         "401":
           description: Unauthorized
@@ -735,7 +755,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ssr0016_template_internal_model.UserResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
         "401":
           description: Unauthorized
           schema:

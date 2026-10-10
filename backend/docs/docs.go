@@ -51,7 +51,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_ssr0016_template_internal_model.PermissionResponse"
+                                "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"
                             }
                         }
                     }
@@ -88,7 +88,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.PermissionResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"
                         }
                     }
                 }
@@ -121,7 +121,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.PermissionResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"
                         }
                     }
                 }
@@ -172,7 +172,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_ssr0016_template_internal_model.RoleResponse"
+                                "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
                             }
                         }
                     }
@@ -201,7 +201,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.CreateRoleRequest"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.CreateRoleRequest"
                         }
                     }
                 ],
@@ -209,7 +209,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.RoleResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
                         }
                     }
                 }
@@ -242,7 +242,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.RoleResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
                         }
                     }
                 }
@@ -277,7 +277,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.UpdateRoleRequest"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateRoleRequest"
                         }
                     }
                 ],
@@ -285,7 +285,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.RoleResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
                         }
                     }
                 }
@@ -344,7 +344,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.AssignPermissionRequest"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest"
                         }
                     }
                 ],
@@ -422,7 +422,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.UserResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
                         }
                     }
                 }
@@ -459,7 +459,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.ChangeRoleRequest"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeRoleRequest"
                         }
                     }
                 ],
@@ -467,7 +467,27 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.UserResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/csrf": {
+            "get": {
+                "description": "Returns the CSRF token for the current client. The same value is set in the HttpOnly csrf_token cookie; send it back in the X-CSRF-Token header on POST/PUT/DELETE requests.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get CSRF token",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.CSRFTokenResponse"
                         }
                     }
                 }
@@ -539,7 +559,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.LoginRequest"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest"
                         }
                     }
                 ],
@@ -547,7 +567,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.UserResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
                         }
                     },
                     "401": {
@@ -657,7 +677,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.RegisterRequest"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RegisterRequest"
                         }
                     }
                 ],
@@ -665,7 +685,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.UserResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
                         }
                     },
                     "400": {
@@ -903,7 +923,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_ssr0016_template_internal_model.UserResponse"
+                                "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
                             }
                         }
                     },
@@ -947,7 +967,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_template_internal_model.UserResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
                         }
                     },
                     "401": {
@@ -973,7 +993,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_ssr0016_template_internal_model.AssignPermissionRequest": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest": {
             "type": "object",
             "required": [
                 "permission_id"
@@ -984,7 +1004,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_template_internal_model.ChangeRoleRequest": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeRoleRequest": {
             "type": "object",
             "required": [
                 "role_id"
@@ -995,7 +1015,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_template_internal_model.CreateRoleRequest": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.CreateRoleRequest": {
             "type": "object",
             "required": [
                 "name"
@@ -1012,7 +1032,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_template_internal_model.LoginRequest": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -1027,7 +1047,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_template_internal_model.PermissionResponse": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse": {
             "type": "object",
             "properties": {
                 "action": {
@@ -1044,7 +1064,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_template_internal_model.RegisterRequest": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.RegisterRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -1065,7 +1085,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_template_internal_model.RoleResponse": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -1083,7 +1103,7 @@ const docTemplate = `{
                 "permissions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_ssr0016_template_internal_model.PermissionResponse"
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"
                     }
                 },
                 "updated_at": {
@@ -1091,7 +1111,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_template_internal_model.UpdateRoleRequest": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateRoleRequest": {
             "type": "object",
             "properties": {
                 "description": {
@@ -1105,7 +1125,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_template_internal_model.UserResponse": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -1128,6 +1148,14 @@ const docTemplate = `{
                 },
                 "role_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "internal_handler.CSRFTokenResponse": {
+            "type": "object",
+            "properties": {
+                "csrf_token": {
+                    "type": "string"
                 }
             }
         },

@@ -15,5 +15,4 @@ cookies.txt
 .DS_Store
 *.bak
 *.bak[0-9]*
-api
 /api
