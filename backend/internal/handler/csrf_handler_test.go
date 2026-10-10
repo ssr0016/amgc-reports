@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -25,7 +26,7 @@ func TestCSRFToken_MatchesCookieAndAllowsWrite(t *testing.T) {
 	e := newCSRFTestServer()
 
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/csrf", nil))
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/csrf", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /csrf = %d, want 200", rec.Code)
 	}
@@ -44,7 +45,7 @@ func TestCSRFToken_MatchesCookieAndAllowsWrite(t *testing.T) {
 	}
 
 	// Using the body token as the header must pass the CSRF check.
-	req := httptest.NewRequest(http.MethodPost, "/write", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/write", nil)
 	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: cookieVal})
 	req.Header.Set("X-CSRF-Token", cookieVal)
 	rec = httptest.NewRecorder()
@@ -54,7 +55,7 @@ func TestCSRFToken_MatchesCookieAndAllowsWrite(t *testing.T) {
 	}
 
 	// Without the header it must be rejected.
-	req = httptest.NewRequest(http.MethodPost, "/write", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/write", nil)
 	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: cookieVal})
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -66,7 +67,7 @@ func TestCSRFToken_MatchesCookieAndAllowsWrite(t *testing.T) {
 func TestCSRFToken_StableForSameClient(t *testing.T) {
 	e := newCSRFTestServer()
 
-	req := httptest.NewRequest(http.MethodGet, "/csrf", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/csrf", nil)
 	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: "existing-token"})
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
