@@ -1,6 +1,7 @@
 package apperror
 
 import (
+	"errors"
 	"net/http"
 	"os"
 
@@ -43,16 +44,7 @@ func ErrorHandler(err error, c echo.Context) {
 		return
 	}
 
-	// Try to convert to AppError
-	appErr, ok := As(err)
-	if !ok {
-		// Handle Echo's HTTPError
-		if he, isHTTP := err.(*echo.HTTPError); isHTTP {
-			appErr = fromHTTPError(he)
-		} else {
-			appErr = Internal("internal server error").WithError(err)
-		}
-	}
+	appErr := resolve(err)
 
 	// Hide internal error messages in production
 	if os.Getenv("APP_ENV") == "production" && appErr.HTTPStatus >= 500 {
@@ -68,6 +60,24 @@ func ErrorHandler(err error, c echo.Context) {
 	if writeErr := c.JSON(appErr.HTTPStatus, resp); writeErr != nil {
 		c.Logger().Error(writeErr)
 	}
+}
+
+// resolve converts any error to the *AppError that ErrorHandler renders.
+func resolve(err error) *AppError {
+	if appErr, ok := As(err); ok {
+		return appErr
+	}
+	var he *echo.HTTPError
+	if errors.As(err, &he) {
+		return fromHTTPError(he)
+	}
+	return Internal("internal server error").WithError(err)
+}
+
+// StatusOf returns the HTTP status ErrorHandler writes for err. Middleware
+// that runs before ErrorHandler uses it to learn the final status.
+func StatusOf(err error) int {
+	return resolve(err).HTTPStatus
 }
 
 // fromHTTPError converts an Echo HTTPError to AppError.

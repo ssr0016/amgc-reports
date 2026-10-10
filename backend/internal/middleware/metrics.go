@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/pkg/metrics"
 )
 
@@ -33,10 +34,8 @@ func PrometheusMiddleware() echo.MiddlewareFunc {
 
 			// Get status code
 			status := c.Response().Status
-			if err != nil {
-				if he, ok := err.(*echo.HTTPError); ok {
-					status = he.Code
-				}
+			if err != nil && !c.Response().Committed {
+				status = apperror.StatusOf(err)
 			}
 
 			// Record metrics

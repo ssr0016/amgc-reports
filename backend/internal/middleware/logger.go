@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/logger"
 )
 
@@ -28,10 +29,8 @@ func SlogLogger(log *slog.Logger) echo.MiddlewareFunc {
 
 			// Determine actual status code
 			status := c.Response().Status
-			if err != nil {
-				if he, ok := err.(*echo.HTTPError); ok {
-					status = he.Code
-				}
+			if err != nil && !c.Response().Committed {
+				status = apperror.StatusOf(err)
 			}
 
 			attrs := []any{
