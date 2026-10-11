@@ -360,7 +360,7 @@ Consolidated from Document 03 section 20 (18 gaps), plus items found during impl
 | I-7 | gosec non-blocking (`-no-fail`) and unpinned (`@master`) | Medium | 2h |
 | I-8 | No dependency vulnerability scan (govulncheck / Dependabot / image scan) | High | 4h |
 | I-9 | No CD pipeline | Medium | 8h |
-| I-10 | Unpinned dev tools (`@latest`) and local/CI linter version drift | Low | 1h |
+| I-10 | Unpinned dev tools (`@latest`) and local/CI linter version drift. **Delivered:** Makefile pins in 2c3656b (golangci-lint) and ffb623e (air, swag, goose), SETUP.md and docs updated alongside; the 1h is accounting, not remaining work | Low | 1h |
 | I-11 | No HTTP client abstraction for outbound calls | Medium | 4h |
 | I-12 | `go mod tidy` needed (indirect markers) | Low | 1h |
 | I-13 | Fresh clone has no `.env` (gitignored by design), so `make migrate-*` fails with an opaque connection error (empty `DATABASE_URL`) instead of pointing to SETUP.md step 2. Setup only. **Delivered in 98f4093** (SETUP.md note); the 1h is accounting, not remaining work | Low | 1h |
@@ -417,7 +417,7 @@ Coverage for **new** Reports code is inside Phases 2, 3 and 5; the table above i
 1. **Fix-first tests:** every item in section 4 gets a regression test in the same change (the C-1/C-2 status mapping, the C-4 404, C-5 429s).
 2. **Reports:** TDD at the service layer using `MockReportRepo`; repository integration tests assert the schema rules from Doc 05 section 2.7 (duplicate prevention returns 23505, soft-deleted rows invisible, CHECK constraints reject bad month/week/value, approval fields consistent, transaction rollback leaves no partial data).
 3. **End-to-end:** commit the live test script (or port it to a Go test using the `integration` tag) and extend it with the report flows: create, duplicate (409), list with filters and pagination, update by owner, update by non-owner (403), delete (soft), approve and unapprove, log-download.
-4. **CI changes (small, part of I-7/I-8):** run the `integration` tag in a separate job; fail on coverage drop for changed packages; keep `-race`; pin the golangci-lint version used locally to the CI version (I-10).
+4. **CI changes (small, part of I-7/I-8):** run the `integration` tag in a separate job; fail on coverage drop for changed packages; keep `-race`; pin the golangci-lint version used locally to the CI version (I-10, done in 2c3656b).
 5. **Targets:** new code at least 70% (as CONTRIBUTING.md states); service package 80%; handlers and middleware 70% (T-1, T-2).
 6. **Test data:** deterministic fixtures; passwords that satisfy `strongpass`; per-test database (testcontainers) or transaction rollback.
 7. **Operational tests:** graceful shutdown (SIGTERM completes in-flight request), migration up/down/up on a copy of production data, rollback rehearsal (section 8.3).
@@ -721,7 +721,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 4 | DB gauges | I-2 |
 | 5 | Low test coverage | T-1..T-4 |
 | 6 | Config loaded but ignored | M-8 |
-| 7 | Linter in CI (align local version) | I-10 |
+| 7 | Linter in CI (align local version) | I-10 (done: 2c3656b) |
 | 8 | No vulnerability scanning | I-8 |
 | 9 | gosec non-blocking, unpinned | I-7 |
 | 10 | No CD pipeline | I-9 |
@@ -729,7 +729,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 12 | Prod compose exposes Postgres | I-4 |
 | 13 | Outdated base images | I-5 |
 | 14 | Swagger and metrics public | I-6 |
-| 15 | Unpinned dev tools | I-10 |
+| 15 | Unpinned dev tools | I-10 (done: 2c3656b, ffb623e) |
 | 16 | No HTTP client / email provider | I-11, E-1 |
 | 17 | Template naming leftovers | M-10 |
 | 18 | Token logged | C-3 |
@@ -760,6 +760,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.0 | 2026-10-11 | Claude Code | Initial plan consolidating Documents 00 to 05 |
 | 1.1 | 2026-10-11 | Claude Code | Added I-13 (`.env` setup note, 1h); totals 243h to 244h, with buffer about 316h to about 317h |
 | 1.2 | 2026-10-11 | Claude Code | I-13 marked delivered in 98f4093 (hours unchanged, accounting only); section 5 intro now mentions items found during implementation |
+| 1.3 | 2026-10-11 | Claude Code | I-10 marked delivered (2c3656b, ffb623e; hours unchanged, accounting only) |
 
 ### 14.4 Deviations from the Requested Outline
 

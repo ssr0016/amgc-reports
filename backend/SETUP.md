@@ -8,6 +8,8 @@ Step-by-step guide to get this project running locally.
 sudo apt install golang-go
 go version
 
+Alternatively, install Go 1.26 or newer from https://go.dev/dl/ (the apt package may be older).
+
 `go.mod` requires Go 1.26.0 or newer. Go 1.21 and later download the required
 toolchain automatically (`GOTOOLCHAIN=auto`, the default), so an older Go on
 your PATH still works, but the first `go build` or `go install` needs network
@@ -26,12 +28,22 @@ docker --version
 sudo apt install make
 
 ### 4. Dev Tools
-go install github.com/air-verse/air@latest
-go install github.com/swaggo/swag/cmd/swag@latest
-go install github.com/pressly/goose/v3/cmd/goose@latest
+go install github.com/air-verse/air@v1.67.4
+go install github.com/swaggo/swag/cmd/swag@v1.16.6
+go install github.com/pressly/goose/v3/cmd/goose@v3.28.0
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 
 export PATH="$PATH:$(go env GOPATH)/bin"
 echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
+
+These versions are defined in the Makefile (`AIR_VERSION`, `SWAG_VERSION`,
+`GOOSE_VERSION`, `GOLANGCI_LINT_VERSION`); after cloning, `make tools`
+installs the same set. The golangci-lint version matches CI. Keep the two in
+sync when you bump a version.
+
+Check an installed tool with `go version -m $(go env GOPATH)/bin/<tool>`. Do
+not rely on `swag --version`: it prints a stale string (a v1.16.6 build
+reports v1.16.4).
 
 ## Setup Steps
 

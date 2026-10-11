@@ -6,6 +6,8 @@
 **Status:** Draft
 **Repository:** github.com/ssr0016/pastoral-reports/backend
 
+> **Point-in-time analysis.** Part 1 describes the code at commit `f40e94c` (2026-10-11), before any implementation work, and is not kept up to date: fixes made since are recorded in [06-Implementation-Plan.md](06-Implementation-Plan.md) and in git history. Part 2 is a proposal.
+
 > **How to read this document**
 > - **Part 1** describes what the Go code does **today** (commit `f40e94c`). It was written from the source files and, where noted, confirmed against a running server.
 > - **Part 2** is **PROPOSED, not implemented**. It designs the Reports feature using the Express/MongoDB analysis (`Express_MongoDB_Report_Backend_Analysis.docx`) as the functional reference.

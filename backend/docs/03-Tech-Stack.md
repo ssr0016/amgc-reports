@@ -5,9 +5,11 @@
 **Date:** 2026-10-11
 **Status:** Draft
 **Repository:** github.com/ssr0016/pastoral-reports/backend
-**Commit:** f40e94c (application code is unchanged since; later commits only add documentation)
+**Commit:** f40e94c (analysed at this commit; application code has changed since, see the note below)
 
 ---
+
+> **Point-in-time analysis.** Describes the code at commit `f40e94c` (2026-10-11), before any implementation work. It is not kept up to date; a few lines were revised after fixes landed (log status, Prometheus labels, tool pins). Fixes made since are recorded in [06-Implementation-Plan.md](06-Implementation-Plan.md) and in git history.
 
 > **Method.** Versions were read from `go.mod`, `Dockerfile`, `docker-compose*.yaml`, `.github/workflows/ci.yml`, `Makefile`, `.air.toml` and `.golangci.yml`. "Why" statements are marked **[ADR]** when the repository records the decision in `docs/adr/`, otherwise they are **[Inferred]** from how the code is built. Where nothing in the repository explains a choice, the document says so.
 
@@ -79,7 +81,7 @@ Startup sequence in [cmd/api/main.go](../cmd/api/main.go): load `.env` (godotenv
 | Modules | Go modules, `go mod tidy` (`make tidy`), `go mod verify` in CI | `go.sum` has 319 lines |
 | Formatting | `gofmt -w -s` (`make fmt`); golangci-lint also enables `gofmt` and `goimports` formatters | |
 | Static checks | `go vet` (`make vet`), golangci-lint (`make lint`) | |
-| Dev tools | `make tools` installs air, swag and goose with `@latest` and golangci-lint pinned to v2.13.2 (`GOLANGCI_LINT_VERSION` in the Makefile, matching CI) | air, swag and goose are unpinned, so their versions drift between developers |
+| Dev tools | `make tools` installs air v1.67.4, swag v1.16.6, goose v3.28.0 and golangci-lint v2.13.2 (`AIR_VERSION`, `SWAG_VERSION`, `GOOSE_VERSION`, `GOLANGCI_LINT_VERSION` in the Makefile; golangci-lint matches CI) | Pinned, so developer tool versions do not drift. Verify an installed binary with `go version -m` |
 
 ## 4. Web Framework: Echo v4
 
@@ -455,7 +457,7 @@ Direct dependencies (`go.mod` first `require` block) plus runtime components. "I
 | Testing | github.com/testcontainers/testcontainers-go | v0.44.0 | Integration DB; marked `// indirect` |
 | Testing | testcontainers-go/modules/postgres | v0.44.0 | Postgres module; marked `// indirect` |
 | Container | postgres:15.3-alpine / alpine:3.19 / golang:1.26-alpine | as listed | Runtime and build images |
-| Dev tooling | air, swag CLI, goose CLI, golangci-lint | `@latest` (air, swag, goose) / v2.13.2 (golangci-lint, pinned in CI and Makefile) | Reload, docs, migrate, lint |
+| Dev tooling | air, swag CLI, goose CLI, golangci-lint | v1.67.4 / v1.16.6 / v3.28.0 (Makefile pins) and v2.13.2 (golangci-lint, same as CI) | Reload, docs, migrate, lint |
 
 `go.mod` also contains about 100 transitive modules (OpenTelemetry, containerd, docker client libraries via testcontainers; logrus; yaml libraries), which are not shipped in the production binary beyond what the application imports.
 
@@ -495,7 +497,7 @@ Recorded ADRs: 0001 session auth, 0002 Postgres session store, 0003 CSRF double-
 | 12 | Prod compose exposes Postgres | `ports: "${DB_PORT:-5435}:5432"` | Remove or bind to 127.0.0.1; require a strong password; use TLS | High |
 | 13 | Outdated base images | `postgres:15.3`, `alpine:3.19` | Move to latest 15.x or supported major; current Alpine; pin digests | Medium |
 | 14 | Swagger and metrics public | `/swagger/*`, `/metrics` unauthenticated in all envs | Restrict in production (network policy, auth, or disable) | Medium |
-| 15 | Unpinned dev tools | `@latest` in `make tools` for air, swag and goose (golangci-lint is pinned) | Pin the remaining versions in Makefile or `tools.go` | Low |
+| 15 | Unpinned dev tools | Resolved: `make tools` pins air v1.67.4, swag v1.16.6, goose v3.28.0 and golangci-lint v2.13.2 | None; bump the `*_VERSION` variables in the Makefile deliberately | Low (done) |
 | 16 | No HTTP client or email provider | Not present | Introduce an abstraction before adding email | Medium |
 | 17 | Naming leftovers from the template | `template-go-*`, `template-net`, README URLs | Rename | Low |
 | 18 | Token logged in plaintext | `verification_service.go` | Tracked for the implementation plan; do not log tokens | High (deferred by owner) |

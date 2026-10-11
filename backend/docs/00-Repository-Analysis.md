@@ -4,6 +4,8 @@
 - **Analysis Date:** 2026-10-11
 - **Purpose:** Baseline reference for the 6 Essential Development Documents
 
+> **Point-in-time analysis.** Describes the code at commit `f40e94c` (2026-10-11), before any implementation work. It is not kept up to date: fixes made since are recorded in [06-Implementation-Plan.md](06-Implementation-Plan.md) and in git history.
+
 > Read-only analysis of the code at commit `f40e94c`. Everything below was taken from the actual files; items that could not be found are marked "Not found".
 
 ---
