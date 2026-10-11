@@ -17,6 +17,13 @@ type visitor struct {
 }
 
 const (
+	// defaultMaxVisitors bounds the number of tracked clients per limiter. At
+	// about 184 bytes each that is roughly 9 MiB, however many distinct keys a
+	// client can invent.
+	defaultMaxVisitors = 50_000
+	// sweepInterval bounds how often a full store is scanned for idle entries,
+	// so a flood of new keys cannot turn every request into an O(n) scan.
+	sweepInterval = time.Second
 	// cleanupInterval is how often idle visitors are looked for.
 	cleanupInterval = 3 * time.Minute
 	// minEvictAfter is the shortest idle time before a visitor may be dropped.
@@ -24,19 +31,22 @@ const (
 )
 
 type rateLimiterStore struct {
-	mu         sync.Mutex
-	visitors   map[string]*visitor
-	rate       rate.Limit
-	burst      int
-	evictAfter time.Duration
+	mu          sync.Mutex
+	visitors    map[string]*visitor
+	rate        rate.Limit
+	burst       int
+	evictAfter  time.Duration
+	maxVisitors int       // cap on tracked clients; 0 or less means unlimited
+	lastSweep   time.Time // last time a full store was scanned for idle entries
 }
 
 func newRateLimiterStore(r rate.Limit, burst int) *rateLimiterStore {
 	store := &rateLimiterStore{
-		visitors:   make(map[string]*visitor),
-		rate:       r,
-		burst:      burst,
-		evictAfter: evictAfter(r, burst),
+		visitors:    make(map[string]*visitor),
+		rate:        r,
+		burst:       burst,
+		evictAfter:  evictAfter(r, burst),
+		maxVisitors: defaultMaxVisitors,
 	}
 	go func() {
 		for {
@@ -77,6 +87,10 @@ func (s *rateLimiterStore) evictIdle(now time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.evictIdleLocked(now)
+}
+
+func (s *rateLimiterStore) evictIdleLocked(now time.Time) {
 	for ip, v := range s.visitors {
 		if now.Sub(v.lastSeen) > s.evictAfter {
 			delete(s.visitors, ip)
@@ -84,18 +98,46 @@ func (s *rateLimiterStore) evictIdle(now time.Time) {
 	}
 }
 
+// makeRoom frees a slot for a new visitor when the store is full. Idle
+// entries go first. Sweep at most once per second; otherwise a full store
+// makes every new-key request O(n), which is a CPU DoS. If the store is still
+// full, one entry is dropped. Go randomises map iteration order, so the
+// dropped entry is effectively random and the cost is O(1).
+//
+// Random eviction may drop a legitimate client's bucket under attack. The
+// effect is a fresh bucket, not a lockout; H-4 removes the attack vector.
+//
+// The caller holds s.mu.
+func (s *rateLimiterStore) makeRoom(now time.Time) {
+	if now.Sub(s.lastSweep) >= sweepInterval {
+		s.lastSweep = now
+		s.evictIdleLocked(now)
+	}
+	if len(s.visitors) < s.maxVisitors {
+		return
+	}
+	for ip := range s.visitors {
+		delete(s.visitors, ip)
+		return
+	}
+}
+
 func (s *rateLimiterStore) getLimiter(ip string) *rate.Limiter {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	v, exists := s.visitors[ip]
-	if !exists {
-		limiter := rate.NewLimiter(s.rate, s.burst)
-		s.visitors[ip] = &visitor{limiter: limiter, lastSeen: time.Now()}
-		return limiter
+	now := time.Now()
+	if v, exists := s.visitors[ip]; exists {
+		v.lastSeen = now
+		return v.limiter
 	}
-	v.lastSeen = time.Now()
-	return v.limiter
+
+	if s.maxVisitors > 0 && len(s.visitors) >= s.maxVisitors {
+		s.makeRoom(now)
+	}
+	limiter := rate.NewLimiter(s.rate, s.burst)
+	s.visitors[ip] = &visitor{limiter: limiter, lastSeen: now}
+	return limiter
 }
 
 // RateLimit returns a per-client-IP token-bucket limiter: burst requests are
