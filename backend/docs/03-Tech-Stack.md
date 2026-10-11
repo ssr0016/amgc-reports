@@ -237,7 +237,7 @@ Repositories are defined as interfaces in `internal/repository/interfaces.go` wi
 | `ADMIN_PASSWORD` | Seed admin password, min 12 chars | No | empty |
 | `ADMIN_NAME` | Seed admin display name | No | `Admin` |
 
-Other variables appear only in `.env.example`, compose or Makefile: `TEST_DATABASE_URL`, `TEST_DB_PORT`, `TEST_DB_NAME`, `PGADMIN_PORT`, `PGADMIN_EMAIL`, `PGADMIN_PASSWORD`.
+Other variables appear only in `.env.example`, compose or Makefile: `TEST_DB_PORT`, `TEST_DB_NAME`, `PGADMIN_PORT`, `PGADMIN_EMAIL`, `PGADMIN_PASSWORD`.
 
 ## 9. Logging
 

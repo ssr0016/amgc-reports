@@ -163,7 +163,7 @@ func RequireAuth(sm *scs.SessionManager) echo.MiddlewareFunc {
 | CORS | `CORS_ALLOWED_ORIGINS` |
 | Admin seed | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` |
 
-`.env.example` exists and documents all of the above, plus `TEST_DATABASE_URL`, `TEST_DB_PORT`, `TEST_DB_NAME` and the PgAdmin settings.
+`.env.example` exists and documents all of the above, plus `TEST_DB_PORT`, `TEST_DB_NAME` and the PgAdmin settings.
 
 ---
 
