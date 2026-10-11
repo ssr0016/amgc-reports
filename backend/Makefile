@@ -12,6 +12,9 @@ BINARY_NAME := api
 CMD_PATH    := ./cmd/api
 BIN_DIR     := ./bin
 
+# Keep in sync with the golangci-lint version pinned in .github/workflows/ci.yml.
+GOLANGCI_LINT_VERSION := v2.13.2
+
 .PHONY: help
 help: ## Show this help
 	@echo "$(CYAN)Available commands:$(RESET)"
@@ -47,7 +50,7 @@ tools: ## Install dev tools (air, swag, goose, golangci-lint)
 	@go install github.com/air-verse/air@latest
 	@go install github.com/swaggo/swag/cmd/swag@latest
 	@go install github.com/pressly/goose/v3/cmd/goose@latest
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: db-start
 db-start: ## Start the dev, test and pgAdmin containers
