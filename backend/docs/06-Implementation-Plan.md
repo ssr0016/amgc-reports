@@ -41,7 +41,7 @@ The backend today is a working authentication and access-management foundation: 
 
 This plan covers three streams of work that run in a deliberate order: (1) a short stream of **critical corrections** (monitoring that records wrong status codes, a plaintext token in the logs, wrong status on delete, missing rate limits) that should land before anything new is built; (2) the **Reports feature** across five phases (schema, repository and service, handlers and routes, frontend integration, testing), estimated at about 73 hours of backend effort plus frontend work that is not estimated; and (3) a **hardening and debt stream** (security gaps, infrastructure, response-format consistency, test coverage) that is scheduled around the feature.
 
-Total planned effort is **about 243 hours** of backend work, **about 316 hours** with the 30% buffer recommended in the risk register, which is roughly 12 calendar weeks at 25 to 30 productive hours per week for one engineer. Seventeen design questions from Document 05 must be answered first; seven of them block the first migration. A decision session in Week 1 is the single most important dependency of this plan.
+Total planned effort is **about 244 hours** of backend work, **about 317 hours** with the 30% buffer recommended in the risk register, which is roughly 12 calendar weeks at 25 to 30 productive hours per week for one engineer. Seventeen design questions from Document 05 must be answered first; seven of them block the first migration. A decision session in Week 1 is the single most important dependency of this plan.
 
 ---
 
@@ -90,13 +90,13 @@ Counted from this plan's master backlog (section 12.1, Appendix 14.1). Each work
 |---|---:|---:|---|
 | Security | 15 | 37 | C-3, C-5, M-9, H-1, H-2, H-3, H-4, H-6, L-3, S-1, I-4, I-5, I-6, I-7, I-8 |
 | Correctness | 9 | 22 | C-1, C-2, C-4, H-5, H-7, M-2, M-8, F-2, L-5 |
-| Performance / operations | 7 | 22 | I-1, I-2, I-3, I-9, I-10, I-11, I-12 |
+| Performance / operations | 8 | 23 | I-1, I-2, I-3, I-9, I-10, I-11, I-12, I-13 |
 | Documentation / consistency | 14 | 31 | M-1, M-3, M-4, M-5, M-6, M-7, M-10, L-1, L-2, L-4, L-6, L-7, L-8, L-9 |
 | Feature gaps (not defects) | 3 | 14 | E-1, F-1, F-3 |
 | Test coverage | 4 | 44 | T-1..T-4 |
-| **Subtotal (existing system)** | **52** | **170** | |
+| **Subtotal (existing system)** | **53** | **171** | |
 | Reports feature | 5 phases | 73 | Section 3 |
-| **Total** | | **243** | |
+| **Total** | | **244** | |
 
 Each work item is counted once under its main category (an item that spans two categories, such as H-3, is listed where its main impact is).
 
@@ -363,7 +363,8 @@ Consolidated from Document 03 section 20 (18 gaps). Mapping of all 18 is in Appe
 | I-10 | Unpinned dev tools (`@latest`) and local/CI linter version drift | Low | 1h |
 | I-11 | No HTTP client abstraction for outbound calls | Medium | 4h |
 | I-12 | `go mod tidy` needed (indirect markers) | Low | 1h |
-| **Total** | | | **33h** |
+| I-13 | Fresh clone has no `.env` (gitignored by design), so `make migrate-*` fails with an opaque connection error (empty `DATABASE_URL`) instead of pointing to SETUP.md step 2. Setup only; SETUP.md should document the copy step | Low | 1h |
+| **Total** | | | **34h** |
 
 ### 5.2 Security Hardening
 
@@ -587,15 +588,15 @@ Estimates assume one backend engineer at 25 to 30 productive hours per week. Rev
 | High | H-1..H-7 | 22 |
 | Medium | M-1..M-10 | 31 |
 | Low | L-1..L-9 | 12 |
-| Infrastructure | I-1..I-12 | 33 |
+| Infrastructure | I-1..I-13 | 34 |
 | Security (new) | S-1 | 4 |
 | Added (email, features) | E-1, F-1..F-3 | 16 |
 | Test coverage (existing code) | T-1..T-4 | 44 |
-| **Total** | | **243** |
+| **Total** | | **244** |
 | Buffer (30%) | | 73 |
-| **Total with buffer** | | **~316** |
+| **Total with buffer** | | **~317** |
 
-Reconciliation with the outline's separate totals (66 bugs + 33 infra + 18 security + 44 tests + 73 reports = 234h): **-14h** security items that duplicate bug items, **-1h** merged rate-limit item, **+8h** Doc 04 items not in the outline (L-4..L-9), **+8h** email delivery (E-1), **+8h** feature gaps (F-1..F-3) = **243h**.
+Reconciliation with the outline's separate totals (66 bugs + 33 infra + 18 security + 44 tests + 73 reports = 234h): **-14h** security items that duplicate bug items, **-1h** merged rate-limit item, **+8h** Doc 04 items not in the outline (L-4..L-9), **+8h** email delivery (E-1), **+8h** feature gaps (F-1..F-3), **+1h** setup item found during implementation (I-13) = **244h**.
 
 Phase 4 (frontend) is excluded.
 
@@ -605,7 +606,7 @@ Capacity assumption: one engineer, about 25 to 30 productive hours per week; the
 
 | Week | Focus | Items | Hours |
 |------|-------|-------|------:|
-| 1 | Critical bug fixes, decisions, safety | C-1..C-5, H-4, H-1, I-4, I-12; decision session; backup and rehearsal | 16 |
+| 1 | Critical bug fixes, decisions, safety | C-1..C-5, H-4, H-1, I-4, I-12, I-13; decision session; backup and rehearsal | 17 |
 | 2 | Reports Phase 1 | Phase 1, H-5, I-3, I-1 | 16 |
 | 3 | Reports Phase 2 (first half) | Phase 2a, H-7 | 20 |
 | 4 | Reports Phase 2 (second half), Phase 3 start | Phase 2b, Phase 3a | 24 |
@@ -617,7 +618,7 @@ Capacity assumption: one engineer, about 25 to 30 productive hours per week; the
 | 10 | Hardening and consistency | H-3, M-4..M-10, I-2, I-5 | 23 |
 | 11 | Infrastructure, features | I-6, I-7, I-8, I-9, I-10, F-1, F-2, F-3 | 25 |
 | 12 | Backlog | I-11, L-1..L-9 | 16 |
-| | | **Total** | **243** |
+| | | **Total** | **244** |
 
 Recommended adjustment to the outline: the security-relevant High items (H-1, H-2, H-4, H-6) are moved **before** the Reports release (outline had them in Week 7) because Reports adds sensitive narrative data and relies on permission checks and a trustworthy client IP. H-3 follows E-1 (dependency).
 
@@ -757,6 +758,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-10-11 | Claude Code | Initial plan consolidating Documents 00 to 05 |
+| 1.1 | 2026-10-11 | Claude Code | Added I-13 (`.env` setup note, 1h); totals 243h to 244h, with buffer about 316h to about 317h |
 
 ### 14.4 Deviations from the Requested Outline
 

@@ -46,6 +46,11 @@ go mod tidy
 ### 5. Run Migrations
 make migrate-up
 
+If `make migrate-up` or `make migrate-status` fails with a connection error
+such as `failed to connect to user=<your-os-user> database=` (note the empty
+database name), `DATABASE_URL` is empty because there is no `.env` yet. `.env`
+is not committed; copy `.env.example` to `.env` first (step 2).
+
 ### 6. Generate Swagger
 make swagger
 
