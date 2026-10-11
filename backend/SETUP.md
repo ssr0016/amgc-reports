@@ -175,17 +175,30 @@ the image runs `/app/api`.
 `PORT` is injected by Railway and read as a fallback when `APP_PORT` is unset.
 Do not set `APP_PORT` on Railway.
 
-### 3. First migration
+### 3. Migrations
 
-With `APP_ENV=production` the app does **not** run migrations on startup, so
-apply them before the first deploy, from your machine, against the Railway
-database's public connection URL:
+With `APP_ENV=production` the server does **not** run migrations on startup.
+Instead `railway.json` sets a pre-deploy command, `/app/api migrate`, which
+Railway runs between the build and the deploy, in a separate container with
+the service's variables and private network. It applies the embedded goose
+migrations using the internal `DATABASE_URL`, so no public database URL is
+needed.
 
-    make migrate-up DATABASE_URL='<public DATABASE_URL from Railway>'
-    make migrate-status DATABASE_URL='<public DATABASE_URL from Railway>'
+- If it exits non-zero, the deploy does not proceed and the previous version
+  keeps running. It is not retried.
+- It times out after 300 seconds (`preDeployTimeoutSeconds`).
+- Its log lines carry `phase=migrate`, and each applied migration is logged.
+  "no migrations to run" means the database was already up to date.
+- `api migrate` runs only migrations; it never starts the server. Any other
+  argument is a usage error (exit 2), so a typo cannot start the server.
 
-Repeat after every release that adds a migration. The admin user is seeded on
-startup when `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set.
+Run it by hand only to bootstrap or recover, using the same command locally
+against a database you can reach:
+
+    DATABASE_URL='<url>' go run ./cmd/api migrate
+
+The admin user is seeded on startup when `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+are set.
 
 ### 4. After the first deploy
 
