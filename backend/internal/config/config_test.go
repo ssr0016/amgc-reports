@@ -160,7 +160,7 @@ func TestConfig_IsMethods(t *testing.T) {
 // cleanupEnv removes all env vars used by config.
 func cleanupEnv() {
 	for _, key := range []string{
-		"APP_ENV", "APP_PORT", "APP_URL",
+		"APP_ENV", "APP_PORT", "PORT", "APP_URL",
 		"DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME",
 		"SESSION_COOKIE_NAME", "SESSION_LIFETIME", "SESSION_IDLE_TIMEOUT",
 		"LOG_LEVEL", "LOG_FORMAT",
@@ -215,6 +215,42 @@ func TestLoad_AdminValidation(t *testing.T) {
 
 			if _, err := Load(); err == nil {
 				t.Error("Load() succeeded, want validation error")
+			}
+		})
+	}
+}
+
+func TestLoad_PortFallsBackToPORT(t *testing.T) {
+	tests := []struct {
+		name    string
+		appPort string
+		port    string
+		want    string
+	}{
+		{"neither set", "", "", "8080"},
+		{"PORT only", "", "3000", "3000"},
+		{"APP_PORT only", "9090", "", "9090"},
+		{"APP_PORT wins over PORT", "9090", "3000", "9090"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanupEnv()
+			defer cleanupEnv()
+			_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+			if tt.appPort != "" {
+				_ = os.Setenv("APP_PORT", tt.appPort)
+			}
+			if tt.port != "" {
+				_ = os.Setenv("PORT", tt.port)
+			}
+
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Load() failed: %v", err)
+			}
+			if cfg.App.Port != tt.want {
+				t.Errorf("App.Port = %s, want %s", cfg.App.Port, tt.want)
 			}
 		})
 	}

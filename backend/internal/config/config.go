@@ -66,9 +66,10 @@ type CORSConfig struct {
 // Load reads configuration from environment variables.
 func Load() (*Config, error) {
 	cfg := &Config{
+		// Port: PORT is injected by platforms such as Railway; APP_PORT wins.
 		App: AppConfig{
 			Env:  getEnv("APP_ENV", "local"),
-			Port: getEnv("APP_PORT", "8080"),
+			Port: getEnv("APP_PORT", getEnv("PORT", "8080")),
 			URL:  getEnv("APP_URL", "http://localhost:8080"),
 		},
 		Database: DatabaseConfig{

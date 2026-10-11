@@ -141,6 +141,58 @@ server with host `pg`, port `5432`, and the `DB_USER` / `DB_PASSWORD` /
 
 > Production email delivery is tracked as E-1 in docs/06-Implementation-Plan.md.
 
+## Deploying to Railway
+
+The repository root holds `backend/` (Go) and `frontend/` (Next.js), so Railway
+cannot detect the Go app from the root (Railpack fails with "failed to prepare
+the build"). Deploy `backend/` as its own service, built from its `Dockerfile`.
+
+### 1. Service settings (dashboard, one time)
+
+These cannot be set from a config file:
+
+- **Root Directory**: `backend`. The Dockerfile copies `go.mod` and `go.sum`,
+  so the build context must be `backend/`.
+- **Config-as-code path**: `/backend/railway.json`. Railway does not follow the
+  Root Directory when looking for the config file, so give it the absolute path.
+
+`backend/railway.json` then selects the Dockerfile builder and sets the
+`/health` healthcheck and restart policy. There is no start command to set:
+the image runs `/app/api`.
+
+### 2. Environment variables
+
+| Variable | Value | Notes |
+|---|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Required. Reference the Railway Postgres service. |
+| `APP_ENV` | `production` | Exactly this value: the session cookie is `Secure` only for `production`. |
+| `LOG_FORMAT` | `json` | |
+| `CORS_ALLOWED_ORIGINS` | frontend origin(s), comma-separated | Defaults to `http://localhost:3000`. |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | initial admin | Set both or neither. Password at least 12 characters. |
+| `APP_URL` | the public URL | Only used in startup log lines. |
+
+`PORT` is injected by Railway and read as a fallback when `APP_PORT` is unset.
+Do not set `APP_PORT` on Railway.
+
+### 3. First migration
+
+With `APP_ENV=production` the app does **not** run migrations on startup, so
+apply them before the first deploy, from your machine, against the Railway
+database's public connection URL:
+
+    make migrate-up DATABASE_URL='<public DATABASE_URL from Railway>'
+    make migrate-status DATABASE_URL='<public DATABASE_URL from Railway>'
+
+Repeat after every release that adds a migration. The admin user is seeded on
+startup when `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set.
+
+### 4. After the first deploy
+
+- `curl https://<your-service>.up.railway.app/health`
+- Check the startup logs for the `peer_ip` and `remote_ip` fields. The distinct
+  `peer_ip` values show which address range Railway's proxy connects from; this
+  is the input for the trusted-proxy work (H-4 (c)).
+
 ## Access URLs
 
 | Service | URL | Credentials |
