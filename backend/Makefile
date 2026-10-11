@@ -15,6 +15,12 @@ BIN_DIR     := ./bin
 # Keep in sync with the golangci-lint version pinned in .github/workflows/ci.yml.
 GOLANGCI_LINT_VERSION := v2.13.2
 
+# Other dev tools, pinned to the versions in use. swag and goose match the
+# swaggo/swag and pressly/goose versions in go.mod; bump them together.
+AIR_VERSION   := v1.67.4
+SWAG_VERSION  := v1.16.6
+GOOSE_VERSION := v3.28.0
+
 .PHONY: help
 help: ## Show this help
 	@echo "$(CYAN)Available commands:$(RESET)"
@@ -47,9 +53,9 @@ install: ## Download and tidy Go modules
 
 .PHONY: tools
 tools: ## Install dev tools (air, swag, goose, golangci-lint)
-	@go install github.com/air-verse/air@latest
-	@go install github.com/swaggo/swag/cmd/swag@latest
-	@go install github.com/pressly/goose/v3/cmd/goose@latest
+	@go install github.com/air-verse/air@$(AIR_VERSION)
+	@go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+	@go install github.com/pressly/goose/v3/cmd/goose@$(GOOSE_VERSION)
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: db-start
