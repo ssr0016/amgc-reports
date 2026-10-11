@@ -41,6 +41,7 @@ func SlogLogger(log *slog.Logger) echo.MiddlewareFunc {
 				"status", status,
 				"latency_ms", time.Since(start).Milliseconds(),
 				"remote_ip", normalizeClientIP(c),
+				"peer_ip", peerIP(c),
 				"user_agent", c.Request().UserAgent(),
 				"bytes_in", c.Request().ContentLength,
 				"bytes_out", c.Response().Size,

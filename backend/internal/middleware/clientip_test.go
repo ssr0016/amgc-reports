@@ -134,3 +134,45 @@ func TestNormalizeClientIP_Canonicalizes(t *testing.T) {
 		})
 	}
 }
+
+// peerIP is the address of the TCP peer, which no header can influence. It is
+// what lets an operator see which proxy actually connects to the app.
+func TestPeerIP(t *testing.T) {
+	tests := []struct {
+		name       string
+		remoteAddr string
+		want       string
+	}{
+		{"IPv4 with port", "192.0.2.1:1234", "192.0.2.1"},
+		{"IPv6 with port", "[2001:db8::1]:443", "2001:db8::1"},
+		{"IPv6 non-canonical", "[2001:DB8:0:0:0:0:0:1]:443", "2001:db8::1"},
+		{"IPv4-mapped IPv6", "[::ffff:100.64.0.7]:80", "100.64.0.7"},
+		{"no port", "192.0.2.1", "192.0.2.1"},
+		{"not an address", "unix-socket", unknownClient},
+		{"empty", "", unknownClient},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+			req.RemoteAddr = tt.remoteAddr
+			c := echo.New().NewContext(req, httptest.NewRecorder())
+
+			if got := peerIP(c); got != tt.want {
+				t.Errorf("peerIP() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPeerIP_IgnoresForwardingHeaders(t *testing.T) {
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	req.RemoteAddr = "100.64.0.7:4000"
+	req.Header.Set(echo.HeaderXForwardedFor, "203.0.113.9")
+	req.Header.Set(echo.HeaderXRealIP, "198.51.100.23")
+	c := echo.New().NewContext(req, httptest.NewRecorder())
+
+	if got := peerIP(c); got != "100.64.0.7" {
+		t.Errorf("peerIP() = %q, want the connection's 100.64.0.7", got)
+	}
+}

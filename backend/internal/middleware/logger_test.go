@@ -181,3 +181,53 @@ func TestSlogLogger_LogsNormalizedClientIP(t *testing.T) {
 		})
 	}
 }
+
+func TestSlogLogger_LogsPeerIPSeparatelyFromClientIP(t *testing.T) {
+	tests := []struct {
+		name         string
+		remoteAddr   string
+		forwardedFor string
+		wantRemote   string
+		wantPeer     string
+	}{
+		{"no forwarding header", "100.64.0.7:4000", "", "100.64.0.7", "100.64.0.7"},
+		{"forwarded client behind a proxy", "100.64.0.7:4000", "203.0.113.7", "203.0.113.7", "100.64.0.7"},
+		{"junk header: client falls back, peer unchanged", "100.64.0.7:4000", "not-an-ip", "100.64.0.7", "100.64.0.7"},
+		{"huge header does not reach either field", "100.64.0.7:4000", strings.Repeat("x", 50<<10), "100.64.0.7", "100.64.0.7"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			log := slog.New(slog.NewJSONHandler(&buf, nil))
+
+			e := echo.New()
+			e.Use(SlogLogger(log))
+			e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+			req.RemoteAddr = tt.remoteAddr
+			if tt.forwardedFor != "" {
+				req.Header.Set(echo.HeaderXForwardedFor, tt.forwardedFor)
+			}
+			e.ServeHTTP(httptest.NewRecorder(), req)
+
+			var entry struct {
+				RemoteIP string `json:"remote_ip"`
+				PeerIP   string `json:"peer_ip"`
+			}
+			if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+				t.Fatalf("decode log line: %v", err)
+			}
+			if entry.RemoteIP != tt.wantRemote {
+				t.Errorf("remote_ip = %q, want %q", entry.RemoteIP, tt.wantRemote)
+			}
+			if entry.PeerIP != tt.wantPeer {
+				t.Errorf("peer_ip = %q, want %q", entry.PeerIP, tt.wantPeer)
+			}
+			if buf.Len() > 2<<10 {
+				t.Errorf("log line is %d bytes", buf.Len())
+			}
+		})
+	}
+}

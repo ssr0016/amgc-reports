@@ -29,10 +29,19 @@ func normalizeClientIP(c echo.Context) string {
 	if addr, ok := canonicalAddr(c.RealIP()); ok {
 		return addr
 	}
+	return peerIP(c)
+}
 
-	host, _, err := net.SplitHostPort(c.Request().RemoteAddr)
+// peerIP returns the address of the TCP peer that opened the connection, in
+// canonical form. No request header can influence it. Behind a reverse proxy
+// it is the proxy's address, which is what makes it useful in logs: it shows
+// which peer is allowed to speak for clients (see H-4). It is "unknown" when
+// RemoteAddr is not an IP address.
+func peerIP(c echo.Context) string {
+	remote := c.Request().RemoteAddr
+	host, _, err := net.SplitHostPort(remote)
 	if err != nil {
-		host = c.Request().RemoteAddr
+		host = remote
 	}
 	if addr, ok := canonicalAddr(host); ok {
 		return addr
