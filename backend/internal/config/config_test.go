@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -164,7 +165,7 @@ func cleanupEnv() {
 		"DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME",
 		"SESSION_COOKIE_NAME", "SESSION_LIFETIME", "SESSION_IDLE_TIMEOUT",
 		"LOG_LEVEL", "LOG_FORMAT",
-		"CORS_ALLOWED_ORIGINS",
+		"CORS_ALLOWED_ORIGINS", "TRUSTED_PROXY_CIDRS",
 		"ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME",
 	} {
 		_ = os.Unsetenv(key)
@@ -251,6 +252,72 @@ func TestLoad_PortFallsBackToPORT(t *testing.T) {
 			}
 			if cfg.App.Port != tt.want {
 				t.Errorf("App.Port = %s, want %s", cfg.App.Port, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoad_TrustedProxyCIDRs(t *testing.T) {
+	tests := []struct {
+		name        string
+		env         string
+		want        []string
+		wantDefault bool
+	}{
+		{"unset uses the Railway default", "", []string{"100.64.0.0/10"}, true},
+		{"blank entries use the default", " , ", []string{"100.64.0.0/10"}, true},
+		{"single range", "10.0.0.0/8", []string{"10.0.0.0/8"}, false},
+		{"several ranges with spaces", "10.0.0.0/8, fd00::/8", []string{"10.0.0.0/8", "fd00::/8"}, false},
+		{"host bits are masked", "100.64.3.4/10", []string{"100.64.0.0/10"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanupEnv()
+			defer cleanupEnv()
+			_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+			if tt.env != "" {
+				_ = os.Setenv("TRUSTED_PROXY_CIDRS", tt.env)
+			}
+
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Load() failed: %v", err)
+			}
+
+			got := make([]string, 0, len(cfg.Proxy.TrustedCIDRs))
+			for _, n := range cfg.Proxy.TrustedCIDRs {
+				got = append(got, n.String())
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("TrustedCIDRs = %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("TrustedCIDRs[%d] = %s, want %s", i, got[i], tt.want[i])
+				}
+			}
+			if cfg.Proxy.UsedDefault != tt.wantDefault {
+				t.Errorf("UsedDefault = %v, want %v", cfg.Proxy.UsedDefault, tt.wantDefault)
+			}
+		})
+	}
+}
+
+func TestLoad_TrustedProxyCIDRsRejectsInvalidEntries(t *testing.T) {
+	for _, env := range []string{"not-a-cidr", "10.0.0.0/8,300.1.1.1/8", "10.0.0.1", "10.0.0.0/33"} {
+		t.Run(env, func(t *testing.T) {
+			cleanupEnv()
+			defer cleanupEnv()
+			_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+			_ = os.Setenv("TRUSTED_PROXY_CIDRS", env)
+
+			_, err := Load()
+			if err == nil {
+				t.Fatal("Load() succeeded, want an error")
+			}
+			if !strings.Contains(err.Error(), "TRUSTED_PROXY_CIDRS") {
+				t.Errorf("error %q does not name TRUSTED_PROXY_CIDRS", err)
 			}
 		})
 	}

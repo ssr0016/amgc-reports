@@ -170,6 +170,7 @@ the image runs `/app/api`.
 | `CORS_ALLOWED_ORIGINS` | frontend origin(s), comma-separated | Defaults to `http://localhost:3000`. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | initial admin | Set both or neither. Password at least 12 characters. |
 | `APP_URL` | the public URL | Only used in startup log lines. |
+| `TRUSTED_PROXY_CIDRS` | leave unset on Railway | Comma-separated CIDRs of the proxies whose `X-Real-IP` is believed. Defaults to `100.64.0.0/10` (Railway's edge range). Set it when deploying elsewhere; if it is wrong, every user shares one rate-limit bucket and the app logs a warning after 100 requests. |
 
 `PORT` is injected by Railway and read as a fallback when `APP_PORT` is unset.
 Do not set `APP_PORT` on Railway.
@@ -189,9 +190,13 @@ startup when `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set.
 ### 4. After the first deploy
 
 - `curl https://<your-service>.up.railway.app/health`
-- Check the startup logs for the `peer_ip` and `remote_ip` fields. The distinct
-  `peer_ip` values show which address range Railway's proxy connects from; this
-  is the input for the trusted-proxy work (H-4 (c)).
+- Check the logs for the `peer_ip` and `remote_ip` fields. `peer_ip` is the
+  proxy and should sit inside `TRUSTED_PROXY_CIDRS`; `remote_ip` is the client.
+  If the app logs "No request from a trusted proxy in the first 100 requests",
+  the range is wrong and every user shares one rate-limit bucket.
+- Confirm the proxy overwrites `X-Real-IP` (a client must not be able to choose
+  its address): `curl -s -H 'X-Real-IP: 1.2.3.4' 'https://<your-service>.up.railway.app/health?marker=x'`.
+  The logged `remote_ip` must be your own address, not `1.2.3.4`.
 
 ## Access URLs
 

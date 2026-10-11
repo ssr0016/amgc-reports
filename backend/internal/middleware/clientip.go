@@ -27,8 +27,9 @@ const ipv6KeyPrefixBits = 64
 // IP keeps the whole header value alive in the limiter's map. Parsing the value
 // and re-rendering it allocates a fresh string of at most 39 bytes.
 //
-// Parsing does not make the header trustworthy: a client can still choose any
-// valid IP. That is H-4.
+// Parsing does not make the value trustworthy. Which peer's X-Real-IP is
+// believed is decided by the IPExtractor installed on Echo, see
+// TrustedProxyExtractor; without one a client can still choose any valid IP.
 func clientAddr(c echo.Context) (netip.Addr, bool) {
 	if addr, ok := parseAddr(c.RealIP()); ok {
 		return addr, true
@@ -63,8 +64,8 @@ func rateLimitKey(c echo.Context) string {
 // peerIP returns the address of the TCP peer that opened the connection, in
 // canonical form. No request header can influence it. Behind a reverse proxy
 // it is the proxy's address, which is what makes it useful in logs: it shows
-// which peer is allowed to speak for clients (see H-4). It is "unknown" when
-// RemoteAddr is not an IP address.
+// which peer is allowed to speak for clients (see TrustedProxyExtractor). It is
+// "unknown" when RemoteAddr is not an IP address.
 func peerIP(c echo.Context) string {
 	if addr, ok := parseAddr(peerHost(c)); ok {
 		return addr.String()

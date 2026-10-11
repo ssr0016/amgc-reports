@@ -105,7 +105,8 @@ func (s *rateLimiterStore) evictIdleLocked(now time.Time) {
 // dropped entry is effectively random and the cost is O(1).
 //
 // Random eviction may drop a legitimate client's bucket under attack. The
-// effect is a fresh bucket, not a lockout; H-4 removes the attack vector.
+// effect is a fresh bucket, not a lockout; TrustedProxyExtractor removes the
+// header-rotation vector.
 //
 // The caller holds s.mu.
 func (s *rateLimiterStore) makeRoom(now time.Time) {
@@ -144,8 +145,8 @@ func (s *rateLimiterStore) getLimiter(ip string) *rate.Limiter {
 // allowed at once and tokens refill at r per second. Every call creates its
 // own bucket store, so using one RateLimit(...) value on several routes shares
 // a bucket between them, while separate calls are independent. The client is
-// identified by rateLimitKey (IPv6 clients by their /64); see H-4 for the
-// trusted-proxy caveat.
+// identified by rateLimitKey (IPv6 clients by their /64). The key is only as
+// trustworthy as the Echo IPExtractor; see TrustedProxyExtractor.
 func RateLimit(r rate.Limit, burst int) echo.MiddlewareFunc {
 	store := newRateLimiterStore(r, burst)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {

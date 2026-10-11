@@ -286,7 +286,7 @@ Details and "done when":
 |----|---------------------------|
 | H-1, H-2 | `sessions` has no link to `users` (Doc 05 obs. 4); revoking by user needs either a user-id column maintained alongside the scs store or deleting by decoding session data. The 4h estimates assume the simpler option and carry **risk of under-estimation** |
 | H-3 | **Depends on E-1** (email delivery). Enforcing verification before users can receive the email would lock everyone out. Needs decision D-12 |
-| H-4 | Configure Echo's IP extractor with a trusted-proxy setting; new env variable (name to be defined) |
+| H-4 | Configure Echo's IP extractor with a trusted-proxy setting; new env variable `TRUSTED_PROXY_CIDRS` (default `100.64.0.0/10`, Railway's edge range, from production `peer_ip` data) |
 | H-5 | Add the conflict check (mirrors `Create`) and map unique violations |
 | H-6 | Apply `RequirePermission` to existing routes, starting with `GET /users` and `/users/:id`; establishes the pattern used by Reports Phase 3. Interacts with D-1 and D-2 |
 | H-7 | Return per-field `details` (`field` to message) using the already supported `WithDetails`; keep `message` stable |
@@ -498,7 +498,7 @@ Reports themselves need **no new environment variables**. Other plan items intro
 
 | Item | Likely new configuration |
 |---|---|
-| H-4 | Trusted proxy setting |
+| H-4 | `TRUSTED_PROXY_CIDRS` |
 | E-1 | Mail provider credentials, from-address, base URL for links |
 | M-9 | Rate-limit values |
 | I-1 | Pool size / lifetimes |

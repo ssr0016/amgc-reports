@@ -75,6 +75,11 @@ func run() error {
 		"log_format", cfg.Logging.Format,
 	)
 
+	if cfg.Proxy.UsedDefault {
+		log.Warn("TRUSTED_PROXY_CIDRS not set, using Railway default " + config.DefaultTrustedProxyCIDR +
+			". Set this if deploying elsewhere.")
+	}
+
 	ctx := context.Background()
 	db, err := database.NewWithURL(ctx, cfg.Database.URL)
 	if err != nil {
@@ -121,6 +126,7 @@ func run() error {
 	healthHandler := handler.NewHealthHandler(db.Pool)
 
 	e := echo.New()
+	e.IPExtractor = ourmiddleware.TrustedProxyExtractor(cfg.Proxy.TrustedCIDRs)
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	e.HideBanner = true
@@ -128,6 +134,7 @@ func run() error {
 
 	// Global middleware
 	e.Use(middleware.RequestID())
+	e.Use(ourmiddleware.WarnIfNoTrustedProxy(log, cfg.Proxy.TrustedCIDRs, ourmiddleware.TrustedProxyWarnWindow))
 	e.Use(ourmiddleware.SlogLogger(log))
 	e.Use(ourmiddleware.PrometheusMiddleware())
 	e.Use(ourmiddleware.CSRFProtection())
