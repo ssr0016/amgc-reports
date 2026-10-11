@@ -92,6 +92,10 @@ migrate-status: ## Show migration status
 test: ## Run tests with race detector and coverage
 	@go test ./cmd/... ./internal/... ./pkg/... $(shell test -d api && printf './api/...') -race -cover
 
+.PHONY: test-integration
+test-integration: ## Run integration tests (needs Docker; starts Postgres via testcontainers)
+	@go test -tags=integration -race -count=1 ./cmd/... ./internal/...
+
 .PHONY: lint
 lint: ## Run golangci-lint
 	@golangci-lint run ./cmd/... ./internal/... ./pkg/... $(shell test -d api && printf './api/...')
