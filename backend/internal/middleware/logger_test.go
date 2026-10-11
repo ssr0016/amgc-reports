@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -41,7 +42,7 @@ func TestSlogLogger_LevelAndStatus(t *testing.T) {
 			e.GET("/l", tt.handler)
 
 			rec := httptest.NewRecorder()
-			e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/l", nil))
+			e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/l", nil))
 
 			var entry struct {
 				Level  string `json:"level"`
@@ -123,7 +124,7 @@ func TestSlogLogger_RedactsSensitiveQueryParams(t *testing.T) {
 			e.Any("/*", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
 
 			rec := httptest.NewRecorder()
-			e.ServeHTTP(rec, httptest.NewRequest(tt.method, tt.target, nil))
+			e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), tt.method, tt.target, nil))
 
 			var entry struct {
 				URI string `json:"uri"`

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -52,7 +53,7 @@ func TestPrometheusMiddleware_RecordsActualStatus(t *testing.T) {
 			wrong200 := requestCount(tt.path, http.StatusOK)
 
 			rec := httptest.NewRecorder()
-			e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.path, nil))
+			e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, tt.path, nil))
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("response code = %d, want %d", rec.Code, tt.wantStatus)
@@ -82,7 +83,7 @@ func TestPrometheusMiddleware_CommittedThenError(t *testing.T) {
 	before := requestCount(path, http.StatusAccepted)
 
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil))
 
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("response code = %d, want %d", rec.Code, http.StatusAccepted)
