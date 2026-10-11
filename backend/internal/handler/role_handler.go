@@ -181,6 +181,9 @@ func (h *RoleHandler) Delete(c echo.Context) error {
 		if errors.Is(err, repository.ErrNotFound) {
 			return apperror.NotFound("role not found")
 		}
+		if errors.Is(err, repository.ErrForeignKeyViolation) {
+			return apperror.Conflict("role is assigned to users").WithError(err)
+		}
 		return apperror.Internal("failed to delete role").WithError(err)
 	}
 	return c.NoContent(http.StatusNoContent)

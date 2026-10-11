@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
@@ -61,9 +60,9 @@ func TestRoleHandler_Delete(t *testing.T) {
 		{"missing role is 404", "/admin/roles/7",
 			fmt.Errorf("roles: %w", repository.ErrNotFound),
 			http.StatusNotFound, "NOT_FOUND", "role not found"},
-		{"foreign key violation stays 500", "/admin/roles/7",
-			&pgconn.PgError{Code: "23503", Message: "violates foreign key constraint"},
-			http.StatusInternalServerError, "INTERNAL_ERROR", "failed to delete role"},
+		{"role still assigned to users is 409", "/admin/roles/7",
+			fmt.Errorf("delete roles: %w", repository.ErrForeignKeyViolation),
+			http.StatusConflict, "CONFLICT", "role is assigned to users"},
 		{"database failure stays 500", "/admin/roles/7",
 			errors.New("connection refused"),
 			http.StatusInternalServerError, "INTERNAL_ERROR", "failed to delete role"},

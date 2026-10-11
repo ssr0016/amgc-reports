@@ -58,7 +58,7 @@ func TestDelete_MissingRowIsErrNotFound(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotFound)
 	})
 
-	t.Run("role still assigned to a user is not ErrNotFound", func(t *testing.T) {
+	t.Run("role still assigned to a user is ErrForeignKeyViolation", func(t *testing.T) {
 		role, err := roles.Create(ctx, model.CreateRoleRequest{Name: "in-use", Description: "x"})
 		require.NoError(t, err)
 		user, err := users.CreateWithPassword(ctx, "inuse@example.com", "In Use", "hash")
@@ -66,7 +66,25 @@ func TestDelete_MissingRowIsErrNotFound(t *testing.T) {
 		require.NoError(t, users.UpdateRole(ctx, user.ID, role.ID))
 
 		err = roles.Delete(ctx, role.ID)
-		require.Error(t, err)
+		require.ErrorIs(t, err, ErrForeignKeyViolation)
 		require.False(t, errors.Is(err, ErrNotFound), "FK violation must stay distinct from not-found: %v", err)
+
+		still, err := roles.GetByID(ctx, role.ID)
+		require.NoError(t, err)
+		require.NotNil(t, still, "a refused delete must leave the role in place")
+	})
+
+	t.Run("permission assigned to a role deletes (ON DELETE CASCADE)", func(t *testing.T) {
+		role, err := roles.Create(ctx, model.CreateRoleRequest{Name: "has-perm", Description: "x"})
+		require.NoError(t, err)
+		perm, err := perms.Create(ctx, "cascade:perm", "cascade", "perm")
+		require.NoError(t, err)
+		require.NoError(t, roles.AssignPermission(ctx, role.ID, perm.ID))
+
+		require.NoError(t, perms.Delete(ctx, perm.ID))
+
+		assigned, err := roles.GetPermissions(ctx, role.ID)
+		require.NoError(t, err)
+		require.Empty(t, assigned)
 	})
 }

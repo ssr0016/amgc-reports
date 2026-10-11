@@ -10,7 +10,8 @@ import (
 )
 
 // deleteByID deletes a row by ID from the given table.
-// Returns an error wrapping ErrNotFound if no rows were affected.
+// Returns an error wrapping ErrNotFound if no rows were affected, and one
+// wrapping ErrForeignKeyViolation if other rows still reference the row.
 func deleteByID(ctx context.Context, db *database.DB, table string, id int64) error {
 	query, args, err := db.Builder.
 		Delete(table).
@@ -20,6 +21,9 @@ func deleteByID(ctx context.Context, db *database.DB, table string, id int64) er
 		return fmt.Errorf("build query: %w", err)
 	}
 	result, err := db.Pool.Exec(ctx, query, args...)
+	if isForeignKeyViolation(err) {
+		return fmt.Errorf("delete %s: %w: %w", table, ErrForeignKeyViolation, err)
+	}
 	if err != nil {
 		return fmt.Errorf("delete %s: %w", table, err)
 	}
