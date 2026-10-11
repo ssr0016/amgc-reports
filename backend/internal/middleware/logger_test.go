@@ -141,3 +141,43 @@ func TestSlogLogger_RedactsSensitiveQueryParams(t *testing.T) {
 		})
 	}
 }
+
+func TestSlogLogger_LogsNormalizedClientIP(t *testing.T) {
+	tests := []struct {
+		name   string
+		header string
+		want   string
+	}{
+		{"valid forwarded IP", "203.0.113.7, 10.0.0.1", "203.0.113.7"},
+		{"huge junk falls back to the connection", strings.Repeat("x", 50<<10), "192.0.2.1"},
+		{"padding after a valid IP is not logged", "203.0.113.7, " + strings.Repeat("x", 50<<10), "203.0.113.7"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			log := slog.New(slog.NewJSONHandler(&buf, nil))
+
+			e := echo.New()
+			e.Use(SlogLogger(log))
+			e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+			req.Header.Set(echo.HeaderXForwardedFor, tt.header)
+			e.ServeHTTP(httptest.NewRecorder(), req)
+
+			var entry struct {
+				RemoteIP string `json:"remote_ip"`
+			}
+			if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+				t.Fatalf("decode log line: %v", err)
+			}
+			if entry.RemoteIP != tt.want {
+				t.Errorf("remote_ip is %d bytes (%.40q), want %q", len(entry.RemoteIP), entry.RemoteIP, tt.want)
+			}
+			if buf.Len() > 2<<10 {
+				t.Errorf("log line is %d bytes; an attacker-sized header leaked into it", buf.Len())
+			}
+		})
+	}
+}

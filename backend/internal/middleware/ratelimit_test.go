@@ -1,12 +1,18 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
+
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 )
 
 func TestEvictAfter(t *testing.T) {
@@ -209,5 +215,30 @@ func TestStore_FullStoreSweepsAtMostOncePerInterval(t *testing.T) {
 	_, cKept := store.visitors["c"]
 	if !bKept && !cKept {
 		t.Error("both expired entries were swept although a sweep ran within the interval")
+	}
+}
+
+// Forwarded values that are not IP addresses must not each get a bucket of
+// their own: they share the connection's, so rotating junk buys nothing.
+func TestRateLimit_JunkForwardedValuesShareTheConnectionBucket(t *testing.T) {
+	e := echo.New()
+	e.HTTPErrorHandler = apperror.ErrorHandler
+	e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) },
+		RateLimit(rate.Every(10*time.Minute), 3))
+
+	var codes []int
+	for i := 0; i < 5; i++ {
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+		req.Header.Set(echo.HeaderXForwardedFor, fmt.Sprintf("junk-%d", i))
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		codes = append(codes, rec.Code)
+	}
+
+	want := []int{200, 200, 200, 429, 429}
+	for i := range want {
+		if codes[i] != want[i] {
+			t.Fatalf("statuses = %v, want %v", codes, want)
+		}
 	}
 }

@@ -40,7 +40,7 @@ func SlogLogger(log *slog.Logger) echo.MiddlewareFunc {
 				"uri", redactURI(c.Request().RequestURI),
 				"status", status,
 				"latency_ms", time.Since(start).Milliseconds(),
-				"remote_ip", c.RealIP(),
+				"remote_ip", normalizeClientIP(c),
 				"user_agent", c.Request().UserAgent(),
 				"bytes_in", c.Request().ContentLength,
 				"bytes_out", c.Response().Size,
