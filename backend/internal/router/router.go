@@ -1,6 +1,8 @@
 package router
 
 import (
+	"time"
+
 	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
@@ -20,6 +22,8 @@ func Setup(
 	roleHandler *handler.RoleHandler,
 	permissionHandler *handler.PermissionHandler,
 	adminUserHandler *handler.AdminUserHandler,
+	verificationHandler *handler.VerificationHandler,
+	passwordResetHandler *handler.PasswordResetHandler,
 ) {
 	api := e.Group("/api/v1")
 
@@ -31,6 +35,15 @@ func Setup(
 	auth.GET("/csrf", handler.CSRFToken)
 	auth.POST("/register", authHandler.Register, authLimit)
 	auth.POST("/login", authHandler.Login, authLimit)
+
+	// Token flows: one bucket per route, so they cannot starve each other or
+	// the login/register bucket. Each RateLimit call owns its own store.
+	auth.GET("/verify-email", verificationHandler.VerifyEmail,
+		ourmiddleware.RateLimit(rate.Every(time.Minute), 3))
+	auth.POST("/forgot-password", passwordResetHandler.ForgotPassword,
+		ourmiddleware.RateLimit(rate.Every(10*time.Minute), 3))
+	auth.POST("/reset-password", passwordResetHandler.ResetPassword,
+		ourmiddleware.RateLimit(rate.Every(time.Minute), 3))
 
 	// ============================================================
 	// Authenticated routes

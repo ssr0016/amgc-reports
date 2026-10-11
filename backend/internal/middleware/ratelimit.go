@@ -57,6 +57,11 @@ func (s *rateLimiterStore) getLimiter(ip string) *rate.Limiter {
 	return v.limiter
 }
 
+// RateLimit returns a per-client-IP token-bucket limiter: burst requests are
+// allowed at once and tokens refill at r per second. Every call creates its
+// own bucket store, so using one RateLimit(...) value on several routes shares
+// a bucket between them, while separate calls are independent. The IP comes
+// from c.RealIP(); see H-4 for the trusted-proxy caveat.
 func RateLimit(r rate.Limit, burst int) echo.MiddlewareFunc {
 	store := newRateLimiterStore(r, burst)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {

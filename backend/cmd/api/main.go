@@ -159,12 +159,9 @@ func run() error {
 		roleHandler,
 		permissionHandler,
 		adminUserHandler,
+		verificationHandler,
+		passwordResetHandler,
 	)
-
-	// Email verification route
-	e.GET("/api/v1/auth/verify-email", verificationHandler.VerifyEmail)
-	e.POST("/api/v1/auth/forgot-password", passwordResetHandler.ForgotPassword)
-	e.POST("/api/v1/auth/reset-password", passwordResetHandler.ResetPassword)
 
 	scsHandler := sm.LoadAndSave(e)
 
