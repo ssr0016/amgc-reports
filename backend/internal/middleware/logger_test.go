@@ -182,6 +182,36 @@ func TestSlogLogger_LogsNormalizedClientIP(t *testing.T) {
 	}
 }
 
+// Grouping IPv6 by /64 is for the rate limiter only; the log keeps the exact
+// client address.
+func TestSlogLogger_LogsTheFullIPv6AddressNotThePrefix(t *testing.T) {
+	var buf bytes.Buffer
+	log := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	e := echo.New()
+	e.Use(SlogLogger(log))
+	e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.RemoteAddr = "100.64.0.7:4000"
+	req.Header.Set(echo.HeaderXForwardedFor, "2001:DB8:1:2::abcd")
+	e.ServeHTTP(httptest.NewRecorder(), req)
+
+	var entry struct {
+		RemoteIP string `json:"remote_ip"`
+		PeerIP   string `json:"peer_ip"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+		t.Fatalf("decode log line: %v", err)
+	}
+	if entry.RemoteIP != "2001:db8:1:2::abcd" {
+		t.Errorf("remote_ip = %q, want the full canonical address", entry.RemoteIP)
+	}
+	if entry.PeerIP != "100.64.0.7" {
+		t.Errorf("peer_ip = %q, want 100.64.0.7", entry.PeerIP)
+	}
+}
+
 func TestSlogLogger_LogsPeerIPSeparatelyFromClientIP(t *testing.T) {
 	tests := []struct {
 		name         string

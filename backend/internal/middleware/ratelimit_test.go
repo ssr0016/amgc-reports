@@ -242,3 +242,61 @@ func TestRateLimit_JunkForwardedValuesShareTheConnectionBucket(t *testing.T) {
 		}
 	}
 }
+
+// statusFor sends one request carrying the given X-Forwarded-For value.
+func statusFor(e *echo.Echo, forwarded string) int {
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set(echo.HeaderXForwardedFor, forwarded)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec.Code
+}
+
+func newBurstOf3Echo() *echo.Echo {
+	e := echo.New()
+	e.HTTPErrorHandler = apperror.ErrorHandler
+	e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) },
+		RateLimit(rate.Every(10*time.Minute), 3))
+	return e
+}
+
+// One IPv6 client owns a /64. Rotating the low 64 bits must not hand it a new
+// bucket per address.
+func TestRateLimit_RotatingWithinAnIPv6PrefixSharesOneBucket(t *testing.T) {
+	e := newBurstOf3Echo()
+
+	var codes []int
+	for i := 0; i < 5; i++ {
+		codes = append(codes, statusFor(e, fmt.Sprintf("2001:db8:1:2::%x", i+1)))
+	}
+
+	want := []int{200, 200, 200, 429, 429}
+	for i := range want {
+		if codes[i] != want[i] {
+			t.Fatalf("statuses = %v, want %v", codes, want)
+		}
+	}
+}
+
+// Grouping must not merge unrelated clients.
+func TestRateLimit_DifferentPrefixesAndIPv4NeighboursAreIndependent(t *testing.T) {
+	e := newBurstOf3Echo()
+
+	for i := 0; i < 3; i++ {
+		statusFor(e, "2001:db8:1:2::1")
+		statusFor(e, "203.0.113.7")
+	}
+	if got := statusFor(e, "2001:db8:1:2::1"); got != http.StatusTooManyRequests {
+		t.Fatalf("exhausted /64: status = %d, want 429", got)
+	}
+	if got := statusFor(e, "203.0.113.7"); got != http.StatusTooManyRequests {
+		t.Fatalf("exhausted IPv4: status = %d, want 429", got)
+	}
+
+	if got := statusFor(e, "2001:db8:1:3::1"); got != http.StatusOK {
+		t.Errorf("next /64: status = %d, want 200", got)
+	}
+	if got := statusFor(e, "203.0.113.8"); got != http.StatusOK {
+		t.Errorf("neighbouring IPv4: status = %d, want 200", got)
+	}
+}

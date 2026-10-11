@@ -176,3 +176,67 @@ func TestPeerIP_IgnoresForwardingHeaders(t *testing.T) {
 		t.Errorf("peerIP() = %q, want the connection's 100.64.0.7", got)
 	}
 }
+
+// rateLimitKey identifies a client for rate limiting. An IPv6 client normally
+// controls a whole /64, so the key is the /64 prefix: rotating the low 64 bits
+// buys nothing. IPv4 addresses are keyed whole.
+func TestRateLimitKey(t *testing.T) {
+	tests := []struct {
+		name       string
+		remoteAddr string
+		forwarded  string
+		want       string
+	}{
+		{"IPv4 is keyed whole", "", "203.0.113.7", "203.0.113.7"},
+		{"IPv6 is keyed by its /64", "", "2001:db8:1:2::1", "2001:db8:1:2::/64"},
+		{"all-ones low half, same /64", "", "2001:db8:1:2:ffff:ffff:ffff:ffff", "2001:db8:1:2::/64"},
+		{"first bit after the prefix, same /64", "", "2001:db8:1:2:8000::1", "2001:db8:1:2::/64"},
+		{"last bit of the prefix, next /64", "", "2001:db8:1:3::1", "2001:db8:1:3::/64"},
+		{"upper case is canonicalized", "", "2001:DB8:1:2::1", "2001:db8:1:2::/64"},
+		{"IPv4-mapped IPv6 is keyed as IPv4", "", "::ffff:203.0.113.7", "203.0.113.7"},
+		{"zone is dropped", "", "fe80::1%eth0", "fe80::/64"},
+		{"junk header falls back to an IPv4 peer", "", "not-an-ip", remoteHost},
+		{"junk header falls back to an IPv6 peer, grouped", "[2001:db8:9:9::5]:443", "not-an-ip", "2001:db8:9:9::/64"},
+		{"no usable address at all", "unix-socket", "", unknownClient},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := contextWithForwardedFor(tt.forwarded)
+			if tt.remoteAddr != "" {
+				c.Request().RemoteAddr = tt.remoteAddr
+			}
+
+			if got := rateLimitKey(c); got != tt.want {
+				t.Errorf("rateLimitKey() = %q, want %q", short(got), tt.want)
+			}
+		})
+	}
+}
+
+// The key shape is what keeps the visitor cap meaningful, and a prefix key
+// must never collide with an IPv4 key or the "unknown" bucket.
+func TestRateLimitKey_IsShortAndDistinctFromOtherKinds(t *testing.T) {
+	header := "2001:db8:1:2::1, " + strings.Repeat("x", 100<<10)
+
+	key := rateLimitKey(contextWithForwardedFor(header))
+
+	if len(key) > 43 {
+		t.Errorf("key is %d bytes, want at most 43", len(key))
+	}
+	if viewsInto(key, header) {
+		t.Error("key is a view of the request header")
+	}
+	if key == unknownClient || !strings.HasSuffix(key, "/64") {
+		t.Errorf("key = %q, want a /64 prefix", key)
+	}
+}
+
+// Logs keep the exact address; only the limiter groups by prefix.
+func TestNormalizeClientIP_KeepsTheFullIPv6Address(t *testing.T) {
+	got := normalizeClientIP(contextWithForwardedFor("2001:DB8:1:2::abcd"))
+
+	if got != "2001:db8:1:2::abcd" {
+		t.Errorf("normalizeClientIP() = %q, want the full canonical address", got)
+	}
+}
