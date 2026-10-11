@@ -8,6 +8,15 @@ Step-by-step guide to get this project running locally.
 sudo apt install golang-go
 go version
 
+`go.mod` requires Go 1.26.0 or newer. Go 1.21 and later download the required
+toolchain automatically (`GOTOOLCHAIN=auto`, the default), so an older Go on
+your PATH still works, but the first `go build` or `go install` needs network
+access. `go version` shows the version Go switched to; `GOTOOLCHAIN=local go
+version` shows the version actually installed. On an offline or air-gapped
+machine the download fails (`go.mod requires go >= 1.26.0 (running go 1.23.0;
+GOTOOLCHAIN=local)`), so install Go 1.26 or newer yourself first. The same
+applies to the tools below: `go install` may fetch a newer toolchain for them.
+
 ### 2. Docker & Docker Compose
 sudo apt install docker.io docker-compose-v2
 sudo usermod -aG docker $USER

@@ -345,7 +345,7 @@ Doc 04 #15 (layering: service layer only for auth/verification/reset) is **not a
 
 ## 5. Technical Debt & Infrastructure
 
-Consolidated from Document 03 section 20 (18 gaps). Mapping of all 18 is in Appendix 14.1.
+Consolidated from Document 03 section 20 (18 gaps), plus items found during implementation (I-13). Mapping of all 18 is in Appendix 14.1; I-13 is not part of that mapping.
 
 ### 5.1 Infrastructure Improvements
 
@@ -363,7 +363,7 @@ Consolidated from Document 03 section 20 (18 gaps). Mapping of all 18 is in Appe
 | I-10 | Unpinned dev tools (`@latest`) and local/CI linter version drift | Low | 1h |
 | I-11 | No HTTP client abstraction for outbound calls | Medium | 4h |
 | I-12 | `go mod tidy` needed (indirect markers) | Low | 1h |
-| I-13 | Fresh clone has no `.env` (gitignored by design), so `make migrate-*` fails with an opaque connection error (empty `DATABASE_URL`) instead of pointing to SETUP.md step 2. Setup only; SETUP.md should document the copy step | Low | 1h |
+| I-13 | Fresh clone has no `.env` (gitignored by design), so `make migrate-*` fails with an opaque connection error (empty `DATABASE_URL`) instead of pointing to SETUP.md step 2. Setup only. **Delivered in 98f4093** (SETUP.md note); the 1h is accounting, not remaining work | Low | 1h |
 | **Total** | | | **34h** |
 
 ### 5.2 Security Hardening
@@ -759,6 +759,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 |---------|------|--------|---------|
 | 1.0 | 2026-10-11 | Claude Code | Initial plan consolidating Documents 00 to 05 |
 | 1.1 | 2026-10-11 | Claude Code | Added I-13 (`.env` setup note, 1h); totals 243h to 244h, with buffer about 316h to about 317h |
+| 1.2 | 2026-10-11 | Claude Code | I-13 marked delivered in 98f4093 (hours unchanged, accounting only); section 5 intro now mentions items found during implementation |
 
 ### 14.4 Deviations from the Requested Outline
 

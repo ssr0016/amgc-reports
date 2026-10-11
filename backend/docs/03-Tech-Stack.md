@@ -79,7 +79,7 @@ Startup sequence in [cmd/api/main.go](../cmd/api/main.go): load `.env` (godotenv
 | Modules | Go modules, `go mod tidy` (`make tidy`), `go mod verify` in CI | `go.sum` has 319 lines |
 | Formatting | `gofmt -w -s` (`make fmt`); golangci-lint also enables `gofmt` and `goimports` formatters | |
 | Static checks | `go vet` (`make vet`), golangci-lint (`make lint`) | |
-| Dev tools | `make tools` installs air, swag, goose, golangci-lint with `@latest` | Unpinned, so developer tool versions drift |
+| Dev tools | `make tools` installs air, swag and goose with `@latest` and golangci-lint pinned to v2.13.2 (`GOLANGCI_LINT_VERSION` in the Makefile, matching CI) | air, swag and goose are unpinned, so their versions drift between developers |
 
 ## 4. Web Framework: Echo v4
 
@@ -362,7 +362,7 @@ A live end-to-end script (43 checks) was run against a real server and database 
 - Disabled: `exhaustruct, varnamelen, wrapcheck, depguard`.
 - Formatters: `gofmt`, `goimports`.
 - Exclusions: generated `docs/`, `dupl` in handlers and two repositories, `gosec`/`dupl`/`gocyclo` in tests, `G117` globally.
-- CI pins golangci-lint v2.13.2; `make tools` installs `@latest`, so local and CI results can differ (the `noctx` rule failed in CI on a test that passed locally under `go test`).
+- CI and `make tools` both pin golangci-lint v2.13.2; `GOLANGCI_LINT_VERSION` in the [Makefile](../Makefile) must be kept in sync with `ci.yml`. Before the pin, `make tools` installed `@latest` from the v1 module path, so local and CI results differed (the `noctx` rule failed in CI on a test that passed locally).
 
 ## 15. Containerization
 
@@ -455,7 +455,7 @@ Direct dependencies (`go.mod` first `require` block) plus runtime components. "I
 | Testing | github.com/testcontainers/testcontainers-go | v0.44.0 | Integration DB; marked `// indirect` |
 | Testing | testcontainers-go/modules/postgres | v0.44.0 | Postgres module; marked `// indirect` |
 | Container | postgres:15.3-alpine / alpine:3.19 / golang:1.26-alpine | as listed | Runtime and build images |
-| Dev tooling | air, swag CLI, goose CLI, golangci-lint | `@latest` / v2.13.2 (CI) | Reload, docs, migrate, lint |
+| Dev tooling | air, swag CLI, goose CLI, golangci-lint | `@latest` (air, swag, goose) / v2.13.2 (golangci-lint, pinned in CI and Makefile) | Reload, docs, migrate, lint |
 
 `go.mod` also contains about 100 transitive modules (OpenTelemetry, containerd, docker client libraries via testcontainers; logrus; yaml libraries), which are not shipped in the production binary beyond what the application imports.
 
@@ -487,7 +487,7 @@ Recorded ADRs: 0001 session auth, 0002 Postgres session store, 0003 CSRF double-
 | 4 | DB gauges never updated | `db_connections_*` unset | Update from `pool.Stat()` on scrape or on an interval | Low |
 | 5 | Low test coverage | service ~30%, handlers/middleware/repository untested | Add handler and middleware tests; run the integration tag in CI; commit the E2E script | High |
 | 6 | Config loaded but ignored | `DB_*`, `SESSION_IDLE_TIMEOUT`, session vars read via `os.Getenv` | Pass `cfg` into `session.New`; drop or use unused fields | Medium |
-| 7 | Linter in CI | Present (golangci-lint v2.13.2) | Align local tool version with CI (`make tools` uses `@latest`) | Low |
+| 7 | Linter in CI | Present (golangci-lint v2.13.2); `make tools` pins the same version | Keep `GOLANGCI_LINT_VERSION` in the Makefile in sync with `ci.yml` | Low |
 | 8 | No dependency vulnerability scanning | No govulncheck / Dependabot / image scan | Add `govulncheck ./...` job, Dependabot or Renovate, and a Trivy/Grype image scan | High |
 | 9 | gosec is non-blocking and unpinned | `-no-fail`, `@master` | Pin a version; fail on high severity | Medium |
 | 10 | No CD pipeline | Only CI; deploy by platform auto-deploy | Add a release workflow (build image, run migrations, deploy) or document platform steps | Medium |
@@ -495,7 +495,7 @@ Recorded ADRs: 0001 session auth, 0002 Postgres session store, 0003 CSRF double-
 | 12 | Prod compose exposes Postgres | `ports: "${DB_PORT:-5435}:5432"` | Remove or bind to 127.0.0.1; require a strong password; use TLS | High |
 | 13 | Outdated base images | `postgres:15.3`, `alpine:3.19` | Move to latest 15.x or supported major; current Alpine; pin digests | Medium |
 | 14 | Swagger and metrics public | `/swagger/*`, `/metrics` unauthenticated in all envs | Restrict in production (network policy, auth, or disable) | Medium |
-| 15 | Unpinned dev tools | `@latest` in `make tools` | Pin versions in Makefile or `tools.go` | Low |
+| 15 | Unpinned dev tools | `@latest` in `make tools` for air, swag and goose (golangci-lint is pinned) | Pin the remaining versions in Makefile or `tools.go` | Low |
 | 16 | No HTTP client or email provider | Not present | Introduce an abstraction before adding email | Medium |
 | 17 | Naming leftovers from the template | `template-go-*`, `template-net`, README URLs | Rename | Low |
 | 18 | Token logged in plaintext | `verification_service.go` | Tracked for the implementation plan; do not log tokens | High (deferred by owner) |
