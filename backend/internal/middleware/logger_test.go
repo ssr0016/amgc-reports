@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -54,6 +55,75 @@ func TestSlogLogger_LevelAndStatus(t *testing.T) {
 			}
 			if entry.Status != tt.wantStatus {
 				t.Errorf("logged status = %d, want %d", entry.Status, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestSlogLogger_RedactsSensitiveQueryParams(t *testing.T) {
+	const secret = "SECRET"
+
+	tests := []struct {
+		name    string
+		method  string
+		target  string
+		wantURI string
+		secret  string // value that must not appear anywhere in the log line
+	}{
+		{"1 token redacted", http.MethodGet, "/auth/verify-email?token=SECRET",
+			"/auth/verify-email?token=[REDACTED]", secret},
+		{"2 other params untouched", http.MethodGet, "/users?email=user@example.com",
+			"/users?email=user@example.com", ""},
+		{"3 token among other params", http.MethodGet, "/users?email=x&token=SECRET&page=2",
+			"/users?email=x&token=[REDACTED]&page=2", secret},
+		{"4 malformed query dropped", http.MethodGet, "/path?malformed=%zz",
+			"/path", ""},
+		{"5 no query", http.MethodGet, "/path",
+			"/path", ""},
+		{"6 post without query", http.MethodPost, "/api/v1/auth/login",
+			"/api/v1/auth/login", ""},
+		{"7 duplicate token params", http.MethodGet, "/auth/verify-email?token=SECRET&token=SECRET2",
+			"/auth/verify-email?token=[REDACTED]&token=[REDACTED]", secret},
+		{"8 percent-encoded key", http.MethodGet, "/auth/verify-email?%74oken=SECRET",
+			"/auth/verify-email?%74oken=[REDACTED]", secret},
+		{"9 case-insensitive key", http.MethodGet, "/auth/verify-email?TOKEN=SECRET",
+			"/auth/verify-email?TOKEN=[REDACTED]", secret},
+		{"10 malformed sibling drops query", http.MethodGet, "/auth/verify-email?token=SECRET&bad=%zz",
+			"/auth/verify-email", secret},
+		{"11 empty token value", http.MethodGet, "/auth/verify-email?token=",
+			"/auth/verify-email?token=[REDACTED]", ""},
+		{"12 key without value left as is", http.MethodGet, "/auth/verify-email?token",
+			"/auth/verify-email?token", ""},
+		{"13 empty segments preserved", http.MethodGet, "/auth/verify-email?&token=SECRET&",
+			"/auth/verify-email?&token=[REDACTED]&", secret},
+		{"14 semicolon separator drops query", http.MethodGet, "/auth/verify-email?a=1;token=SECRET",
+			"/auth/verify-email", secret},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			log := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+			e := echo.New()
+			e.HTTPErrorHandler = apperror.ErrorHandler
+			e.Use(SlogLogger(log))
+			e.Any("/*", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, httptest.NewRequest(tt.method, tt.target, nil))
+
+			var entry struct {
+				URI string `json:"uri"`
+			}
+			if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+				t.Fatalf("decode log line %q: %v", buf.String(), err)
+			}
+			if entry.URI != tt.wantURI {
+				t.Errorf("uri = %q, want %q", entry.URI, tt.wantURI)
+			}
+			if tt.secret != "" && strings.Contains(buf.String(), tt.secret) {
+				t.Errorf("secret %q leaked into log line: %s", tt.secret, buf.String())
 			}
 		})
 	}
