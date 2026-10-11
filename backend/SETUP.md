@@ -71,6 +71,50 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
   -b /tmp/c.txt \
   -d '{"email":"test@example.com","name":"Test","password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"}'
 
+## Getting tokens for local development
+
+Verification and password-reset tokens are no longer written to the logs, and
+email delivery is not implemented yet. Read them from the database instead.
+
+### Quick way
+
+```bash
+make dev-token USER=test@example.com              # email verification token
+make dev-token USER=test@example.com TYPE=reset   # password reset token
+```
+
+Then, for example:
+
+```bash
+curl "http://localhost:8080/api/v1/auth/verify-email?token=$(make -s dev-token USER=test@example.com)"
+```
+
+`USER` must be passed on the command line (the shell's own `$USER` is ignored).
+The target runs `psql` inside the `pg` container from `docker-compose.yaml`, so
+`make db-start` and `make migrate-up` must have run.
+
+### With psql or pgAdmin
+
+```sql
+-- latest email verification token
+SELECT t.token, t.expires_at, t.used_at
+FROM verification_tokens t JOIN users u ON u.id = t.user_id
+WHERE u.email = 'test@example.com'
+ORDER BY t.created_at DESC LIMIT 1;
+
+-- latest password reset token
+SELECT t.token, t.expires_at, t.used_at
+FROM password_resets t JOIN users u ON u.id = t.user_id
+WHERE u.email = 'test@example.com'
+ORDER BY t.created_at DESC LIMIT 1;
+```
+
+pgAdmin (http://localhost:5051, credentials in the table above): register a
+server with host `pg`, port `5432`, and the `DB_USER` / `DB_PASSWORD` /
+`DB_NAME` values from `.env`, then run the queries in the Query Tool.
+
+> Production email delivery is tracked as E-1 in docs/06-Implementation-Plan.md.
+
 ## Access URLs
 
 | Service | URL | Credentials |

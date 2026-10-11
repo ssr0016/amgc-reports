@@ -55,7 +55,8 @@ func (s *AuthService) Register(ctx context.Context, req model.RegisterRequest) (
 		return nil, err
 	}
 
-	// Send verification email (log token in dev)
+	// Generate a verification token. Email delivery arrives with E-1; until
+	// then use `make dev-token` to read it from the database.
 	// Note: We don't fail registration if this fails
 	if s.verificationService != nil {
 		_, _ = s.verificationService.SendVerification(ctx, user.ID)

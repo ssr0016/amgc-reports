@@ -39,7 +39,6 @@ func (s *VerificationService) SendVerification(ctx context.Context, userID int64
 
 	s.log.Info("verification token generated",
 		"user_id", userID,
-		"token", token.Token,
 		"expires_at", token.ExpiresAt,
 	)
 
