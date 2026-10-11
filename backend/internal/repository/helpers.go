@@ -10,7 +10,7 @@ import (
 )
 
 // deleteByID deletes a row by ID from the given table.
-// Returns an error if no rows were affected.
+// Returns an error wrapping ErrNotFound if no rows were affected.
 func deleteByID(ctx context.Context, db *database.DB, table string, id int64) error {
 	query, args, err := db.Builder.
 		Delete(table).
@@ -24,7 +24,7 @@ func deleteByID(ctx context.Context, db *database.DB, table string, id int64) er
 		return fmt.Errorf("delete %s: %w", table, err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("%s not found", table)
+		return fmt.Errorf("%s: %w", table, ErrNotFound)
 	}
 	return nil
 }

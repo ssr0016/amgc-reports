@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -121,6 +122,9 @@ func (h *PermissionHandler) Delete(c echo.Context) error {
 	}
 
 	if err := h.permissionRepo.Delete(c.Request().Context(), id); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return apperror.NotFound("permission not found")
+		}
 		return apperror.Internal("failed to delete permission").WithError(err)
 	}
 	return c.NoContent(http.StatusNoContent)

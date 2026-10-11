@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -177,6 +178,9 @@ func (h *RoleHandler) Delete(c echo.Context) error {
 	}
 
 	if err := h.roleRepo.Delete(c.Request().Context(), id); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return apperror.NotFound("role not found")
+		}
 		return apperror.Internal("failed to delete role").WithError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
