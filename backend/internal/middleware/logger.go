@@ -70,38 +70,75 @@ func SlogLogger(log *slog.Logger) echo.MiddlewareFunc {
 // To protect another parameter, add its name here.
 var sensitiveQueryParams = []string{"token"}
 
-const redactedValue = "[REDACTED]"
+const (
+	redactedValue   = "[REDACTED]"
+	malformedMarker = "[MALFORMED]"
+)
 
-// redactURI returns uri in a form that is safe to log: the value of every
-// sensitive query parameter is replaced by [REDACTED] and the rest of the URI
-// is kept byte for byte.
+// redactURI returns uri in a form that is safe to log. The query string is
+// handled pair by pair:
 //
-// A query string that net/url cannot parse is dropped entirely. Echo's
-// QueryParam silently skips bad pairs, so a malformed-looking query can still
-// carry a working token; failing closed is the only safe answer.
+//   - a pair whose decoded key is sensitive keeps its raw key and has its
+//     value replaced by [REDACTED];
+//   - a pair that net/url would refuse (it contains ";" or an invalid percent
+//     escape) is replaced whole by [MALFORMED]; Echo's QueryParam skips such
+//     pairs, so they cannot carry a token to a handler;
+//   - every other pair, including empty ones, is kept byte for byte.
+//
+// Values are never decoded. Pairs are handled independently so that one bad
+// pair cannot hide the rest of the query from the log.
 func redactURI(uri string) string {
 	path, query, found := strings.Cut(uri, "?")
 	if !found || query == "" {
 		return uri
 	}
-	if _, err := url.ParseQuery(query); err != nil {
-		return path
-	}
 
 	pairs := strings.Split(query, "&")
 	for i, pair := range pairs {
-		rawKey, _, hasValue := strings.Cut(pair, "=")
-		if !hasValue {
-			continue
-		}
-		// An unescape failure cannot happen after ParseQuery succeeded; treat
-		// it as sensitive anyway.
-		key, err := url.QueryUnescape(rawKey)
-		if err != nil || isSensitiveQueryParam(key) {
-			pairs[i] = rawKey + "=" + redactedValue
-		}
+		pairs[i] = redactPair(pair)
 	}
 	return path + "?" + strings.Join(pairs, "&")
+}
+
+func redactPair(pair string) string {
+	if pair == "" {
+		return pair
+	}
+	if strings.Contains(pair, ";") || !validEscapes(pair) {
+		return malformedMarker
+	}
+
+	rawKey, _, hasValue := strings.Cut(pair, "=")
+	if !hasValue {
+		return pair
+	}
+	key, err := url.QueryUnescape(rawKey)
+	if err != nil {
+		return malformedMarker // unreachable after validEscapes; fail closed anyway
+	}
+	if isSensitiveQueryParam(key) {
+		return rawKey + "=" + redactedValue
+	}
+	return pair
+}
+
+// validEscapes reports whether every "%" in s starts a two-digit hex escape.
+// It only checks; it never decodes.
+func validEscapes(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] != '%' {
+			continue
+		}
+		if i+2 >= len(s) || !isHex(s[i+1]) || !isHex(s[i+2]) {
+			return false
+		}
+		i += 2
+	}
+	return true
+}
+
+func isHex(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }
 
 func isSensitiveQueryParam(name string) bool {
