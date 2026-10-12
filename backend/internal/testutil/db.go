@@ -178,6 +178,37 @@ func (tdb *TestDB) AppUserPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+// RoleDSN enables login for a role the migrations created and returns a DSN
+// that connects as it. Call MigrateWithGoose first.
+func (tdb *TestDB) RoleDSN(t *testing.T, role string) string {
+	t.Helper()
+	ctx := context.Background()
+
+	// role is a fixed identifier from the tests, never user input.
+	if _, err := tdb.Pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE %s LOGIN PASSWORD '%s_pw'`, role, role)); err != nil {
+		t.Fatalf("role %s is missing or unusable: %v", role, err)
+	}
+
+	u, err := url.Parse(tdb.DSN)
+	if err != nil {
+		t.Fatalf("parse dsn: %v", err)
+	}
+	u.User = url.UserPassword(role, role+"_pw")
+	return u.String()
+}
+
+// RolePool returns a pool connected as the named role (see RoleDSN).
+func (tdb *TestDB) RolePool(t *testing.T, role string) *pgxpool.Pool {
+	t.Helper()
+
+	pool, err := pgxpool.New(context.Background(), tdb.RoleDSN(t, role))
+	if err != nil {
+		t.Fatalf("connect as %s: %v", role, err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
+}
+
 // RemoveRole deletes the named role for the test and restores it afterwards,
 // so a test can model a missing role (e.g. the default role) without leaking
 // into later tests that share the database.

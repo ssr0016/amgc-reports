@@ -161,7 +161,7 @@ There is no start command to set: the image runs `/app/api`.
 | Variable | Value | Notes |
 |---|---|---|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Required. Reference the Railway Postgres service. Switches to the `app_user` URL in the [rollout](#app_user-rollout-runbook). |
-| `MIGRATE_DATABASE_URL` | Postgres owner URL | Optional. See [below](#migrate_database_url). Required once `DATABASE_URL` is `app_user`. |
+| `MIGRATE_DATABASE_URL` | `migrate_user` URL (private host) | Optional. See [below](#migrate_database_url). Required once `DATABASE_URL` is `app_user`. |
 | `APP_ENV` | `production` | Exactly this value: the session cookie is `Secure` only for `production`. |
 | `LOG_FORMAT` | `json` | |
 | `CORS_ALLOWED_ORIGINS` | frontend origin(s), comma-separated | Defaults to `http://localhost:3000`. |
@@ -213,9 +213,43 @@ are set.
 
 A separate connection URL used only by `api migrate`. If it is not set, it
 falls back to `DATABASE_URL`, so single-URL setups need no change. Point it at
-a role with DDL privileges (for example the Postgres owner) so that
-`DATABASE_URL` can be a limited role such as `app_user`. The server itself
-never connects with `MIGRATE_DATABASE_URL`.
+a role with DDL privileges so that `DATABASE_URL` can be a limited role such
+as `app_user`. The server itself never connects with `MIGRATE_DATABASE_URL`,
+but the variable is still in the service's environment, so a compromise of the
+running server can read it.
+
+In production use `migrate_user` (created by migration
+`20251012000001_create_migrate_user_role.sql`), not the `postgres` superuser.
+`migrate_user` owns the tables, so it can still `DROP` them; it cannot create
+roles, change server settings (`ALTER SYSTEM`) or run programs
+(`COPY ... TO PROGRAM`). The pre-deploy log line `applying migrations` carries
+`role=`, which shows who ran the migrations.
+
+#### migrate_user rollout runbook
+
+The role is `NOLOGIN` until you enable it, so nothing changes on deploy.
+
+1. Deploy a release containing the migration. `MIGRATE_DATABASE_URL` is still
+   the owner URL, so the pre-deploy command creates the role and transfers
+   ownership of the tables to it.
+2. In the Postgres console, check the result:
+   `SELECT version();` and
+   `SELECT tablename, tableowner FROM pg_tables WHERE schemaname = 'public';`
+   Every row should show `migrate_user`. If a table has another owner, fix
+   that before continuing.
+3. Enable login. In the console type `\password migrate_user`, then
+   `ALTER ROLE migrate_user LOGIN;`. Store the password in your password manager.
+4. Set `MIGRATE_DATABASE_URL` to
+   `postgresql://migrate_user:<password>@postgres.railway.internal:5432/railway`.
+5. Redeploy. With nothing pending, the pre-deploy command should log
+   `applying migrations role=migrate_user` and `migrations complete`.
+
+**Rollback:** set `MIGRATE_DATABASE_URL` back to the owner URL and redeploy.
+No data changes; optionally `ALTER ROLE migrate_user NOLOGIN;`.
+
+**Fresh environments:** the migrations that create roles need a superuser or
+the database owner, so bootstrap a new database with the owner URL, then
+switch to `migrate_user` as above.
 
 ### app_user rollout runbook
 
@@ -224,7 +258,9 @@ Migration `20251012000000_create_app_user_role.sql` creates `app_user` as
 service to it:
 
 1. In the Railway Postgres console: `ALTER ROLE app_user LOGIN PASSWORD '<random>';`
-2. Set `MIGRATE_DATABASE_URL` on the service to the Postgres owner URL.
+2. Set `MIGRATE_DATABASE_URL` on the service to the Postgres owner URL (or to
+   `migrate_user` once the [migrate_user rollout](#migrate_user-rollout-runbook)
+   is done).
 3. Set `DATABASE_URL` on the service to the `app_user` URL (private network host).
 4. Redeploy.
 5. Verify: `/health`, `/ready`, login, and role create/delete.

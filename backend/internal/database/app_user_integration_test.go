@@ -109,12 +109,14 @@ func TestAppUser_DownMigrationKeepsRole_AndUpAgainSucceeds(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	goose.SetBaseFS(os.DirFS("migrations"))
 	require.NoError(t, goose.SetDialect("postgres"))
-	require.NoError(t, goose.Down(db, "."), "down migration failed")
+	// Down reverts one migration at a time: first migrate_user's, then app_user's.
+	require.NoError(t, goose.Down(db, "."), "down migrate_user migration failed")
+	require.NoError(t, goose.Down(db, "."), "down app_user migration failed")
 
 	var n int
 	require.NoError(t, tdb.Pool.QueryRow(context.Background(),
-		`SELECT COUNT(*) FROM pg_roles WHERE rolname = 'app_user'`).Scan(&n))
-	assert.Equal(t, 1, n, "down dropped app_user")
+		`SELECT COUNT(*) FROM pg_roles WHERE rolname IN ('app_user', 'migrate_user')`).Scan(&n))
+	assert.Equal(t, 2, n, "down dropped a role")
 
 	tdb.MigrateWithGoose(t)
 	exerciseDML(t, tdb.AppUserPool(t))

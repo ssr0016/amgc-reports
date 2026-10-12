@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
 
@@ -47,7 +48,13 @@ func runMigrate() error {
 	}
 	defer db.Pool.Close()
 
-	log.Info("applying migrations")
+	role, err := currentRole(ctx, db.Pool)
+	if err != nil {
+		log.Error("cannot read the connected role", "error", err)
+		return fmt.Errorf("migrate: %w", err)
+	}
+
+	log.Info("applying migrations", "role", role)
 	start := time.Now()
 	if err := database.RunMigrations(db.Pool); err != nil {
 		log.Error("migrations failed", "error", err)
@@ -55,6 +62,15 @@ func runMigrate() error {
 	}
 	log.Info("migrations complete", "duration", time.Since(start).Round(time.Millisecond).String())
 	return nil
+}
+
+// currentRole reports the database role the pool is connected as.
+func currentRole(ctx context.Context, pool *pgxpool.Pool) (string, error) {
+	var role string
+	if err := pool.QueryRow(ctx, `SELECT current_user`).Scan(&role); err != nil {
+		return "", fmt.Errorf("read current role: %w", err)
+	}
+	return role, nil
 }
 
 // gooseLogger sends goose's own output (one line per applied migration) through
