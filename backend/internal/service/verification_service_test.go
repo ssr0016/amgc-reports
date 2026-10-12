@@ -19,6 +19,7 @@ const testVerificationToken = "sekret-token-value-123"
 // stubVerificationRepo hands out one fixed, valid token.
 type stubVerificationRepo struct {
 	token       *model.VerificationToken
+	createErr   error
 	markUsedErr error
 }
 
@@ -32,6 +33,9 @@ func newStubVerificationRepo() *stubVerificationRepo {
 }
 
 func (r *stubVerificationRepo) Create(context.Context, int64) (*model.VerificationToken, error) {
+	if r.createErr != nil {
+		return nil, r.createErr
+	}
 	return r.token, nil
 }
 

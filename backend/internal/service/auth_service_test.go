@@ -239,3 +239,43 @@ func TestAuthService_Login_LogsTrackingFailures(t *testing.T) {
 		})
 	}
 }
+
+// Register does not fail when the verification token cannot be created, but
+// the failure must be logged: a user who never gets a token is stuck
+// unverified, and without a log line nothing says why.
+func TestAuthService_Register_LogsSendVerificationError(t *testing.T) {
+	var buf bytes.Buffer
+	log := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	tokens := newStubVerificationRepo()
+	tokens.createErr = errors.New("connection refused")
+	verification := NewVerificationService(repository.NewMockUserRepo(), tokens, discardLog)
+	svc := NewAuthService(repository.NewMockUserRepo(), verification, log)
+
+	user, err := svc.Register(context.Background(), model.RegisterRequest{
+		Email: "verify-fail@example.com", Name: "Verify", Password: testPassword,
+	})
+	if err != nil {
+		t.Fatalf("Register() failed although only the token step failed: %v", err)
+	}
+	if user == nil {
+		t.Fatal("Register() returned nil user")
+	}
+
+	var entry map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+		t.Fatalf("no JSON log line written: %v (output %q)", err, buf.String())
+	}
+	if entry["level"] != "WARN" || entry["msg"] != "failed to send verification token" {
+		t.Errorf("log = level %v msg %v, want WARN %q", entry["level"], entry["msg"], "failed to send verification token")
+	}
+	if entry["user_id"] != float64(user.ID) {
+		t.Errorf("user_id = %v, want %d", entry["user_id"], user.ID)
+	}
+	if got, _ := entry["error"].(string); !strings.Contains(got, "connection refused") {
+		t.Errorf("error = %q, want it to carry the cause", got)
+	}
+	if strings.Contains(buf.String(), "verify-fail@example.com") {
+		t.Errorf("email leaked into logs: %s", buf.String())
+	}
+}
