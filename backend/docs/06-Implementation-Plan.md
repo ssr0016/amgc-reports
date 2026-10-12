@@ -256,8 +256,8 @@ Consolidated from Document 04 section 18 (25 inconsistencies), with items from D
 | C-1 | Prometheus status label wrong for `AppError` (401/403/422/429 recorded as 200). **Delivered in a5ed763**; the hours are accounting, not remaining work | `middleware/metrics.go` | Blinds monitoring | 2h |
 | C-2 | Request logger status wrong for `AppError` (warn branch never reached). **Delivered in a5ed763**; the hours are accounting, not remaining work | `middleware/logger.go` | Blinds logging | 2h |
 | C-3 | Verification token logged in plaintext. **Delivered in 355fe7d (verification) and dc7bad0 (reset)**; the hours are accounting, not remaining work | `service/verification_service.go` | Security leak | 1h |
-| C-4 | Delete of a missing row returns 500 instead of 404 | `repository/helpers.go` + role/permission handlers | Wrong status code | 2h |
-| C-5 | No rate limit on forgot-password, reset-password, verify-email | `router.go`, `main.go` | Brute force / enumeration risk | 1h |
+| C-4 | Delete of a missing row returns 500 instead of 404. **Delivered in 30172f4 (404) and f87de24 (409 for a role still held by users)**; the hours are accounting, not remaining work | `repository/helpers.go` + role/permission handlers | Wrong status code | 2h |
+| C-5 | No rate limit on forgot-password, reset-password, verify-email. **Delivered in a7621d5, hardened by c756994 (idle eviction), 7e01638 (visitor cap), b2d3cbf (key normalization) and bd167bc (trusted proxy extractor, H-4)**; the hours are accounting, not remaining work | `router.go`, `main.go` | Brute force / enumeration risk | 1h |
 | **Total** | | | | **8h** |
 
 Details and "done when":
@@ -266,8 +266,8 @@ Details and "done when":
 |---|---|---|
 | C-1 / C-2 | One shared fix: derive the final status from `AppError`/`HTTPError` (or let the error handler run before the status is read). C-1 and C-2 share one root cause; implement together | A 401, 403, 422 and 429 request increments `http_requests_total{status=...}` correctly and logs at `warn` with the right status; unit test with `httptest` |
 | C-3 | Remove `token` from the log line (reset token removed in `dc7bad0`, verification token in `355fe7d`; the request logger also redacts the `token` query parameter, `6f7ebcf`) | No token appears in any log at any level; verification still works (see E-1 for how developers obtain tokens afterwards) |
-| C-4 | Return a typed "not found" error from `deleteByID` and map it to `apperror.NotFound` in handlers | `DELETE /admin/roles/:id` and `/admin/permissions/:id` on a missing id return 404 (test added) |
-| C-5 | Add the existing `RateLimit` middleware to the three routes (reuse the auth limiter or a separate bucket) | 4th request within a minute returns 429 on each route |
+| C-4 | Return a typed "not found" error from `deleteByID` (done as the sentinel `repository.ErrNotFound`, wrapped with `%w`) and map it to `apperror.NotFound` in handlers | `DELETE /admin/roles/:id` and `/admin/permissions/:id` on a missing id return 404 (test added) |
+| C-5 | Add the existing `RateLimit` middleware to the three routes (done with a separate bucket per route, burst 3: forgot-password 1 per 10 min, reset-password and verify-email 1 per min; routes moved into `router.Setup`; covered by `TestTokenRoutes_RateLimited` and `TestTokenRoutes_BucketsAreIndependent`, which assert "burst 3, then 429"; the "within a minute" timing is intended behaviour and is not asserted by them, the refill and eviction timing is covered by the `evictAfter` tests) | 4th request within a minute returns 429 on each route |
 
 ### 4.2 High Priority (Sprint 1)
 
@@ -763,6 +763,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.3 | 2026-10-11 | Claude Code | I-10 marked delivered (2c3656b, ffb623e; hours unchanged, accounting only) |
 | 1.4 | 2026-10-12 | Claude Code | C-1 and C-2 marked delivered in a5ed763 (hours unchanged, accounting only) |
 | 1.5 | 2026-10-12 | Claude Code | C-3 marked delivered in 355fe7d and dc7bad0 (hours unchanged, accounting only); stale "owner deferred" wording removed |
+| 1.6 | 2026-10-12 | Claude Code | C-4 marked delivered in 30172f4 and f87de24, C-5 in a7621d5 (hardened by c756994, 7e01638, b2d3cbf, bd167bc); hours unchanged, accounting only |
 
 ### 14.4 Deviations from the Requested Outline
 
