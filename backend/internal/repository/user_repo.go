@@ -296,7 +296,9 @@ func (r *UserRepo) MarkEmailVerified(ctx context.Context, userID int64) error {
 	return nil
 }
 
-// UpdatePassword updates a user's password hash.
+// UpdatePassword updates a user's password hash and revokes all of the user's
+// sessions, in one transaction: a changed password never leaves the old
+// sessions alive, and a failed revocation leaves the old password in place.
 func (r *UserRepo) UpdatePassword(ctx context.Context, userID int64, hash string) error {
 	query, args, err := r.db.Builder.
 		Update("users").
@@ -308,12 +310,28 @@ func (r *UserRepo) UpdatePassword(ctx context.Context, userID int64, hash string
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	result, err := r.db.Pool.Exec(ctx, query, args...)
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }() // no-op once committed
+
+	result, err := tx.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("update password: %w", err)
 	}
 	if result.RowsAffected() == 0 {
 		return fmt.Errorf("users: %w", ErrNotFound)
+	}
+
+	// A tombstone, not a delete: see the session store.
+	if _, err := tx.Exec(ctx,
+		`UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`, userID); err != nil {
+		return fmt.Errorf("revoke sessions: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit: %w", err)
 	}
 	return nil
 }

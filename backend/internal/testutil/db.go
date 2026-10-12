@@ -97,10 +97,14 @@ func (tdb *TestDB) RunMigrations(t *testing.T) {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
+		// Keep in step with migrations/20251012000002_add_user_link_to_sessions.sql:
+		// UserRepo.UpdatePassword revokes sessions through these columns.
 		`CREATE TABLE IF NOT EXISTS sessions (
 			token TEXT PRIMARY KEY,
 			data BYTEA NOT NULL,
-			expiry TIMESTAMPTZ NOT NULL
+			expiry TIMESTAMPTZ NOT NULL,
+			user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+			revoked_at TIMESTAMPTZ
 		)`,
 		`CREATE TABLE IF NOT EXISTS verification_tokens (
 			id BIGSERIAL PRIMARY KEY,

@@ -7,14 +7,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/alexedwards/scs/pgxstore"
 	"github.com/alexedwards/scs/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func New(pool *pgxpool.Pool) *scs.SessionManager {
 	sm := scs.New()
-	sm.Store = pgxstore.New(pool)
+	sm.Store = NewStore(pool, sm.Codec)
 	sm.Cookie.Name = getEnv("SESSION_COOKIE_NAME", "app_session")
 	sm.Cookie.HttpOnly = true
 	sm.Cookie.Secure = os.Getenv("APP_ENV") == "production"

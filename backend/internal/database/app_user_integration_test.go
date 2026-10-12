@@ -131,3 +131,28 @@ func TestAppUser_IsNoLoginUntilEnabled(t *testing.T) {
 		`SELECT rolcanlogin FROM pg_roles WHERE rolname = 'app_user'`).Scan(&canLogin))
 	assert.False(t, canLogin, "app_user must not be able to log in until production enables it")
 }
+
+// The server reads, writes and deletes sessions; the user link and revocation
+// columns must not need a separate grant.
+func TestAppUser_CanUseSessionsTable(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	ctx := context.Background()
+	app := tdb.AppUserPool(t)
+
+	var userID int64
+	require.NoError(t, tdb.Pool.QueryRow(ctx,
+		`INSERT INTO users (email, name, password_hash, role_id)
+		 VALUES ('s@example.com', 'S', 'x', (SELECT id FROM roles WHERE name = 'user')) RETURNING id`).Scan(&userID))
+
+	_, err := app.Exec(ctx,
+		`INSERT INTO sessions (token, data, expiry, user_id) VALUES ('t', '\x00', NOW() + interval '1 hour', $1)`, userID)
+	require.NoError(t, err, "insert into sessions")
+	_, err = app.Exec(ctx, `UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1`, userID)
+	require.NoError(t, err, "revoke sessions")
+	var n int
+	require.NoError(t, app.QueryRow(ctx, `SELECT COUNT(*) FROM sessions WHERE user_id = $1 AND revoked_at IS NOT NULL`, userID).Scan(&n), "select sessions")
+	assert.Equal(t, 1, n)
+	_, err = app.Exec(ctx, `DELETE FROM sessions WHERE token = 't'`)
+	require.NoError(t, err, "delete sessions")
+}

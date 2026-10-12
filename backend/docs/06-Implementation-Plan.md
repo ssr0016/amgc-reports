@@ -273,8 +273,8 @@ Details and "done when":
 
 | ID | Bug | Impact | Fix Estimate |
 |----|-----|--------|--------------|
-| H-1 | Sessions not revoked on password reset | Security | 4h |
-| H-2 | Sessions not revoked on lock / role change (and on user delete when that exists) | Security | 4h |
+| H-1 | Sessions not revoked on password reset. **Delivered** (migration `20251012000002_add_user_link_to_sessions.sql`, `session.Store`, `UserRepo.UpdatePassword`); the hours are accounting, not remaining work | Security | 4h |
+| H-2 | Sessions not revoked on lock / role change (and on user delete when that exists). **Re-scoped; nothing left to build now**, see the details below | Security | 4h |
 | H-3 | Email verification not enforced at login | Correctness | 2h |
 | H-4 | `RealIP` trusts forwarded headers (rate limit and audit IP spoofable). **Delivered in bd167bc (trusted proxy extractor), with b56ea20 (`peer_ip` logging) and 01e8c24 (IPv6 keys grouped by /64)**; the hours are accounting, not remaining work | Security | 2h |
 | H-5 | No duplicate-name check on role update (surfaces as 500). **Delivered in cb84c20 (409 via the DB unique constraint, race-safe)**; the hours are accounting, not remaining work | Data integrity | 2h |
@@ -284,7 +284,7 @@ Details and "done when":
 
 | ID | Approach and dependencies |
 |----|---------------------------|
-| H-1, H-2 | `sessions` has no link to `users` (Doc 05 obs. 4); revoking by user needs either a user-id column maintained alongside the scs store or deleting by decoding session data. The 4h estimates assume the simpler option and carry **risk of under-estimation** |
+| H-1, H-2 | **Delivered for H-1.** `sessions` gained `user_id` (FK to `users`, `ON DELETE CASCADE`, indexed) and `revoked_at`. A custom scs store (`internal/session/store.go`, over `pgxstore`) records `user_id` from the session data on every commit and never finds or updates a revoked row. Revocation is a tombstone (`UPDATE ... SET revoked_at`), not a delete: with an idle timeout every request re-commits its session as an upsert, so a request that loaded the session before the revocation would recreate a deleted row. `UserRepo.UpdatePassword` changes the password and revokes the user's sessions in one transaction (a failed revocation rolls the password back). Sessions that existed before the migration have `user_id` NULL and age out within the 24h lifetime. **H-2 re-scoped.** Role change needs no revocation: `RequireRole` and `RequirePermission` load the user and role from the database on every request, so a change applies at once. The lock half is deliberately not implemented: the automatic lockout is triggered by *unauthenticated* failed logins, so revoking sessions on lock would let anyone force a victim out by failing five logins; lockout is a brute-force defence, not a compromise response; and checking `locked_until` in `RequireAuth` would add a database read to every authenticated request. The revocation primitive exists; wire it to an admin disable action and to user deletion (already covered by the FK cascade) when those exist |
 | H-3 | **Depends on E-1** (email delivery). Enforcing verification before users can receive the email would lock everyone out. Needs decision D-12 |
 | H-4 | Configure Echo's IP extractor with a trusted-proxy setting; new env variable `TRUSTED_PROXY_CIDRS` (default `100.64.0.0/10`, Railway's edge range, from production `peer_ip` data). Done as `TrustedProxyExtractor`: only configured ranges are trusted and `X-Forwarded-For` is never read; verified in production with a spoofed `X-Real-IP` |
 | H-5 | Add the conflict check (mirrors `Create`) and map unique violations (done by mapping the unique violation to 409 in the repository and handler, which is race-safe; no pre-check) |
@@ -765,6 +765,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.5 | 2026-10-12 | Claude Code | C-3 marked delivered in 355fe7d and dc7bad0 (hours unchanged, accounting only); stale "owner deferred" wording removed |
 | 1.6 | 2026-10-12 | Claude Code | C-4 marked delivered in 30172f4 and f87de24, C-5 in a7621d5 (hardened by c756994, 7e01638, b2d3cbf, bd167bc); hours unchanged, accounting only |
 | 1.7 | 2026-10-12 | Claude Code | H-4 marked delivered in bd167bc (with b56ea20, 01e8c24) and H-5 in cb84c20; hours unchanged, accounting only |
+| 1.8 | 2026-10-12 | Claude Code | H-1 marked delivered (session user link, tombstone revocation, transactional `UpdatePassword`); H-2 re-scoped with rationale (no revocation on automatic lockout); hours unchanged, accounting only |
 
 ### 14.4 Deviations from the Requested Outline
 
