@@ -330,9 +330,12 @@ func (r *UserRepo) RecordFailedLogin(ctx context.Context, userID int64, maxAttem
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	_, err = r.db.Pool.Exec(ctx, query, args...)
+	result, err := r.db.Pool.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("record failed login: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	return nil
 }
@@ -349,9 +352,12 @@ func (r *UserRepo) ResetLoginAttempts(ctx context.Context, userID int64) error {
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	_, err = r.db.Pool.Exec(ctx, query, args...)
+	result, err := r.db.Pool.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("reset login attempts: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -43,6 +44,14 @@ func TestUserWrites_MissingUserIsErrNotFound(t *testing.T) {
 
 	t.Run("UpdatePassword", func(t *testing.T) {
 		require.ErrorIs(t, users.UpdatePassword(ctx, gone.ID, "newhash"), ErrNotFound)
+	})
+
+	t.Run("RecordFailedLogin", func(t *testing.T) {
+		require.ErrorIs(t, users.RecordFailedLogin(ctx, gone.ID, 5, 15*time.Minute), ErrNotFound)
+	})
+
+	t.Run("ResetLoginAttempts", func(t *testing.T) {
+		require.ErrorIs(t, users.ResetLoginAttempts(ctx, gone.ID), ErrNotFound)
 	})
 
 	t.Run("UpdateRole with a missing role stays a foreign key violation", func(t *testing.T) {
