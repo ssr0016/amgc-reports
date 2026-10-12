@@ -276,8 +276,8 @@ Details and "done when":
 | H-1 | Sessions not revoked on password reset | Security | 4h |
 | H-2 | Sessions not revoked on lock / role change (and on user delete when that exists) | Security | 4h |
 | H-3 | Email verification not enforced at login | Correctness | 2h |
-| H-4 | `RealIP` trusts forwarded headers (rate limit and audit IP spoofable) | Security | 2h |
-| H-5 | No duplicate-name check on role update (surfaces as 500) | Data integrity | 2h |
+| H-4 | `RealIP` trusts forwarded headers (rate limit and audit IP spoofable). **Delivered in bd167bc (trusted proxy extractor), with b56ea20 (`peer_ip` logging) and 01e8c24 (IPv6 keys grouped by /64)**; the hours are accounting, not remaining work | Security | 2h |
+| H-5 | No duplicate-name check on role update (surfaces as 500). **Delivered in cb84c20 (409 via the DB unique constraint, race-safe)**; the hours are accounting, not remaining work | Data integrity | 2h |
 | H-6 | `RequirePermission` unused; `editor` role has no effect; `/users` open to any authenticated user | Security | 4h |
 | H-7 | Validation error is the raw validator string; `details` never populated | UX | 4h |
 | **Total** | | | **22h** |
@@ -286,8 +286,8 @@ Details and "done when":
 |----|---------------------------|
 | H-1, H-2 | `sessions` has no link to `users` (Doc 05 obs. 4); revoking by user needs either a user-id column maintained alongside the scs store or deleting by decoding session data. The 4h estimates assume the simpler option and carry **risk of under-estimation** |
 | H-3 | **Depends on E-1** (email delivery). Enforcing verification before users can receive the email would lock everyone out. Needs decision D-12 |
-| H-4 | Configure Echo's IP extractor with a trusted-proxy setting; new env variable `TRUSTED_PROXY_CIDRS` (default `100.64.0.0/10`, Railway's edge range, from production `peer_ip` data) |
-| H-5 | Add the conflict check (mirrors `Create`) and map unique violations |
+| H-4 | Configure Echo's IP extractor with a trusted-proxy setting; new env variable `TRUSTED_PROXY_CIDRS` (default `100.64.0.0/10`, Railway's edge range, from production `peer_ip` data). Done as `TrustedProxyExtractor`: only configured ranges are trusted and `X-Forwarded-For` is never read; verified in production with a spoofed `X-Real-IP` |
+| H-5 | Add the conflict check (mirrors `Create`) and map unique violations (done by mapping the unique violation to 409 in the repository and handler, which is race-safe; no pre-check) |
 | H-6 | Apply `RequirePermission` to existing routes, starting with `GET /users` and `/users/:id`; establishes the pattern used by Reports Phase 3. Interacts with D-1 and D-2 |
 | H-7 | Return per-field `details` (`field` to message) using the already supported `WithDetails`; keep `message` stable |
 
@@ -764,6 +764,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.4 | 2026-10-12 | Claude Code | C-1 and C-2 marked delivered in a5ed763 (hours unchanged, accounting only) |
 | 1.5 | 2026-10-12 | Claude Code | C-3 marked delivered in 355fe7d and dc7bad0 (hours unchanged, accounting only); stale "owner deferred" wording removed |
 | 1.6 | 2026-10-12 | Claude Code | C-4 marked delivered in 30172f4 and f87de24, C-5 in a7621d5 (hardened by c756994, 7e01638, b2d3cbf, bd167bc); hours unchanged, accounting only |
+| 1.7 | 2026-10-12 | Claude Code | H-4 marked delivered in bd167bc (with b56ea20, 01e8c24) and H-5 in cb84c20; hours unchanged, accounting only |
 
 ### 14.4 Deviations from the Requested Outline
 
