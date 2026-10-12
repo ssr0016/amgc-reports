@@ -92,9 +92,13 @@ func (h *AdminUserHandler) ChangeRole(c echo.Context) error {
 
 	// Update user's role
 	if err := h.userRepo.UpdateRole(c.Request().Context(), id, req.RoleID); err != nil {
-		// The role can be deleted between the check above and this update.
+		// Either row can be deleted between the checks above and this update:
+		// the role trips the foreign key, the user matches no row.
 		if errors.Is(err, repository.ErrForeignKeyViolation) {
 			return apperror.NotFound("role not found")
+		}
+		if errors.Is(err, repository.ErrNotFound) {
+			return apperror.NotFound("user not found")
 		}
 		return apperror.Internal("failed to update role").WithError(err)
 	}

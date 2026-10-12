@@ -117,6 +117,9 @@ func TestAdminUserHandler_ChangeRole_WriteErrors(t *testing.T) {
 		{"role vanished mid-update is 404",
 			fmt.Errorf("update role: %w", repository.ErrForeignKeyViolation),
 			http.StatusNotFound, "NOT_FOUND", "role not found"},
+		{"user vanished mid-update is 404 with its own message",
+			fmt.Errorf("users: %w", repository.ErrNotFound),
+			http.StatusNotFound, "NOT_FOUND", "user not found"},
 		{"database failure stays 500", errors.New("connection refused"),
 			http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update role"},
 	}

@@ -155,7 +155,7 @@ func (r *UserRepo) UpdateRole(ctx context.Context, userID, roleID int64) error {
 		return fmt.Errorf("update role: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("user not found")
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	return nil
 }
@@ -288,7 +288,7 @@ func (r *UserRepo) MarkEmailVerified(ctx context.Context, userID int64) error {
 		return fmt.Errorf("mark email verified: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("user not found")
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	return nil
 }
@@ -310,7 +310,7 @@ func (r *UserRepo) UpdatePassword(ctx context.Context, userID int64, hash string
 		return fmt.Errorf("update password: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("user not found")
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	return nil
 }

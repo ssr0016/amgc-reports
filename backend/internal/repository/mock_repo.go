@@ -108,7 +108,7 @@ func (m *MockUserRepo) UpdateRole(ctx context.Context, userID, roleID int64) err
 
 	user, ok := m.users[userID]
 	if !ok {
-		return fmt.Errorf("user not found")
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	user.RoleID = roleID
 	return nil
@@ -154,7 +154,7 @@ func (m *MockUserRepo) MarkEmailVerified(ctx context.Context, userID int64) erro
 
 	user, ok := m.users[userID]
 	if !ok {
-		return fmt.Errorf("user not found")
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	user.EmailVerified = true
 	now := time.Now()
@@ -172,7 +172,7 @@ func (m *MockUserRepo) UpdatePassword(ctx context.Context, userID int64, hash st
 
 	user, ok := m.users[userID]
 	if !ok {
-		return fmt.Errorf("user not found")
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	user.PasswordHash = hash
 	return nil
@@ -188,7 +188,7 @@ func (m *MockUserRepo) RecordFailedLogin(ctx context.Context, userID int64, maxA
 
 	user, ok := m.users[userID]
 	if !ok {
-		return fmt.Errorf("user not found")
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	user.FailedLoginAttempts++
 	if user.FailedLoginAttempts >= maxAttempts {
@@ -208,7 +208,7 @@ func (m *MockUserRepo) ResetLoginAttempts(ctx context.Context, userID int64) err
 
 	user, ok := m.users[userID]
 	if !ok {
-		return fmt.Errorf("user not found")
+		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	user.FailedLoginAttempts = 0
 	user.LockedUntil = nil
