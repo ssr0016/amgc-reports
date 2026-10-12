@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"testing"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 )
 
 type TestDB struct {
@@ -138,4 +141,39 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 
 	// Re-seed default roles (needed for user creation)
 	_, _ = tdb.Pool.Exec(ctx, `INSERT INTO roles (name, description) VALUES ('user', 'Default user role') ON CONFLICT (name) DO NOTHING`)
+}
+
+// MigrateWithGoose applies the embedded goose migrations, as `api migrate`
+// does. RunMigrations above is a hand-written schema subset and does not
+// create app_user.
+func (tdb *TestDB) MigrateWithGoose(t *testing.T) {
+	t.Helper()
+	if err := database.RunMigrations(tdb.Pool); err != nil {
+		t.Fatalf("goose migrations failed: %v", err)
+	}
+}
+
+// AppUserPool returns a pool connected as app_user, the least-privilege role
+// the migrations create. The role is NOLOGIN without a password in production
+// (enabled out-of-band), so the test enables it. Call MigrateWithGoose first.
+func (tdb *TestDB) AppUserPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	ctx := context.Background()
+
+	if _, err := tdb.Pool.Exec(ctx, `ALTER ROLE app_user LOGIN PASSWORD 'app_user_pw'`); err != nil {
+		t.Fatalf("app_user role is missing or unusable: %v", err)
+	}
+
+	u, err := url.Parse(tdb.DSN)
+	if err != nil {
+		t.Fatalf("parse dsn: %v", err)
+	}
+	u.User = url.UserPassword("app_user", "app_user_pw")
+
+	pool, err := pgxpool.New(ctx, u.String())
+	if err != nil {
+		t.Fatalf("connect as app_user: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
 }
