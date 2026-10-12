@@ -149,22 +149,19 @@ the build"). Deploy `backend/` as its own service, built from its `Dockerfile`.
 
 ### 1. Service settings (dashboard, one time)
 
-These cannot be set from a config file:
-
 - **Root Directory**: `backend`. The Dockerfile copies `go.mod` and `go.sum`,
   so the build context must be `backend/`.
-- **Config-as-code path**: `/backend/railway.json`. Railway does not follow the
-  Root Directory when looking for the config file, so give it the absolute path.
+- **Pre-deploy Command** (Deploy tab): `/app/api migrate`. See
+  [Railway Config-as-code deprecation](#railway-config-as-code-deprecation).
 
-`backend/railway.json` then selects the Dockerfile builder and sets the
-`/health` healthcheck and restart policy. There is no start command to set:
-the image runs `/app/api`.
+There is no start command to set: the image runs `/app/api`.
 
 ### 2. Environment variables
 
 | Variable | Value | Notes |
 |---|---|---|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Required. Reference the Railway Postgres service. |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Required. Reference the Railway Postgres service. Switches to the `app_user` URL in the [rollout](#app_user-rollout-runbook). |
+| `MIGRATE_DATABASE_URL` | Postgres owner URL | Optional. See [below](#migrate_database_url). Required once `DATABASE_URL` is `app_user`. |
 | `APP_ENV` | `production` | Exactly this value: the session cookie is `Secure` only for `production`. |
 | `LOG_FORMAT` | `json` | |
 | `CORS_ALLOWED_ORIGINS` | frontend origin(s), comma-separated | Defaults to `http://localhost:3000`. |
@@ -178,15 +175,16 @@ Do not set `APP_PORT` on Railway.
 ### 3. Migrations
 
 With `APP_ENV=production` the server does **not** run migrations on startup.
-Instead `railway.json` sets a pre-deploy command, `/app/api migrate`, which
-Railway runs between the build and the deploy, in a separate container with
-the service's variables and private network. It applies the embedded goose
-migrations using the internal `DATABASE_URL`, so no public database URL is
-needed.
+Instead the service's Pre-deploy Command, `/app/api migrate`, runs between
+the build and the deploy, in a separate container with the service's variables
+and private network. It applies the embedded goose migrations using
+`MIGRATE_DATABASE_URL` (falling back to the internal `DATABASE_URL`), so no
+public database URL is needed.
 
 - If it exits non-zero, the deploy does not proceed and the previous version
   keeps running. It is not retried.
-- It times out after 300 seconds (`preDeployTimeoutSeconds`).
+- Railway enforces its own pre-deploy timeout; the 300 seconds in `railway.json`
+  (`preDeployTimeoutSeconds`) is not read.
 - Its log lines carry `phase=migrate`, and each applied migration is logged.
   "no migrations to run" means the database was already up to date.
 - `api migrate` runs only migrations; it never starts the server. Any other
@@ -210,6 +208,49 @@ are set.
 - Confirm the proxy overwrites `X-Real-IP` (a client must not be able to choose
   its address): `curl -s -H 'X-Real-IP: 1.2.3.4' 'https://<your-service>.up.railway.app/health?marker=x'`.
   The logged `remote_ip` must be your own address, not `1.2.3.4`.
+
+### MIGRATE_DATABASE_URL
+
+A separate connection URL used only by `api migrate`. If it is not set, it
+falls back to `DATABASE_URL`, so single-URL setups need no change. Point it at
+a role with DDL privileges (for example the Postgres owner) so that
+`DATABASE_URL` can be a limited role such as `app_user`. The server itself
+never connects with `MIGRATE_DATABASE_URL`.
+
+### app_user rollout runbook
+
+Migration `20251012000000_create_app_user_role.sql` creates `app_user` as
+`NOLOGIN`, so nothing uses it until you enable it. To switch the running
+service to it:
+
+1. In the Railway Postgres console: `ALTER ROLE app_user LOGIN PASSWORD '<random>';`
+2. Set `MIGRATE_DATABASE_URL` on the service to the Postgres owner URL.
+3. Set `DATABASE_URL` on the service to the `app_user` URL (private network host).
+4. Redeploy.
+5. Verify: `/health`, `/ready`, login, and role create/delete.
+
+   5b. In the Deploy Logs, look for `admin user seeded`. It confirms the
+   startup seed works as `app_user`.
+
+Do step 2 before step 3, or the pre-deploy migrate runs as `app_user` and
+fails on DDL.
+
+**Rollback:** set `DATABASE_URL` back to the Postgres URL and redeploy. It is
+one variable and no data changes.
+
+**DELETE limitation:** `app_user` has the `DELETE` privilege, so this is not
+protection against data loss. The goal is to block DDL and escalation (`DROP`,
+`ALTER`, `CREATE`, `TRUNCATE`, `COPY ... TO PROGRAM`, `CREATE ROLE`).
+
+### Railway Config-as-code deprecation
+
+The pre-deploy command is set in the Railway UI (Deploy → Pre-deploy
+Command), not in `railway.json`, because Railway has deprecated
+Config-as-code. Existing config files keep working until 2026-12-01, but a
+service that has not used one can no longer opt in; here the config path was
+never set, so Railway does not read `backend/railway.json`. The file stays in
+the repo for reference and for a future move to Infrastructure as Code. Treat
+the dashboard as the source of truth; changing `railway.json` has no effect.
 
 ## Access URLs
 
