@@ -40,7 +40,7 @@ func runMigrate() error {
 	ctx, cancel := context.WithTimeout(context.Background(), migrateConnectTimeout)
 	defer cancel()
 
-	db, err := database.NewWithURL(ctx, cfg.Database.URL)
+	db, err := database.NewWithURL(ctx, cfg.Database.MigrateURL)
 	if err != nil {
 		log.Error("cannot connect to the database", "error", err)
 		return fmt.Errorf("migrate: %w", err)

@@ -58,6 +58,10 @@ type DatabaseConfig struct {
 	Password string
 	Name     string
 	URL      string
+	// MigrateURL is what `api migrate` connects with. It is the owner role's
+	// DSN when MIGRATE_DATABASE_URL is set, so the server can run as a
+	// least-privilege role; otherwise it is URL.
+	MigrateURL string
 }
 
 // SessionConfig holds session settings.
@@ -120,6 +124,8 @@ func Load() (*Config, error) {
 		Name:     getEnv("ADMIN_NAME", "Admin"),
 		Password: os.Getenv("ADMIN_PASSWORD"),
 	}
+
+	cfg.Database.MigrateURL = getEnv("MIGRATE_DATABASE_URL", cfg.Database.URL)
 
 	cfg.Stage = stageFromEnv(cfg.App.Env)
 

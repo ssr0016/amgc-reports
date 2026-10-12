@@ -162,7 +162,7 @@ func TestConfig_IsMethods(t *testing.T) {
 func cleanupEnv() {
 	for _, key := range []string{
 		"APP_ENV", "APP_PORT", "PORT", "APP_URL",
-		"DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME",
+		"DATABASE_URL", "MIGRATE_DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME",
 		"SESSION_COOKIE_NAME", "SESSION_LIFETIME", "SESSION_IDLE_TIMEOUT",
 		"LOG_LEVEL", "LOG_FORMAT",
 		"CORS_ALLOWED_ORIGINS", "TRUSTED_PROXY_CIDRS",
@@ -320,5 +320,35 @@ func TestLoad_TrustedProxyCIDRsRejectsInvalidEntries(t *testing.T) {
 				t.Errorf("error %q does not name TRUSTED_PROXY_CIDRS", err)
 			}
 		})
+	}
+}
+
+func TestLoad_MigrateURL_FallsBackToDatabaseURL(t *testing.T) {
+	_ = os.Setenv("DATABASE_URL", "postgres://app:p@h:5432/db")
+	defer cleanupEnv()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if cfg.Database.MigrateURL != cfg.Database.URL {
+		t.Errorf("MigrateURL = %q, want fallback to %q", cfg.Database.MigrateURL, cfg.Database.URL)
+	}
+}
+
+func TestLoad_MigrateURL_UsesMigrateDatabaseURL(t *testing.T) {
+	_ = os.Setenv("DATABASE_URL", "postgres://app:p@h:5432/db")
+	_ = os.Setenv("MIGRATE_DATABASE_URL", "postgres://owner:p@h:5432/db")
+	defer cleanupEnv()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if cfg.Database.MigrateURL != "postgres://owner:p@h:5432/db" {
+		t.Errorf("MigrateURL = %q, want the MIGRATE_DATABASE_URL value", cfg.Database.MigrateURL)
+	}
+	if cfg.Database.URL != "postgres://app:p@h:5432/db" {
+		t.Errorf("URL = %q, MIGRATE_DATABASE_URL must not change the app URL", cfg.Database.URL)
 	}
 }

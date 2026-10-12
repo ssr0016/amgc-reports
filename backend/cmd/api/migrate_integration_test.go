@@ -20,6 +20,7 @@ import (
 func migrateWith(t *testing.T, url string) (code int, stderr string) {
 	t.Helper()
 	t.Setenv("DATABASE_URL", url)
+	t.Setenv("MIGRATE_DATABASE_URL", "")
 
 	var buf bytes.Buffer
 	code = dispatch([]string{"migrate"}, &buf, commands{
@@ -81,6 +82,22 @@ func TestRunMigrate_SecondRun_IsIdempotent(t *testing.T) {
 	require.Equal(t, 0, code, "second run, stderr: %s", stderr)
 
 	assert.Equal(t, first, appliedVersions(t, tdb), "a second run changed the applied versions")
+	assert.Equal(t, embeddedMigrationCount(t), appliedVersions(t, tdb))
+}
+
+// The pre-deploy step must connect as the migration owner, not as the app role.
+func TestRunMigrate_UsesMigrateDatabaseURL_WhenSet(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	t.Setenv("DATABASE_URL", "postgres://app:wrong@127.0.0.1:1/db?sslmode=disable&connect_timeout=2")
+	t.Setenv("MIGRATE_DATABASE_URL", tdb.DSN)
+
+	var buf bytes.Buffer
+	code := dispatch([]string{"migrate"}, &buf, commands{
+		run:     func() error { t.Fatal("migrate started the server"); return nil },
+		migrate: runMigrate,
+	})
+
+	require.Equal(t, 0, code, "stderr: %s", buf.String())
 	assert.Equal(t, embeddedMigrationCount(t), appliedVersions(t, tdb))
 }
 
