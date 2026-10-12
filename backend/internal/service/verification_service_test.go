@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"strings"
 	"testing"
@@ -17,7 +18,8 @@ const testVerificationToken = "sekret-token-value-123"
 
 // stubVerificationRepo hands out one fixed, valid token.
 type stubVerificationRepo struct {
-	token *model.VerificationToken
+	token       *model.VerificationToken
+	markUsedErr error
 }
 
 func newStubVerificationRepo() *stubVerificationRepo {
@@ -37,7 +39,7 @@ func (r *stubVerificationRepo) GetByToken(context.Context, string) (*model.Verif
 	return r.token, nil
 }
 
-func (r *stubVerificationRepo) MarkUsed(context.Context, int64) error { return nil }
+func (r *stubVerificationRepo) MarkUsed(context.Context, int64) error { return r.markUsedErr }
 
 func (r *stubVerificationRepo) DeleteExpired(context.Context) (int64, error) { return 0, nil }
 
@@ -94,5 +96,40 @@ func TestVerificationService_Verify_DoesNotLogToken(t *testing.T) {
 	}
 	if strings.Contains(buf.String(), testVerificationToken) {
 		t.Errorf("token leaked into logs: %s", buf.String())
+	}
+}
+
+// The token is claimed before the email is marked verified: a request that
+// loses the claim must not touch the user.
+func TestVerificationService_Verify_LostClaimDoesNotVerifyEmail(t *testing.T) {
+	users := repository.NewMockUserRepo()
+	verified := false
+	users.MarkEmailVerifiedFunc = func(context.Context, int64) error {
+		verified = true
+		return nil
+	}
+	tokens := newStubVerificationRepo()
+	tokens.markUsedErr = repository.ErrNotFound
+	svc := NewVerificationService(users, tokens, discardLog)
+
+	err := svc.Verify(context.Background(), testVerificationToken)
+
+	if !errors.Is(err, ErrInvalidToken) {
+		t.Errorf("Verify() error = %v, want ErrInvalidToken", err)
+	}
+	if verified {
+		t.Error("email was verified although the token claim was lost")
+	}
+}
+
+func TestVerificationService_Verify_ClaimFailureStaysAnError(t *testing.T) {
+	tokens := newStubVerificationRepo()
+	tokens.markUsedErr = errors.New("connection refused")
+	svc := NewVerificationService(repository.NewMockUserRepo(), tokens, discardLog)
+
+	err := svc.Verify(context.Background(), testVerificationToken)
+
+	if err == nil || errors.Is(err, ErrInvalidToken) {
+		t.Errorf("Verify() error = %v, want a non-token error", err)
 	}
 }
