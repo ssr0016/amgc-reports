@@ -98,6 +98,11 @@ func (r *RoleRepo) Update(ctx context.Context, id int64, req model.UpdateRoleReq
 
 	if req.Name != "" {
 		builder = builder.Set("name", req.Name)
+		if req.Name != model.DefaultRoleName {
+			// Guarded in the statement so a rename cannot slip in between a
+			// check and the write.
+			builder = builder.Where(sq.NotEq{"name": model.DefaultRoleName})
+		}
 	}
 	if req.Description != "" {
 		builder = builder.Set("description", req.Description)
@@ -110,11 +115,38 @@ func (r *RoleRepo) Update(ctx context.Context, id int64, req model.UpdateRoleReq
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	return scanRole(r.db.Pool.QueryRow(ctx, query, args...))
+	role, err := scanRole(r.db.Pool.QueryRow(ctx, query, args...))
+	if err != nil || role != nil {
+		return role, err
+	}
+	// No row updated: the role is missing (nil, nil) or is the default role
+	// the guard above refused to rename.
+	if err := r.refuseIfExists(ctx, id, "update roles"); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 func (r *RoleRepo) Delete(ctx context.Context, id int64) error {
-	return deleteByID(ctx, r.db, "roles", id)
+	err := deleteByID(ctx, r.db, "roles", id, sq.NotEq{"name": model.DefaultRoleName})
+	if errors.Is(err, ErrNotFound) {
+		if refuse := r.refuseIfExists(ctx, id, "delete roles"); refuse != nil {
+			return refuse
+		}
+	}
+	return err
+}
+
+// refuseIfExists returns ErrProtectedRole when role id exists, which after a
+// guarded write that touched no row can only mean the default role. It returns
+// nil when the role is missing or the lookup fails, leaving the caller's own
+// result in place.
+func (r *RoleRepo) refuseIfExists(ctx context.Context, id int64, op string) error {
+	role, err := r.GetByID(ctx, id)
+	if err != nil || role == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w: %s", op, ErrProtectedRole, role.Name)
 }
 
 func (r *RoleRepo) GetPermissions(ctx context.Context, roleID int64) ([]model.Permission, error) {

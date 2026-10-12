@@ -27,6 +27,14 @@ var ErrForeignKeyViolation = errors.New("foreign key violation")
 // for it with errors.Is.
 var ErrUniqueViolation = errors.New("unique violation")
 
+// ErrProtectedRole is returned (wrapped) when a delete or rename targets the
+// default role, which Register depends on. Test for it with errors.Is.
+var ErrProtectedRole = errors.New("protected role")
+
+// ErrDefaultRoleMissing is returned (wrapped) when the default role Register
+// assigns does not exist. Test for it with errors.Is.
+var ErrDefaultRoleMissing = errors.New("default role missing")
+
 // isUniqueViolation reports whether err is, or wraps, a Postgres unique
 // violation.
 func isUniqueViolation(err error) bool {

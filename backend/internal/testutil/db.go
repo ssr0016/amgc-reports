@@ -177,3 +177,19 @@ func (tdb *TestDB) AppUserPool(t *testing.T) *pgxpool.Pool {
 	t.Cleanup(pool.Close)
 	return pool
 }
+
+// RemoveRole deletes the named role for the test and restores it afterwards,
+// so a test can model a missing role (e.g. the default role) without leaking
+// into later tests that share the database.
+func (tdb *TestDB) RemoveRole(t *testing.T, name string) {
+	t.Helper()
+	ctx := context.Background()
+
+	var description string
+	if err := tdb.Pool.QueryRow(ctx, `DELETE FROM roles WHERE name = $1 RETURNING description`, name).Scan(&description); err != nil {
+		t.Fatalf("remove role %q: %v", name, err)
+	}
+	t.Cleanup(func() {
+		_, _ = tdb.Pool.Exec(ctx, `INSERT INTO roles (name, description) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING`, name, description)
+	})
+}

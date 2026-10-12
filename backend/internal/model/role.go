@@ -2,6 +2,10 @@ package model
 
 import "time"
 
+// DefaultRoleName is the role Register assigns to new users. Seed creates it
+// and the role admin API refuses to delete or rename it.
+const DefaultRoleName = "user"
+
 // Role represents a job title or access level (e.g., admin, editor, viewer).
 type Role struct {
 	ID          int64     `json:"id" db:"id"`

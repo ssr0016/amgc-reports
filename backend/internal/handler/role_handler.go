@@ -156,6 +156,9 @@ func (h *RoleHandler) Update(c echo.Context) error {
 		if errors.Is(err, repository.ErrUniqueViolation) {
 			return apperror.Conflict("role name already exists")
 		}
+		if errors.Is(err, repository.ErrProtectedRole) {
+			return apperror.Conflict("default role cannot be renamed").WithError(err)
+		}
 		return apperror.Internal("failed to update role").WithError(err)
 	}
 	if role == nil {
@@ -187,6 +190,9 @@ func (h *RoleHandler) Delete(c echo.Context) error {
 	if err := h.roleRepo.Delete(c.Request().Context(), id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return apperror.NotFound("role not found")
+		}
+		if errors.Is(err, repository.ErrProtectedRole) {
+			return apperror.Conflict("default role cannot be deleted").WithError(err)
 		}
 		if errors.Is(err, repository.ErrForeignKeyViolation) {
 			return apperror.Conflict("role is assigned to users").WithError(err)

@@ -66,7 +66,7 @@ func (r *UserRepo) CreateWithPassword(ctx context.Context, email, name, hash str
 	roleQuery, roleArgs, err := r.db.Builder.
 		Select("id").
 		From("roles").
-		Where(sq.Eq{"name": "user"}).
+		Where(sq.Eq{"name": model.DefaultRoleName}).
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build role query: %w", err)
@@ -74,6 +74,9 @@ func (r *UserRepo) CreateWithPassword(ctx context.Context, email, name, hash str
 
 	var roleID int64
 	if err := r.db.Pool.QueryRow(ctx, roleQuery, roleArgs...).Scan(&roleID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("get default role %q: %w", model.DefaultRoleName, ErrDefaultRoleMissing)
+		}
 		return nil, fmt.Errorf("get default role: %w", err)
 	}
 
