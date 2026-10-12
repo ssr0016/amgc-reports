@@ -172,6 +172,7 @@ func run() error {
 
 	// Global middleware
 	e.Use(middleware.RequestID())
+	e.Use(ourmiddleware.BodyLimit())
 	e.Use(ourmiddleware.WarnIfNoTrustedProxy(log, cfg.Proxy.TrustedCIDRs, ourmiddleware.TrustedProxyWarnWindow))
 	e.Use(ourmiddleware.SlogLogger(log))
 	e.Use(ourmiddleware.PrometheusMiddleware())
@@ -210,13 +211,7 @@ func run() error {
 
 	scsHandler := sm.LoadAndSave(e)
 
-	server := &http.Server{
-		Addr:         ":" + cfg.App.Port,
-		Handler:      scsHandler,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
+	server := newHTTPServer(cfg, scsHandler)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
