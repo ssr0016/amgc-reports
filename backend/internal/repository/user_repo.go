@@ -145,6 +145,9 @@ func (r *UserRepo) UpdateRole(ctx context.Context, userID, roleID int64) error {
 	}
 
 	result, err := r.db.Pool.Exec(ctx, query, args...)
+	if isForeignKeyViolation(err) {
+		return fmt.Errorf("update role: %w: %w", ErrForeignKeyViolation, err)
+	}
 	if err != nil {
 		return fmt.Errorf("update role: %w", err)
 	}

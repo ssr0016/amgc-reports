@@ -154,6 +154,9 @@ func (r *RoleRepo) AssignPermission(ctx context.Context, roleID, permissionID in
 		return fmt.Errorf("build query: %w", err)
 	}
 	_, err = r.db.Pool.Exec(ctx, query, args...)
+	if isForeignKeyViolation(err) {
+		return fmt.Errorf("assign permission: %w: %w", ErrForeignKeyViolation, err)
+	}
 	if err != nil {
 		return fmt.Errorf("assign permission: %w", err)
 	}

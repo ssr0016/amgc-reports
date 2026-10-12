@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -91,6 +92,10 @@ func (h *AdminUserHandler) ChangeRole(c echo.Context) error {
 
 	// Update user's role
 	if err := h.userRepo.UpdateRole(c.Request().Context(), id, req.RoleID); err != nil {
+		// The role can be deleted between the check above and this update.
+		if errors.Is(err, repository.ErrForeignKeyViolation) {
+			return apperror.NotFound("role not found")
+		}
 		return apperror.Internal("failed to update role").WithError(err)
 	}
 

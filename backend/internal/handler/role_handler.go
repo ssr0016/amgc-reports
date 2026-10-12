@@ -231,6 +231,10 @@ func (h *RoleHandler) AssignPermission(c echo.Context) error {
 	}
 
 	if err := h.roleRepo.AssignPermission(c.Request().Context(), roleID, req.PermissionID); err != nil {
+		// Either row can be deleted between the checks above and this insert.
+		if errors.Is(err, repository.ErrForeignKeyViolation) {
+			return apperror.NotFound("role or permission not found")
+		}
 		return apperror.Internal("failed to assign permission").WithError(err)
 	}
 
