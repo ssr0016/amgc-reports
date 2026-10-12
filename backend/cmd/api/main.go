@@ -31,22 +31,18 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
 	_ "github.com/ssr0016/pastoral-reports/backend/docs"
-	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/config"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
 	"github.com/ssr0016/pastoral-reports/backend/internal/logger"
-	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 	"github.com/ssr0016/pastoral-reports/backend/internal/router"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 	"github.com/ssr0016/pastoral-reports/backend/internal/session"
-	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
 
 const usage = `usage: api [migrate]
@@ -163,27 +159,7 @@ func run() error {
 	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
 	healthHandler := handler.NewHealthHandler(db.Pool)
 
-	e := echo.New()
-	e.IPExtractor = ourmiddleware.TrustedProxyExtractor(cfg.Proxy.TrustedCIDRs)
-	e.Validator = validator.New()
-	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.HideBanner = true
-	e.HidePort = true
-
-	// Global middleware
-	e.Use(middleware.RequestID())
-	e.Use(ourmiddleware.BodyLimit())
-	e.Use(ourmiddleware.WarnIfNoTrustedProxy(log, cfg.Proxy.TrustedCIDRs, ourmiddleware.TrustedProxyWarnWindow))
-	e.Use(ourmiddleware.SlogLogger(log))
-	e.Use(ourmiddleware.PrometheusMiddleware())
-	e.Use(ourmiddleware.CSRFProtection())
-	e.Use(middleware.Recover())
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     cfg.CORS.AllowedOrigins,
-		AllowCredentials: true,
-		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, echo.HeaderXCSRFToken},
-	}))
+	e := newEcho(cfg, log)
 
 	// Swagger
 	e.GET("/swagger/*", echoSwagger.WrapHandler)

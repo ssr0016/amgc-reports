@@ -253,8 +253,8 @@ Consolidated from Document 04 section 18 (25 inconsistencies), with items from D
 
 | ID | Bug | File | Impact | Fix Estimate |
 |----|-----|------|--------|--------------|
-| C-1 | Prometheus status label wrong for `AppError` (401/403/422/429 recorded as 200) | `middleware/metrics.go` | Blinds monitoring | 2h |
-| C-2 | Request logger status wrong for `AppError` (warn branch never reached) | `middleware/logger.go` | Blinds logging | 2h |
+| C-1 | Prometheus status label wrong for `AppError` (401/403/422/429 recorded as 200). **Delivered in a5ed763**; the hours are accounting, not remaining work | `middleware/metrics.go` | Blinds monitoring | 2h |
+| C-2 | Request logger status wrong for `AppError` (warn branch never reached). **Delivered in a5ed763**; the hours are accounting, not remaining work | `middleware/logger.go` | Blinds logging | 2h |
 | C-3 | Verification token logged in plaintext | `service/verification_service.go` | Security leak | 1h |
 | C-4 | Delete of a missing row returns 500 instead of 404 | `repository/helpers.go` + role/permission handlers | Wrong status code | 2h |
 | C-5 | No rate limit on forgot-password, reset-password, verify-email | `router.go`, `main.go` | Brute force / enumeration risk | 1h |
@@ -761,6 +761,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.1 | 2026-10-11 | Claude Code | Added I-13 (`.env` setup note, 1h); totals 243h to 244h, with buffer about 316h to about 317h |
 | 1.2 | 2026-10-11 | Claude Code | I-13 marked delivered in 98f4093 (hours unchanged, accounting only); section 5 intro now mentions items found during implementation |
 | 1.3 | 2026-10-11 | Claude Code | I-10 marked delivered (2c3656b, ffb623e; hours unchanged, accounting only) |
+| 1.4 | 2026-10-12 | Claude Code | C-1 and C-2 marked delivered in a5ed763 (hours unchanged, accounting only) |
 
 ### 14.4 Deviations from the Requested Outline
 
