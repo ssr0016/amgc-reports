@@ -26,6 +26,9 @@ func scanUser(row pgx.Row) (*model.User, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
+	if isUniqueViolation(err) {
+		return nil, fmt.Errorf("scan user: %w: %w", ErrUniqueViolation, err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("scan user: %w", err)
 	}

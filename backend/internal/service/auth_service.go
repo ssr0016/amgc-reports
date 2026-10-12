@@ -51,6 +51,11 @@ func (s *AuthService) Register(ctx context.Context, req model.RegisterRequest) (
 	}
 
 	user, err := s.userRepo.CreateWithPassword(ctx, req.Email, req.Name, string(hash))
+	if errors.Is(err, repository.ErrUniqueViolation) {
+		// users.email is the only unique column CreateWithPassword writes;
+		// this is a concurrent Register that passed the check above.
+		return nil, ErrEmailTaken
+	}
 	if err != nil {
 		return nil, err
 	}

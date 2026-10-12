@@ -25,6 +25,9 @@ func scanPermission(row pgx.Row) (*model.Permission, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
+	if isUniqueViolation(err) {
+		return nil, fmt.Errorf("scan permission: %w: %w", ErrUniqueViolation, err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("scan permission: %w", err)
 	}

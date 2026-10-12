@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
@@ -146,5 +147,25 @@ func TestAuthService_Login_RepoError(t *testing.T) {
 	_, err := svc.Login(context.Background(), "err@example.com", testPassword)
 	if err == nil {
 		t.Fatal("Login() expected error, got nil")
+	}
+}
+
+// A concurrent Register can pass the GetByEmail check and then lose the insert
+// to the unique index; that must read as "email taken", not a server error.
+func TestAuthService_Register_LosesEmailRace(t *testing.T) {
+	repo := repository.NewMockUserRepo()
+	repo.CreateWithPasswordFunc = func(context.Context, string, string, string) (*model.User, error) {
+		return nil, fmt.Errorf("scan user: %w", repository.ErrUniqueViolation)
+	}
+	svc := NewAuthService(repo, nil)
+
+	_, err := svc.Register(context.Background(), model.RegisterRequest{
+		Email:    "race@example.com",
+		Name:     "Racer",
+		Password: testPassword,
+	})
+
+	if !errors.Is(err, ErrEmailTaken) {
+		t.Errorf("Register() error = %v, want ErrEmailTaken", err)
 	}
 }

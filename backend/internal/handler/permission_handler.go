@@ -103,6 +103,10 @@ func (h *PermissionHandler) Create(c echo.Context) error {
 
 	perm, err := h.permissionRepo.Create(c.Request().Context(), req.Name, req.Resource, req.Action)
 	if err != nil {
+		// Lost a race with another create that passed the same check.
+		if errors.Is(err, repository.ErrUniqueViolation) {
+			return apperror.Conflict("permission name already exists")
+		}
 		return apperror.Internal("failed to create permission").WithError(err)
 	}
 	return c.JSON(http.StatusCreated, perm.ToResponse())

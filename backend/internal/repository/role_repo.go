@@ -24,6 +24,9 @@ func scanRole(row pgx.Row) (*model.Role, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
+	if isUniqueViolation(err) {
+		return nil, fmt.Errorf("scan role: %w: %w", ErrUniqueViolation, err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("scan role: %w", err)
 	}

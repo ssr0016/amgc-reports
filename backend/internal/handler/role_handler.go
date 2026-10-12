@@ -118,6 +118,10 @@ func (h *RoleHandler) Create(c echo.Context) error {
 
 	role, err := h.roleRepo.Create(c.Request().Context(), req)
 	if err != nil {
+		// Lost a race with another create that passed the same check.
+		if errors.Is(err, repository.ErrUniqueViolation) {
+			return apperror.Conflict("role name already exists")
+		}
 		return apperror.Internal("failed to create role").WithError(err)
 	}
 	return c.JSON(http.StatusCreated, role.ToResponse())
@@ -149,6 +153,9 @@ func (h *RoleHandler) Update(c echo.Context) error {
 
 	role, err := h.roleRepo.Update(c.Request().Context(), id, req)
 	if err != nil {
+		if errors.Is(err, repository.ErrUniqueViolation) {
+			return apperror.Conflict("role name already exists")
+		}
 		return apperror.Internal("failed to update role").WithError(err)
 	}
 	if role == nil {
