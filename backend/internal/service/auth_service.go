@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -27,12 +28,18 @@ const (
 type AuthService struct {
 	userRepo            repository.UserRepository
 	verificationService *VerificationService
+	log                 *slog.Logger
 }
 
-func NewAuthService(userRepo repository.UserRepository, verificationService *VerificationService) *AuthService {
+func NewAuthService(
+	userRepo repository.UserRepository,
+	verificationService *VerificationService,
+	log *slog.Logger,
+) *AuthService {
 	return &AuthService{
 		userRepo:            userRepo,
 		verificationService: verificationService,
+		log:                 log,
 	}
 }
 
@@ -88,16 +95,17 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		// Record failed attempt
 		if err := s.userRepo.RecordFailedLogin(ctx, user.ID, maxFailedLoginAttempts, lockoutDuration); err != nil {
-			// Log error but still return invalid credentials
-			_ = err
+			// Still return invalid credentials, but the attempt did not count
+			// toward lockout, so make that visible.
+			s.log.Warn("failed to record failed login", "user_id", user.ID, "error", err)
 		}
 		return nil, ErrInvalidCredentials
 	}
 
 	// Successful login — reset failed attempts
 	if err := s.userRepo.ResetLoginAttempts(ctx, user.ID); err != nil {
-		// Log error but don't fail login
-		_ = err
+		// Don't fail a login that already succeeded.
+		s.log.Warn("failed to reset login attempts", "user_id", user.ID, "error", err)
 	}
 
 	return user, nil

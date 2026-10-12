@@ -150,7 +150,7 @@ func run() error {
 
 	// Services
 	verificationService := service.NewVerificationService(userRepo, verificationRepo, log)
-	authService := service.NewAuthService(userRepo, verificationService)
+	authService := service.NewAuthService(userRepo, verificationService, log)
 	passwordResetService := service.NewPasswordResetService(userRepo, passwordResetRepo, log)
 
 	// Handlers
