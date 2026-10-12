@@ -72,19 +72,26 @@ func (r *PasswordResetRepo) GetByToken(ctx context.Context, token string) (*mode
 	return scanPasswordReset(r.db.Pool.QueryRow(ctx, query, args...))
 }
 
+// MarkUsed claims the token. The claim is atomic: only the first caller finds
+// used_at unset, any later or concurrent caller gets ErrNotFound (wrapped), so
+// a token cannot be used twice.
 func (r *PasswordResetRepo) MarkUsed(ctx context.Context, id int64) error {
 	query, args, err := r.db.Builder.
 		Update("password_resets").
 		Set("used_at", sq.Expr("NOW()")).
 		Where(sq.Eq{"id": id}).
+		Where(sq.Eq{"used_at": nil}).
 		ToSql()
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	_, err = r.db.Pool.Exec(ctx, query, args...)
+	result, err := r.db.Pool.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("mark used: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("password_resets: %w", ErrNotFound)
 	}
 	return nil
 }

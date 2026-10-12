@@ -74,12 +74,19 @@ func (s *PasswordResetService) ResetPassword(ctx context.Context, tokenStr, newP
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	if err := s.userRepo.UpdatePassword(ctx, token.UserID, string(hash)); err != nil {
-		return fmt.Errorf("update password: %w", err)
+	// Claim the token before changing the password, so concurrent requests
+	// holding the same token cannot all pass. If the update below then fails
+	// the token is spent and the user must request a new one; the alternative
+	// order would leave a used-up token valid.
+	if err := s.passwordResetRepo.MarkUsed(ctx, token.ID); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrInvalidResetToken
+		}
+		return fmt.Errorf("mark used: %w", err)
 	}
 
-	if err := s.passwordResetRepo.MarkUsed(ctx, token.ID); err != nil {
-		return fmt.Errorf("mark used: %w", err)
+	if err := s.userRepo.UpdatePassword(ctx, token.UserID, string(hash)); err != nil {
+		return fmt.Errorf("update password: %w", err)
 	}
 
 	s.log.Info("password reset successful", "user_id", token.UserID)
