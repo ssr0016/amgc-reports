@@ -115,7 +115,7 @@ func insertMetric(pool *pgxpool.Pool, reportID int64, metric string, week int, v
 func insertAudit(pool *pgxpool.Pool, action string, performedBy *int64, ip string) error {
 	_, err := pool.Exec(context.Background(),
 		`INSERT INTO audit_logs (performed_by, action, target_type, target_id, ip_address)
-		 VALUES ($1, $2, 'report', '1', $3)`,
+		 VALUES ($1, $2, 'Report', '1', $3)`,
 		performedBy, action, ip)
 	return err
 }
