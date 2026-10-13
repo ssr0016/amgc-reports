@@ -1,20 +1,15 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Go Echo + Squirrel + pgx template with session auth",
-        "title": "Template Go Echo API",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "email": "support@example.com"
-        },
+        "description": "Pastoral Reports backend API: session auth and RBAC",
+        "title": "Pastoral Reports API",
+        "contact": {},
         "license": {
             "name": "MIT",
             "url": "https://opensource.org/licenses/MIT"
         },
         "version": "1.0"
     },
-    "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
         "/admin/permissions": {

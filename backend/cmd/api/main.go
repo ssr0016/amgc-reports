@@ -1,17 +1,12 @@
 package main
 
-// @title           Template Go Echo API
+// @title           Pastoral Reports API
 // @version         1.0
-// @description     Go Echo + Squirrel + pgx template with session auth
-// @termsOfService  http://swagger.io/terms/
-
-// @contact.name   API Support
-// @contact.email  support@example.com
+// @description     Pastoral Reports backend API: session auth and RBAC
 
 // @license.name  MIT
 // @license.url   https://opensource.org/licenses/MIT
 
-// @host      localhost:8080
 // @BasePath  /api/v1
 
 // @securityDefinitions.apikey CookieAuth
