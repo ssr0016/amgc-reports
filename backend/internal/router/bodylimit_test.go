@@ -29,6 +29,7 @@ func TestBodyLimit_AppliesToAllBindRoutes(t *testing.T) {
 		nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil),
 		handler.NewPasswordResetHandler(nil),
+		nil,
 	)
 
 	routes := []struct {

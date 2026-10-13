@@ -62,6 +62,7 @@ func TestResetPassword_EndsExistingSession(t *testing.T) {
 		nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil),
 		handler.NewPasswordResetHandler(service.NewPasswordResetService(users, resets, log)),
+		nil,
 	)
 	h := sm.LoadAndSave(e)
 

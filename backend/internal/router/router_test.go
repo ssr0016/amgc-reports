@@ -37,6 +37,7 @@ func newTestServer() *echo.Echo {
 		nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil),
 		handler.NewPasswordResetHandler(nil),
+		nil,
 	)
 	return e
 }

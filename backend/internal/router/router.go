@@ -24,6 +24,7 @@ func Setup(
 	adminUserHandler *handler.AdminUserHandler,
 	verificationHandler *handler.VerificationHandler,
 	passwordResetHandler *handler.PasswordResetHandler,
+	reportHandler *handler.ReportHandler,
 ) {
 	api := e.Group("/api/v1")
 
@@ -83,5 +84,6 @@ func Setup(
 	admin.GET("/users/:id", adminUserHandler.GetUser)
 	admin.PUT("/users/:id/role", adminUserHandler.ChangeRole)
 
-	_ = roleRepo // referenced in RequireRole
+	_ = roleRepo      // referenced in RequireRole
+	_ = reportHandler // routes are registered in the next commit
 }

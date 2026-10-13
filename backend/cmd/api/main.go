@@ -189,11 +189,14 @@ func run() error {
 	permissionRepo := repository.NewPermissionRepo(db)
 	verificationRepo := repository.NewVerificationRepo(db)
 	passwordResetRepo := repository.NewPasswordResetRepo(db)
+	reportRepo := repository.NewReportRepo(db)
+	auditRepo := repository.NewAuditRepo(db)
 
 	// Services
 	verificationService := service.NewVerificationService(userRepo, verificationRepo, log)
 	authService := service.NewAuthService(userRepo, verificationService, log)
 	passwordResetService := service.NewPasswordResetService(userRepo, passwordResetRepo, log)
+	reportService := service.NewReportService(reportRepo, auditRepo, repository.NewTxManager(db.Pool), db.Pool, userRepo, roleRepo)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, sm)
@@ -203,6 +206,7 @@ func run() error {
 	adminUserHandler := handler.NewAdminUserHandler(userRepo, roleRepo)
 	verificationHandler := handler.NewVerificationHandler(verificationService)
 	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
+	reportHandler := handler.NewReportHandler(reportService, sm)
 	healthHandler := handler.NewHealthHandler(db.Pool)
 
 	e := newEcho(cfg, log)
@@ -222,6 +226,7 @@ func run() error {
 		adminUserHandler,
 		verificationHandler,
 		passwordResetHandler,
+		reportHandler,
 	)
 
 	scsHandler := sm.LoadAndSave(e)
