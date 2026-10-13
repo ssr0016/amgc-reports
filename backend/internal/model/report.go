@@ -138,6 +138,9 @@ type ListReportsParams struct {
 	Worker string
 	Area   string
 	Church string
+
+	// CreatedBy limits the list to one owner (D-1); 0 = any owner.
+	CreatedBy int64
 }
 
 // ToResponse converts a report to its API form. A NUMERIC value is emitted in

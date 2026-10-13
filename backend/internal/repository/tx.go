@@ -45,3 +45,20 @@ func WithTx(ctx context.Context, b Beginner, fn func(Querier) error) error {
 	}
 	return nil
 }
+
+// TxRunner runs fn in one transaction. Services depend on it instead of a
+// pool, so tests can substitute a fake.
+type TxRunner interface {
+	WithTx(ctx context.Context, fn func(Querier) error) error
+}
+
+// TxManager is the TxRunner backed by a real pool.
+type TxManager struct{ b Beginner }
+
+func NewTxManager(b Beginner) *TxManager { return &TxManager{b: b} }
+
+func (m *TxManager) WithTx(ctx context.Context, fn func(Querier) error) error {
+	return WithTx(ctx, m.b, fn)
+}
+
+var _ TxRunner = (*TxManager)(nil)

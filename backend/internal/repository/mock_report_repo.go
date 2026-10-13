@@ -132,6 +132,7 @@ func (m *MockReportRepo) List(ctx context.Context, p model.ListReportsParams, pg
 	var all []*model.Report
 	for _, r := range m.reports {
 		if r.DeletedAt != nil ||
+			(p.CreatedBy != 0 && r.CreatedBy != p.CreatedBy) ||
 			(p.Year != 0 && int(r.Year) != p.Year) ||
 			(p.Month != "" && !strings.EqualFold(r.Month, p.Month)) ||
 			!contains(r.Worker, p.Worker) || !contains(r.AreaAssignment, p.Area) || !contains(r.ChurchName, p.Church) {

@@ -179,6 +179,9 @@ func (r *ReportRepo) List(ctx context.Context, p model.ListReportsParams, pg pag
 	if p.Year != 0 {
 		where = append(where, sq.Eq{"r.year": p.Year})
 	}
+	if p.CreatedBy != 0 {
+		where = append(where, sq.Eq{"r.created_by": p.CreatedBy})
+	}
 	if p.Month != "" {
 		where = append(where, sq.Expr("lower(r.month) = lower(?)", p.Month))
 	}

@@ -84,6 +84,18 @@ func TestReportRepo(t *testing.T) {
 		assert.Len(t, got, 1)
 	})
 
+	t.Run("list can be limited to one owner", func(t *testing.T) {
+		other, err := NewUserRepo(db).CreateWithPassword(ctx, "other@example.com", "Other", "hash")
+		require.NoError(t, err)
+		_, err = repo.Create(ctx, db.Pool, other.ID, 2026, mk("March", "", nil))
+		require.NoError(t, err)
+
+		got, total, err := repo.List(ctx, model.ListReportsParams{CreatedBy: other.ID}, pagination.Params{Page: 1, Limit: 10})
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, total)
+		assert.Equal(t, other.ID, got[0].CreatedBy)
+	})
+
 	t.Run("update replaces metrics and keeps completed fields", func(t *testing.T) {
 		upd := model.UpdateReportRequest(mk("January", "Ana", map[string]model.MetricWeeks{"outreach": {Week2: num("7.25")}}))
 		got, err := repo.Update(ctx, db.Pool, jan.ID, 2026, upd)

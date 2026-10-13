@@ -77,6 +77,12 @@ type ReportRepository interface {
 	ToggleComplete(ctx context.Context, q Querier, id, approverID int64) (*model.Report, error)
 }
 
+// AuditRepository defines the interface for writing audit rows. Pass the
+// transaction of the change being audited.
+type AuditRepository interface {
+	Insert(ctx context.Context, q Querier, e model.AuditLog) error
+}
+
 // Compile-time checks: implementations must satisfy interfaces.
 var (
 	_ UserRepository          = (*UserRepo)(nil)
@@ -85,5 +91,7 @@ var (
 	_ VerificationRepository  = (*VerificationRepo)(nil)
 	_ PasswordResetRepository = (*PasswordResetRepo)(nil)
 	_ ReportRepository        = (*ReportRepo)(nil)
+	_ AuditRepository         = (*AuditRepo)(nil)
+	_ AuditRepository         = (*MockAuditRepo)(nil)
 	_ ReportRepository        = (*MockReportRepo)(nil)
 )
