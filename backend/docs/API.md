@@ -108,6 +108,109 @@ PUT /admin/users/:id/role
       "role_id": 2
     }
 
+## Reports
+
+All Reports endpoints need a session cookie, and POST/PUT/PATCH/DELETE also need the CSRF token (see CSRF Protection). Each route needs one permission. A role may also hold an `_any` permission, which widens the scope from the caller's own reports to all reports.
+
+| Method | Path | Permission | `_any` widening |
+|---|---|---|---|
+| GET | /reports | `reports:read` | `reports:read_any` lists everyone's reports |
+| POST | /reports | `reports:write` | |
+| GET | /reports/:id | `reports:read` | `reports:read_any` |
+| PUT | /reports/:id | `reports:write` | `reports:write_any` |
+| DELETE | /reports/:id | `reports:delete` | `reports:delete_any` |
+| PATCH | /reports/:id/complete | `reports:approve` | none: works on any report by ID |
+
+Note: IDs may have gaps. A failed create consumes a sequence value, so do not assume contiguous IDs.
+
+Default roles: `user` has read, write and delete (own reports only). `editor` and `admin` have all seven. Another person's report returns 404, not 403.
+
+### Create Report
+
+POST /reports
+
+    {
+      "month": "January",
+      "year": 2026,
+      "worker": "Ana",
+      "area_assignment": "North",
+      "church_name": "Grace",
+      "names": "",
+      "narrative_report": "...",
+      "challenges": "",
+      "prayer_request": "",
+      "metrics": {
+        "tithes_offering": {"week1": 120.00, "week3": 0.5},
+        "outreach": {"week2": 0}
+      }
+    }
+
+Only `month` is required. `year` defaults to the current year (2000 to 2100). Empty strings are stored as NULL (D-8) and left out of responses. Metric keys are the 21 snake_case keys (for example `worship_service`, `tithes_offering`, `family_day`; see 05-Backend-Schema.md section 2.4). Weeks are `week1` to `week5`; send only the weeks you have. A week that is absent means "not reported", which is different from `0`. Values are JSON numbers from 0 to 9999999999.99 with at most 2 decimals.
+
+Response (201): a report.
+
+    {
+      "id": 1,
+      "created_by": 2,
+      "month": "January",
+      "year": 2026,
+      "worker": "Ana",
+      "metrics": {
+        "tithes_offering": {"week1": 120.00, "week3": 0.50},
+        "outreach": {"week2": 0}
+      },
+      "completed": false,
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z"
+    }
+
+Numbers keep the database scale, so `0.5` comes back as `0.50`. `completed_at` and `completed_by` appear once approved. Errors: 409 if you already have an active report for that month and year; 422 for an unknown month or metric key, a value with more than 2 decimals, or a negative value.
+
+### List Reports
+
+GET /reports?page=1&limit=20&month=January&year=2026&worker=ana&area=north&church=grace
+
+Newest first. `month` matches the month name ignoring case; `worker`, `area` and `church` are partial, case-insensitive matches (`%` and `_` are treated literally). `limit` is 1 to 100. Without `reports:read_any` the list contains only your own reports.
+
+Response (200):
+
+    {
+      "data": [ { "id": 1, "...": "..." } ],
+      "meta": {"page": 1, "limit": 20, "total": 1, "total_pages": 1}
+    }
+
+### Get Report
+
+GET /reports/:id
+
+Response (200): a report. 404 if it does not exist, was deleted, or belongs to someone else (without `reports:read_any`).
+
+### Update Report
+
+PUT /reports/:id
+
+Same body as create. This replaces the report: every text field you leave out is cleared, and the whole `metrics` set is replaced. Send every field. A missing `year` keeps the report's current year. Response (200): the updated report. Errors: 404 (as for get), 409 if the new month and year collide with another of your reports, 422.
+
+### Delete Report
+
+DELETE /reports/:id
+
+Soft delete. Response: 204 with no body. 404 if missing, already deleted, or someone else's (without `reports:delete_any`). The month and year can be filed again afterwards.
+
+### Approve or Unapprove Report
+
+PATCH /reports/:id/complete
+
+No body. Flips the completed flag: an open report becomes completed, a completed one is reopened. Response (200) has metadata only, never report text:
+
+    {"id": 1, "completed": true, "completed_at": "2026-01-02T00:00:00Z", "completed_by": 3}
+
+When reopened, `completed` is `false` and the other two fields are left out. Use GET /reports/:id to read the report. 404 if it is missing or deleted.
+
+### Reports Rate Limit
+
+POST, PUT, DELETE and PATCH on /reports share one bucket per signed-in user: 60 per minute with a burst of 10 by default (`REPORTS_WRITE_RATE_LIMIT`, `REPORTS_WRITE_BURST`). Over the limit returns 429 with a `Retry-After` header. GET requests are not limited.
+
 ## Error Responses
 
 ### 400 Bad Request
@@ -143,7 +246,7 @@ PUT /admin/users/:id/role
 
 ## CSRF Protection
 
-For POST/PUT/DELETE requests, include CSRF token:
+For POST/PUT/PATCH/DELETE requests, include CSRF token:
 
 1. GET /api/v1/auth/csrf - returns `{"csrf_token": "<token>"}` and sets the HttpOnly `csrf_token` cookie
    (any GET also sets the cookie, but only this endpoint exposes the value to JavaScript)

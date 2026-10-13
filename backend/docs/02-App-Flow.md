@@ -404,38 +404,37 @@ All mutating endpoints require `X-CSRF-Token` and a valid session, as elsewhere.
 ### 14.1 Create Report (with duplicate prevention)
 1. `RequireAuth`; bind and validate (section 17).
 2. Service sets `created_by` = session user; `year` defaults to the current year if omitted.
-3. Insert report and metrics in one transaction. The unique index `(created_by, lower(month), year)` makes duplicate prevention **atomic**; a unique violation (SQLSTATE `23505`) maps to **409** "You already have a report for {month} {year}. Edit the existing report instead." (Express returned 400 from a non-atomic check.)
-4. Respond **201** with the report.
+3. Insert report and metrics in one transaction. The partial unique index `(created_by, month, year) WHERE deleted_at IS NULL` makes duplicate prevention **atomic**; a unique violation (SQLSTATE `23505`) maps to **409** "You already have a report for {month} {year}. Edit the existing report instead." (Express returned 400 from a non-atomic check.)
+4. Respond **201** with the report. `reports:write`; the `CREATE_REPORT` audit row is written in the same transaction.
 
 ### 14.2 List Reports (filters + pagination)
-1. `RequireAuth`; parse `page`, `limit` (clamped), and filters.
-2. Build the query with Squirrel: `year =`, and **escaped, parameterised** partial matches (`ILIKE` with wildcard escaping) for month, worker, area, church.
-3. `COUNT(*)` for the total, then `ORDER BY year DESC, created_at DESC LIMIT/OFFSET`.
-4. Respond **200** `{data, meta}`. Per the reference, every authenticated user sees all reports (no automatic owner restriction).
+1. `RequireAuth` and `reports:read`; parse `page`, `limit` (clamped), and filters.
+2. The service limits the list to the caller's own reports unless they hold `reports:read_any` (D-1).
+3. Build the query with Squirrel: `year =`, `lower(month) = lower(?)`, and **escaped, parameterised** partial matches (`ILIKE` with wildcard escaping) for worker, area, church. Soft-deleted rows are excluded.
+4. `COUNT(*)` for the total, then `ORDER BY year DESC, created_at DESC, id DESC LIMIT/OFFSET`; metrics for the page are loaded with one `report_id IN (...)` query.
+5. Respond **200** `{data, meta}`.
 
 ### 14.3 Read One Report
-1. Parse `:id` (non-numeric: **400**); load report and metrics.
-2. Not found: **404**. No ownership check (reference behaviour). **200** with the report.
+1. Parse `:id` (non-numeric or not positive: **400**); `reports:read`.
+2. Missing, soft-deleted, or another person's report without `reports:read_any`: **404** (not 403, so existence is not revealed). Otherwise **200** with the report and its metrics.
 
-### 14.4 Update Report (owner or admin)
-1. Load report; **404** if missing.
-2. Allowed if `created_by` = session user **or** role is admin; otherwise **403**.
-3. Ignore `created_by` and `completed` in the body; validate; update scalars and replace metric rows in one transaction; set `updated_at`.
-4. Changing month/year may hit the unique index: **409**.
-5. **200** with the updated report.
-
-### 14.5 Delete Report (owner or admin, audit logged)
-1. Load report; **404** if missing; owner-or-admin check (**403**).
-2. Delete (metrics cascade) and write audit entry `DELETE_REPORT` in the same transaction.
-3. Express logged only **admin** deletes; this proposal logs **all** deletes with the actor's role (open question).
-4. **200** `{"message":"Report deleted successfully"}` (or **204**, to match existing delete endpoints).
-
-### 14.6 Toggle Complete (admin only, audit logged)
-1. `RequireRole("admin")` (or `reports:approve`).
-2. Load report (**404**); flip `completed`; optionally set `completed_at`/`completed_by` (open question).
-3. Audit entry `APPROVE_REPORT` or `UNAPPROVE_REPORT` in the same transaction.
+### 14.4 Update Report (owner, or `reports:write_any`)
+1. `reports:write`; load the report. **404** if missing, deleted, or someone else's without `reports:write_any`.
+2. Ignore `created_by` and `completed` in the body; validate; replace the scalar fields and the whole metric set in one transaction (D-5), clearing any text field the body leaves out (empty becomes NULL, D-8); write the `UPDATE_REPORT` audit row in the same transaction. A missing `year` keeps the report's current year.
+3. Changing month/year may hit the unique index: **409**.
 4. **200** with the updated report.
-5. Once completed, should owners still be allowed to edit? The reference allows it; see open questions.
+
+### 14.5 Delete Report (owner, or `reports:delete_any`; audit logged)
+1. `reports:delete`; load the report. **404** if missing, deleted, or someone else's without `reports:delete_any`.
+2. Soft delete (set `deleted_at`; metrics stay) and write the `DELETE_REPORT` audit row in the same transaction. All deletes are logged, with the actor's name and role.
+3. **204** with no body, matching the other delete endpoints.
+
+### 14.6 Toggle Complete (`reports:approve`, audit logged)
+1. `reports:approve`. Approval is global: it works on any report by ID, regardless of owner.
+2. In one statement, flip `completed` and set or clear `completed_at` and `completed_by`; **404** if the report is missing or deleted.
+3. Write `APPROVE_REPORT` or `UNAPPROVE_REPORT` in the same transaction, depending on the new state.
+4. **200** with **metadata only**: `id`, `completed`, `completed_at`, `completed_by`. It never returns report text, because a role with `approve` may not be allowed to read the report. Clients call GET /reports/:id if they may.
+5. Once completed, owners can still edit the report (the reference allowed it).
 
 ### 14.7 Log Download (dropped)
 Dropped by D-10 (Option 2): there is no `POST /reports/log-download`. A client-asserted download log is forgeable and skippable, so it proves nothing. A `DOWNLOAD_*` audit entry will be written server-side by a future Excel export endpoint.
