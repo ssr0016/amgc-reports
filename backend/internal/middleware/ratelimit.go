@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -154,9 +155,26 @@ func RateLimit(r rate.Limit, burst int) echo.MiddlewareFunc {
 			ip := rateLimitKey(c)
 			limiter := store.getLimiter(ip)
 			if !limiter.Allow() {
+				if secs := retryAfterSeconds(limiter, r); secs > 0 {
+					c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(secs))
+				}
 				return apperror.RateLimit("rate limit exceeded, try again later")
 			}
 			return next(c)
 		}
 	}
+}
+
+// retryAfterSeconds returns the whole seconds until the limiter holds a token
+// again, at least 1, or 0 when it never refills. It only reads the bucket:
+// reserving a token here would push a denied client's wait further out.
+func retryAfterSeconds(l *rate.Limiter, r rate.Limit) int {
+	if r <= 0 {
+		return 0
+	}
+	secs := math.Ceil((1 - l.Tokens()) / float64(r))
+	if secs < 1 {
+		return 1
+	}
+	return int(secs)
 }

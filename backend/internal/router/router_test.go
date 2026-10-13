@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -141,6 +142,44 @@ func TestTokenRoutes_RateLimited(t *testing.T) {
 			}
 			if errCode != "RATE_LIMIT_EXCEEDED" {
 				t.Errorf("request 4: error code = %q, want RATE_LIMIT_EXCEEDED", errCode)
+			}
+		})
+	}
+}
+
+// Each limited route tells the client how long to wait, at most its own refill
+// time: 12s for login (5 per minute), 60s and 600s for the token routes.
+func TestLimitedRoutes_429CarriesRetryAfter(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		maxSec int
+	}{
+		{"POST login", http.MethodPost, loginPath, 12},
+		{"GET verify-email", http.MethodGet, verifyEmailPath, 60},
+		{"POST forgot-password", http.MethodPost, forgotPasswordPath, 600},
+		{"POST reset-password", http.MethodPost, resetPasswordPath, 60},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := newTestServer()
+			var rec *httptest.ResponseRecorder
+			for i := 0; i < 4; i++ {
+				rec = httptest.NewRecorder()
+				e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), tt.method, tt.path, nil))
+			}
+
+			if rec.Code != http.StatusTooManyRequests {
+				t.Fatalf("request 4: status = %d, want %d", rec.Code, http.StatusTooManyRequests)
+			}
+			secs, err := strconv.Atoi(rec.Header().Get("Retry-After"))
+			if err != nil {
+				t.Fatalf("Retry-After = %q, want an integer: %v", rec.Header().Get("Retry-After"), err)
+			}
+			if secs < 1 || secs > tt.maxSec {
+				t.Errorf("Retry-After = %d, want 1..%d", secs, tt.maxSec)
 			}
 		})
 	}

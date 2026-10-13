@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -298,5 +299,124 @@ func TestRateLimit_DifferentPrefixesAndIPv4NeighboursAreIndependent(t *testing.T
 	}
 	if got := statusFor(e, "203.0.113.8"); got != http.StatusOK {
 		t.Errorf("neighbouring IPv4: status = %d, want 200", got)
+	}
+}
+
+func newLimitedEcho(r rate.Limit, burst int) *echo.Echo {
+	e := echo.New()
+	e.HTTPErrorHandler = apperror.ErrorHandler
+	e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) }, RateLimit(r, burst))
+	return e
+}
+
+// responseFor sends one request as a fixed client.
+func responseFor(e *echo.Echo) *httptest.ResponseRecorder {
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set(echo.HeaderXForwardedFor, "198.51.100.1")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+// exhaust spends the whole burst and returns the response that is then denied.
+func exhaust(t *testing.T, e *echo.Echo, burst int) *httptest.ResponseRecorder {
+	t.Helper()
+	for i := 1; i <= burst; i++ {
+		if got := responseFor(e).Code; got != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want 200", i, got)
+		}
+	}
+	rec := responseFor(e)
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("after the burst: status = %d, want 429", rec.Code)
+	}
+	return rec
+}
+
+func retryAfter(t *testing.T, rec *httptest.ResponseRecorder) int {
+	t.Helper()
+	v := rec.Header().Get("Retry-After")
+	if v == "" {
+		t.Fatal("429 has no Retry-After header")
+	}
+	secs, err := strconv.Atoi(v)
+	if err != nil {
+		t.Fatalf("Retry-After = %q, want delay-seconds (an integer): %v", v, err)
+	}
+	return secs
+}
+
+// A client that is told when to come back does not have to guess. The value is
+// the time until the bucket holds a token again.
+func TestRateLimit_429CarriesRetryAfterSeconds(t *testing.T) {
+	rec := exhaust(t, newLimitedEcho(rate.Every(10*time.Minute), 3), 3)
+
+	// One token refills every 600s; a few milliseconds have passed.
+	if got := retryAfter(t, rec); got < 599 || got > 600 {
+		t.Errorf("Retry-After = %d, want 599..600", got)
+	}
+}
+
+func TestRateLimit_RetryAfterFollowsTheLimiterRate(t *testing.T) {
+	tests := []struct {
+		name     string
+		r        rate.Limit
+		burst    int
+		min, max int
+	}{
+		{"1 per minute", rate.Every(time.Minute), 1, 59, 60},
+		{"5 per minute", rate.Limit(5.0 / 60.0), 3, 11, 12},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := retryAfter(t, exhaust(t, newLimitedEcho(tt.r, tt.burst), tt.burst))
+			if got < tt.min || got > tt.max {
+				t.Errorf("Retry-After = %d, want %d..%d", got, tt.min, tt.max)
+			}
+		})
+	}
+}
+
+// A sub-second wait still has to say "1": 0 would invite an immediate retry.
+func TestRateLimit_RetryAfterIsAtLeastOneSecond(t *testing.T) {
+	rec := exhaust(t, newLimitedEcho(rate.Limit(10), 1), 1) // a token every 100ms
+
+	if got := retryAfter(t, rec); got != 1 {
+		t.Errorf("Retry-After = %d, want 1", got)
+	}
+}
+
+// Reading the wait must not spend tokens: hammering a denied client may not
+// push its retry time further out.
+func TestRateLimit_RetryAfterDoesNotGrowWithRepeatedDenials(t *testing.T) {
+	e := newLimitedEcho(rate.Every(10*time.Minute), 3)
+	exhaust(t, e, 3)
+
+	var last int
+	for i := 0; i < 5; i++ {
+		last = retryAfter(t, responseFor(e))
+	}
+	if last > 600 {
+		t.Errorf("Retry-After after 5 more denials = %d, want at most 600", last)
+	}
+}
+
+func TestRateLimit_AllowedResponseHasNoRetryAfter(t *testing.T) {
+	rec := responseFor(newLimitedEcho(rate.Every(time.Minute), 1))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if v := rec.Header().Get("Retry-After"); v != "" {
+		t.Errorf("Retry-After = %q on an allowed response, want none", v)
+	}
+}
+
+// A bucket that never refills has no honest retry time, so none is sent.
+func TestRateLimit_RetryAfterIsSkippedWhenRateIsZero(t *testing.T) {
+	rec := exhaust(t, newLimitedEcho(0, 1), 1)
+
+	if v := rec.Header().Get("Retry-After"); v != "" {
+		t.Errorf("Retry-After = %q for a limiter that never refills, want none", v)
 	}
 }
