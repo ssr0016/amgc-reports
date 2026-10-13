@@ -1589,19 +1589,19 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "week1": {
-                    "type": "string"
+                    "type": "number"
                 },
                 "week2": {
-                    "type": "string"
+                    "type": "number"
                 },
                 "week3": {
-                    "type": "string"
+                    "type": "number"
                 },
                 "week4": {
-                    "type": "string"
+                    "type": "number"
                 },
                 "week5": {
-                    "type": "string"
+                    "type": "number"
                 }
             }
         },

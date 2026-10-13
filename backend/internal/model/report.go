@@ -59,11 +59,11 @@ type AuditLog struct {
 // Values are JSON numbers backed by json.Number (D-4): at most 2 decimals, 0 to
 // 9,999,999,999.99.
 type MetricWeeks struct {
-	Week1 *json.Number `json:"week1,omitempty" validate:"omitempty,decimal12_2"`
-	Week2 *json.Number `json:"week2,omitempty" validate:"omitempty,decimal12_2"`
-	Week3 *json.Number `json:"week3,omitempty" validate:"omitempty,decimal12_2"`
-	Week4 *json.Number `json:"week4,omitempty" validate:"omitempty,decimal12_2"`
-	Week5 *json.Number `json:"week5,omitempty" validate:"omitempty,decimal12_2"`
+	Week1 *json.Number `json:"week1,omitempty" validate:"omitempty,decimal12_2" swaggertype:"number"`
+	Week2 *json.Number `json:"week2,omitempty" validate:"omitempty,decimal12_2" swaggertype:"number"`
+	Week3 *json.Number `json:"week3,omitempty" validate:"omitempty,decimal12_2" swaggertype:"number"`
+	Week4 *json.Number `json:"week4,omitempty" validate:"omitempty,decimal12_2" swaggertype:"number"`
+	Week5 *json.Number `json:"week5,omitempty" validate:"omitempty,decimal12_2" swaggertype:"number"`
 }
 
 // NonNil returns the supplied weeks keyed by week_no (1..5).
