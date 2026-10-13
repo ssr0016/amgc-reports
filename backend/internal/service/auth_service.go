@@ -27,17 +27,20 @@ const (
 
 type AuthService struct {
 	userRepo            repository.UserRepository
+	roleRepo            repository.RoleRepository // for Me; nil in callers that never call it
 	verificationService *VerificationService
 	log                 *slog.Logger
 }
 
 func NewAuthService(
 	userRepo repository.UserRepository,
+	roleRepo repository.RoleRepository,
 	verificationService *VerificationService,
 	log *slog.Logger,
 ) *AuthService {
 	return &AuthService{
 		userRepo:            userRepo,
+		roleRepo:            roleRepo,
 		verificationService: verificationService,
 		log:                 log,
 	}

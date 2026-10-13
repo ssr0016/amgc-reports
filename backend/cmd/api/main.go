@@ -196,7 +196,7 @@ func run() error {
 
 	// Services
 	verificationService := service.NewVerificationService(userRepo, verificationRepo, log)
-	authService := service.NewAuthService(userRepo, verificationService, log)
+	authService := service.NewAuthService(userRepo, roleRepo, verificationService, log)
 	passwordResetService := service.NewPasswordResetService(userRepo, passwordResetRepo, log)
 	reportService := service.NewReportService(reportRepo, auditRepo, repository.NewTxManager(db.Pool), db.Pool, userRepo, roleRepo)
 
