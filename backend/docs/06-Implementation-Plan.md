@@ -299,12 +299,12 @@ Details and "done when":
 | M-2 | `GET /users` documented as paginated but only `limit` works, returns a bare array | Correctness | 4h |
 | M-3 | Swagger success types wrong for paginated lists (`{array}` vs `{data, meta}`) | DX | 2h |
 | M-4 | Swagger `@Failure` missing on many handlers; middleware errors undocumented | DX | 4h |
-| M-5 | Swagger title/description/contact still the template's | DX | 1h |
+| M-5 | Swagger title/description/contact still the template's. **Delivered in 760f265**; the hours are accounting, not remaining work | DX | 1h |
 | M-6 | DTO location inconsistent (3 request DTOs live in handler files) | Maintainability | 4h |
 | M-7 | Session key constant (`UserIDKey`) not used (`"user_id"` literals) | Maintainability | 1h |
 | M-8 | Config loaded but ignored (`DB_*`, `SESSION_IDLE_TIMEOUT`); session reads env directly; align cookie `SameSite` policy | Correctness | 2h |
 | M-9 | Rate limiter improvements: per-route buckets, `Retry-After`, configurable limits (remainder of the "only on register/login" finding after C-5). **Partial: `Retry-After` delivered in 9e080e1** (delay-seconds from the limiter's bucket, exposed through CORS); configurable limits (env vars) remain open, so the hours still cover that work | Security | 3h |
-| M-10 | Template naming leftovers and stale docs (compose names, README URLs, ROADMAP "COMPLETE", Swagger host) | DX | 2h |
+| M-10 | Template naming leftovers and stale docs (compose names, README URLs, ROADMAP "COMPLETE", Swagger host). **Delivered in 94edf61 (compose names), e208b3e (README and ROADMAP, CUSTOMIZATION.md removed) and 760f265 (Swagger host)**; the hours are accounting, not remaining work | DX | 2h |
 | **Total** | | | **31h** |
 
 Notes:
@@ -768,6 +768,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.8 | 2026-10-12 | Claude Code | H-1 marked delivered (session user link, tombstone revocation, transactional `UpdatePassword`); H-2 re-scoped with rationale (no revocation on automatic lockout); hours unchanged, accounting only |
 | 1.9 | 2026-10-13 | Claude Code | H-7 marked delivered in 22b6390 (per-field validation `details`, constant `message`); hours unchanged, accounting only (actual about 1 to 1.5h) |
 | 1.10 | 2026-10-13 | Claude Code | M-9 partly delivered: `Retry-After` on 429 in 9e080e1 (delay-seconds, exposed through CORS); configurable limits (env vars) remain open; hours unchanged. Doc 04 corrected: `Retry-After` is now sent, `X-RateLimit-*` still is not |
+| 1.11 | 2026-10-13 | Claude Code | M-5 and M-10 marked delivered: Swagger metadata and host in 760f265, compose rename in 94edf61, README and ROADMAP rename with CUSTOMIZATION.md removed in e208b3e; hours unchanged, accounting only |
 
 ### 14.4 Deviations from the Requested Outline
 
