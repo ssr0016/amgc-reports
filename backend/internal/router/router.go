@@ -58,6 +58,20 @@ func Setup(
 	users.GET("/:id", userHandler.GetUser)
 
 	// ============================================================
+	// Reports (permission-gated; the service applies the _any ownership scope)
+	// ============================================================
+	perm := func(name string) echo.MiddlewareFunc {
+		return ourmiddleware.RequirePermission(roleRepo, userRepo, sm, name)
+	}
+	reports := api.Group("/reports", ourmiddleware.RequireAuth(sm))
+	reports.GET("", reportHandler.ListReports, perm("reports:read"))
+	reports.POST("", reportHandler.CreateReport, perm("reports:write"))
+	reports.GET("/:id", reportHandler.GetReport, perm("reports:read"))
+	reports.PUT("/:id", reportHandler.UpdateReport, perm("reports:write"))
+	reports.DELETE("/:id", reportHandler.SoftDeleteReport, perm("reports:delete"))
+	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, perm("reports:approve"))
+
+	// ============================================================
 	// Admin routes (RBAC-protected)
 	// ============================================================
 	admin := api.Group("/admin",
@@ -84,6 +98,5 @@ func Setup(
 	admin.GET("/users/:id", adminUserHandler.GetUser)
 	admin.PUT("/users/:id/role", adminUserHandler.ChangeRole)
 
-	_ = roleRepo      // referenced in RequireRole
-	_ = reportHandler // routes are registered in the next commit
+	_ = roleRepo // referenced in RequireRole
 }
