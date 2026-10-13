@@ -1,0 +1,147 @@
+# 08 Frontend Plan (Phase 4)
+
+**Status:** Reviewed by the owner. Frontend work is not started; the backend task B-F1 (section 2.1) is implemented.
+**Depends on:** `05-Backend-Schema.md`, `07-Reports-Decisions.md`, `API.md`, and the Swagger spec (`docs.go`, `swagger.json`).
+**Scope:** the Reports feature for signed-in users (login, list, create, edit, delete, approve). Out of scope for v1: admin screens (roles, permissions, users), Excel export (see D-10), email flows (E-1).
+
+## 1. Decisions
+
+### 1.1 Domain layout: custom domain, two subdomains (owner decision)
+
+`up.railway.app` is on the Public Suffix List, so two `*.up.railway.app` hosts are different sites. The Strict CSRF cookie would not be sent, and every write would fail (PRD R-02). Decision: one registrable domain, two subdomains.
+
+| Host | Serves | Hosting |
+|---|---|---|
+| `app.<domain>` | Next.js frontend | Vercel (D-F2) |
+| `api.<domain>` | Go backend | Railway (custom domain) |
+
+Both hosts are the same site, so the `Lax` session cookie and the `Strict` CSRF cookie are both sent on `fetch` with `credentials: "include"`. No backend code change is needed. Rejected: a same-origin proxy (every request would reach the backend from the proxy's IP, so the per-IP auth limiters would share one bucket; the IP trust would have to be re-measured) and `SameSite=None` (both cookies would have to change, and CSRF protection gets weaker).
+
+Backend configuration only:
+- `CORS_ALLOWED_ORIGINS=https://app.<domain>` (it defaults to `http://localhost:3000`).
+- `APP_URL=https://api.<domain>`; `APP_ENV=production` (the session cookie is `Secure` only then).
+- Railway custom domain `api.<domain>`; check `/health` and that `peer_ip` and `remote_ip` in the logs still look right (the real client IP must come through the Railway edge as before).
+
+### 1.2 Data fetching: from the browser (client-side)
+
+The session cookie has no `Domain`, so it belongs to `api.<domain>` only. The Next.js server on `app.<domain>` never receives it. Consequences:
+- Authenticated data is fetched from the browser (`fetch` with `credentials: "include"`), not in Server Components.
+- `proxy.ts` (formerly middleware) cannot see the session, so it cannot gate pages. Route protection is client-side: a layout checks the session and redirects to `/login`. Expect a brief loading state, not a flash of private content, because the pages hold no data until the API answers.
+- Optional later change (backend): set `Domain=.<domain>` on the session cookie. Then Server Components and `proxy.ts` could use it. That is a security-relevant change (the cookie goes to every subdomain), so it is not in v1. Record it as D-F1.
+
+### 1.3 Framework
+
+Next.js 16.4 (existing scaffold), React 19, Tailwind 4, TypeScript. `cacheComponents` is already enabled in `next.config.ts`; pages that show private data are client components, so they are not prerendered with user data. **Next 16 differs from earlier versions** (`middleware` is now `proxy`; Cache Components changes how request-time data works). Before writing any code, read the relevant guides in `frontend/node_modules/next/dist/docs/01-app/02-guides/` (`authentication-with-cache-components.md`, `data-security.md`, `forms.md`, `client-side-data-fetching/`) and the `proxy.md` file convention.
+
+Libraries (small, to be confirmed at setup): a data-fetching cache (TanStack Query or SWR), a schema validator for forms (Zod), and Vitest plus Testing Library and Playwright for tests. No UI kit is decided; Tailwind only for v1.
+
+## 2. Backend contract the frontend relies on
+
+| Topic | Behaviour |
+|---|---|
+| CSRF | `GET /auth/csrf` returns `{"csrf_token": "..."}` and sets the `HttpOnly` `csrf_token` cookie. Send the token as `X-CSRF-Token` on every POST, PUT, PATCH and DELETE. A missing or wrong token is 403 (`CSRF token invalid or missing`). Keep the token in memory; refetch once on that 403. |
+| Session | Cookie set by login. Lifetime 24 h, idle timeout 30 min. Any 401 means "not signed in": clear client state and go to `/login`. |
+| Numbers | JSON numbers, 0 to 9999999999.99, at most 2 decimals. The server returns the database scale (`0.5` comes back as `0.50`). Use `json.Number`-safe handling: parse with `Number()` for display, but send the user's text as a number without float rounding (for example parse the string, validate it, send as a number literal). A reported `0` is different from an absent week. |
+| Metrics | 21 snake_case keys: `worship_service`, `sunday_school`, `prayer_meeting`, `bible_studies`, `mens_fellowship`, `womens_fellowship`, `youth_fellowship`, `children_fellowship`, `tithes_offering`, `home_visited`, `bible_study_group_led`, `sermon_preached`, `person_newly_contacted`, `person_followed_up`, `person_evangelized`, `outreach`, `training`, `leadership`, `baptism`, `other`, `family_day`. Weeks `week1` to `week5`; send only weeks with a value. |
+| Update | `PUT` is a full replace. Every text field left out is cleared, and the whole metric set is replaced. The edit form must send every field. A missing `year` keeps the current one. |
+| Toggle | `PATCH /reports/:id/complete` returns metadata only (`id`, `completed`, `completed_at`, `completed_by`). Merge it into the cached report; do not expect text fields. |
+| Delete | 204, no body. The month and year can be filed again. |
+| IDs | May have gaps. Never assume contiguous IDs. |
+| List | `{data, meta: {page, limit, total, total_pages}}`; `limit` 1 to 100; filters `month`, `year`, `worker`, `area`, `church`. Without `reports:read_any` the server returns only the caller's reports. |
+| Empty fields | Empty text is stored as NULL and omitted from responses. Treat a missing field as `""`. |
+
+### 2.1 Role and permissions in `/auth/me` (B-F1, implemented)
+
+`GET /auth/me` returns `{"user_id", "name", "email", "role", "permissions": [...]}`. `permissions` is always an array (never null), sorted by name, for example `["reports:delete", "reports:read", "reports:write", "users:read"]`. A user without a role gets `"role": ""` and `[]`. The values are read live from the database, so a role change shows on the next call; do not cache them past the session, and call `/auth/me` once at app start and after login, not on a timer (it costs two queries). A 401 means the session is gone or its user was deleted. The UI uses the list to show or hide actions (for example Approve needs `reports:approve`; seeing everyone's reports needs `reports:read_any`); the server still enforces everything.
+
+## 3. Auth flow
+
+1. App start: `GET /auth/csrf` (sets the cookie, returns the token), then `GET /auth/me`. 200 means signed in; 401 means show `/login`.
+2. Register: `POST /auth/register` (`email`, `name`, `password`; password rules from the validator). 409 means the email is taken. Rate limited (5 per minute per IP, burst 3): show the `Retry-After` wait on 429. New accounts get the `user` role. Email verification is not enforced at login (H-3 is blocked on E-1).
+3. Login: `POST /auth/login`. 401 invalid credentials, 403 account locked (show "try again later"). The server renews the session token; refetch `/auth/csrf` and `/auth/me` afterwards.
+4. Logout: `POST /auth/logout`, clear all client caches.
+5. Any 401 mid-session: clear caches, redirect to `/login`, keep the intended URL.
+
+## 4. Features (v1)
+
+| Screen | Behaviour |
+|---|---|
+| Login, Register | As above. Field errors from 422 `details` (a map of field name to message). |
+| Reports list | Filters (month, year, worker, area, church), pagination, newest first, loading and empty states. Rows show month, year, worker, church, completed badge. |
+| Report form (create and edit) | Fields per D-7 limits (`worker`, `area_assignment`, `church_name` ≤ 150; `names` ≤ 5,000; `narrative_report`, `challenges`, `prayer_request` ≤ 10,000; year 2000 to 2100). Metrics grid: 21 metrics by 5 weeks, decimals with at most 2 places, blank means not reported, `0` means reported zero. Edit loads the full report and sends every field. Warn before leaving with unsaved changes. |
+| Report detail | Read-only view, with Edit, Delete and (if permitted) Approve or Unapprove. |
+| Delete | Confirm dialog, then soft delete. |
+| Approve | Visible to users with `reports:approve`. Optimistic update from the metadata response. |
+| Excel export | Out of scope (D-10: the audit must be written server-side where the download happens, so the export waits for a server endpoint). |
+
+## 5. Error handling
+
+| Status | Meaning | UI |
+|---|---|---|
+| 401 | No or expired session | Clear state, go to login, return to the page after sign-in |
+| 403 `CSRF token invalid or missing` | Stale CSRF token | Refetch the token and retry the request once |
+| 403 `insufficient permissions` | Missing permission | Show a "not allowed" message; hide the control next time |
+| 404 | Missing, deleted, or not yours (the same response, by design) | "Report not found" page |
+| 409 | Duplicate month and year (create or edit) | Inline message on the month field with a link to the existing report if known |
+| 422 | Validation failed | Map `details` (field to message) onto form fields |
+| 429 | Rate limited | Read the `Retry-After` header (exposed by CORS), disable the action and show a countdown |
+| 500 | Server error | Generic message; the response carries no detail |
+| Network | Offline or timeout | Retry option; never discard the user's form input |
+
+All error bodies look like `{"error": CODE, "message": text}`, plus `details` for 422.
+
+Rate limits to know: reports writes are 60 per minute with a burst of 10, per signed-in user. Auth routes are per IP: login and register 5 per minute with burst 3.
+
+## 6. Testing strategy
+
+- **Unit (Vitest):** API client (CSRF retry, 401 handling, 429 parsing, error mapping), number and metric handling, form schema.
+- **Component (Testing Library):** list filters and pagination, form validation and full-replace behaviour, permission-gated buttons.
+- **End to end (Playwright):** against a local backend and Postgres: register, login, create, duplicate (409), edit, approve as editor (403 as user), delete, logout. Runs in CI with a Postgres service.
+- **Contract:** types generated from `swagger.json` (convert Swagger 2.0 to OpenAPI 3 first) and checked in CI so a backend change breaks the build, not the user.
+- **Production smoke:** with a dedicated test account and fake data (audit rows are permanent).
+
+## 7. Deployment
+
+- Frontend on Vercel, Netlify or Cloudflare Pages at `app.<domain>`; one environment variable `NEXT_PUBLIC_API_URL=https://api.<domain>/api/v1`.
+- Backend: Railway custom domain `api.<domain>`; set `CORS_ALLOWED_ORIGINS`, `APP_URL` (section 1.1).
+- Local development: frontend on `http://localhost:3000`, backend on `http://localhost:8080`. The default `CORS_ALLOWED_ORIGINS` already allows this. Both are `localhost`, which browsers treat as the same site, so the cookies work without HTTPS; the session cookie is `Secure` only when `APP_ENV=production`.
+- CI: the existing frontend job (install, lint, build) gains typecheck, unit tests and, later, the Playwright job.
+
+## 8. Task breakdown and estimates
+
+Hours are for one developer and are estimates, not commitments. They exclude Excel export and admin screens.
+
+| ID | Task | Hours |
+|---|---|---|
+| F0 | Buy the domain, DNS, Railway custom domain, hosting project, env vars, CORS and `APP_URL`; verify cookies and `Secure` flags in production | 3 |
+| F1 | Read the Next 16 docs listed in 1.3; project setup (env, folders, lint, typecheck) | 3 |
+| F2 | API client: fetch wrapper with credentials, CSRF fetch and retry, error mapping, 429 and 401 handling | 5 |
+| F3 | Generated types from the Swagger spec, checked in CI | 2 |
+| B-F1 | Backend: role and permissions in `/auth/me` (section 2.1). **Delivered** (commits 874830c, 510e294); not counted in the total | 0 |
+| F4 | Auth UI: register, login, logout, session bootstrap, client-side route guard | 8 |
+| F5 | Permissions context from `/auth/me` and gated controls | 2 |
+| F6 | Reports list: filters, pagination, states | 8 |
+| F7 | Report form: create and edit, 21 by 5 metrics grid, validation, full-replace, unsaved-changes guard | 16 |
+| F8 | Report detail and delete with confirmation | 4 |
+| F9 | Approve and unapprove UI | 3 |
+| F10 | Error UX across screens (409, 422 mapping, 429 countdown, network) | 5 |
+| F11 | Tests: unit 6, component 6, Playwright 10 | 22 |
+| F12 | CI: typecheck, tests, Playwright with Postgres | 4 |
+| F13 | Accessibility and responsive polish | 6 |
+| F14 | Production smoke test and fixes | 2 |
+| | **Total** | **93** |
+
+Suggested order: F0 and F1 first (they unblock everything and carry the infrastructure risk), then F2, F3, F4, F5, then F6 to F10 as vertical slices (list, then form, then detail, delete and approve), tests alongside each slice, and F12 to F14 last.
+
+## 9. Open decisions and risks
+
+| ID | Question | Notes |
+|---|---|---|
+| D-F1 | Set `Domain=.<domain>` on the session cookie so Server Components and `proxy.ts` can use the session? | Not in v1. Security trade-off: the cookie is sent to every subdomain. |
+| D-F2 | Which domain, and which hosting? | **Decided (owner):** a cheap `.com` or `.app` domain (for example `amgreports.com`; not bought yet) and Vercel (native Next.js, free tier). |
+| D-F3 | Approve B-F1 (permissions in `/auth/me`)? | **Decided and delivered.** |
+| D-F4 | English labels for the 21 metrics in the UI | Deferred. The API only has the snake_case keys. No label table exists yet; write one when F7 starts. |
+| D-F5 | Excel export timing | Waits for a server-side export endpoint (D-10). |
+| R-F1 | The first production run on a custom domain is untested: cookie `Secure` flags, CSRF cookie scheme detection behind the proxy, `peer_ip` and `remote_ip` | Verify in F0 before building features on top. |
+| R-F2 | The scaffold is Next 16.4, whose conventions differ from older versions | Read the bundled docs first (section 1.3). |
+| R-F3 | Phone and slow-network use is likely for church workers | Keep the form resilient (save-draft locally, never lose input on a failed save). |
