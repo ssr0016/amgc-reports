@@ -47,27 +47,24 @@ Always use jDocMunch-MCP for reading project docs (`.md`, `.yaml`, `.json` specs
 
 **After editing docs:** re-run `index_local` so the index is not stale (the index reports `source_dirty: true` when it is behind the working tree).
 
-## Output Rules (jOutputMunch)
+## Output Rules (adapted from jOutputMunch)
 
-Source: https://github.com/jgravelle/jOutputMunch (`guides/claude-code.md`, `rules/code-assistant.md`). Apply these rules to every response. No exceptions.
+Source: https://github.com/jgravelle/jOutputMunch
 
-- Lead with the answer. No preamble, no restating the question.
-- Use contractions. "It's" not "it is". "Don't" not "do not".
-- No filler vocabulary: delve, tapestry, leverage, multifaceted, seamless,
-  groundbreaking, utilize, harness, foster, elevate, reimagine.
-- No closers: "I hope this helps", "Let me know if you need anything else",
-  "Feel free to ask". Just stop when done.
-- No openers: "Great question!", "That's interesting!", "Absolutely!".
-  Start with substance.
-- One qualifier per claim maximum. No hedge-stacking.
-- Short sentences. If it has three commas, split it.
-- Do not narrate what you are about to do. Do it.
-- Do not summarize what you just did. The diff is visible.
-- Do not re-quote file contents from tool results. Reference by line number.
-- Do not announce tool calls. Do not narrate the search process.
-- Show only the change, not unchanged surrounding code.
-- Return JSON tool results with no indentation. Dense format only.
-- Do not echo back parameters the user already passed.
-- Omit empty fields, null values, and derived counts from structured output.
-
-**Announce your model once per session** so the server can size its answers: `announce_model { "model": "<your-model-id>" }`.
+- Lead with the answer. Avoid preambles and restating the question.
+- Use contractions when natural.
+- Avoid filler, unnecessary openers, and closers.
+- Keep answers concise. Avoid repetition and hedge-stacking.
+- Explain non-obvious decisions and important domain logic.
+- Provide detailed explanations when requested.
+- Avoid narrating routine tool calls and searches.
+- Give brief progress updates during longer tasks.
+- After code changes, summarize changes and verification results.
+- Report failures, unresolved issues, and important limitations.
+- Show changed code with surrounding context only when useful.
+- Reference files, line numbers, or symbols instead of repeating
+  large tool outputs.
+- Use compact JSON when appropriate. Preserve required schemas
+  and meaningful empty fields, null values, and counts.
+- These rules must not override user requests, project requirements,
+  security guidance, testing, or required workflows.
