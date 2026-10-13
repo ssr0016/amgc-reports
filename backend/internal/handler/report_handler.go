@@ -68,6 +68,21 @@ func reportID(c echo.Context) (int64, error) {
 	return id, nil
 }
 
+// CreateReport godoc
+// @Summary      Create report
+// @Description  Files a monthly report for the current user. A missing year defaults to the current year.
+// @Tags         reports
+// @Accept       json
+// @Produce      json
+// @Security     CookieAuth
+// @Param        body body model.CreateReportRequest true "Report payload"
+// @Success      201 {object} model.ReportResponse
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      409 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Router       /reports [post]
 func (h *ReportHandler) CreateReport(c echo.Context) error {
 	uid, err := h.userID(c)
 	if err != nil {
@@ -87,6 +102,19 @@ func (h *ReportHandler) CreateReport(c echo.Context) error {
 	return c.JSON(http.StatusCreated, rep)
 }
 
+// GetReport godoc
+// @Summary      Get report
+// @Description  Returns one report. Without reports:read_any only the caller's own report is visible; another user's report is 404.
+// @Tags         reports
+// @Produce      json
+// @Security     CookieAuth
+// @Param        id path int true "Report ID"
+// @Success      200 {object} model.ReportResponse
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /reports/{id} [get]
 func (h *ReportHandler) GetReport(c echo.Context) error {
 	uid, err := h.userID(c)
 	if err != nil {
@@ -103,6 +131,24 @@ func (h *ReportHandler) GetReport(c echo.Context) error {
 	return c.JSON(http.StatusOK, rep)
 }
 
+// ListReports godoc
+// @Summary      List reports
+// @Description  Returns a page of reports, newest first. Without reports:read_any the list is limited to the caller's own reports.
+// @Tags         reports
+// @Produce      json
+// @Security     CookieAuth
+// @Param        page query int false "Page number (default 1)"
+// @Param        limit query int false "Limit (default 20, max 100)"
+// @Param        month query string false "Month name, case-insensitive"
+// @Param        year query int false "Year"
+// @Param        worker query string false "Partial, case-insensitive match"
+// @Param        area query string false "Partial, case-insensitive match on area assignment"
+// @Param        church query string false "Partial, case-insensitive match on church name"
+// @Success      200 {object} pagination.Response[model.ReportResponse]
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Router       /reports [get]
 func (h *ReportHandler) ListReports(c echo.Context) error {
 	uid, err := h.userID(c)
 	if err != nil {
@@ -133,6 +179,23 @@ func (h *ReportHandler) ListReports(c echo.Context) error {
 	})
 }
 
+// UpdateReport godoc
+// @Summary      Update report
+// @Description  Replaces the report's fields and its whole metric set. A missing year keeps the current year. Without reports:write_any only the caller's own report can be updated.
+// @Tags         reports
+// @Accept       json
+// @Produce      json
+// @Security     CookieAuth
+// @Param        id path int true "Report ID"
+// @Param        body body model.UpdateReportRequest true "Report payload"
+// @Success      200 {object} model.ReportResponse
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Failure      409 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Router       /reports/{id} [put]
 func (h *ReportHandler) UpdateReport(c echo.Context) error {
 	uid, err := h.userID(c)
 	if err != nil {
@@ -156,6 +219,18 @@ func (h *ReportHandler) UpdateReport(c echo.Context) error {
 	return c.JSON(http.StatusOK, rep)
 }
 
+// SoftDeleteReport godoc
+// @Summary      Delete report
+// @Description  Soft-deletes a report. Without reports:delete_any only the caller's own report can be deleted.
+// @Tags         reports
+// @Security     CookieAuth
+// @Param        id path int true "Report ID"
+// @Success      204
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /reports/{id} [delete]
 func (h *ReportHandler) SoftDeleteReport(c echo.Context) error {
 	uid, err := h.userID(c)
 	if err != nil {
@@ -171,7 +246,19 @@ func (h *ReportHandler) SoftDeleteReport(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// ToggleComplete returns metadata only, never report text (D-1).
+// ToggleComplete godoc
+// @Summary      Approve or unapprove report
+// @Description  Flips the report's completed flag. Requires reports:approve, which works on any report by ID. Returns metadata only, never report text.
+// @Tags         reports
+// @Produce      json
+// @Security     CookieAuth
+// @Param        id path int true "Report ID"
+// @Success      200 {object} model.ReportMetadata
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /reports/{id}/complete [patch]
 func (h *ReportHandler) ToggleComplete(c echo.Context) error {
 	uid, err := h.userID(c)
 	if err != nil {

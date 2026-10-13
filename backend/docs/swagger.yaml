@@ -14,6 +14,55 @@ definitions:
     required:
     - role_id
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.CreateReportRequest:
+    properties:
+      area_assignment:
+        maxLength: 150
+        type: string
+      challenges:
+        maxLength: 10000
+        type: string
+      church_name:
+        maxLength: 150
+        type: string
+      metrics:
+        additionalProperties:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks'
+        type: object
+      month:
+        enum:
+        - January
+        - February
+        - March
+        - April
+        - May
+        - June
+        - July
+        - August
+        - September
+        - October
+        - November
+        - December
+        type: string
+      names:
+        maxLength: 5000
+        type: string
+      narrative_report:
+        maxLength: 10000
+        type: string
+      prayer_request:
+        maxLength: 10000
+        type: string
+      worker:
+        maxLength: 150
+        type: string
+      year:
+        maximum: 2100
+        minimum: 2000
+        type: integer
+    required:
+    - month
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.CreateRoleRequest:
     properties:
       description:
@@ -35,6 +84,19 @@ definitions:
     required:
     - email
     - password
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks:
+    properties:
+      week1:
+        type: string
+      week2:
+        type: string
+      week3:
+        type: string
+      week4:
+        type: string
+      week5:
+        type: string
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse:
     properties:
@@ -62,6 +124,56 @@ definitions:
     - name
     - password
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata:
+    properties:
+      completed:
+        type: boolean
+      completed_at:
+        type: string
+      completed_by:
+        type: integer
+      id:
+        type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse:
+    properties:
+      area_assignment:
+        type: string
+      challenges:
+        type: string
+      church_name:
+        type: string
+      completed:
+        type: boolean
+      completed_at:
+        type: string
+      completed_by:
+        type: integer
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      id:
+        type: integer
+      metrics:
+        additionalProperties:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks'
+        type: object
+      month:
+        type: string
+      names:
+        type: string
+      narrative_report:
+        type: string
+      prayer_request:
+        type: string
+      updated_at:
+        type: string
+      worker:
+        type: string
+      year:
+        type: integer
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse:
     properties:
       created_at:
@@ -78,6 +190,55 @@ definitions:
         type: array
       updated_at:
         type: string
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateReportRequest:
+    properties:
+      area_assignment:
+        maxLength: 150
+        type: string
+      challenges:
+        maxLength: 10000
+        type: string
+      church_name:
+        maxLength: 150
+        type: string
+      metrics:
+        additionalProperties:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks'
+        type: object
+      month:
+        enum:
+        - January
+        - February
+        - March
+        - April
+        - May
+        - June
+        - July
+        - August
+        - September
+        - October
+        - November
+        - December
+        type: string
+      names:
+        maxLength: 5000
+        type: string
+      narrative_report:
+        maxLength: 10000
+        type: string
+      prayer_request:
+        maxLength: 10000
+        type: string
+      worker:
+        maxLength: 150
+        type: string
+      year:
+        maximum: 2100
+        minimum: 2000
+        type: integer
+    required:
+    - month
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateRoleRequest:
     properties:
@@ -105,6 +266,26 @@ definitions:
         type: string
       role_id:
         type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  ? github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse
+  : properties:
+      data:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse'
+        type: array
+      meta:
+        $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta'
     type: object
   internal_handler.CSRFTokenResponse:
     properties:
@@ -700,6 +881,322 @@ paths:
       summary: Readiness check
       tags:
       - system
+  /reports:
+    get:
+      description: Returns a page of reports, newest first. Without reports:read_any
+        the list is limited to the caller's own reports.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Limit (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Month name, case-insensitive
+        in: query
+        name: month
+        type: string
+      - description: Year
+        in: query
+        name: year
+        type: integer
+      - description: Partial, case-insensitive match
+        in: query
+        name: worker
+        type: string
+      - description: Partial, case-insensitive match on area assignment
+        in: query
+        name: area
+        type: string
+      - description: Partial, case-insensitive match on church name
+        in: query
+        name: church
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: List reports
+      tags:
+      - reports
+    post:
+      consumes:
+      - application/json
+      description: Files a monthly report for the current user. A missing year defaults
+        to the current year.
+      parameters:
+      - description: Report payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.CreateReportRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create report
+      tags:
+      - reports
+  /reports/{id}:
+    delete:
+      description: Soft-deletes a report. Without reports:delete_any only the caller's
+        own report can be deleted.
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete report
+      tags:
+      - reports
+    get:
+      description: Returns one report. Without reports:read_any only the caller's
+        own report is visible; another user's report is 404.
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get report
+      tags:
+      - reports
+    put:
+      consumes:
+      - application/json
+      description: Replaces the report's fields and its whole metric set. A missing
+        year keeps the current year. Without reports:write_any only the caller's own
+        report can be updated.
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Report payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateReportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update report
+      tags:
+      - reports
+  /reports/{id}/complete:
+    patch:
+      description: Flips the report's completed flag. Requires reports:approve, which
+        works on any report by ID. Returns metadata only, never report text.
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Approve or unapprove report
+      tags:
+      - reports
   /users:
     get:
       description: Returns paginated list of users
