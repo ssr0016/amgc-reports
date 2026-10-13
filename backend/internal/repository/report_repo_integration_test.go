@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -146,4 +147,50 @@ func TestReportRepo(t *testing.T) {
 		_, err = repo.Create(ctx, db.Pool, user.ID, 2026, mk("January", "", nil))
 		require.NoError(t, err)
 	})
+}
+
+// The partial unique index (created_by, month, year) WHERE deleted_at IS NULL is
+// the guarantee: of N simultaneous creates for one period, exactly one wins.
+func TestReportRepo_ConcurrentCreateSamePeriod(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
+	repo := NewReportRepo(db)
+	ctx := context.Background()
+
+	user, err := NewUserRepo(db).CreateWithPassword(ctx, "race@example.com", "Race", "hash")
+	require.NoError(t, err)
+
+	const n = 8
+	req := model.CreateReportRequest{Month: "March", Metrics: map[string]model.MetricWeeks{"outreach": {Week1: num("1")}}}
+	start := make(chan struct{})
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		go func() {
+			<-start
+			_, err := repo.Create(ctx, db.Pool, user.ID, 2026, req)
+			errs <- err
+		}()
+	}
+	close(start)
+
+	var ok, dup int
+	for i := 0; i < n; i++ {
+		switch err := <-errs; {
+		case err == nil:
+			ok++
+		case errors.Is(err, ErrUniqueViolation):
+			dup++
+		default:
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+	assert.Equal(t, 1, ok, "exactly one create wins")
+	assert.Equal(t, n-1, dup, "the rest are ErrUniqueViolation")
+
+	var reports, metrics int
+	require.NoError(t, db.Pool.QueryRow(ctx, `SELECT count(*) FROM reports WHERE created_by = $1`, user.ID).Scan(&reports))
+	require.NoError(t, db.Pool.QueryRow(ctx, `SELECT count(*) FROM report_metrics`).Scan(&metrics))
+	assert.Equal(t, 1, reports)
+	assert.Equal(t, 1, metrics, "losers insert no metrics")
 }
