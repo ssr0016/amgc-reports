@@ -64,6 +64,13 @@ func SeedData(ctx context.Context, db *DB, log *slog.Logger, admin AdminSeed) er
 		{"permissions:read", "permissions", "read"},
 		{"permissions:write", "permissions", "write"},
 		{"permissions:delete", "permissions", "delete"},
+		{"reports:read", "reports", "read"},
+		{"reports:read_any", "reports", "read_any"},
+		{"reports:write", "reports", "write"},
+		{"reports:write_any", "reports", "write_any"},
+		{"reports:delete", "reports", "delete"},
+		{"reports:delete_any", "reports", "delete_any"},
+		{"reports:approve", "reports", "approve"},
 	}
 
 	for _, p := range permissions {
@@ -96,7 +103,10 @@ func SeedData(ctx context.Context, db *DB, log *slog.Logger, admin AdminSeed) er
 		INSERT INTO role_permissions (role_id, permission_id)
 		SELECT r.id, p.id
 		FROM roles r, permissions p
-		WHERE r.name = 'editor' AND p.name IN ('users:read', 'users:write')
+		WHERE r.name = 'editor' AND p.name IN (
+			'users:read', 'users:write',
+			'reports:read', 'reports:write', 'reports:delete',
+			'reports:read_any', 'reports:write_any', 'reports:delete_any', 'reports:approve')
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`)
 	if err != nil {
@@ -107,7 +117,7 @@ func SeedData(ctx context.Context, db *DB, log *slog.Logger, admin AdminSeed) er
 		INSERT INTO role_permissions (role_id, permission_id)
 		SELECT r.id, p.id
 		FROM roles r, permissions p
-		WHERE r.name = $1 AND p.name = 'users:read'
+		WHERE r.name = $1 AND p.name IN ('users:read', 'reports:read', 'reports:write', 'reports:delete')
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`, model.DefaultRoleName)
 	if err != nil {

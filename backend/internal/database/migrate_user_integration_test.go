@@ -11,14 +11,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
 )
 
 // migrate_user owns the schema's objects, because DDL needs ownership; without
-// that its first ALTER TABLE fails with "must be owner".
+// that its first ALTER TABLE fails with "must be owner". The superuser applies
+// the migrations that predate the Reports tables; migrate_user applies the rest,
+// as `api migrate` does in production.
 func TestMigrateUser_OwnsSchemaObjects(t *testing.T) {
 	tdb := testutil.SetupPostgres(t)
-	tdb.MigrateWithGoose(t)
+	migrateUpTo(t, tdb, lastPreReportsVersion)
+	require.NoError(t, database.RunMigrations(tdb.RolePool(t, "migrate_user")))
 
 	rows, err := tdb.Pool.Query(context.Background(),
 		`SELECT tablename, tableowner FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`)
