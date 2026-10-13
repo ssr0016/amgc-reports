@@ -720,7 +720,7 @@ Seeding is idempotent (`ON CONFLICT DO NOTHING`), so it is safe on existing data
 
 ## 4.3 Rollout Order
 
-1. Run migrations 1 to 3 against the target database (in production this is manual: `make migrate-up`).
+1. Run migrations 1 to 3 against the target database (on Railway this runs automatically as `preDeployCommand: /app/api migrate`; `make migrate-up` is the manual route).
 2. Deploy the application version that contains the seed changes and reports code.
 3. Verify: tables and constraints present; `permissions` contains the seven new rows; admin has them.
 

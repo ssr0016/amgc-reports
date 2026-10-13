@@ -76,7 +76,7 @@ Total planned effort is **about 244 hours** of backend work, **about 317 hours**
 | Rate limiting on forgot/reset/verify | Not applied | Brute force and enumeration pressure |
 | Email delivery | No mail client or provider | Verification and reset cannot be used by real users |
 | Test coverage | service ~30%, handlers/middleware/repositories mostly 0% | Regressions in auth/RBAC go unnoticed |
-| Production migration automation | Manual `make migrate-up` | Schema/app mismatch risk on deploy |
+| Production migration automation | Automatic on Railway: `railway.json` `preDeployCommand: /app/api migrate` (c594f36) | A failed migration fails the deploy; no advisory lock yet for several instances |
 | Permission-based authorization | `RequirePermission` unused; `editor` role has no effect | RBAC model gives a false sense of protection |
 | Session revocation | Not on password reset, lock, role change | Stolen/old sessions survive credential changes |
 | Dependency vulnerability scanning, CD pipeline | None | Unknown CVE exposure; manual releases |
@@ -353,7 +353,7 @@ Consolidated from Document 03 section 20 (18 gaps), plus items found during impl
 |----|-----|----------|----------|
 | I-1 | Connection pool not configured (`pgxpool.New` defaults) | Medium | 2h |
 | I-2 | DB gauges (`db_connections_*`) never updated | Low | 2h |
-| I-3 | No migration step in production (manual `make migrate-up`) | High | 4h |
+| I-3 | ~~No migration step in production~~ **Delivered in c594f36**: Railway runs `/app/api migrate` as `preDeployCommand`; the hours are accounting, not remaining work. Open: advisory lock for several instances | High | 4h |
 | I-4 | Prod compose publishes Postgres on the host | High | 1h |
 | I-5 | Outdated base images (`postgres:15.3`, `alpine:3.19`) | Medium | 2h |
 | I-6 | Swagger and `/metrics` public in all environments | Medium | 2h |
@@ -463,12 +463,12 @@ Prioritised by risk. All items are work items defined above; none is counted twi
 
 ### 8.1 Zero-Downtime Migrations
 
-Current process: migrations run automatically in local/dev, and **manually** (`make migrate-up`) in production, which is easy to forget.
+Current process: migrations run automatically in local/dev, and in production on Railway via `preDeployCommand: /app/api migrate` in `railway.json` (c594f36), before the new version starts. `make migrate-up` remains for manual runs.
 
 Reports migrations are **additive only** (three new tables, no change to existing tables), so the previous application version keeps working against the new schema. That makes a safe two-step release possible:
 
-1. Run migrations (new tables exist; old code ignores them).
-2. Deploy the new application version.
+1. Run migrations (new tables exist; old code ignores them). On Railway this happens automatically as the pre-deploy step of the same deploy.
+2. The new application version starts (and seeds the `reports:*` permissions).
 
 Proposed (I-3): a pre-deploy release step that runs goose against `DATABASE_URL` and fails the deployment if it fails; use a PostgreSQL advisory lock or a single migration job so two instances cannot migrate at once. Always take a backup first (8.2).
 
@@ -725,7 +725,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 8 | No vulnerability scanning | I-8 |
 | 9 | gosec non-blocking, unpinned | I-7 |
 | 10 | No CD pipeline | I-9 |
-| 11 | Production migrations manual | I-3 |
+| 11 | Production migrations: automatic via `preDeployCommand` (delivered); advisory lock still open | I-3 |
 | 12 | Prod compose exposes Postgres | I-4 |
 | 13 | Outdated base images | I-5 |
 | 14 | Swagger and metrics public | I-6 |
