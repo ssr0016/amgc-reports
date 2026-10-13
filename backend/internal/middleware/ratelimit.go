@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
@@ -149,11 +150,27 @@ func (s *rateLimiterStore) getLimiter(ip string) *rate.Limiter {
 // identified by rateLimitKey (IPv6 clients by their /64). The key is only as
 // trustworthy as the Echo IPExtractor; see TrustedProxyExtractor.
 func RateLimit(r rate.Limit, burst int) echo.MiddlewareFunc {
+	return rateLimitBy(r, burst, rateLimitKey)
+}
+
+// RateLimitByUser is RateLimit keyed on the session user, so people sharing an
+// IP (one office NAT) get separate buckets and the key does not depend on
+// proxy trust. A request without a session user falls back to the IP key; put
+// RequireAuth before it and that fallback is never used.
+func RateLimitByUser(sm *scs.SessionManager, r rate.Limit, burst int) echo.MiddlewareFunc {
+	return rateLimitBy(r, burst, func(c echo.Context) string {
+		if id := sm.GetInt64(c.Request().Context(), UserIDKey); id != 0 {
+			return "user:" + strconv.FormatInt(id, 10)
+		}
+		return rateLimitKey(c)
+	})
+}
+
+func rateLimitBy(r rate.Limit, burst int, key func(echo.Context) string) echo.MiddlewareFunc {
 	store := newRateLimiterStore(r, burst)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			ip := rateLimitKey(c)
-			limiter := store.getLimiter(ip)
+			limiter := store.getLimiter(key(c))
 			if !limiter.Allow() {
 				if secs := retryAfterSeconds(limiter, r); secs > 0 {
 					c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(secs))

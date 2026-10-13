@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
@@ -418,5 +419,43 @@ func TestRateLimit_RetryAfterIsSkippedWhenRateIsZero(t *testing.T) {
 
 	if v := rec.Header().Get("Retry-After"); v != "" {
 		t.Errorf("Retry-After = %q for a limiter that never refills, want none", v)
+	}
+}
+
+// RateLimitByUser keys on the session user, and falls back to the IP without one.
+func TestRateLimitByUser_Key(t *testing.T) {
+	sm := scs.New()
+	mw := RateLimitByUser(sm, rate.Limit(0.0001), 1) // burst 1: a second hit on one key is 429
+
+	// hit sends a request from one IP as the given user (0 = no session user).
+	hit := func(user int64) error {
+		ctx, err := sm.Load(context.Background(), "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if user != 0 {
+			sm.Put(ctx, UserIDKey, user)
+		}
+		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/", nil)
+		req.RemoteAddr = "203.0.113.9:1234"
+		c := echo.New().NewContext(req, httptest.NewRecorder())
+		return mw(func(echo.Context) error { return nil })(c)
+	}
+
+	if err := hit(1); err != nil {
+		t.Fatalf("user 1 first hit: %v", err)
+	}
+	if err := hit(1); err == nil {
+		t.Error("user 1 second hit allowed, want rate limited")
+	}
+	if err := hit(2); err != nil {
+		t.Errorf("user 2 from the same IP blocked by user 1: %v", err)
+	}
+	// no session user: keyed by IP, separate from any user key
+	if err := hit(0); err != nil {
+		t.Errorf("anonymous first hit: %v", err)
+	}
+	if err := hit(0); err == nil {
+		t.Error("anonymous second hit allowed, want rate limited by IP")
 	}
 }

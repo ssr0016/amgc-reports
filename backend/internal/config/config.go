@@ -45,7 +45,7 @@ type ObservabilityConfig struct {
 }
 
 // ReportsConfig holds the rate limit shared by the reports write routes
-// (POST, PUT, DELETE, PATCH). Reads are not limited. Per client IP.
+// (POST, PUT, DELETE, PATCH). Reads are not limited. Per session user.
 type ReportsConfig struct {
 	WriteRatePerMinute int
 	WriteBurst         int

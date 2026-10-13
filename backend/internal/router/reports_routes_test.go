@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -56,10 +57,13 @@ func (okReportSvc) ToggleComplete(context.Context, int64, string, int64) (*model
 
 // reportsServer wires the real routes. A request is logged in as user 1 when it
 // carries the X-Test-User header; that user's role holds exactly perms.
-func reportsServer(perms ...string) *echo.Echo { return reportsServerLimited(noLimit, perms...) }
+func reportsServer(perms ...string) *echo.Echo {
+	return reportsServerLimited(func(*scs.SessionManager) echo.MiddlewareFunc { return noLimit }, perms...)
+}
 
-func reportsServerLimited(limit echo.MiddlewareFunc, perms ...string) *echo.Echo {
+func reportsServerLimited(mkLimit func(*scs.SessionManager) echo.MiddlewareFunc, perms ...string) *echo.Echo {
 	sm := scs.New()
+	limit := mkLimit(sm)
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
 		return &model.User{ID: id, RoleID: 9}, nil
@@ -71,8 +75,8 @@ func reportsServerLimited(limit echo.MiddlewareFunc, perms ...string) *echo.Echo
 	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if c.Request().Header.Get("X-Test-User") != "" {
-				sm.Put(c.Request().Context(), "user_id", int64(1))
+			if id, err := strconv.ParseInt(c.Request().Header.Get("X-Test-User"), 10, 64); err == nil {
+				sm.Put(c.Request().Context(), "user_id", id)
 			}
 			return next(c)
 		}
@@ -86,10 +90,15 @@ func reportsServerLimited(limit echo.MiddlewareFunc, perms ...string) *echo.Echo
 }
 
 func reportRequest(e *echo.Echo, method, path, body string, loggedIn bool) int {
+	return reportRequestAs(e, method, path, body, map[bool]string{true: "1", false: ""}[loggedIn])
+}
+
+// reportRequestAs sends the request as the given user ID ("" = no session).
+func reportRequestAs(e *echo.Echo, method, path, body, user string) int {
 	req := httptest.NewRequestWithContext(context.Background(), method, path, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	if loggedIn {
-		req.Header.Set("X-Test-User", "1")
+	if user != "" {
+		req.Header.Set("X-Test-User", user)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -152,7 +161,7 @@ func TestReportsRoutes_WithPermissionReachesHandler(t *testing.T) {
 // All four write routes share one bucket; reads are never limited.
 func TestReportsRoutes_WriteLimitSharedAndReadsFree(t *testing.T) {
 	// burst 3, practically no refill during the test
-	e := reportsServerLimited(ourmiddleware.RateLimit(rate.Limit(0.0001), 3),
+	e := reportsServerLimited(userLimit(3),
 		"reports:read", "reports:write", "reports:delete", "reports:approve")
 
 	writes := []struct{ method, path, body string }{
@@ -180,10 +189,37 @@ func TestReportsRoutes_WriteLimitSharedAndReadsFree(t *testing.T) {
 // A user without the write permission must not use tokens: otherwise they could
 // lock out everyone sharing the bucket.
 func TestReportsRoutes_DeniedRequestsDoNotConsumeTokens(t *testing.T) {
-	e := reportsServerLimited(ourmiddleware.RateLimit(rate.Limit(0.0001), 2), "reports:read")
+	e := reportsServerLimited(userLimit(2), "reports:read")
 	for i := 0; i < 10; i++ {
 		if got := reportRequest(e, http.MethodPost, "/api/v1/reports", `{"month":"May"}`, true); got != http.StatusForbidden {
 			t.Fatalf("POST #%d: status = %d, want 403 (never 429)", i, got)
 		}
+	}
+}
+
+// userLimit builds a per-user limiter with the given burst and practically no refill.
+func userLimit(burst int) func(*scs.SessionManager) echo.MiddlewareFunc {
+	return func(sm *scs.SessionManager) echo.MiddlewareFunc {
+		return ourmiddleware.RateLimitByUser(sm, rate.Limit(0.0001), burst)
+	}
+}
+
+// Two users on the same IP (every test request comes from the same address) get
+// separate buckets: one exhausting theirs does not block the other.
+func TestReportsRoutes_WriteLimitIsPerUser(t *testing.T) {
+	e := reportsServerLimited(userLimit(2), "reports:write")
+	post := func(user string) int {
+		return reportRequestAs(e, http.MethodPost, "/api/v1/reports", `{"month":"May"}`, user)
+	}
+	for i := 0; i < 2; i++ {
+		if got := post("1"); got != http.StatusCreated {
+			t.Fatalf("user 1 POST #%d: status = %d, want 201", i, got)
+		}
+	}
+	if got := post("1"); got != http.StatusTooManyRequests {
+		t.Errorf("user 1 over burst: status = %d, want 429", got)
+	}
+	if got := post("2"); got != http.StatusCreated {
+		t.Errorf("user 2 on the same IP: status = %d, want 201", got)
 	}
 }

@@ -229,7 +229,7 @@ func run() error {
 		verificationHandler,
 		passwordResetHandler,
 		reportHandler,
-		ourmiddleware.RateLimit(rate.Limit(float64(cfg.Reports.WriteRatePerMinute)/60), cfg.Reports.WriteBurst),
+		ourmiddleware.RateLimitByUser(sm, rate.Limit(float64(cfg.Reports.WriteRatePerMinute)/60), cfg.Reports.WriteBurst),
 	)
 
 	scsHandler := sm.LoadAndSave(e)
