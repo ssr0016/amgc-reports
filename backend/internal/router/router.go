@@ -25,6 +25,7 @@ func Setup(
 	verificationHandler *handler.VerificationHandler,
 	passwordResetHandler *handler.PasswordResetHandler,
 	reportHandler *handler.ReportHandler,
+	reportWriteLimit echo.MiddlewareFunc,
 ) {
 	api := e.Group("/api/v1")
 
@@ -65,11 +66,13 @@ func Setup(
 	}
 	reports := api.Group("/reports", ourmiddleware.RequireAuth(sm))
 	reports.GET("", reportHandler.ListReports, perm("reports:read"))
-	reports.POST("", reportHandler.CreateReport, perm("reports:write"))
+	// One shared bucket for all four writes (each costs a transaction and an audit
+	// row). It runs before the permission lookup, so denied requests count too.
+	reports.POST("", reportHandler.CreateReport, reportWriteLimit, perm("reports:write"))
 	reports.GET("/:id", reportHandler.GetReport, perm("reports:read"))
-	reports.PUT("/:id", reportHandler.UpdateReport, perm("reports:write"))
-	reports.DELETE("/:id", reportHandler.SoftDeleteReport, perm("reports:delete"))
-	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, perm("reports:approve"))
+	reports.PUT("/:id", reportHandler.UpdateReport, reportWriteLimit, perm("reports:write"))
+	reports.DELETE("/:id", reportHandler.SoftDeleteReport, reportWriteLimit, perm("reports:delete"))
+	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, reportWriteLimit, perm("reports:approve"))
 
 	// ============================================================
 	// Admin routes (RBAC-protected)

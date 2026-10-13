@@ -168,6 +168,7 @@ func cleanupEnv() {
 		"CORS_ALLOWED_ORIGINS", "TRUSTED_PROXY_CIDRS",
 		"ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME",
 		"SWAGGER_ENABLED", "METRICS_USER", "METRICS_PASSWORD",
+		"REPORTS_WRITE_RATE_LIMIT", "REPORTS_WRITE_BURST",
 	} {
 		_ = os.Unsetenv(key)
 	}
@@ -453,4 +454,45 @@ func TestLoad_MetricsCredentialsValidation(t *testing.T) {
 			t.Errorf("Observability = %+v, want the METRICS_* values", cfg.Observability)
 		}
 	})
+}
+
+func TestLoad_ReportsWriteLimit(t *testing.T) {
+	tests := []struct {
+		name        string
+		rate, burst string
+		want        ReportsConfig
+		wantErr     bool
+	}{
+		{"defaults", "", "", ReportsConfig{60, 10}, false},
+		{"custom", "120", "20", ReportsConfig{120, 20}, false},
+		{"zero rate", "0", "", ReportsConfig{}, true},
+		{"negative burst", "", "-1", ReportsConfig{}, true},
+		{"not a number", "fast", "", ReportsConfig{}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+			if tt.rate != "" {
+				_ = os.Setenv("REPORTS_WRITE_RATE_LIMIT", tt.rate)
+			}
+			if tt.burst != "" {
+				_ = os.Setenv("REPORTS_WRITE_BURST", tt.burst)
+			}
+			defer cleanupEnv()
+
+			cfg, err := Load()
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("Load() succeeded, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Load() failed: %v", err)
+			}
+			if cfg.Reports != tt.want {
+				t.Errorf("Reports = %+v, want %+v", cfg.Reports, tt.want)
+			}
+		})
+	}
 }

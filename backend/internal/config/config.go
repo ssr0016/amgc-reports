@@ -26,6 +26,7 @@ type Config struct {
 	Logging  LoggingConfig
 	CORS     CORSConfig
 	Proxy    ProxyConfig
+	Reports  ReportsConfig
 	Admin    AdminConfig
 	Stage    Stage
 
@@ -41,6 +42,13 @@ type ObservabilityConfig struct {
 	// not registered in production.
 	MetricsUser     string
 	MetricsPassword string
+}
+
+// ReportsConfig holds the rate limit shared by the reports write routes
+// (POST, PUT, DELETE, PATCH). Reads are not limited. Per client IP.
+type ReportsConfig struct {
+	WriteRatePerMinute int
+	WriteBurst         int
 }
 
 // ProxyConfig describes which connecting peers may speak for a client.
@@ -134,6 +142,16 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("config validation: %w", err)
 	}
 	cfg.Proxy = ProxyConfig{TrustedCIDRs: trusted, UsedDefault: usedDefault}
+
+	writeRate, err := getEnvInt("REPORTS_WRITE_RATE_LIMIT", 60)
+	if err != nil {
+		return nil, fmt.Errorf("config validation: %w", err)
+	}
+	writeBurst, err := getEnvInt("REPORTS_WRITE_BURST", 10)
+	if err != nil {
+		return nil, fmt.Errorf("config validation: %w", err)
+	}
+	cfg.Reports = ReportsConfig{WriteRatePerMinute: writeRate, WriteBurst: writeBurst}
 
 	cfg.Admin = AdminConfig{
 		Email:    strings.TrimSpace(os.Getenv("ADMIN_EMAIL")),
@@ -250,6 +268,21 @@ func getEnvBool(key string, fallback bool) (bool, error) {
 		return false, fmt.Errorf("%s must be true or false, got %q", key, v)
 	}
 	return b, nil
+}
+
+// getEnvInt reads a positive integer. An unset or empty variable gives
+// fallback; anything else that is not a positive integer is an error, so a
+// typo or a 0 (which would block every write) cannot slip through.
+func getEnvInt(key string, fallback int) (int, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("%s must be a positive integer, got %q", key, v)
+	}
+	return n, nil
 }
 
 func getEnvDuration(key string, fallback time.Duration) time.Duration {

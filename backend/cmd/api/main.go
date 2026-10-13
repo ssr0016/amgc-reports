@@ -31,12 +31,14 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	echoSwagger "github.com/swaggo/echo-swagger"
+	"golang.org/x/time/rate"
 
 	_ "github.com/ssr0016/pastoral-reports/backend/docs"
 	"github.com/ssr0016/pastoral-reports/backend/internal/config"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
 	"github.com/ssr0016/pastoral-reports/backend/internal/logger"
+	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 	"github.com/ssr0016/pastoral-reports/backend/internal/router"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
@@ -227,6 +229,7 @@ func run() error {
 		verificationHandler,
 		passwordResetHandler,
 		reportHandler,
+		ourmiddleware.RateLimit(rate.Limit(float64(cfg.Reports.WriteRatePerMinute)/60), cfg.Reports.WriteBurst),
 	)
 
 	scsHandler := sm.LoadAndSave(e)

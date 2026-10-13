@@ -9,9 +9,11 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/time/rate"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
+	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
@@ -54,7 +56,9 @@ func (okReportSvc) ToggleComplete(context.Context, int64, string, int64) (*model
 
 // reportsServer wires the real routes. A request is logged in as user 1 when it
 // carries the X-Test-User header; that user's role holds exactly perms.
-func reportsServer(perms ...string) *echo.Echo {
+func reportsServer(perms ...string) *echo.Echo { return reportsServerLimited(noLimit, perms...) }
+
+func reportsServerLimited(limit echo.MiddlewareFunc, perms ...string) *echo.Echo {
 	sm := scs.New()
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
@@ -76,7 +80,7 @@ func reportsServer(perms ...string) *echo.Echo {
 	Setup(e, sm, users, permRoles{perms: perms},
 		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}, sm),
+		handler.NewReportHandler(okReportSvc{}, sm), limit,
 	)
 	return e
 }
@@ -142,5 +146,33 @@ func TestReportsRoutes_WithPermissionReachesHandler(t *testing.T) {
 				t.Errorf("status = %d, want 2xx", got)
 			}
 		})
+	}
+}
+
+// All four write routes share one bucket; reads are never limited.
+func TestReportsRoutes_WriteLimitSharedAndReadsFree(t *testing.T) {
+	// burst 3, practically no refill during the test
+	e := reportsServerLimited(ourmiddleware.RateLimit(rate.Limit(0.0001), 3),
+		"reports:read", "reports:write", "reports:delete", "reports:approve")
+
+	writes := []struct{ method, path, body string }{
+		{http.MethodPost, "/api/v1/reports", `{"month":"May"}`},
+		{http.MethodPut, "/api/v1/reports/1", `{"month":"May"}`},
+		{http.MethodDelete, "/api/v1/reports/1", ""},
+	}
+	for _, w := range writes {
+		if got := reportRequest(e, w.method, w.path, w.body, true); got != http.StatusOK && got != http.StatusCreated && got != http.StatusNoContent {
+			t.Fatalf("%s %s within burst: status = %d", w.method, w.path, got)
+		}
+	}
+	// the fourth write, on a different route, hits the shared bucket
+	if got := reportRequest(e, http.MethodPatch, "/api/v1/reports/1/complete", "", true); got != http.StatusTooManyRequests {
+		t.Errorf("PATCH after burst: status = %d, want 429", got)
+	}
+	// reads are not limited
+	for i := 0; i < 10; i++ {
+		if got := reportRequest(e, http.MethodGet, "/api/v1/reports", "", true); got != http.StatusOK {
+			t.Fatalf("GET #%d: status = %d, want 200", i, got)
+		}
 	}
 }
