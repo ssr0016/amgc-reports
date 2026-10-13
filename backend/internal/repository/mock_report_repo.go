@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -71,6 +72,16 @@ func (m *MockReportRepo) duplicate(skipID, userID int64, month string, year int)
 	return false
 }
 
+// toYear converts a year to the column type. The real column is SMALLINT with a
+// CHECK of 2000 to 2100; the mock only guards the conversion, since the service
+// has already validated the range.
+func toYear(year int) (int16, error) {
+	if year < math.MinInt16 || year > math.MaxInt16 {
+		return 0, fmt.Errorf("year out of range: %d", year)
+	}
+	return int16(year), nil
+}
+
 func ptr(s string) *string {
 	if s == "" {
 		return nil
@@ -93,9 +104,13 @@ func (m *MockReportRepo) Create(ctx context.Context, q Querier, userID int64, ye
 	if m.duplicate(0, userID, req.Month, year) {
 		return nil, fmt.Errorf("create report: %w", ErrUniqueViolation)
 	}
+	y, err := toYear(year)
+	if err != nil {
+		return nil, fmt.Errorf("create report: %w", err)
+	}
 	now := time.Now()
 	r := &model.Report{
-		ID: m.nextID, CreatedBy: userID, Month: req.Month, Year: int16(year),
+		ID: m.nextID, CreatedBy: userID, Month: req.Month, Year: y,
 		Worker: ptr(req.Worker), AreaAssignment: ptr(req.AreaAssignment), ChurchName: ptr(req.ChurchName),
 		Names: ptr(req.Names), NarrativeReport: ptr(req.NarrativeReport),
 		Challenges: ptr(req.Challenges), PrayerRequest: ptr(req.PrayerRequest),
@@ -126,35 +141,48 @@ func (m *MockReportRepo) List(ctx context.Context, p model.ListReportsParams, pg
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	contains := func(field *string, sub string) bool {
-		return sub == "" || (field != nil && strings.Contains(strings.ToLower(*field), strings.ToLower(sub)))
-	}
 	var all []*model.Report
 	for _, r := range m.reports {
-		if r.DeletedAt != nil ||
-			(p.CreatedBy != 0 && r.CreatedBy != p.CreatedBy) ||
-			(p.Year != 0 && int(r.Year) != p.Year) ||
-			(p.Month != "" && !strings.EqualFold(r.Month, p.Month)) ||
-			!contains(r.Worker, p.Worker) || !contains(r.AreaAssignment, p.Area) || !contains(r.ChurchName, p.Church) {
-			continue
+		if matchesReport(r, p) {
+			all = append(all, r)
 		}
-		all = append(all, r)
 	}
+	// newest year first, then newest ID, like the real ORDER BY
 	sort.Slice(all, func(i, j int) bool {
 		if all[i].Year != all[j].Year {
 			return all[i].Year > all[j].Year
 		}
 		return all[i].ID > all[j].ID
 	})
+	return pageOf(all, pg), int64(len(all)), nil
+}
 
-	total := int64(len(all))
+// matchesReport applies the list filters: not deleted, owner, year, month
+// (case-insensitive) and partial case-insensitive worker, area and church.
+func matchesReport(r *model.Report, p model.ListReportsParams) bool {
+	if r.DeletedAt != nil ||
+		(p.CreatedBy != 0 && r.CreatedBy != p.CreatedBy) ||
+		(p.Year != 0 && int(r.Year) != p.Year) ||
+		(p.Month != "" && !strings.EqualFold(r.Month, p.Month)) {
+		return false
+	}
+	return containsFold(r.Worker, p.Worker) && containsFold(r.AreaAssignment, p.Area) && containsFold(r.ChurchName, p.Church)
+}
+
+// containsFold reports whether field contains sub, ignoring case. An empty sub matches anything.
+func containsFold(field *string, sub string) bool {
+	return sub == "" || (field != nil && strings.Contains(strings.ToLower(*field), strings.ToLower(sub)))
+}
+
+// pageOf returns copies of the reports on the requested page.
+func pageOf(all []*model.Report, pg pagination.Params) []*model.Report {
 	start := min(pg.Offset(), len(all))
 	end := min(start+pg.Limit, len(all))
 	page := make([]*model.Report, 0, end-start)
 	for _, r := range all[start:end] {
 		page = append(page, copyReport(r))
 	}
-	return page, total, nil
+	return page
 }
 
 func (m *MockReportRepo) Update(ctx context.Context, q Querier, id int64, year int, req model.UpdateReportRequest) (*model.Report, error) {
@@ -171,7 +199,11 @@ func (m *MockReportRepo) Update(ctx context.Context, q Querier, id int64, year i
 	if m.duplicate(id, r.CreatedBy, req.Month, year) {
 		return nil, fmt.Errorf("update report: %w", ErrUniqueViolation)
 	}
-	r.Month, r.Year = req.Month, int16(year)
+	y, err := toYear(year)
+	if err != nil {
+		return nil, fmt.Errorf("update report: %w", err)
+	}
+	r.Month, r.Year = req.Month, y
 	r.Worker, r.AreaAssignment, r.ChurchName = ptr(req.Worker), ptr(req.AreaAssignment), ptr(req.ChurchName)
 	r.Names, r.NarrativeReport = ptr(req.Names), ptr(req.NarrativeReport)
 	r.Challenges, r.PrayerRequest = ptr(req.Challenges), ptr(req.PrayerRequest)
