@@ -284,7 +284,7 @@ From `internal/repository/interfaces.go`:
 
 # Part 2: Proposed Reports Schema
 
-> **PROPOSED, not implemented.** No table, migration or Go code for reports exists in the repository.
+> **Partially implemented: Phase 1 (migrations and seed permissions) landed in 2de41a4.** The migrations are the source of truth for the schema in this Part. Repository, service, handler and Go code for reports do not exist yet.
 
 ## 2.1 Overview and Owner-Approved Decisions
 
@@ -292,13 +292,13 @@ New tables: `reports`, `report_metrics`, and (carried over from Document 2, see 
 
 | # | Decision | Applied as |
 |---|---|---|
-| 1 | Metrics storage: child table | `report_metrics(report_id, metric, week_no, value)`, PK `(report_id, metric, week_no)`; `metric` TEXT with CHECK in 21 keys; `week_no` SMALLINT CHECK 1..5; `value` NUMERIC(12,2) CHECK >= 0 |
-| 2 | Month format: English name | `reports.month TEXT NOT NULL` CHECK in 12 names |
+| 1 | Metrics storage: child table | `report_metrics(report_id, metric, week_no, value)`, PK `(report_id, metric, week_no)`; `metric` VARCHAR(50) with CHECK in 21 keys; `week_no` SMALLINT CHECK 1..5; `value` NUMERIC(12,2) CHECK >= 0 |
+| 2 | Month format: English name | `reports.month VARCHAR(9) NOT NULL` CHECK in 12 names |
 | 3 | Metric value type | `NUMERIC(12,2)` for **all** metrics (counts and currency) |
 | 4 | Delete strategy: soft delete | `reports.deleted_at TIMESTAMPTZ`; partial indexes `WHERE deleted_at IS NULL`; every query filters soft-deleted rows |
 | 5 | Approval metadata | `reports.completed_at TIMESTAMPTZ`, `reports.completed_by BIGINT REFERENCES users(id) ON DELETE SET NULL` |
-| 6 | Editor role | Permission-based access: `reports:read`, `reports:write`, `reports:delete`, `reports:approve`; no hardcoded role behaviour (section 2.8) |
-| 7 | Duplicate prevention | `CREATE UNIQUE INDEX idx_reports_unique_per_user ON reports(created_by, lower(month), year) WHERE deleted_at IS NULL`; SQLSTATE 23505 maps to 409 `CONFLICT` |
+| 6 | Editor role | Permission-based access: seven `reports:*` permissions (`read`, `read_any`, `write`, `write_any`, `delete`, `delete_any`, `approve`); no hardcoded role behaviour (section 2.8; D-1, D-2) |
+| 7 | Duplicate prevention | `CREATE UNIQUE INDEX idx_reports_unique_per_user ON reports(created_by, month, year) WHERE deleted_at IS NULL`; SQLSTATE 23505 maps to 409 `CONFLICT` |
 
 ## 2.2 Table: reports
 
@@ -306,7 +306,7 @@ New tables: `reports`, `report_metrics`, and (carried over from Document 2, see 
 CREATE TABLE reports (
     id               BIGSERIAL    PRIMARY KEY,
     created_by       BIGINT       NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    month            TEXT         NOT NULL,
+    month            VARCHAR(9)   NOT NULL,
     year             SMALLINT     NOT NULL,
     worker           VARCHAR(150),
     area_assignment  VARCHAR(150),
@@ -340,7 +340,7 @@ CREATE TABLE reports (
 |---|---|---|---|---|
 | id | BIGSERIAL | no | seq | PK (convention) |
 | created_by | BIGINT | no | | FK users, **RESTRICT** (not decided by the owner; see Part 7). Set by the server from the session, never by the client |
-| month | TEXT | no | | Decision 2; CHECK in 12 English names (exact casing) |
+| month | VARCHAR(9) | no | | Decision 2; CHECK in 12 English names (exact casing) |
 | year | SMALLINT | no | | Express default "current year" is applied by the service; DB range 2000 to 2100 (tighter bound in the service) |
 | worker | VARCHAR(150) | yes | | Express optional; limit from Document 2 |
 | area_assignment | VARCHAR(150) | yes | | Express `areaAssignment` |
@@ -363,17 +363,17 @@ NULL behaviour: a `CHECK` on a NULL column evaluates to unknown and passes, so o
 ```sql
 CREATE TABLE report_metrics (
     report_id BIGINT        NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    metric    TEXT          NOT NULL,
+    metric    VARCHAR(50)   NOT NULL,
     week_no   SMALLINT      NOT NULL,
     value     NUMERIC(12,2) NOT NULL,
     PRIMARY KEY (report_id, metric, week_no),
 
     CONSTRAINT chk_report_metrics_metric CHECK (metric IN (
-        'worshipService','sundaySchool','prayerMeeting','bibleStudies',
-        'mensFellowship','womensFellowship','youthFellowship','childrenFellowship',
-        'tithesOffering','homeVisited','bibleStudyGroupLed','sermonPreached',
-        'personNewlyContacted','personFollowedUp','personEvangelized','outreach',
-        'training','leadership','baptism','other','familyDay')),
+        'worship_service','sunday_school','prayer_meeting','bible_studies',
+        'mens_fellowship','womens_fellowship','youth_fellowship','children_fellowship',
+        'tithes_offering','home_visited','bible_study_group_led','sermon_preached',
+        'person_newly_contacted','person_followed_up','person_evangelized','outreach',
+        'training','leadership','baptism','other','family_day')),
     CONSTRAINT chk_report_metrics_week  CHECK (week_no BETWEEN 1 AND 5),
     CONSTRAINT chk_report_metrics_value CHECK (value >= 0)
 );
@@ -382,7 +382,7 @@ CREATE TABLE report_metrics (
 | Column | Type | Rule |
 |---|---|---|
 | report_id | BIGINT | FK reports; CASCADE only matters for a hard delete (soft delete leaves metric rows in place) |
-| metric | TEXT | One of the 21 keys (section 2.4) |
+| metric | VARCHAR(50) | One of the 21 keys (section 2.4) |
 | week_no | SMALLINT | 1 to 5 (Express `week1` to `week5`) |
 | value | NUMERIC(12,2) | >= 0; range 0 to 9,999,999,999.99 |
 
@@ -395,33 +395,33 @@ Design notes:
 
 | # | Key (stored value) | Express field |
 |---|---|---|
-| 1 | worshipService | worshipService |
-| 2 | sundaySchool | sundaySchool |
-| 3 | prayerMeeting | prayerMeeting |
-| 4 | bibleStudies | bibleStudies |
-| 5 | mensFellowship | mensFellowship |
-| 6 | womensFellowship | womensFellowship |
-| 7 | youthFellowship | youthFellowship |
-| 8 | childrenFellowship | childrenFellowship |
-| 9 | tithesOffering | tithesOffering (monetary; the reason for NUMERIC(12,2)) |
-| 10 | homeVisited | homeVisited |
-| 11 | bibleStudyGroupLed | bibleStudyGroupLed |
-| 12 | sermonPreached | sermonPreached |
-| 13 | personNewlyContacted | personNewlyContacted |
-| 14 | personFollowedUp | personFollowedUp |
-| 15 | personEvangelized | personEvangelized |
+| 1 | worship_service | worshipService |
+| 2 | sunday_school | sundaySchool |
+| 3 | prayer_meeting | prayerMeeting |
+| 4 | bible_studies | bibleStudies |
+| 5 | mens_fellowship | mensFellowship |
+| 6 | womens_fellowship | womensFellowship |
+| 7 | youth_fellowship | youthFellowship |
+| 8 | children_fellowship | childrenFellowship |
+| 9 | tithes_offering | tithesOffering (monetary; the reason for NUMERIC(12,2)) |
+| 10 | home_visited | homeVisited |
+| 11 | bible_study_group_led | bibleStudyGroupLed |
+| 12 | sermon_preached | sermonPreached |
+| 13 | person_newly_contacted | personNewlyContacted |
+| 14 | person_followed_up | personFollowedUp |
+| 15 | person_evangelized | personEvangelized |
 | 16 | outreach | outreach |
 | 17 | training | training |
 | 18 | leadership | leadership |
 | 19 | baptism | baptism |
 | 20 | other | other |
-| 21 | familyDay | familyDay |
+| 21 | family_day | familyDay |
 
-The stored keys are the Express camelCase names so the legacy frontend and Excel templates map one to one. Whether to store snake_case instead is open (Part 7).
+Stored keys are snake_case (D-6). The legacy frontend and Excel templates need a camelCase to snake_case mapping for metric names only; `week1..week5` is unchanged.
 
 ## 2.5 Table: audit_logs (carried over from Document 2)
 
-Not one of the seven owner decisions. It is included because Documents 1 and 2 require audit logging for report actions, and it is **proposed pending confirmation** (Part 7, question 10).
+Not one of the seven owner decisions. It is included because Documents 1 and 2 require audit logging for report actions, and it is confirmed (D-10, `07-Reports-Decisions.md`).
 
 ```sql
 CREATE TABLE audit_logs (
@@ -446,16 +446,15 @@ CREATE TABLE audit_logs (
 
 Actor name and role are stored as a snapshot so the log remains meaningful if the user or role changes. `details` holds `{month, year, count}`; narrative text and prayer requests must not be stored there.
 
+The table is append-only for the server: the migration runs `REVOKE UPDATE, DELETE ON audit_logs FROM app_user`, because the default privileges grant DML on new tables. Deleting an audited user still works, since the `SET NULL` action runs with the table owner's rights.
+
 ## 2.6 Indexes
 
 | Index | Definition | Purpose |
 |---|---|---|
-| `idx_reports_unique_per_user` | `UNIQUE ON reports(created_by, lower(month), year) WHERE deleted_at IS NULL` | Decision 7: atomic duplicate prevention; also serves "my reports" lookups (leading column `created_by`) |
+| `idx_reports_unique_per_user` | `UNIQUE ON reports(created_by, month, year) WHERE deleted_at IS NULL` | Decision 7: atomic duplicate prevention; also serves "my reports" lookups (leading column `created_by`) |
 | `idx_reports_year_created_at` | `ON reports(year DESC, created_at DESC) WHERE deleted_at IS NULL` | Default list ordering (Express sorted `year` desc, `createdAt` desc) |
 | `idx_reports_year_month` | `ON reports(year, month) WHERE deleted_at IS NULL` | Equality filters and per-period summaries |
-| `idx_reports_church_name` | `ON reports(church_name) WHERE deleted_at IS NULL` | Express indexed `churchName`; useful for equality/prefix filters only |
-| `idx_reports_area_assignment` | `ON reports(area_assignment) WHERE deleted_at IS NULL` | Same, for area |
-| `idx_reports_worker` | `ON reports(worker) WHERE deleted_at IS NULL` | Same, for worker |
 | `idx_audit_logs_created_at` | `ON audit_logs(created_at DESC)` | Recent activity |
 | `idx_audit_logs_target` | `ON audit_logs(target_type, target_id)` | History of one record |
 | `idx_audit_logs_action` | `ON audit_logs(action)` | Filter by action |
@@ -463,7 +462,7 @@ Actor name and role are stored as a snapshot so the log remains meaningful if th
 
 Notes:
 - All `reports` indexes are **partial** (`WHERE deleted_at IS NULL`), which only helps queries that include the same predicate; every report query must include `deleted_at IS NULL` (section 2.7).
-- Express filtered with case-insensitive regex (`$regex`, `i`). A btree index cannot serve a `%text%` pattern; the church/area/worker indexes help only if the final filter semantics are equality or prefix (Part 7).
+- Express filtered with case-insensitive regex (`$regex`, `i`). A btree index cannot serve a `%text%` pattern, so church/area/worker have no index (D-11: partial `ILIKE` match, no `pg_trgm`).
 - A separate `idx_reports_created_by` is not proposed because the unique index already has `created_by` as its leading column.
 
 ## 2.7 Integrity Rules and Soft-Delete Semantics
@@ -491,29 +490,37 @@ New rows for the existing `permissions` table (convention `resource:action`):
 
 | name | resource | action | Meaning |
 |---|---|---|---|
-| `reports:read` | reports | read | List and view reports |
-| `reports:write` | reports | write | Create reports and update reports |
-| `reports:delete` | reports | delete | Soft-delete reports |
-| `reports:approve` | reports | approve | Approve / unapprove (`completed`) and record approver |
+| `reports:read` | reports | read | List and view own reports |
+| `reports:write` | reports | write | Create reports and update own reports |
+| `reports:delete` | reports | delete | Soft-delete own reports |
+| `reports:read_any` | reports | read_any | List and view any user's reports |
+| `reports:write_any` | reports | write_any | Update any user's report |
+| `reports:delete_any` | reports | delete_any | Soft-delete any user's report |
+| `reports:approve` | reports | approve | Approve / unapprove (`completed`) and record approver. Global: no `_any` variant |
 
 Existing mechanism: `middleware.RequirePermission(roleRepo, userRepo, sm, perms...)` requires **all** listed permissions and is implemented but currently unused. It reads permissions from `role_permissions` on each request; **no schema change is needed** for it.
 
 Role assignment (how seed data behaves today):
-- `admin` receives every permission automatically (the seed uses a cross join), so the four new permissions reach admin as soon as they are added to the seed list.
-- `editor` and `user` assignments are **hardcoded lists** in `seed.go` (`users:read`, `users:write` and `users:read`). Giving them report permissions requires adding those names to the seed assignments.
+- `admin` receives every permission automatically (the seed uses a cross join), so all seven new permissions reach admin as soon as they are added to the seed list.
+- `editor` and `user` assignments are **hardcoded lists** in `seed.go`. Phase 1 (2de41a4) extended both (D-2). Seeds only insert, so changing defaults later does not revoke rows already in production.
 
-The owner has not yet specified which of the four permissions `editor` and `user` hold ("specific permissions", TBD). The table below shows only what follows from the principle and from the Document 2 authorization matrix; items marked **TBD** need a decision:
+Default assignments (D-2):
+- `user`: `reports:read`, `reports:write`, `reports:delete` (own reports only).
+- `editor`: all seven.
+- `admin`: all seven, through the cross join.
 
 | Capability | Permission needed | admin | editor | user |
 |---|---|:---:|:---:|:---:|
-| List / view reports | `reports:read` | yes | TBD | TBD |
-| Create own report | `reports:write` | yes | TBD | TBD |
-| Update own report | `reports:write` + ownership | yes | TBD | TBD |
-| Delete own report | `reports:delete` + ownership | yes | TBD | TBD |
-| Approve / unapprove | `reports:approve` | yes | TBD | TBD |
-| Update or delete **another user's** report | **gap** (see below) | yes | TBD | TBD |
+| List / view own reports | `reports:read` | yes | yes | yes |
+| List / view any report | `reports:read_any` | yes | yes | no |
+| Create own report | `reports:write` | yes | yes | yes |
+| Update own report | `reports:write` + ownership | yes | yes | yes |
+| Update any report | `reports:write_any` | yes | yes | no |
+| Delete own report | `reports:delete` + ownership | yes | yes | yes |
+| Delete any report | `reports:delete_any` | yes | yes | no |
+| Approve / unapprove | `reports:approve` | yes | yes | no |
 
-**Gap to resolve before implementation:** the four permissions say *what* a holder may do but not *whose* reports. Document 2 required "own report" for regular users and "any report" for admin. With only four permissions there is no way to express "any" without either (a) hardcoding admin, which Decision 6 forbids, (b) adding scope permissions such as `reports:write_any` and `reports:delete_any`, or (c) defining that holders of a specific permission (for example `reports:approve`) may act on any report. This is Part 7, question 1. The schema does not change under any of these options (only the permission rows differ).
+**Resolved (D-1):** the `_any` variants express scope, so no role is hardcoded. Another user's report returns **404**, not 403, on get, update and delete. `approve` is global: it works on any report by ID, and a custom role with `approve` but without `read_any` cannot list reports. The schema does not change (only the permission rows differ).
 
 Ownership itself is checked in the service by comparing `reports.created_by` to the session user; it is not a database constraint.
 
@@ -522,7 +529,7 @@ Ownership itself is checked in the service by comparing `reports.created_by` to 
 | Express (Mongoose) | PostgreSQL | Notes |
 |---|---|---|
 | `_id` ObjectId | `reports.id BIGSERIAL` | New numeric IDs; legacy ObjectIds are not preserved unless a mapping column is added (Part 7) |
-| `month` String (required) | `reports.month TEXT` + CHECK | Express had no validation; now an enum of names |
+| `month` String (required) | `reports.month VARCHAR(9)` + CHECK | Express had no validation; now an enum of names |
 | `year` Number (required, default current year) | `reports.year SMALLINT` | Default applied in the service |
 | `worker` | `reports.worker VARCHAR(150)` | |
 | `areaAssignment` | `reports.area_assignment VARCHAR(150)` | |
@@ -691,13 +698,13 @@ Transactions: the existing code has no transaction helper (Document 4, section 1
 
 # Part 4: Migration Plan (Proposed)
 
-> Spec only; no migration files exist. Names follow `YYYYMMDDHHMMSS_<description>.sql` with goose `Up`/`Down` and `StatementBegin/End`.
+> Phase 1 migrations 1 to 3 exist (2de41a4) and are the source of truth; the seed changes in 4.2 are done. Names follow `YYYYMMDDHHMMSS_<description>.sql` with goose `Up`/`Down` and `StatementBegin/End`.
 
 ## 4.1 Proposed Migrations (in order)
 
 | # | File (proposed) | Up | Down |
 |---|---|---|---|
-| 1 | `<ts>_create_reports.sql` | `CREATE TABLE reports` (section 2.2) with constraints; `idx_reports_unique_per_user`, `idx_reports_year_created_at`, `idx_reports_year_month`, `idx_reports_church_name`, `idx_reports_area_assignment`, `idx_reports_worker` | `DROP TABLE IF EXISTS reports` (indexes drop with it) |
+| 1 | `<ts>_create_reports.sql` | `CREATE TABLE reports` (section 2.2) with constraints; `idx_reports_unique_per_user`, `idx_reports_year_created_at`, `idx_reports_year_month` (no church/area/worker indexes, D-11) | `DROP TABLE IF EXISTS reports` (indexes drop with it) |
 | 2 | `<ts>_create_report_metrics.sql` | `CREATE TABLE report_metrics` (section 2.3) | `DROP TABLE IF EXISTS report_metrics` |
 | 3 | `<ts>_create_audit_logs.sql` | `CREATE TABLE audit_logs` + 3 indexes (pending confirmation) | `DROP TABLE IF EXISTS audit_logs` |
 
@@ -706,8 +713,8 @@ Down order is the reverse of Up (`audit_logs`, `report_metrics`, `reports`); `re
 ## 4.2 Seed Changes (not a migration)
 
 Per existing convention, permissions and role assignments live in `internal/database/seed.go`, not in migrations:
-1. Add the four `reports:*` permissions to the permission list (admin receives them automatically).
-2. Add the agreed `editor` and `user` assignments (TBD, section 2.8) to the hardcoded assignment statements.
+1. Add the seven `reports:*` permissions to the permission list (admin receives them automatically).
+2. Add the agreed `editor` and `user` assignments (D-2, section 2.8) to the hardcoded assignment statements.
 
 Seeding is idempotent (`ON CONFLICT DO NOTHING`), so it is safe on existing databases.
 
@@ -715,7 +722,7 @@ Seeding is idempotent (`ON CONFLICT DO NOTHING`), so it is safe on existing data
 
 1. Run migrations 1 to 3 against the target database (in production this is manual: `make migrate-up`).
 2. Deploy the application version that contains the seed changes and reports code.
-3. Verify: tables and constraints present; `permissions` contains the four new rows; admin has them.
+3. Verify: tables and constraints present; `permissions` contains the seven new rows; admin has them.
 
 Existing tables are untouched, so migrations are additive and the previous application version keeps working against the new schema.
 
@@ -819,7 +826,7 @@ mq, margs, _ := r.db.Builder.
     ToSql()
 ```
 
-`ILIKE` filters keep Express's "partial, case-insensitive" behaviour but with wildcards escaped (Express passed raw regex). The final semantics are Part 7, question 12.
+`ILIKE` filters keep Express's "partial, case-insensitive" behaviour but with wildcards escaped (Express passed raw regex). The final semantics are Part 7, question 11 (decided in D-11).
 
 ## 5.4 Update (transaction: scalars, replace metrics, audit)
 
@@ -1060,6 +1067,8 @@ stateDiagram-v2
 
 # Part 7: Open Questions
 
+> **Status:** D-1..D-11 and D-14 are decided in `07-Reports-Decisions.md`. Phase 1 is implemented in 2de41a4. Still open: D-12, D-13, D-15, D-16, D-17 (see the plan, section 13). The questions below are kept as originally written and are not rewritten.
+
 | # | Question | Why it matters |
 |---|---|---|
 | 1 | **Ownership scope.** How is "own" vs "any report" expressed with the four permissions (add `reports:write_any`/`reports:delete_any`, or define another rule)? | Without it, admin override cannot be expressed without hardcoding a role, contradicting Decision 6 |
@@ -1092,12 +1101,9 @@ stateDiagram-v2
 | `chk_reports_year` | CHECK | year between 2000 and 2100 |
 | `chk_reports_completed` | CHECK | `completed` iff `completed_at` is set |
 | `chk_reports_text_len` | CHECK | names <= 5000; narrative, challenges, prayer request <= 10000 |
-| `idx_reports_unique_per_user` | UNIQUE partial index | `(created_by, lower(month), year) WHERE deleted_at IS NULL` |
+| `idx_reports_unique_per_user` | UNIQUE partial index | `(created_by, month, year) WHERE deleted_at IS NULL` |
 | `idx_reports_year_created_at` | partial index | `(year DESC, created_at DESC) WHERE deleted_at IS NULL` |
 | `idx_reports_year_month` | partial index | `(year, month) WHERE deleted_at IS NULL` |
-| `idx_reports_church_name` | partial index | `(church_name) WHERE deleted_at IS NULL` |
-| `idx_reports_area_assignment` | partial index | `(area_assignment) WHERE deleted_at IS NULL` |
-| `idx_reports_worker` | partial index | `(worker) WHERE deleted_at IS NULL` |
 | `chk_report_metrics_metric` | CHECK | metric in 21 keys |
 | `chk_report_metrics_week` | CHECK | week_no between 1 and 5 |
 | `chk_report_metrics_value` | CHECK | value >= 0 |

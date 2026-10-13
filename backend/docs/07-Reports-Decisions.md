@@ -2,7 +2,7 @@
 
 **Status:** Approved by owner · **Date:** 2026-10-13 · **Baseline:** HEAD 081c1f6
 **Inputs:** 05-Backend-Schema.md (Part 2, Part 7), 06-Implementation-Plan.md (§13.1, §13.2), 04-Content-Guidelines.md (§18, §19)
-**Scope:** records the owner's picks for D-1..D-11 and D-14. Nothing here is implemented. The schema (05) and plan (06) docs are not yet updated to match; see "Follow-up doc edits".
+**Scope:** records the owner's picks for D-1..D-11 and D-14. Phase 1 (migrations and seed permissions, 2de41a4) is implemented; the rest is not. The schema (05) and plan (06) docs were synced to Phase 1 in the follow-up docs commit.
 
 ## 0. Numbering
 
@@ -24,7 +24,7 @@ Three numbering schemes exist. This doc uses the plan's D-numbers.
 | D-14 | Q14 | |
 
 - Schema §2.1 has its own "Decision 1–7" (owner-approved). Those are not D-numbers.
-- `05-Backend-Schema.md` §5.3 says filter semantics are "Part 7, question 12". The correct reference is Q11 (Q12 is `week_no`). Not fixed here.
+- `05-Backend-Schema.md` §5.3 says filter semantics are "Part 7, question 12". The correct reference is Q11 (Q12 is `week_no`). Fixed in 05 §5.3.
 - D-9 is in plan §13.2, the others in §13.1. D-12, D-13 and D-15..D-17 are unrelated to Reports and are out of scope.
 - Not covered by a D-number: Q12 (week 5), Q15 (legacy import), Q16 (gate other endpoints, H-6), Q17 (data-driven seeds). Plan §13.1 treats them as non-blocking.
 
@@ -143,10 +143,11 @@ Three numbering schemes exist. This doc uses the plan's D-numbers.
 - **Depends on:** D-8.
 
 ## D-14 Transaction helper
-- **Decision:** INCLUDE. Shape A: a `WithTx(ctx, pool, func(tx) error)` helper. Repositories take a small querier interface satisfied by both the pool and a transaction.
+- **Decision:** INCLUDE. Shape A confirmed: a `WithTx(ctx, pool, func(tx) error)` helper. The new report and audit repositories take a small querier interface satisfied by both the pool and a transaction.
 - **Rationale:** Create, update, delete and approve each need one transaction (report + metrics + audit). Today all repositories use the pool directly (Doc 04 §19).
 - **Implications:**
-  - Existing repositories and mocks need the querier interface (no behavior change).
+  - Narrowed: only the new report and audit repositories (and their mocks) take the querier. Existing repositories don't take part in these transactions and are not retrofitted.
+  - The helper is Phase 2 work (plan §3.3, `internal/repository/helpers.go`). Phase 1 (2de41a4) adds none.
   - The helper commits on a nil return and rolls back on error or panic.
   - Tests: rollback test with a failing audit write, asserting no report or metric rows persist.
 - **Sub-questions (resolved):** shape = A.
@@ -168,8 +169,5 @@ None.
 - D-10: audit retention.
 - D-10: investigate the client-asserted `DOWNLOAD_*` actions.
 
-## Follow-up doc edits (not done here)
-- 05 §2.8 and Part 2: seven permissions (D-1), role defaults (D-2), snake_case metric keys (D-6), drop the 3 btree indexes (D-11).
-- 05 §5.3: change "question 12" to Q11.
-- 06 §3.2: acceptance criterion lists four permissions, now seven.
-- 06 §13.1/13.2: mark D-1..D-11, D-14 as decided and link to 07. M-1 becomes docs only (D-9). Drop `audit_handler.go` (D-10).
+## Follow-up doc edits (done)
+Applied to 05 (Part 2, §5.3, Part 4, Part 7 pointer, Appendix A) and 06 (§3.2 to §3.4, M-1, §13, change log 1.13) in the docs sync commit. Pending in 06: recompute of the effort totals (see change log 1.13).

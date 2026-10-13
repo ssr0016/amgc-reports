@@ -155,9 +155,9 @@ The detailed schema, queries and Go types are specified in `05-Backend-Schema.md
 - `make migrate-up` succeeds
 - `make migrate-down` succeeds
 - Re-running up after down works
-- Permissions seeded (`reports:read`, `reports:write`, `reports:delete`, `reports:approve`; admin holds all four)
+- Permissions seeded (seven `reports:*`: `read`, `read_any`, `write`, `write_any`, `delete`, `delete_any`, `approve`; admin holds all seven; `user` and `editor` per D-2)
 
-**Notes:** `audit_logs` migration is conditional on decision D-10. Existing tables are not altered, so the previous application version keeps working against the new schema.
+**Notes:** `audit_logs` is included (D-10 decided). Existing tables are not altered, so the previous application version keeps working against the new schema.
 
 ### 3.3 Phase 2: Repository & Service
 
@@ -183,7 +183,7 @@ The detailed schema, queries and Go types are specified in `05-Backend-Schema.md
 
 **Notes**
 - A `MockReportRepo` in the style of `MockUserRepo` is needed for service tests (include in the repository task).
-- The transaction helper is also the first one in the codebase (Doc 04 sec. 19); its shape is decision D-14.
+- The transaction helper is also the first one in the codebase (Doc 04 sec. 19); its shape is Shape A (D-14), and only the new report and audit repositories take the querier; existing repositories are not retrofitted.
 - The service enforces ownership rules chosen in D-1/D-2 and the soft-delete filter rule from Doc 05 section 2.7.
 
 ### 3.4 Phase 3: Handlers & Routes
@@ -193,11 +193,10 @@ The detailed schema, queries and Go types are specified in `05-Backend-Schema.md
 | Task | File | Estimate |
 |------|------|----------|
 | Create report handler | `internal/handler/report_handler.go` | 8h |
-| Create audit handler (only if D-10 confirms an audit read API) | `internal/handler/audit_handler.go` | 2h |
 | Register routes | `internal/router/router.go` | 2h |
 | Add Swagger annotations | handlers | 2h |
 | Add permissions to routes (`RequirePermission`) | `internal/middleware`, `router.go` | 1h |
-| **Total Phase 3** | | **15h (2 days)** |
+| **Total Phase 3** | | **13h (about 2 days)** |
 
 **Endpoints (7):** `GET/POST /api/v1/reports`, `GET/PUT/DELETE /api/v1/reports/:id`, `PATCH /api/v1/reports/:id/complete`, `POST /api/v1/reports/log-download` (details in Doc 02 sec. 13).
 
@@ -206,7 +205,7 @@ The detailed schema, queries and Go types are specified in `05-Backend-Schema.md
 - `make swagger` regenerates correctly
 - Manual API testing passes (the live test script, extended with the reports cases, is the checklist)
 
-**Notes:** New handlers follow the conventions in Doc 04 (bare DTO responses, `{data, meta}` for lists, `apperror` mapping, 409 on SQLSTATE 23505). If decision D-9 changes the response envelope, do it **before** this phase. The 1h permission task assumes H-6 has already produced the permission-checking pattern.
+**Notes:** New handlers follow the conventions in Doc 04 (bare DTO responses, `{data, meta}` for lists, `apperror` mapping, 409 on SQLSTATE 23505). D-9 is decided: today's convention is kept, so no envelope change precedes this phase. No audit handler (D-10: no read API). The 1h permission task assumes H-6 has already produced the permission-checking pattern.
 
 ### 3.5 Phase 4: Frontend Integration
 
@@ -238,7 +237,7 @@ The `frontend/` directory is an unmodified Next.js scaffold (no pages for login,
 |-------|----------|
 | Phase 1 | 8h |
 | Phase 2 | 32h |
-| Phase 3 | 15h |
+| Phase 3 | 13h |
 | Phase 4 | dependent |
 | Phase 5 | 18h |
 | **Total (without Phase 4)** | **~73h (9-10 days)** |
@@ -295,7 +294,7 @@ Details and "done when":
 
 | ID | Item | Impact | Fix Estimate |
 |----|------|--------|--------------|
-| M-1 | Response envelope inconsistency (bare object vs `{data, meta}` vs array vs `{message}`) | DX | 8h |
+| M-1 | Response envelope inconsistency (bare object vs `{data, meta}` vs array vs `{message}`). **D-9: keep today's convention; documentation only** | DX | 1h |
 | M-2 | `GET /users` documented as paginated but only `limit` works, returns a bare array | Correctness | 4h |
 | M-3 | Swagger success types wrong for paginated lists (`{array}` vs `{data, meta}`) | DX | 2h |
 | M-4 | Swagger `@Failure` missing on many handlers; middleware errors undocumented | DX | 4h |
@@ -309,7 +308,7 @@ Details and "done when":
 | **Total** | | | **31h** |
 
 Notes:
-- **M-1 is a breaking change** for any client. The frontend has no integration yet, so this is the cheapest moment; it must be decided (D-9) before Phase 3 handlers are written. If the decision is to keep today's convention, M-1 reduces to documenting it (0 to 1h).
+- **M-1 would have been a breaking change** for any client; the frontend has no integration yet. D-9 kept today's convention, so M-1 is reduced to documenting it (0 to 1h) and nothing breaks.
 - M-2 can be done with the existing `UserRepository.ListWithPagination` and `pagination.FromContext`.
 - M-10 also covers ROADMAP.md (states "COMPLETE 100%", lists a Railway URL and "Seed data (3 roles, 9 perms, 1 admin)"), README Railway URLs, SETUP.md container names.
 
@@ -643,38 +642,38 @@ Recommended adjustment to the outline: the security-relevant High items (H-1, H-
 
 ## 13. Open Questions Blocking Implementation
 
-From Document 05 Part 7 (17 questions) and Documents 01 and 02 (Part 4). "Blocks" shows the first work item that cannot be finished without the answer.
+From Document 05 Part 7 (17 questions) and Documents 01 and 02 (Part 4). D-1..D-11 and D-14 are decided; the decisions are recorded in [07-Reports-Decisions.md](07-Reports-Decisions.md). "Blocks" shows the first work item that cannot be finished without the answer.
 
 ### 13.1 Reports Schema and API (Doc 05 Part 7)
 
-| # | Question | Blocks | Decision by |
-|---|----------|--------|-------------|
-| D-1 | **Ownership scope** with permissions: add `reports:write_any` / `reports:delete_any`, or another rule? | Phase 2 service rules, Phase 3 routes, seed | Owner |
-| D-2 | Which `reports:*` permissions do `editor` and `user` get by default? | Phase 1 seed task, rollout step 5 | Owner |
-| D-3 | `created_by` delete behaviour (proposed RESTRICT) and soft-delete lifecycle (restore, trash view, purge) | Phase 1 FK design; endpoint scope | Owner |
-| D-4 | JSON form of `NUMERIC(12,2)` (number or string) and Go type | Phase 2 DTOs, frontend contract | Backend lead + Frontend |
-| D-5 | Absent vs zero metrics (sparse rows or always stored) | Phase 2 repo/service, API contract | Owner |
-| D-6 | Metric keys camelCase (Express) vs snake_case; migration per new metric acceptable? | Phase 1 CHECK constraint | Frontend + Backend |
-| D-7 | Length limits (150 / 5,000 / 10,000) and year range (2000-2100) | Phase 1 CHECK constraints | Owner |
-| D-8 | Are worker / area / church required? Lookup tables? | Phase 2 validation (Phase 1 if lookups) | Owner |
-| D-10 | Confirm `audit_logs`: columns, `ip_address` type, retention, API read access | Phase 1 migration 3, Phase 3 audit handler | Owner |
-| D-11 | Filter semantics (partial match vs equality/prefix); trigram index acceptable? | Phase 1 index set, Phase 2 repo | Backend lead |
-| D-14 | Transaction helper shape in repositories | Phase 2 | Backend lead |
+| # | Question | Blocks | Decision by | Status |
+|---|----------|--------|-------------|---|
+| D-1 | **Ownership scope** with permissions: add `reports:write_any` / `reports:delete_any`, or another rule? | Phase 2 service rules, Phase 3 routes, seed | Owner | Decided ([07](07-Reports-Decisions.md)) |
+| D-2 | Which `reports:*` permissions do `editor` and `user` get by default? | Phase 1 seed task, rollout step 5 | Owner | Decided ([07](07-Reports-Decisions.md)) |
+| D-3 | `created_by` delete behaviour (proposed RESTRICT) and soft-delete lifecycle (restore, trash view, purge) | Phase 1 FK design; endpoint scope | Owner | Decided ([07](07-Reports-Decisions.md)) |
+| D-4 | JSON form of `NUMERIC(12,2)` (number or string) and Go type | Phase 2 DTOs, frontend contract | Backend lead + Frontend | Decided ([07](07-Reports-Decisions.md)) |
+| D-5 | Absent vs zero metrics (sparse rows or always stored) | Phase 2 repo/service, API contract | Owner | Decided ([07](07-Reports-Decisions.md)) |
+| D-6 | Metric keys camelCase (Express) vs snake_case; migration per new metric acceptable? | Phase 1 CHECK constraint | Frontend + Backend | Decided ([07](07-Reports-Decisions.md)) |
+| D-7 | Length limits (150 / 5,000 / 10,000) and year range (2000-2100) | Phase 1 CHECK constraints | Owner | Decided ([07](07-Reports-Decisions.md)) |
+| D-8 | Are worker / area / church required? Lookup tables? | Phase 2 validation (Phase 1 if lookups) | Owner | Decided ([07](07-Reports-Decisions.md)) |
+| D-10 | Confirm `audit_logs`: columns, `ip_address` type, retention, API read access | Phase 1 migration 3 | Owner | Decided ([07](07-Reports-Decisions.md)) |
+| D-11 | Filter semantics (partial match vs equality/prefix); trigram index acceptable? | Phase 1 index set, Phase 2 repo | Backend lead | Decided ([07](07-Reports-Decisions.md)) |
+| D-14 | Transaction helper shape in repositories | Phase 2 | Backend lead | Decided ([07](07-Reports-Decisions.md)) |
 
 Not blocking (can follow the proposed default): week 5 validation, empty string vs NULL, legacy MongoDB import (separate track; add a `legacy_id` column in Phase 1 only if import is wanted), gating other endpoints by permission (H-6), data-driven seed assignments.
 
 ### 13.2 Platform and Policy Decisions (Docs 01 and 02)
 
-| # | Question | Blocks | Decision by |
-|---|----------|--------|-------------|
-| D-9 | Keep the current response convention, or unify the envelope (M-1)? Must be decided before the new handlers | Phase 3, M-1 | Owner + Frontend |
-| D-12 | Should login require a verified email? | H-3 | Owner |
-| D-13 | Which email provider? Development mailer policy? | E-1, H-3, C-3 follow-up | Owner |
-| D-15 | Session policy: idle timeout value, revoke on reset/lock/role change, SameSite and domain layout (frontend and API same site?) | H-1, H-2, M-8 | Owner + DevOps |
-| D-16 | Trusted proxy configuration for the hosting platform | H-4 | DevOps |
-| D-17 | Should all authenticated users be able to list users? (privacy) | H-6 | Owner |
+| # | Question | Blocks | Decision by | Status |
+|---|----------|--------|-------------|---|
+| D-9 | Keep the current response convention, or unify the envelope (M-1)? Must be decided before the new handlers | Phase 3, M-1 | Owner + Frontend | Decided ([07](07-Reports-Decisions.md)) |
+| D-12 | Should login require a verified email? | H-3 | Owner | Open |
+| D-13 | Which email provider? Development mailer policy? | E-1, H-3, C-3 follow-up | Owner | Open |
+| D-15 | Session policy: idle timeout value, revoke on reset/lock/role change, SameSite and domain layout (frontend and API same site?) | H-1, H-2, M-8 | Owner + DevOps | Open |
+| D-16 | Trusted proxy configuration for the hosting platform | H-4 | DevOps | Open |
+| D-17 | Should all authenticated users be able to list users? (privacy) | H-6 | Owner | Open |
 
-**Action:** Schedule a decision meeting before Phase 1 (Week 1). Minimum set to unblock the first migration: D-3, D-6, D-7, D-10, D-11 (index set), plus D-1/D-2 for the seed task. D-9 and D-4 must be settled before Phase 3.
+**Status:** D-1..D-11 and D-14 are decided and recorded in [07-Reports-Decisions.md](07-Reports-Decisions.md). Still open: D-12, D-13, D-15, D-16, D-17.
 
 ---
 
@@ -771,6 +770,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.10 | 2026-10-13 | Claude Code | M-9 partly delivered: `Retry-After` on 429 in 9e080e1 (delay-seconds, exposed through CORS); configurable limits (env vars) remain open; hours unchanged. Doc 04 corrected: `Retry-After` is now sent, `X-RateLimit-*` still is not |
 | 1.11 | 2026-10-13 | Claude Code | M-5 and M-10 marked delivered: Swagger metadata and host in 760f265, compose rename in 94edf61, README and ROADMAP rename with CUSTOMIZATION.md removed in e208b3e; hours unchanged, accounting only |
 | 1.12 | 2026-10-13 | Claude Code | M-11 added as delivered in e3f6b72: `/swagger/*` gated on `SWAGGER_ENABLED`, `/metrics` behind Basic Auth or not served in production, `/ready` no longer returns the database error; found during implementation, so totals are unchanged (about 2 to 3h actual, not added to the 244h baseline) |
+| 1.13 | 2026-10-13 | Claude Code | Reports decisions D-1..D-11 and D-14 recorded in 07 and marked decided in section 13; section 3.2 (seven permissions), 3.3 (D-14 narrowed), 3.4 (audit handler task dropped, D-9 kept) and M-1 (docs only) synced. Phase 3 total 15h to 13h and M-1 8h to 1h; **pending recompute:** section 3.7 total (~73h), section 4.3 total (31h), section 4.5, section 12.1 and the 244h / ~317h totals, and the section 12.2 weekly hours |
 
 ### 14.4 Deviations from the Requested Outline
 
