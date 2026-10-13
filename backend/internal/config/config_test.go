@@ -167,6 +167,7 @@ func cleanupEnv() {
 		"LOG_LEVEL", "LOG_FORMAT",
 		"CORS_ALLOWED_ORIGINS", "TRUSTED_PROXY_CIDRS",
 		"ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME",
+		"SWAGGER_ENABLED", "METRICS_USER", "METRICS_PASSWORD",
 	} {
 		_ = os.Unsetenv(key)
 	}
@@ -351,4 +352,105 @@ func TestLoad_MigrateURL_UsesMigrateDatabaseURL(t *testing.T) {
 	if cfg.Database.URL != "postgres://app:p@h:5432/db" {
 		t.Errorf("URL = %q, MIGRATE_DATABASE_URL must not change the app URL", cfg.Database.URL)
 	}
+}
+
+// loadWithEnv runs Load with DATABASE_URL and the given variables set.
+func loadWithEnv(t *testing.T, env map[string]string) (*Config, error) {
+	t.Helper()
+	t.Cleanup(cleanupEnv)
+	t.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+	for k, v := range env {
+		t.Setenv(k, v)
+	}
+	return Load()
+}
+
+// Swagger is on outside production and off in production, so a deploy that
+// forgets to configure it does not publish the API map.
+func TestLoad_ObservabilityDefaultsByStage(t *testing.T) {
+	tests := []struct {
+		appEnv string
+		want   bool
+	}{
+		{"production", false},
+		{"prod", false},
+		{"development", true},
+		{"dev", true},
+		{"", true},
+	}
+	for _, tt := range tests {
+		t.Run("APP_ENV="+tt.appEnv, func(t *testing.T) {
+			env := map[string]string{}
+			if tt.appEnv != "" {
+				env["APP_ENV"] = tt.appEnv
+			}
+			cfg, err := loadWithEnv(t, env)
+			if err != nil {
+				t.Fatalf("Load() failed: %v", err)
+			}
+			if got := cfg.Observability.SwaggerEnabled; got != tt.want {
+				t.Errorf("SwaggerEnabled = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoad_SwaggerEnabledOverride(t *testing.T) {
+	tests := []struct {
+		name  string
+		env   map[string]string
+		want  bool
+		stage string
+	}{
+		{"production, explicitly on", map[string]string{"APP_ENV": "production", "SWAGGER_ENABLED": "true"}, true, "prod"},
+		{"development, explicitly off", map[string]string{"APP_ENV": "development", "SWAGGER_ENABLED": "false"}, false, "dev"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := loadWithEnv(t, tt.env)
+			if err != nil {
+				t.Fatalf("Load() failed: %v", err)
+			}
+			if got := cfg.Observability.SwaggerEnabled; got != tt.want {
+				t.Errorf("SwaggerEnabled = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// A typo must stop the server, not silently pick a default.
+func TestLoad_SwaggerEnabledInvalidValue(t *testing.T) {
+	_, err := loadWithEnv(t, map[string]string{"SWAGGER_ENABLED": "maybe"})
+	if err == nil {
+		t.Fatal("Load() = nil error, want one for SWAGGER_ENABLED=maybe")
+	}
+	if !strings.Contains(err.Error(), "SWAGGER_ENABLED") {
+		t.Errorf("error = %q, want it to name SWAGGER_ENABLED", err)
+	}
+}
+
+func TestLoad_MetricsCredentialsValidation(t *testing.T) {
+	const strong = "a-long-enough-pass"
+	bad := map[string]map[string]string{
+		"user without password": {"METRICS_USER": "scraper"},
+		"password without user": {"METRICS_PASSWORD": strong},
+		"short password":        {"METRICS_USER": "scraper", "METRICS_PASSWORD": "short"},
+	}
+	for name, env := range bad {
+		t.Run(name, func(t *testing.T) {
+			if _, err := loadWithEnv(t, env); err == nil {
+				t.Error("Load() = nil error, want a validation error")
+			}
+		})
+	}
+
+	t.Run("both set", func(t *testing.T) {
+		cfg, err := loadWithEnv(t, map[string]string{"METRICS_USER": "scraper", "METRICS_PASSWORD": strong})
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if cfg.Observability.MetricsUser != "scraper" || cfg.Observability.MetricsPassword != strong {
+			t.Errorf("Observability = %+v, want the METRICS_* values", cfg.Observability)
+		}
+	})
 }

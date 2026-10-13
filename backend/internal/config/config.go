@@ -9,7 +9,10 @@ import (
 	"time"
 )
 
-const minAdminPasswordLen = 12
+const (
+	minAdminPasswordLen   = 12
+	minMetricsPasswordLen = 12
+)
 
 // DefaultTrustedProxyCIDR is the range Railway's edge proxies connect from.
 // Production logs showed every peer_ip inside 100.64.0.0/10 (CGNAT).
@@ -25,6 +28,19 @@ type Config struct {
 	Proxy    ProxyConfig
 	Admin    AdminConfig
 	Stage    Stage
+
+	Observability ObservabilityConfig
+}
+
+// ObservabilityConfig controls what the server exposes about itself.
+type ObservabilityConfig struct {
+	// SwaggerEnabled is whether /swagger/* is registered.
+	SwaggerEnabled bool
+	// MetricsUser and MetricsPassword are the Basic Auth credentials of
+	// /metrics. When both are empty /metrics is open outside production and
+	// not registered in production.
+	MetricsUser     string
+	MetricsPassword string
 }
 
 // ProxyConfig describes which connecting peers may speak for a client.
@@ -129,6 +145,17 @@ func Load() (*Config, error) {
 
 	cfg.Stage = stageFromEnv(cfg.App.Env)
 
+	// Swagger is on outside production and off in production unless asked for.
+	swagger, err := getEnvBool("SWAGGER_ENABLED", !cfg.IsProduction())
+	if err != nil {
+		return nil, fmt.Errorf("config validation: %w", err)
+	}
+	cfg.Observability = ObservabilityConfig{
+		SwaggerEnabled:  swagger,
+		MetricsUser:     strings.TrimSpace(os.Getenv("METRICS_USER")),
+		MetricsPassword: os.Getenv("METRICS_PASSWORD"),
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("config validation: %w", err)
 	}
@@ -155,6 +182,12 @@ func (c *Config) Validate() error {
 	}
 	if c.Admin.Password != "" && len(c.Admin.Password) < minAdminPasswordLen {
 		return fmt.Errorf("ADMIN_PASSWORD must be at least %d characters", minAdminPasswordLen)
+	}
+	if (c.Observability.MetricsUser == "") != (c.Observability.MetricsPassword == "") {
+		return fmt.Errorf("METRICS_USER and METRICS_PASSWORD must be set together")
+	}
+	if p := c.Observability.MetricsPassword; p != "" && len(p) < minMetricsPasswordLen {
+		return fmt.Errorf("METRICS_PASSWORD must be at least %d characters", minMetricsPasswordLen)
 	}
 	return nil
 }
@@ -203,6 +236,20 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// getEnvBool reads a boolean. An unset or empty variable gives fallback; a
+// value that is not a boolean is an error, so a typo cannot pick a default.
+func getEnvBool(key string, fallback bool) (bool, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("%s must be true or false, got %q", key, v)
+	}
+	return b, nil
 }
 
 func getEnvDuration(key string, fallback time.Duration) time.Duration {

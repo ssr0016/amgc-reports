@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
+
+	"github.com/ssr0016/pastoral-reports/backend/internal/logger"
 )
 
 type HealthHandler struct {
@@ -41,9 +43,11 @@ func (h *HealthHandler) Readiness(c echo.Context) error {
 	defer cancel()
 
 	if err := h.pool.Ping(ctx); err != nil {
+		// The error names the database user, name and host: log it, do not
+		// hand it to an anonymous caller.
+		logger.FromContext(c.Request().Context()).Error("readiness check failed", "error", err)
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{
 			"status": "not ready",
-			"error":  err.Error(),
 		})
 	}
 	return c.JSON(http.StatusOK, map[string]string{

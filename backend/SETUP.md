@@ -168,6 +168,8 @@ There is no start command to set: the image runs `/app/api`.
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | initial admin | Set both or neither. Password at least 12 characters. |
 | `APP_URL` | the public URL | Only used in startup log lines. |
 | `TRUSTED_PROXY_CIDRS` | leave unset on Railway | Comma-separated CIDRs of the proxies whose `X-Real-IP` is believed. Defaults to `100.64.0.0/10` (Railway's edge range). Set it when deploying elsewhere; if it is wrong, every user shares one rate-limit bucket and the app logs a warning after 100 requests. |
+| `SWAGGER_ENABLED` | leave unset on Railway | `/swagger/*` is off in production unless this is `true`. **`SWAGGER_ENABLED=true` in production exposes the Swagger UI publicly (no auth). Use only for temporary/internal access.** Must be `true` or `false`; anything else stops the server at startup. |
+| `METRICS_USER`, `METRICS_PASSWORD` | optional | Basic Auth for `/metrics`. Set both or neither; password at least 12 characters. Without them `/metrics` is not served in production. `/health`, `/ready` and `/live` stay public. |
 
 `PORT` is injected by Railway and read as a fallback when `APP_PORT` is unset.
 Do not set `APP_PORT` on Railway.
