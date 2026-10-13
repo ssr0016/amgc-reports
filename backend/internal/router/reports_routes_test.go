@@ -176,3 +176,14 @@ func TestReportsRoutes_WriteLimitSharedAndReadsFree(t *testing.T) {
 		}
 	}
 }
+
+// A user without the write permission must not use tokens: otherwise they could
+// lock out everyone sharing the bucket.
+func TestReportsRoutes_DeniedRequestsDoNotConsumeTokens(t *testing.T) {
+	e := reportsServerLimited(ourmiddleware.RateLimit(rate.Limit(0.0001), 2), "reports:read")
+	for i := 0; i < 10; i++ {
+		if got := reportRequest(e, http.MethodPost, "/api/v1/reports", `{"month":"May"}`, true); got != http.StatusForbidden {
+			t.Fatalf("POST #%d: status = %d, want 403 (never 429)", i, got)
+		}
+	}
+}

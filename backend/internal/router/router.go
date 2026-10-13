@@ -67,12 +67,13 @@ func Setup(
 	reports := api.Group("/reports", ourmiddleware.RequireAuth(sm))
 	reports.GET("", reportHandler.ListReports, perm("reports:read"))
 	// One shared bucket for all four writes (each costs a transaction and an audit
-	// row). It runs before the permission lookup, so denied requests count too.
-	reports.POST("", reportHandler.CreateReport, reportWriteLimit, perm("reports:write"))
+	// row). It runs after RequirePermission, so only callers who may write use
+	// tokens; a user without the permission cannot exhaust a bucket others share.
+	reports.POST("", reportHandler.CreateReport, perm("reports:write"), reportWriteLimit)
 	reports.GET("/:id", reportHandler.GetReport, perm("reports:read"))
-	reports.PUT("/:id", reportHandler.UpdateReport, reportWriteLimit, perm("reports:write"))
-	reports.DELETE("/:id", reportHandler.SoftDeleteReport, reportWriteLimit, perm("reports:delete"))
-	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, reportWriteLimit, perm("reports:approve"))
+	reports.PUT("/:id", reportHandler.UpdateReport, perm("reports:write"), reportWriteLimit)
+	reports.DELETE("/:id", reportHandler.SoftDeleteReport, perm("reports:delete"), reportWriteLimit)
+	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, perm("reports:approve"), reportWriteLimit)
 
 	// ============================================================
 	// Admin routes (RBAC-protected)
