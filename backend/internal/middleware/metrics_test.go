@@ -23,8 +23,12 @@ func newMetricsEcho() *echo.Echo {
 }
 
 func requestCount(path string, status int) float64 {
+	return requestCountFor(http.MethodGet, path, status)
+}
+
+func requestCountFor(method, path string, status int) float64 {
 	return testutil.ToFloat64(
-		metrics.HTTPRequestsTotal.WithLabelValues(http.MethodGet, path, strconv.Itoa(status)),
+		metrics.HTTPRequestsTotal.WithLabelValues(method, path, strconv.Itoa(status)),
 	)
 }
 
@@ -93,5 +97,109 @@ func TestPrometheusMiddleware_CommittedThenError(t *testing.T) {
 	}
 	if got := requestCount(path, http.StatusInternalServerError); got != 0 {
 		t.Errorf("http_requests_total{status=500} = %v, want 0", got)
+	}
+}
+
+func serve(e *echo.Echo, method, path string) int {
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), method, path, nil))
+	return rec.Code
+}
+
+// The path of an unmatched request is chosen by the client. Recording it raw
+// would give every probe its own series, so they share one label instead.
+func TestPrometheusMiddleware_UnmatchedRouteUsesSentinel(t *testing.T) {
+	const path = "/nope/one"
+	e := newMetricsEcho()
+
+	sentinel := requestCount("unmatched", http.StatusNotFound)
+	raw := requestCount(path, http.StatusNotFound)
+
+	if code := serve(e, http.MethodGet, path); code != http.StatusNotFound {
+		t.Fatalf("response code = %d, want %d", code, http.StatusNotFound)
+	}
+
+	if got := requestCount("unmatched", http.StatusNotFound) - sentinel; got != 1 {
+		t.Errorf(`http_requests_total{path="unmatched"} delta = %v, want 1`, got)
+	}
+	if got := requestCount(path, http.StatusNotFound) - raw; got != 0 {
+		t.Errorf("http_requests_total{path=%q} delta = %v, want 0 (raw path recorded)", path, got)
+	}
+}
+
+func TestPrometheusMiddleware_UnmatchedRoutesShareOneSeries(t *testing.T) {
+	paths := []string{"/nope/a1", "/nope/b2/c3", "/zzz"}
+	e := newMetricsEcho()
+
+	sentinel := requestCount("unmatched", http.StatusNotFound)
+	series := testutil.CollectAndCount(metrics.HTTPRequestDuration)
+
+	for _, p := range paths {
+		serve(e, http.MethodGet, p)
+	}
+
+	if got := requestCount("unmatched", http.StatusNotFound) - sentinel; got != float64(len(paths)) {
+		t.Errorf(`http_requests_total{path="unmatched"} delta = %v, want %d`, got, len(paths))
+	}
+	// At most the one sentinel series may be new; one per path would be the leak.
+	if got := testutil.CollectAndCount(metrics.HTTPRequestDuration) - series; got > 1 {
+		t.Errorf("http_request_duration_seconds gained %d series for %d unmatched paths, want at most 1", got, len(paths))
+	}
+}
+
+// A method token is client-chosen too. Anything outside the standard set
+// shares one label.
+func TestPrometheusMiddleware_UnknownMethodIsBucketed(t *testing.T) {
+	const path = "/m/method"
+	e := newMetricsEcho()
+	e.GET(path, func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+
+	bucket := requestCountFor("OTHER", path, http.StatusMethodNotAllowed)
+	raw := requestCountFor("FOO", path, http.StatusMethodNotAllowed)
+
+	if code := serve(e, "FOO", path); code != http.StatusMethodNotAllowed {
+		t.Fatalf("response code = %d, want %d", code, http.StatusMethodNotAllowed)
+	}
+
+	if got := requestCountFor("OTHER", path, http.StatusMethodNotAllowed) - bucket; got != 1 {
+		t.Errorf(`http_requests_total{method="OTHER"} delta = %v, want 1`, got)
+	}
+	if got := requestCountFor("FOO", path, http.StatusMethodNotAllowed) - raw; got != 0 {
+		t.Errorf(`http_requests_total{method="FOO"} delta = %v, want 0 (raw method recorded)`, got)
+	}
+}
+
+// Guards for the fix: matched routes keep their pattern and standard methods
+// keep their name.
+func TestPrometheusMiddleware_MatchedRouteKeepsPattern(t *testing.T) {
+	e := newMetricsEcho()
+	e.GET("/m/item/:id", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+
+	pattern := requestCount("/m/item/:id", http.StatusOK)
+	serve(e, http.MethodGet, "/m/item/123")
+
+	if got := requestCount("/m/item/:id", http.StatusOK) - pattern; got != 1 {
+		t.Errorf("http_requests_total{path=/m/item/:id} delta = %v, want 1", got)
+	}
+}
+
+func TestPrometheusMiddleware_StandardMethodsKeepTheirName(t *testing.T) {
+	methods := []string{
+		http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut,
+		http.MethodPatch, http.MethodDelete, http.MethodOptions,
+	}
+	for _, m := range methods {
+		t.Run(m, func(t *testing.T) {
+			path := "/m/std/" + m
+			e := newMetricsEcho()
+			e.Add(m, path, func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+
+			before := requestCountFor(m, path, http.StatusOK)
+			serve(e, m, path)
+
+			if got := requestCountFor(m, path, http.StatusOK) - before; got != 1 {
+				t.Errorf("http_requests_total{method=%s} delta = %v, want 1", m, got)
+			}
+		})
 	}
 }
