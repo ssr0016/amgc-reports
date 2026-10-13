@@ -1,4 +1,4 @@
-# Template Go Echo Squirrel
+# Pastoral Reports Backend
 
 [![CI](https://github.com/ssr0016/pastoral-reports/actions/workflows/ci.yml/badge.svg)](https://github.com/ssr0016/pastoral-reports/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://go.dev/)
@@ -6,14 +6,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat&logo=docker)](https://www.docker.com/)
 [![Swagger](https://img.shields.io/badge/API-Swagger-85EA2D?style=flat&logo=swagger)](https://swagger.io/)
 
-Production-ready Go backend starter kit with **Echo**, **Squirrel**, **pgx**, **Postgres**, **complete auth**, and **RBAC**.
-
-## Live Demo
-
-- **API:** https://template-go-echo-squirrel-production.up.railway.app
-- **Swagger:** https://template-go-echo-squirrel-production.up.railway.app/swagger/index.html
-- **Health:** https://template-go-echo-squirrel-production.up.railway.app/health
-- **Metrics:** https://template-go-echo-squirrel-production.up.railway.app/metrics
+Go backend for the Pastoral Reports app, built with **Echo**, **Squirrel**, **pgx**, **Postgres**, session auth, and **RBAC**.
 
 ## Features
 
@@ -61,7 +54,7 @@ Production-ready Go backend starter kit with **Echo**, **Squirrel**, **pgx**, **
 - Docker - Multi-stage production build
 - Air - Hot reload for development
 - Makefile - Common commands
-- Documentation - README, SETUP, ROADMAP, CUSTOMIZATION, ARCHITECTURE
+- Documentation - README, SETUP, ROADMAP, ARCHITECTURE
 
 ## Quick Start
 
@@ -279,7 +272,6 @@ Deployed on Railway with:
 
 - SETUP.md - Setup guide
 - ROADMAP.md - Project roadmap
-- CUSTOMIZATION.md - Customization guide
 - docs/ARCHITECTURE.md - Architecture rules
 - docs/API.md - API examples
 

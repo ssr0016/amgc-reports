@@ -1,10 +1,10 @@
 # ROADMAP
 
-**Production-ready Go backend starter kit** — reusable sa future projects.
+**Backend for the Pastoral Reports app**, started from a Go starter kit. Work in progress is tracked in `docs/06-Implementation-Plan.md`.
 
 ---
 
-## STATUS: COMPLETE (100%)
+## STATUS: Starter-kit phases complete
 
 | Phase | Feature | Status |
 |---|---|---|
@@ -18,9 +18,6 @@
 | 12.3 | Account Lockout | DONE |
 | 13 | Integration Tests | DONE |
 | 14 | Final Polish | DONE |
-
-**Total commits:** 40+
-**Live:** https://template-go-echo-squirrel-production.up.railway.app
 
 ---
 
@@ -37,7 +34,7 @@
 - Unit tests (20 tests)
 - CI/CD (4 jobs)
 - Docker (multi-stage)
-- Documentation (README, SETUP, CUSTOMIZATION)
+- Documentation (README, SETUP)
 
 ## Phase 8: RBAC
 
@@ -47,8 +44,8 @@
 - User role assignment
 - RequireRole middleware
 - RequirePermission middleware
-- Admin endpoints (12 routes)
-- Seed data (3 roles, 9 perms, 1 admin)
+- Admin endpoints (13 routes)
+- Seed data (3 roles, 9 perms; admin optional via ADMIN_EMAIL/ADMIN_PASSWORD)
 
 ## Phase 9: Pagination
 
@@ -71,7 +68,6 @@
 - README (286 lines)
 - docs/API.md (341 lines)
 - docs/ARCHITECTURE.md (208 lines)
-- CUSTOMIZATION.md
 
 ## Phase 12: Complete Auth
 
