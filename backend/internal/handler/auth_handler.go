@@ -39,7 +39,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return apperror.BadRequest("invalid request body").WithError(err)
 	}
 	if err := c.Validate(&req); err != nil {
-		return apperror.Validation(err.Error())
+		return err
 	}
 
 	user, err := h.authService.Register(c.Request().Context(), req)
@@ -69,7 +69,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return apperror.BadRequest("invalid request body").WithError(err)
 	}
 	if err := c.Validate(&req); err != nil {
-		return apperror.Validation(err.Error())
+		return err
 	}
 
 	user, err := h.authService.Login(c.Request().Context(), req.Email, req.Password)

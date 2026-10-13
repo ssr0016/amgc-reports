@@ -42,7 +42,7 @@ func (h *PasswordResetHandler) ForgotPassword(c echo.Context) error {
 		return apperror.BadRequest("invalid request body").WithError(err)
 	}
 	if err := c.Validate(&req); err != nil {
-		return apperror.Validation(err.Error())
+		return err
 	}
 
 	if err := h.service.RequestReset(c.Request().Context(), req.Email); err != nil {
@@ -70,7 +70,7 @@ func (h *PasswordResetHandler) ResetPassword(c echo.Context) error {
 		return apperror.BadRequest("invalid request body").WithError(err)
 	}
 	if err := c.Validate(&req); err != nil {
-		return apperror.Validation(err.Error())
+		return err
 	}
 
 	if err := h.service.ResetPassword(c.Request().Context(), req.Token, req.NewPassword); err != nil {

@@ -90,7 +90,7 @@ func (h *PermissionHandler) Create(c echo.Context) error {
 		return apperror.BadRequest("invalid request body").WithError(err)
 	}
 	if err := c.Validate(&req); err != nil {
-		return apperror.Validation(err.Error())
+		return err
 	}
 
 	existing, err := h.permissionRepo.GetByName(c.Request().Context(), req.Name)

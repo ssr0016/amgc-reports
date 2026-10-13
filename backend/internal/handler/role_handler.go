@@ -104,7 +104,7 @@ func (h *RoleHandler) Create(c echo.Context) error {
 		return apperror.BadRequest("invalid request body").WithError(err)
 	}
 	if err := c.Validate(&req); err != nil {
-		return apperror.Validation(err.Error())
+		return err
 	}
 
 	// Check if role name already exists
@@ -148,7 +148,7 @@ func (h *RoleHandler) Update(c echo.Context) error {
 		return apperror.BadRequest("invalid request body").WithError(err)
 	}
 	if err := c.Validate(&req); err != nil {
-		return apperror.Validation(err.Error())
+		return err
 	}
 
 	role, err := h.roleRepo.Update(c.Request().Context(), id, req)
@@ -222,7 +222,7 @@ func (h *RoleHandler) AssignPermission(c echo.Context) error {
 		return apperror.BadRequest("invalid request body").WithError(err)
 	}
 	if err := c.Validate(&req); err != nil {
-		return apperror.Validation(err.Error())
+		return err
 	}
 
 	// Verify role exists

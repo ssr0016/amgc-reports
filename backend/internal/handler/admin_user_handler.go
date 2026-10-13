@@ -69,7 +69,7 @@ func (h *AdminUserHandler) ChangeRole(c echo.Context) error {
 		return apperror.BadRequest("invalid request body").WithError(err)
 	}
 	if err := c.Validate(&req); err != nil {
-		return apperror.Validation(err.Error())
+		return err
 	}
 
 	// Verify user exists
