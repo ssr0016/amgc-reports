@@ -279,7 +279,7 @@ Details and "done when":
 | H-4 | `RealIP` trusts forwarded headers (rate limit and audit IP spoofable). **Delivered in bd167bc (trusted proxy extractor), with b56ea20 (`peer_ip` logging) and 01e8c24 (IPv6 keys grouped by /64)**; the hours are accounting, not remaining work | Security | 2h |
 | H-5 | No duplicate-name check on role update (surfaces as 500). **Delivered in cb84c20 (409 via the DB unique constraint, race-safe)**; the hours are accounting, not remaining work | Data integrity | 2h |
 | H-6 | `RequirePermission` unused; `editor` role has no effect; `/users` open to any authenticated user | Security | 4h |
-| H-7 | Validation error is the raw validator string; `details` never populated | UX | 4h |
+| H-7 | Validation error is the raw validator string; `details` never populated. **Delivered in 22b6390**; actual effort about 1 to 1.5h, and the hours are accounting, not remaining work | UX | 4h |
 | **Total** | | | **22h** |
 
 | ID | Approach and dependencies |
@@ -289,7 +289,7 @@ Details and "done when":
 | H-4 | Configure Echo's IP extractor with a trusted-proxy setting; new env variable `TRUSTED_PROXY_CIDRS` (default `100.64.0.0/10`, Railway's edge range, from production `peer_ip` data). Done as `TrustedProxyExtractor`: only configured ranges are trusted and `X-Forwarded-For` is never read; verified in production with a spoofed `X-Real-IP` |
 | H-5 | Add the conflict check (mirrors `Create`) and map unique violations (done by mapping the unique violation to 409 in the repository and handler, which is race-safe; no pre-check) |
 | H-6 | Apply `RequirePermission` to existing routes, starting with `GET /users` and `/users/:id`; establishes the pattern used by Reports Phase 3. Interacts with D-1 and D-2 |
-| H-7 | Return per-field `details` (`field` to message) using the already supported `WithDetails`; keep `message` stable |
+| H-7 | Return per-field `details` (`field` to message) using the already supported `WithDetails`; keep `message` stable. Done in `CustomValidator.Validate`: it maps `validator.ValidationErrors` to per-field `details` keyed by JSON name (one message per field, first failing tag wins), `message` is the constant `"validation failed"`, and `Value()` is never read so a rejected password cannot leak. The 9 handler call sites return the `AppError` directly (re-wrapping `err.Error()` would drop the details) |
 
 ### 4.3 Medium Priority (Sprint 2-3)
 
@@ -766,6 +766,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.6 | 2026-10-12 | Claude Code | C-4 marked delivered in 30172f4 and f87de24, C-5 in a7621d5 (hardened by c756994, 7e01638, b2d3cbf, bd167bc); hours unchanged, accounting only |
 | 1.7 | 2026-10-12 | Claude Code | H-4 marked delivered in bd167bc (with b56ea20, 01e8c24) and H-5 in cb84c20; hours unchanged, accounting only |
 | 1.8 | 2026-10-12 | Claude Code | H-1 marked delivered (session user link, tombstone revocation, transactional `UpdatePassword`); H-2 re-scoped with rationale (no revocation on automatic lockout); hours unchanged, accounting only |
+| 1.9 | 2026-10-13 | Claude Code | H-7 marked delivered in 22b6390 (per-field validation `details`, constant `message`); hours unchanged, accounting only (actual about 1 to 1.5h) |
 
 ### 14.4 Deviations from the Requested Outline
 
