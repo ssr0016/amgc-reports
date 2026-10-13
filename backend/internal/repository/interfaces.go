@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 // UserRepository defines the interface for user data access.
@@ -63,6 +64,19 @@ type PasswordResetRepository interface {
 	DeleteExpired(ctx context.Context) (int64, error)
 }
 
+// ReportRepository defines the interface for report data access. Get returns
+// (nil, nil) for a missing or soft-deleted report; Update, SoftDelete and
+// ToggleComplete return an error wrapping ErrNotFound instead. year is
+// resolved by the service (the request may omit it).
+type ReportRepository interface {
+	Create(ctx context.Context, q Querier, userID int64, year int, req model.CreateReportRequest) (*model.Report, error)
+	Get(ctx context.Context, q Querier, id int64) (*model.Report, error)
+	List(ctx context.Context, p model.ListReportsParams, pg pagination.Params) ([]*model.Report, int64, error)
+	Update(ctx context.Context, q Querier, id int64, year int, req model.UpdateReportRequest) (*model.Report, error)
+	SoftDelete(ctx context.Context, q Querier, id int64) error
+	ToggleComplete(ctx context.Context, q Querier, id, approverID int64) (*model.Report, error)
+}
+
 // Compile-time checks: implementations must satisfy interfaces.
 var (
 	_ UserRepository          = (*UserRepo)(nil)
@@ -70,4 +84,6 @@ var (
 	_ PermissionRepository    = (*PermissionRepo)(nil)
 	_ VerificationRepository  = (*VerificationRepo)(nil)
 	_ PasswordResetRepository = (*PasswordResetRepo)(nil)
+	_ ReportRepository        = (*ReportRepo)(nil)
+	_ ReportRepository        = (*MockReportRepo)(nil)
 )
