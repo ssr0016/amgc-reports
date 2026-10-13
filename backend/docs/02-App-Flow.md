@@ -392,7 +392,6 @@ PROPOSED — not yet implemented. Base path `/api/v1` (Express used `/api`).
 | PUT | `/api/v1/reports/:id` | yes | owner / admin | `UpdateReport` | Update a report |
 | DELETE | `/api/v1/reports/:id` | yes | owner / admin | `DeleteReport` | Delete a report |
 | PATCH | `/api/v1/reports/:id/complete` | yes | admin | `ToggleComplete` | Approve / unapprove |
-| POST | `/api/v1/reports/log-download` | yes | any | `LogDownload` | Record an Excel download in the audit log |
 
 Query filters for `GET /reports` (from the reference): `month`, `year`, `worker`, `area`, `church`, `page`, `limit`. Pagination follows the existing `pkg/pagination` convention (`page` default 1, `limit` default 20, max 100, response `{data, meta}`), which differs from Express (`limit` default 50, `{count,total,page,pages,data}`).
 
@@ -438,10 +437,8 @@ PROPOSED — not yet implemented. All mutating endpoints require `X-CSRF-Token` 
 4. **200** with the updated report.
 5. Once completed, should owners still be allowed to edit? The reference allows it; see open questions.
 
-### 14.7 Log Download
-1. `RequireAuth`; body `{type: "single"|"bulk", reportId?, workerName?, churchName?, month, year, count?}`; reject unknown `type` (**422**; Express silently ignored it).
-2. Write `DOWNLOAD_SINGLE_EXCEL` or `DOWNLOAD_BULK_EXCEL` audit entry.
-3. **200** `{"success": true}`. The backend generates no file; the frontend builds the Excel and reports the event.
+### 14.7 Log Download (dropped)
+Dropped by D-10 (Option 2): there is no `POST /reports/log-download`. A client-asserted download log is forgeable and skippable, so it proves nothing. A `DOWNLOAD_*` audit entry will be written server-side by a future Excel export endpoint.
 
 ## 15. Proposed Report Authorization Matrix
 
@@ -456,7 +453,6 @@ PROPOSED — not yet implemented.
 | Delete own report | yes | yes | yes |
 | Delete any report | no | no | yes |
 | Approve / unapprove | no | no | yes |
-| Log download | yes | yes | yes |
 
 In this matrix `editor` behaves exactly like `user`, as in the reference (Express only had `admin` and `user`). A distinct editor capability, if wanted, must be defined (open question 1).
 
@@ -464,7 +460,7 @@ In this matrix `editor` behaves exactly like `user`, as in the reference (Expres
 
 PROPOSED — not yet implemented. The Go backend has **no audit logging today**; this adds it.
 
-**Actions:** `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT`, `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL`. (The reference logged only the last five plus admin deletes; create/update are additions.)
+**Actions:** `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT`, and the reserved `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL` (written only by a future server-side export, D-10). (The reference logged only the last five plus admin deletes; create/update are additions.)
 
 **Entry fields:** action, target type, target ID, target name, details, IP address (plus actor ID/name/role and timestamp).
 

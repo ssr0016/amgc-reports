@@ -198,7 +198,7 @@ The detailed schema, queries and Go types are specified in `05-Backend-Schema.md
 | Add permissions to routes (`RequirePermission`) | `internal/middleware`, `router.go` | 1h |
 | **Total Phase 3** | | **13h (about 2 days)** |
 
-**Endpoints (7):** `GET/POST /api/v1/reports`, `GET/PUT/DELETE /api/v1/reports/:id`, `PATCH /api/v1/reports/:id/complete`, `POST /api/v1/reports/log-download` (details in Doc 02 sec. 13).
+**Endpoints (6):** `GET/POST /api/v1/reports`, `GET/PUT/DELETE /api/v1/reports/:id`, `PATCH /api/v1/reports/:id/complete`. `POST /api/v1/reports/log-download` is dropped (D-10, Option 2); details in Doc 02 sec. 13.
 
 **Acceptance Criteria**
 - All endpoints documented in Swagger
@@ -479,7 +479,7 @@ The code has **no feature-flag mechanism**; the plan uses the existing permissio
 1. **Backup** the production database; rehearse migrations on a copy of production data.
 2. Run migrations 1 to 3 (backward compatible).
 3. Deploy the backend with the reports feature. At this point only `admin` holds the `reports:*` permissions (seed assigns all permissions to admin), so no regular user can reach the endpoints.
-4. **Smoke test** as admin: create, duplicate (409), list/filter, update, soft delete, approve/unapprove, log-download; check logs and metrics (C-1/C-2 must be in place).
+4. **Smoke test** as admin: create, duplicate (409), list/filter, update, soft delete, approve/unapprove; check logs and metrics (C-1/C-2 must be in place).
 5. Grant `reports:*` permissions to `editor` and `user` through the admin API or seed changes (per D-2).
 6. Frontend release (Phase 4) and announcement to users.
 
