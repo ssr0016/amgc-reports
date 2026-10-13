@@ -130,7 +130,7 @@ Three numbering schemes exist. This doc uses the plan's D-numbers.
 - **Sub-questions:**
   - Retention: DEFERRED. Revisit if the table grows.
   - `action` CHECK: ACCEPTED. A new action needs a migration.
-  - `DOWNLOAD_SINGLE_EXCEL` and `DOWNLOAD_BULK_EXCEL` come from client-asserted `POST /reports/log-download`: INVESTIGATE during implementation. If a client can forge or skip them, add server-side logging where the download happens.
+  - `DOWNLOAD_SINGLE_EXCEL` and `DOWNLOAD_BULK_EXCEL`: RESOLVED (Option 2). The audit is written server-side where the download happens, not via a client-asserted `POST /reports/log-download`. That endpoint and the two actions are dropped from the API until a server-side Excel export endpoint exists, because client-asserted entries are forgeable and skippable and so prove nothing. Implementation is deferred until exports are built. The two action names stay in the `chk_audit_logs_action` CHECK and in `AuditActions` (harmless; removing them needs a migration), so the future export endpoint can use them without one.
 - **Depends on:** D-14.
 
 ## D-11 Filter semantics
@@ -167,7 +167,7 @@ None.
 - D-5: whether summaries count absent as 0 (Phase 5).
 - D-8: free-text drift in church, area and worker (revisit before Phase 5).
 - D-10: audit retention.
-- D-10: investigate the client-asserted `DOWNLOAD_*` actions.
+- D-10: resolved as Option 2 (server-side audit, no `log-download`); implementation deferred until exports exist.
 
 ## Follow-up doc edits (done)
 Applied to 05 (Part 2, §5.3, Part 4, Part 7 pointer, Appendix A) and 06 (§3.2 to §3.4, M-1, §13, change log 1.13) in the docs sync commit. Pending in 06: recompute of the effort totals (see change log 1.13).
