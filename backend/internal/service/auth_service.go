@@ -46,6 +46,33 @@ func NewAuthService(
 	}
 }
 
+// Me returns the user's name, email, role and permissions, read live from the
+// database (a role change shows on the next call). A user that no longer exists
+// is ErrUnauthorized, so a session outliving its user stops working.
+func (s *AuthService) Me(ctx context.Context, userID int64) (*model.MeResponse, error) {
+	user, err := s.userRepo.GetWithRole(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	if user == nil {
+		return nil, ErrUnauthorized
+	}
+	me := &model.MeResponse{UserID: user.ID, Name: user.Name, Email: user.Email, Permissions: []string{}}
+	if user.Role != nil {
+		me.Role = user.Role.Name
+	}
+	if user.RoleID != 0 {
+		perms, err := s.roleRepo.GetPermissions(ctx, user.RoleID)
+		if err != nil {
+			return nil, fmt.Errorf("get permissions: %w", err)
+		}
+		for _, p := range perms {
+			me.Permissions = append(me.Permissions, p.Name)
+		}
+	}
+	return me, nil
+}
+
 func (s *AuthService) Register(ctx context.Context, req model.RegisterRequest) (*model.User, error) {
 	existing, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {

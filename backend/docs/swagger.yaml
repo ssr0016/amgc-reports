@@ -85,6 +85,21 @@ definitions:
     - email
     - password
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      role:
+        type: string
+      user_id:
+        type: integer
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks:
     properties:
       week1:
@@ -712,17 +727,16 @@ paths:
       - auth
   /auth/me:
     get:
-      description: Returns the authenticated user's ID
+      description: Returns the authenticated user's ID, name, email, role and permissions,
+        read live from the database. Use it to show or hide actions; the server still
+        enforces every permission.
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              format: int64
-              type: integer
-            type: object
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse'
         "401":
           description: Unauthorized
           schema:

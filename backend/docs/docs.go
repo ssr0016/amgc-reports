@@ -622,7 +622,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Returns the authenticated user's ID",
+                "description": "Returns the authenticated user's ID, name, email, role and permissions, read live from the database. Use it to show or hide actions; the server still enforces every permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -634,11 +634,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "integer",
-                                "format": "int64"
-                            }
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse"
                         }
                     },
                     "401": {
@@ -1582,6 +1578,29 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "role": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         },

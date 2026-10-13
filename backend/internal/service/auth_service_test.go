@@ -279,3 +279,55 @@ func TestAuthService_Register_LogsSendVerificationError(t *testing.T) {
 		t.Errorf("email leaked into logs: %s", buf.String())
 	}
 }
+
+func TestAuthService_Me(t *testing.T) {
+	users := repository.NewMockUserRepo()
+	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
+		switch id {
+		case 1:
+			return &model.User{ID: 1, Name: "Ed", Email: "ed@example.org", RoleID: 20, Role: &model.Role{Name: "editor"}}, nil
+		case 2: // no role assigned
+			return &model.User{ID: 2, Name: "Nora", Email: "nora@example.org"}, nil
+		}
+		return nil, nil
+	}
+	roles := stubRoles{perms: map[int64][]string{20: {"reports:approve", "reports:read"}}}
+	svc := NewAuthService(users, roles, nil, discardLog)
+	ctx := context.Background()
+
+	t.Run("role and permissions", func(t *testing.T) {
+		got, err := svc.Me(ctx, 1)
+		if err != nil {
+			t.Fatalf("Me() failed: %v", err)
+		}
+		want := model.MeResponse{UserID: 1, Name: "Ed", Email: "ed@example.org", Role: "editor",
+			Permissions: []string{"reports:approve", "reports:read"}}
+		if fmt.Sprint(*got) != fmt.Sprint(want) {
+			t.Errorf("Me() = %+v, want %+v", *got, want)
+		}
+	})
+
+	t.Run("no role gives an empty role and a non-nil empty list", func(t *testing.T) {
+		got, err := svc.Me(ctx, 2)
+		if err != nil {
+			t.Fatalf("Me() failed: %v", err)
+		}
+		if got.Role != "" || got.Permissions == nil || len(got.Permissions) != 0 {
+			t.Errorf("Me() = %+v, want empty role and [] permissions", *got)
+		}
+	})
+
+	t.Run("a user that no longer exists is ErrUnauthorized", func(t *testing.T) {
+		if _, err := svc.Me(ctx, 99); !errors.Is(err, ErrUnauthorized) {
+			t.Errorf("Me() error = %v, want ErrUnauthorized", err)
+		}
+	})
+
+	t.Run("repository errors are returned, not hidden as 401", func(t *testing.T) {
+		boom := errors.New("db down")
+		users.GetWithRoleFunc = func(context.Context, int64) (*model.User, error) { return nil, boom }
+		if _, err := svc.Me(ctx, 1); !errors.Is(err, boom) || errors.Is(err, ErrUnauthorized) {
+			t.Errorf("Me() error = %v, want the repository error", err)
+		}
+	})
+}

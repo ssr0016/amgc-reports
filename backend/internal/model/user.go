@@ -41,6 +41,16 @@ func (u *User) ToResponse() UserResponse {
 	}
 }
 
+// MeResponse is the signed-in user's identity, role and permissions, so a client
+// can show or hide actions. The server still enforces every permission.
+type MeResponse struct {
+	UserID      int64    `json:"user_id"`
+	Name        string   `json:"name"`
+	Email       string   `json:"email"`
+	Role        string   `json:"role"`
+	Permissions []string `json:"permissions"`
+}
+
 type RegisterRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Name     string `json:"name" validate:"required,min=2,max=100"`

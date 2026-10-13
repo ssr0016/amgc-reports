@@ -109,11 +109,11 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 
 // Me godoc
 // @Summary      Get current user
-// @Description  Returns the authenticated user's ID
+// @Description  Returns the authenticated user's ID, name, email, role and permissions, read live from the database. Use it to show or hide actions; the server still enforces every permission.
 // @Tags         auth
 // @Produce      json
 // @Security     CookieAuth
-// @Success      200 {object} map[string]int64
+// @Success      200 {object} model.MeResponse
 // @Failure      401 {object} map[string]string
 // @Router       /auth/me [get]
 func (h *AuthHandler) Me(c echo.Context) error {
@@ -121,5 +121,12 @@ func (h *AuthHandler) Me(c echo.Context) error {
 	if userID == 0 {
 		return apperror.Unauthorized("not authenticated")
 	}
-	return c.JSON(http.StatusOK, map[string]int64{"user_id": userID})
+	me, err := h.authService.Me(c.Request().Context(), userID)
+	if err != nil {
+		if errors.Is(err, service.ErrUnauthorized) {
+			return apperror.Unauthorized("not authenticated")
+		}
+		return apperror.Internal("failed to load user").WithError(err)
+	}
+	return c.JSON(http.StatusOK, me)
 }
