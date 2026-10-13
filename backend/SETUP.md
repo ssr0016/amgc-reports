@@ -58,7 +58,7 @@ nano .env
 
 ### 3. Start Database
 make db-start
-docker ps | grep template-go
+docker ps | grep pastoral
 
 ### 4. Install Dependencies
 go mod download

@@ -1,4 +1,4 @@
-name: template-go-prod
+name: pastoral-reports-prod
 
 services:
   # ============================================
@@ -8,7 +8,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: template-go-app
+    container_name: pastoral-app
     ports:
       - "${APP_PORT:-8080}:8080"
     environment:
@@ -36,14 +36,14 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - template-net
+      - pastoral-net
 
   # ============================================
   # Database
   # ============================================
   pg:
     image: postgres:15.3-alpine
-    container_name: template-go-prod-pg
+    container_name: pastoral-prod-pg
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -59,12 +59,12 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - template-net
+      - pastoral-net
 
 volumes:
   pg_data:
     driver: local
 
 networks:
-  template-net:
+  pastoral-net:
     driver: bridge

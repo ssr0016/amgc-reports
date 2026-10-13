@@ -1,9 +1,9 @@
-name: template-go-echo-squirrel-db
+name: pastoral-reports-db
 
 services:
   pg:
     image: postgres:15.3-alpine
-    container_name: template-go-pg
+    container_name: pastoral-pg
     ports:
       - '${DB_PORT:-5432}:5432'
     volumes:
@@ -21,7 +21,7 @@ services:
 
   test-pg:
     image: postgres:15.3-alpine
-    container_name: template-go-test-pg
+    container_name: pastoral-test-pg
     ports:
       - '${TEST_DB_PORT:-5433}:5432'
     volumes:
@@ -39,7 +39,7 @@ services:
 
   pg-admin:
     image: dpage/pgadmin4:6
-    container_name: template-go-pgadmin
+    container_name: pastoral-pgadmin
     ports:
       - '${PGADMIN_PORT:-5050}:5050'
     volumes:

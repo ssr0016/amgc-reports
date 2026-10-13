@@ -380,7 +380,7 @@ A live end-to-end script (43 checks) was run against a real server and database 
 - **Concerns:** `alpine:3.19` is past its upstream end-of-life window and should be verified and upgraded; images are not pinned by digest; no `.dockerignore` review was done beyond its presence.
 
 ### 15.2 Docker Compose (Dev)
-[docker-compose.yaml](../docker-compose.yaml), project name `template-go-echo-squirrel-db`:
+[docker-compose.yaml](../docker-compose.yaml), project name `pastoral-reports-db`:
 
 | Service | Image | Host port | Persistence |
 |---|---|---|---|
@@ -388,12 +388,12 @@ A live end-to-end script (43 checks) was run against a real server and database 
 | `test-pg` | `postgres:15.3-alpine` | `${TEST_DB_PORT:-5433}` | `./volumes/databases/test-pg/data` |
 | `pg-admin` | `dpage/pgadmin4:6` | `${PGADMIN_PORT:-5050}` | `./volumes/databases/pgadmin` |
 
-Healthchecks on both Postgres services. Container names still carry the template prefix (`template-go-*`).
+Healthchecks on both Postgres services. Container names use the `pastoral-` prefix.
 
 ### 15.3 Docker Compose (Prod)
-[docker-compose.prod.yaml](../docker-compose.prod.yaml): services `app` (built from the Dockerfile) and `pg`, bridge network `template-net`, named volume `pg_data`, `restart: unless-stopped`, app depends on `pg` healthy, app healthcheck on `/health`.
+[docker-compose.prod.yaml](../docker-compose.prod.yaml): services `app` (built from the Dockerfile) and `pg`, bridge network `pastoral-net`, named volume `pg_data`, `restart: unless-stopped`, app depends on `pg` healthy, app healthcheck on `/health`.
 
-> **Security concern:** `pg` publishes `"${DB_PORT:-5435}:5432"` to the host, exposing the database. The `DB_PASSWORD` default is `postgres`, and `sslmode=disable` is hardcoded in `DATABASE_URL`. Names still refer to the template (`template-go-prod`, `template-net`).
+> **Security concern:** `pg` publishes `"${DB_PORT:-5435}:5432"` to the host, exposing the database. The `DB_PASSWORD` default is `postgres`, and `sslmode=disable` is hardcoded in `DATABASE_URL`. Project, container and network names use the `pastoral-` prefix.
 
 ## 16. CI/CD
 
