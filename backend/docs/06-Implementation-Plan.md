@@ -305,6 +305,7 @@ Details and "done when":
 | M-8 | Config loaded but ignored (`DB_*`, `SESSION_IDLE_TIMEOUT`); session reads env directly; align cookie `SameSite` policy | Correctness | 2h |
 | M-9 | Rate limiter improvements: per-route buckets, `Retry-After`, configurable limits (remainder of the "only on register/login" finding after C-5). **Partial: `Retry-After` delivered in 9e080e1** (delay-seconds from the limiter's bucket, exposed through CORS); configurable limits (env vars) remain open, so the hours still cover that work | Security | 3h |
 | M-10 | Template naming leftovers and stale docs (compose names, README URLs, ROADMAP "COMPLETE", Swagger host). **Delivered in 94edf61 (compose names), e208b3e (README and ROADMAP, CUSTOMIZATION.md removed) and 760f265 (Swagger host)**; the hours are accounting, not remaining work | DX | 2h |
+| M-11 | API surface production hardening: `/swagger/*` and `/metrics` were public in production (API map, request counts, latencies, error rates), and `/ready` put the database error in its 503 body. Found during implementation, so **not in the total below**. **Delivered in e3f6b72** (`SWAGGER_ENABLED`; `/metrics` behind Basic Auth or not served in production; generic `/ready`); about 2 to 3h of actual effort | Security | 2-3h |
 | **Total** | | | **31h** |
 
 Notes:
@@ -769,6 +770,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.9 | 2026-10-13 | Claude Code | H-7 marked delivered in 22b6390 (per-field validation `details`, constant `message`); hours unchanged, accounting only (actual about 1 to 1.5h) |
 | 1.10 | 2026-10-13 | Claude Code | M-9 partly delivered: `Retry-After` on 429 in 9e080e1 (delay-seconds, exposed through CORS); configurable limits (env vars) remain open; hours unchanged. Doc 04 corrected: `Retry-After` is now sent, `X-RateLimit-*` still is not |
 | 1.11 | 2026-10-13 | Claude Code | M-5 and M-10 marked delivered: Swagger metadata and host in 760f265, compose rename in 94edf61, README and ROADMAP rename with CUSTOMIZATION.md removed in e208b3e; hours unchanged, accounting only |
+| 1.12 | 2026-10-13 | Claude Code | M-11 added as delivered in e3f6b72: `/swagger/*` gated on `SWAGGER_ENABLED`, `/metrics` behind Basic Auth or not served in production, `/ready` no longer returns the database error; found during implementation, so totals are unchanged (about 2 to 3h actual, not added to the 244h baseline) |
 
 ### 14.4 Deviations from the Requested Outline
 
