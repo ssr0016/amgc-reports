@@ -10,7 +10,7 @@
 
 > **How to read this document**
 > - **Part 1** describes what the Go code does **today** (commit `f40e94c`). It was written from the source files and, where noted, confirmed against a running server.
-> - **Part 2** is **PROPOSED, not implemented**. It designs the Reports feature using the Express/MongoDB analysis (`Express_MongoDB_Report_Backend_Analysis.docx`) as the functional reference.
+> - **Part 2** is **implemented** (Reports backend, Phases 1 to 3, live). It documents the Reports feature, designed using the Express/MongoDB analysis (`Express_MongoDB_Report_Backend_Analysis.docx`) as the functional reference.
 > - Findings marked **[Observed]** were reproduced on a live server; **[Code]** were read from source only.
 
 ---
@@ -28,14 +28,14 @@
   - [8. Complete Route List](#8-complete-route-list)
   - [9. Prometheus Metrics Flow](#9-prometheus-metrics-flow)
   - [10. Logging Flow](#10-logging-flow)
-- [Part 2: Proposed Reports Feature](#part-2-proposed-reports-feature-proposed--not-yet-implemented)
+- [Part 2: Reports Feature](#part-2-reports-feature-implemented)
   - [11. Reports Flow Overview](#11-reports-flow-overview)
   - [12. Report Data Flow and Schema Mapping](#12-report-data-flow-and-schema-mapping)
-  - [13. Proposed API Endpoints](#13-proposed-reports-api-endpoints)
-  - [14. Proposed Reports Flows](#14-proposed-reports-flows)
-  - [15. Proposed Authorization Matrix](#15-proposed-report-authorization-matrix)
-  - [16. Proposed Audit Logging](#16-proposed-report-audit-logging)
-  - [17. Proposed Validation Rules](#17-proposed-report-validation-rules)
+  - [13. API Endpoints](#13-reports-api-endpoints)
+  - [14. Reports Flows](#14-reports-flows)
+  - [15. Authorization Matrix](#15-report-authorization-matrix)
+  - [16. Audit Logging](#16-report-audit-logging)
+  - [17. Validation Rules](#17-report-validation-rules)
   - [18. Differences from the Express Reference](#18-differences-from-the-express-reference)
 - [Part 3: Diagrams](#part-3-diagrams)
 - [Part 4: Open Questions](#part-4-open-questions)
@@ -317,13 +317,13 @@ flowchart LR
 
 ---
 
-# Part 2: Proposed Reports Feature (PROPOSED — not yet implemented)
+# Part 2: Reports Feature (implemented)
 
-> **PROPOSED — to be implemented in Go.** Nothing in this part exists in the repository. It is derived from the Express/MongoDB reference and adapted to the existing Go conventions (sessions + CSRF, `apperror`, `pkg/pagination`, goose migrations, Squirrel repositories).
+> **Implemented in Go.** Where this part differs from the code, the code and `07-Reports-Decisions.md` win. It is derived from the Express/MongoDB reference and adapted to the existing Go conventions (sessions + CSRF, `apperror`, `pkg/pagination`, goose migrations, Squirrel repositories).
 
 ## 11. Reports Flow Overview
 
-PROPOSED — not yet implemented.
+Implemented.
 
 ```mermaid
 flowchart LR
@@ -341,7 +341,7 @@ Differences from the Express reference: Express had no service layer (logic live
 
 ## 12. Report Data Flow and Schema Mapping
 
-PROPOSED — not yet implemented.
+Implemented.
 
 **Create / Read / Update / Delete**
 
@@ -380,26 +380,26 @@ Metric keys (21): `worshipService, sundaySchool, prayerMeeting, bibleStudies, me
 
 Note: `tithesOffering` is a monetary-looking value in a metric that Express stored as a plain `Number`. If it holds currency, `NUMERIC(12,2)` is required instead of an integer (open question).
 
-## 13. Proposed Reports API Endpoints
+## 13. Reports API Endpoints
 
-PROPOSED — not yet implemented. Base path `/api/v1` (Express used `/api`).
+Base path `/api/v1` (Express used `/api`).
 
-| Method | Path | Auth | Role | Handler | Description |
+| Method | Path | Auth | Permission | Handler | Description |
 |---|---|---|---|---|---|
-| GET | `/api/v1/reports` | yes | any | `ListReports` | List with filters and pagination |
-| POST | `/api/v1/reports` | yes | any | `CreateReport` | Create a report for the current user |
-| GET | `/api/v1/reports/:id` | yes | any | `GetReport` | Get one report |
-| PUT | `/api/v1/reports/:id` | yes | owner / admin | `UpdateReport` | Update a report |
-| DELETE | `/api/v1/reports/:id` | yes | owner / admin | `DeleteReport` | Delete a report |
-| PATCH | `/api/v1/reports/:id/complete` | yes | admin | `ToggleComplete` | Approve / unapprove |
+| GET | `/api/v1/reports` | yes | `reports:read` | `ListReports` | List with filters and pagination |
+| POST | `/api/v1/reports` | yes | `reports:write` | `CreateReport` | Create a report for the current user |
+| GET | `/api/v1/reports/:id` | yes | `reports:read` | `GetReport` | Get one report |
+| PUT | `/api/v1/reports/:id` | yes | `reports:write` | `UpdateReport` | Update a report |
+| DELETE | `/api/v1/reports/:id` | yes | `reports:delete` | `SoftDeleteReport` | Delete a report |
+| PATCH | `/api/v1/reports/:id/complete` | yes | `reports:approve` | `ToggleComplete` | Approve / unapprove |
 
 Query filters for `GET /reports` (from the reference): `month`, `year`, `worker`, `area`, `church`, `page`, `limit`. Pagination follows the existing `pkg/pagination` convention (`page` default 1, `limit` default 20, max 100, response `{data, meta}`), which differs from Express (`limit` default 50, `{count,total,page,pages,data}`).
 
-**Permission-based variant (optional).** Instead of hardcoding roles, add permissions `reports:read`, `reports:write`, `reports:delete`, `reports:approve` and use the currently unused `RequirePermission`; ownership checks stay in the service. This would give the `editor` role a defined meaning.
+**Permission-based (implemented).** Routes use `RequirePermission` with the seven `reports:*` permissions (D-1, D-2): `read`, `write`, `delete` and `approve` gate the route; `read_any`, `write_any` and `delete_any` widen the scope inside the service. Ownership checks live in the service.
 
-## 14. Proposed Reports Flows
+## 14. Reports Flows
 
-PROPOSED — not yet implemented. All mutating endpoints require `X-CSRF-Token` and a valid session, as elsewhere.
+All mutating endpoints require `X-CSRF-Token` and a valid session, as elsewhere.
 
 ### 14.1 Create Report (with duplicate prevention)
 1. `RequireAuth`; bind and validate (section 17).
@@ -440,25 +440,26 @@ PROPOSED — not yet implemented. All mutating endpoints require `X-CSRF-Token` 
 ### 14.7 Log Download (dropped)
 Dropped by D-10 (Option 2): there is no `POST /reports/log-download`. A client-asserted download log is forgeable and skippable, so it proves nothing. A `DOWNLOAD_*` audit entry will be written server-side by a future Excel export endpoint.
 
-## 15. Proposed Report Authorization Matrix
+## 15. Report Authorization Matrix
 
-PROPOSED — not yet implemented.
+Implemented.
 
-| Action | Regular User | Editor | Admin |
-|---|:---:|:---:|:---:|
-| Create report | yes | yes | yes |
-| Read any report | yes | yes | yes |
-| Update own report | yes | yes | yes |
-| Update any report | no | no | yes |
-| Delete own report | yes | yes | yes |
-| Delete any report | no | no | yes |
-| Approve / unapprove | no | no | yes |
+| Action | Permission | user | editor | admin |
+|---|---|:---:|:---:|:---:|
+| Create report | `reports:write` | yes | yes | yes |
+| Read own report | `reports:read` | yes | yes | yes |
+| Read any report | `reports:read_any` | no | yes | yes |
+| Update own report | `reports:write` | yes | yes | yes |
+| Update any report | `reports:write_any` | no | yes | yes |
+| Delete own report | `reports:delete` | yes | yes | yes |
+| Delete any report | `reports:delete_any` | no | yes | yes |
+| Approve / unapprove (any report) | `reports:approve` | no | yes | yes |
 
-In this matrix `editor` behaves exactly like `user`, as in the reference (Express only had `admin` and `user`). A distinct editor capability, if wanted, must be defined (open question 1).
+Per D-1 and D-2. Another person's report is 404 (not 403) on get, update and delete. `approve` is global: a custom role with `approve` but without `read_any` can approve by ID but cannot list.
 
-## 16. Proposed Report Audit Logging
+## 16. Report Audit Logging
 
-PROPOSED — not yet implemented. The Go backend has **no audit logging today**; this adds it.
+Implemented: every report mutation writes one `audit_logs` row in the same transaction (D-10, D-14).
 
 **Actions:** `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT`, and the reserved `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL` (written only by a future server-side export, D-10). (The reference logged only the last five plus admin deletes; create/update are additions.)
 
@@ -485,27 +486,27 @@ PROPOSED — not yet implemented. The Go backend has **no audit logging today**;
 - Do not store narrative text or prayer requests in `details`.
 - Add read access (admin-only list endpoint) in a later phase.
 
-## 17. Proposed Report Validation Rules
+## 17. Report Validation Rules
 
-PROPOSED — not yet implemented. Implemented with `go-playground/validator` tags plus service-level checks, returning **422** `VALIDATION_ERROR` like existing endpoints.
+Implemented with `go-playground/validator` tags plus service-level checks, returning **422** `VALIDATION_ERROR` like existing endpoints.
 
 | Field | Rule |
 |---|---|
-| `month` | Required; regex/enum of the 12 English month names, case-insensitive, trimmed (e.g. `^(?i)(January|February|...|December)$`) |
-| `year` | Required (default current year if omitted); integer, range 2000 to current year + 1 |
+| `month` | Required; one of the 12 English month names, exact case (DB CHECK `chk_reports_month`) |
+| `year` | Optional (defaults to the current year on create; on update a missing year keeps the report's year); integer 2000 to 2100 (D-7) |
 | `worker`, `area_assignment`, `church_name` | Optional; trimmed; max 150 characters |
-| Metrics `week1`..`week5` | Optional; integer **>= 0** (the reference had no minimum); upper bound proposed (e.g. 1,000,000) |
+| Metrics `week1`..`week5` | Optional JSON numbers, 0 to 9,999,999,999.99 with at most 2 decimals (`decimal12_2`, D-4); absent means not reported (D-5) |
 | Metric keys | Only the 21 known keys; unknown keys rejected |
 | `names` | Optional; max 5,000 characters |
 | `narrative_report`, `challenges`, `prayer_request` | Optional; max 10,000 characters |
 | `created_by`, `completed` | Never accepted from the client body |
 | Filters | `year` integer; `month`/`worker`/`area`/`church` max 100 chars, treated as literals (wildcards escaped, **not** raw regex); `page >= 1`; `limit` 1..100 |
-| Duplicate | Enforced by unique index `(created_by, lower(month), year)`; not by a read-then-write check |
+| Duplicate | Enforced by the partial unique index `(created_by, month, year) WHERE deleted_at IS NULL`; not by a read-then-write check |
 | Missing month on create | Returns 422 (the reference crashed on `month.replace` with an unhandled JavaScript error) |
 
 ## 18. Differences from the Express Reference
 
-PROPOSED — not yet implemented. Behaviour deliberately **not** ported, with reason.
+Behaviour deliberately **not** ported, with reason.
 
 | Express behaviour | Proposed Go behaviour | Reason |
 |---|---|---|
@@ -603,7 +604,7 @@ sequenceDiagram
     end
 ```
 
-## 3.3 Create Report Flow (PROPOSED — not yet implemented)
+## 3.3 Create Report Flow (implemented)
 
 ```mermaid
 sequenceDiagram
@@ -626,7 +627,7 @@ sequenceDiagram
         R->>DB: INSERT ... 
         alt unique (created_by, lower(month), year) violated
             DB-->>R: SQLSTATE 23505
-            S-->>H: ErrDuplicateReport
+            S-->>H: ErrReportExists
             H-->>B: 409 CONFLICT
         else inserted
             S->>R: INSERT report_metrics rows
@@ -638,7 +639,7 @@ sequenceDiagram
     end
 ```
 
-## 3.4 Approval Flow (PROPOSED — not yet implemented)
+## 3.4 Approval Flow (implemented)
 
 ```mermaid
 sequenceDiagram

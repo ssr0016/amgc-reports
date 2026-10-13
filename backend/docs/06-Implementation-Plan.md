@@ -416,7 +416,7 @@ Coverage for **new** Reports code is inside Phases 2, 3 and 5; the table above i
 
 1. **Fix-first tests:** every item in section 4 gets a regression test in the same change (the C-1/C-2 status mapping, the C-4 404, C-5 429s).
 2. **Reports:** TDD at the service layer using `MockReportRepo`; repository integration tests assert the schema rules from Doc 05 section 2.7 (duplicate prevention returns 23505, soft-deleted rows invisible, CHECK constraints reject bad month/week/value, approval fields consistent, transaction rollback leaves no partial data).
-3. **End-to-end:** commit the live test script (or port it to a Go test using the `integration` tag) and extend it with the report flows: create, duplicate (409), list with filters and pagination, update by owner, update by non-owner (403), delete (soft), approve and unapprove, log-download.
+3. **End-to-end:** commit the live test script (or port it to a Go test using the `integration` tag) and extend it with the report flows: create, duplicate (409), list with filters and pagination, update by owner, update by non-owner (403), delete (soft), approve and unapprove.
 4. **CI changes (small, part of I-7/I-8):** run the `integration` tag in a separate job; fail on coverage drop for changed packages; keep `-race`; pin the golangci-lint version used locally to the CI version (I-10, done in 2c3656b).
 5. **Targets:** new code at least 70% (as CONTRIBUTING.md states); service package 80%; handlers and middleware 70% (T-1, T-2).
 6. **Test data:** deterministic fixtures; passwords that satisfy `strongpass`; per-test database (testcontainers) or transaction rollback.

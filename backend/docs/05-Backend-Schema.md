@@ -3,7 +3,7 @@
 
 **Version:** 1.0
 **Date:** 2026-10-11
-**Status:** Part 1 Reference (Existing), Part 2 Proposed (Not Implemented)
+**Status:** Part 1 Reference (Existing), Part 2 Reports (Implemented)
 **Repository:** github.com/ssr0016/pastoral-reports/backend
 **Commit Reference:** f40e94c
 
@@ -22,10 +22,10 @@
 ## Table of Contents
 
 - [Part 1: Current Schema](#part-1-current-schema-existing)
-- [Part 2: Proposed Reports Schema](#part-2-proposed-reports-schema)
-- [Part 3: Go Structs](#part-3-go-structs-proposed)
-- [Part 4: Migration Plan](#part-4-migration-plan-proposed)
-- [Part 5: Squirrel Query Examples](#part-5-squirrel-query-examples-proposed)
+- [Part 2: Reports Schema](#part-2-reports-schema)
+- [Part 3: Go Structs](#part-3-go-structs)
+- [Part 4: Migration Plan](#part-4-migration-plan)
+- [Part 5: Squirrel Query Examples](#part-5-squirrel-query-examples)
 - [Part 6: ER Diagrams](#part-6-er-diagrams)
 - [Part 7: Open Questions](#part-7-open-questions)
 - [Appendix](#appendix)
@@ -282,7 +282,7 @@ From `internal/repository/interfaces.go`:
 
 ---
 
-# Part 2: Proposed Reports Schema
+# Part 2: Reports Schema
 
 > **Partially implemented: Phase 1 (migrations and seed permissions) landed in 2de41a4.** The migrations are the source of truth for the schema in this Part. Repository, service, handler and Go code for reports do not exist yet.
 
@@ -555,7 +555,7 @@ Ownership itself is checked in the service by comparing `reports.created_by` to 
 
 ---
 
-# Part 3: Go Structs (Proposed)
+# Part 3: Go Structs
 
 > **Specification only.** These are not created in the repository. They follow the existing conventions in `internal/model` (`json` + `db` tags, `XxxResponse`, `ToResponse()`, `XxxRequest` with `validate` tags).
 
@@ -616,13 +616,13 @@ Numeric type: `pgtype.Numeric` comes from `github.com/jackc/pgx/v5/pgtype`, whic
 
 ```go
 // MetricWeeks holds the five weekly values of one metric (Express: week1..week5).
-// Absent weeks are omitted; present values must be >= 0.
+// Absent weeks are omitted; present values are 0 to 9,999,999,999.99 with at most 2 decimals (decimal12_2, D-4).
 type MetricWeeks struct {
-    Week1 *json.Number `json:"week1,omitempty" validate:"omitempty,gte=0"`
-    Week2 *json.Number `json:"week2,omitempty" validate:"omitempty,gte=0"`
-    Week3 *json.Number `json:"week3,omitempty" validate:"omitempty,gte=0"`
-    Week4 *json.Number `json:"week4,omitempty" validate:"omitempty,gte=0"`
-    Week5 *json.Number `json:"week5,omitempty" validate:"omitempty,gte=0"`
+    Week1 *json.Number `json:"week1,omitempty" validate:"omitempty,decimal12_2"`
+    Week2 *json.Number `json:"week2,omitempty" validate:"omitempty,decimal12_2"`
+    Week3 *json.Number `json:"week3,omitempty" validate:"omitempty,decimal12_2"`
+    Week4 *json.Number `json:"week4,omitempty" validate:"omitempty,decimal12_2"`
+    Week5 *json.Number `json:"week5,omitempty" validate:"omitempty,decimal12_2"`
 }
 
 // CreateReportRequest / UpdateReportRequest share fields; created_by and
@@ -637,7 +637,7 @@ type CreateReportRequest struct {
     NarrativeReport string                 `json:"narrative_report" validate:"max=10000"`
     Challenges      string                 `json:"challenges" validate:"max=10000"`
     PrayerRequest   string                 `json:"prayer_request" validate:"max=10000"`
-    Metrics         map[string]MetricWeeks `json:"metrics" validate:"dive,keys,oneof=worshipService sundaySchool prayerMeeting bibleStudies mensFellowship womensFellowship youthFellowship childrenFellowship tithesOffering homeVisited bibleStudyGroupLed sermonPreached personNewlyContacted personFollowedUp personEvangelized outreach training leadership baptism other familyDay,endkeys"`
+    Metrics         map[string]MetricWeeks `json:"metrics" validate:"dive,keys,oneof=worship_service sunday_school prayer_meeting bible_studies mens_fellowship womens_fellowship youth_fellowship children_fellowship tithes_offering home_visited bible_study_group_led sermon_preached person_newly_contacted person_followed_up person_evangelized outreach training leadership baptism other family_day,endkeys"`
 }
 
 // ReportResponse is the API representation (bare object, per existing convention).
@@ -668,35 +668,37 @@ type ListReportsParams struct {
     Worker string
     Area   string
     Church string
+
+    CreatedBy int64 // owner filter (D-1); 0 = any owner
 }
 ```
 
-Response shape: the nested `metrics` object mirrors Express (`{"worshipService": {"week1": 120, "week2": 98}}`), assembled from `report_metrics` rows. List responses use the existing `pagination.Response[ReportResponse]`.
+Response shape: the nested `metrics` object mirrors Express (`{"worship_service": {"week1": 120, "week2": 98}}`), assembled from `report_metrics` rows. List responses use the existing `pagination.Response[ReportResponse]`.
 
-## 3.3 Repository Interface (specification)
+## 3.3 Repository Interface (as implemented)
 
 Following `internal/repository/interfaces.go` naming and the `(nil, nil)` not-found convention:
 
 ```go
 type ReportRepository interface {
-    Create(ctx context.Context, userID int64, req model.CreateReportRequest) (*model.Report, error)
-    GetByID(ctx context.Context, id int64) (*model.Report, error)                  // nil, nil if missing or soft-deleted
-    ListWithPagination(ctx context.Context, p model.ListReportsParams, page, limit int) ([]model.Report, int64, error)
-    Update(ctx context.Context, id int64, req model.UpdateReportRequest) (*model.Report, error)
-    SoftDelete(ctx context.Context, id int64) (bool, error)
-    ToggleComplete(ctx context.Context, id, approverID int64) (*model.Report, error)
+    Create(ctx context.Context, q Querier, userID int64, year int, req model.CreateReportRequest) (*model.Report, error)
+    Get(ctx context.Context, q Querier, id int64) (*model.Report, error)                       // nil, nil if missing or soft-deleted
+    List(ctx context.Context, p model.ListReportsParams, pg pagination.Params) ([]*model.Report, int64, error)
+    Update(ctx context.Context, q Querier, id int64, year int, req model.UpdateReportRequest) (*model.Report, error) // ErrNotFound if missing
+    SoftDelete(ctx context.Context, q Querier, id int64) error                                  // ErrNotFound if missing
+    ToggleComplete(ctx context.Context, q Querier, id, approverID int64) (*model.Report, error) // ErrNotFound if missing; metrics not loaded
 }
 
 type AuditRepository interface {
-    Create(ctx context.Context, e model.AuditLog) error   // used inside the same transaction as the change
+    Insert(ctx context.Context, q Querier, e model.AuditLog) error // same transaction as the change
 }
 ```
 
-Transactions: the existing code has no transaction helper (Document 4, section 19). Create, update, delete and approve each need one transaction (report + metrics + audit); how it is exposed is an implementation decision (Part 7).
+Transactions: `repository.WithTx` and the `TxRunner` interface (D-14). Create, Update, SoftDelete and ToggleComplete take a `Querier`, so `ReportService` runs the report write and `AuditRepository.Insert` in one transaction.
 
 ---
 
-# Part 4: Migration Plan (Proposed)
+# Part 4: Migration Plan
 
 > Phase 1 migrations 1 to 3 exist (2de41a4) and are the source of truth; the seed changes in 4.2 are done. Names follow `YYYYMMDDHHMMSS_<description>.sql` with goose `Up`/`Down` and `StatementBegin/End`.
 
@@ -736,7 +738,7 @@ Importing data from MongoDB is not designed in this document. It would need: a u
 
 ---
 
-# Part 5: Squirrel Query Examples (Proposed)
+# Part 5: Squirrel Query Examples
 
 > Specification only. They follow the existing repository style: `r.db.Builder` (`$n` placeholders), `ToSql()`, `r.db.Pool`, and wrapped errors. pgx transactions come from `r.db.Pool.Begin(ctx)`.
 
@@ -761,7 +763,7 @@ if err := tx.QueryRow(ctx, q, args...).Scan(&rep.ID, &rep.CreatedAt, &rep.Update
     var pgErr *pgconn.PgError
     if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
         pgErr.ConstraintName == "idx_reports_unique_per_user" {
-        return nil, ErrDuplicateReport // handler maps to apperror.Conflict(...)
+        return nil, ErrUniqueViolation // service: ErrReportExists; handler: 409
     }
     return nil, fmt.Errorf("insert report: %w", err)
 }
