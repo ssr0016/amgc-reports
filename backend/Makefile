@@ -33,7 +33,7 @@ dev: ## Run with hot reload (air)
 
 .PHONY: run
 run: ## Run the API without hot reload
-	@go run $(CMD_PATH)/main.go
+	@go run $(CMD_PATH)
 
 .PHONY: build
 build: ## Build the binary into ./bin
