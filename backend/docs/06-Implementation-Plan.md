@@ -303,7 +303,7 @@ Details and "done when":
 | M-6 | DTO location inconsistent (3 request DTOs live in handler files) | Maintainability | 4h |
 | M-7 | Session key constant (`UserIDKey`) not used (`"user_id"` literals) | Maintainability | 1h |
 | M-8 | Config loaded but ignored (`DB_*`, `SESSION_IDLE_TIMEOUT`); session reads env directly; align cookie `SameSite` policy | Correctness | 2h |
-| M-9 | Rate limiter improvements: per-route buckets, `Retry-After`, configurable limits (remainder of the "only on register/login" finding after C-5) | Security | 3h |
+| M-9 | Rate limiter improvements: per-route buckets, `Retry-After`, configurable limits (remainder of the "only on register/login" finding after C-5). **Partial: `Retry-After` delivered in 9e080e1** (delay-seconds from the limiter's bucket, exposed through CORS); configurable limits (env vars) remain open, so the hours still cover that work | Security | 3h |
 | M-10 | Template naming leftovers and stale docs (compose names, README URLs, ROADMAP "COMPLETE", Swagger host) | DX | 2h |
 | **Total** | | | **31h** |
 
@@ -767,6 +767,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 | 1.7 | 2026-10-12 | Claude Code | H-4 marked delivered in bd167bc (with b56ea20, 01e8c24) and H-5 in cb84c20; hours unchanged, accounting only |
 | 1.8 | 2026-10-12 | Claude Code | H-1 marked delivered (session user link, tombstone revocation, transactional `UpdatePassword`); H-2 re-scoped with rationale (no revocation on automatic lockout); hours unchanged, accounting only |
 | 1.9 | 2026-10-13 | Claude Code | H-7 marked delivered in 22b6390 (per-field validation `details`, constant `message`); hours unchanged, accounting only (actual about 1 to 1.5h) |
+| 1.10 | 2026-10-13 | Claude Code | M-9 partly delivered: `Retry-After` on 429 in 9e080e1 (delay-seconds, exposed through CORS); configurable limits (env vars) remain open; hours unchanged. Doc 04 corrected: `Retry-After` is now sent, `X-RateLimit-*` still is not |
 
 ### 14.4 Deviations from the Requested Outline
 

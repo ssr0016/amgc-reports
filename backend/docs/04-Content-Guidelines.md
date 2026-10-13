@@ -306,7 +306,8 @@ Other validation done in handlers (not by tags): numeric path IDs parsed with `s
 { "error": "RATE_LIMIT_EXCEEDED", "message": "rate limit exceeded, try again later" }
 ```
 
-- No `Retry-After` or `X-RateLimit-*` headers are sent.
+- A `Retry-After` header carries the wait in delay-seconds (RFC 9110): the time until the client's bucket holds a token again, at least 1. It is omitted for a limiter that never refills. CORS exposes it (`Access-Control-Expose-Headers`) so the frontend can read it.
+- No `X-RateLimit-*` headers are sent.
 
 ---
 
