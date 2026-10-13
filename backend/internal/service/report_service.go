@@ -231,15 +231,18 @@ func (s *ReportService) Delete(ctx context.Context, userID int64, ip string, id 
 }
 
 // ToggleComplete approves an open report or unapproves a completed one. Approval
-// is global (D-1): any report by ID, gated by reports:approve at the route.
-func (s *ReportService) ToggleComplete(ctx context.Context, userID int64, ip string, id int64) (*model.ReportResponse, error) {
+// is global (D-1): any report by ID, gated by reports:approve at the route. It
+// returns metadata only, so approve never discloses report text; clients fetch
+// the report with Get if they may read it.
+func (s *ReportService) ToggleComplete(ctx context.Context, userID int64, ip string, id int64) (*model.ReportMetadata, error) {
 	a, err := s.actor(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
+	var rep *model.Report
 	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
-		rep, err := s.reports.ToggleComplete(ctx, q, id, userID)
-		if err != nil {
+		var err error
+		if rep, err = s.reports.ToggleComplete(ctx, q, id, userID); err != nil {
 			return err
 		}
 		action := model.AuditUnapproveReport
@@ -251,15 +254,7 @@ func (s *ReportService) ToggleComplete(ctx context.Context, userID int64, ip str
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	// ToggleComplete does not load metrics, so read the full report back.
-	rep, err := s.reports.Get(ctx, s.q, id)
-	if err != nil {
-		return nil, fmt.Errorf("get report: %w", err)
-	}
-	if rep == nil {
-		return nil, ErrReportNotFound
-	}
-	return respond(rep), nil
+	return &model.ReportMetadata{ID: rep.ID, Completed: rep.Completed, CompletedAt: rep.CompletedAt, CompletedBy: rep.CompletedBy}, nil
 }
 
 func respond(r *model.Report) *model.ReportResponse {

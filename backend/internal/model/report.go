@@ -131,6 +131,15 @@ type ReportResponse struct {
 	UpdatedAt       time.Time              `json:"updated_at"`
 }
 
+// ReportMetadata is the result of approve/unapprove. It carries no report text:
+// the caller may hold reports:approve without being allowed to read the report (D-1).
+type ReportMetadata struct {
+	ID          int64      `json:"id"`
+	Completed   bool       `json:"completed"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	CompletedBy *int64     `json:"completed_by,omitempty"`
+}
+
 // ListReportsParams are the list filters (page and limit come from pkg/pagination).
 type ListReportsParams struct {
 	Month  string // optional

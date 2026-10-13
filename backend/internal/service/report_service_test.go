@@ -206,21 +206,25 @@ func TestReportService_Update(t *testing.T) {
 func TestReportService_ToggleComplete(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
-	v := json.Number("5")
-	r := req("January")
-	r.Metrics = map[string]model.MetricWeeks{"outreach": {Week1: &v}}
-	created, err := f.svc.Create(ctx, alice, "", r)
+	created, err := f.svc.Create(ctx, alice, "", req("January"))
 	require.NoError(t, err)
 
+	// bob approves alice's report; the result is metadata only, never report text
 	on, err := f.svc.ToggleComplete(ctx, bob, "", created.ID)
 	require.NoError(t, err)
 	assert.True(t, on.Completed)
+	assert.Equal(t, created.ID, on.ID)
 	assert.Equal(t, bob, *on.CompletedBy)
-	assert.Contains(t, on.Metrics, "outreach", "response carries metrics")
+	assert.NotNil(t, on.CompletedAt)
+	body, err := json.Marshal(on)
+	require.NoError(t, err)
+	assert.NotContains(t, string(body), "secret text")
+	assert.NotContains(t, string(body), "narrative")
 
 	off, err := f.svc.ToggleComplete(ctx, bob, "", created.ID)
 	require.NoError(t, err)
 	assert.False(t, off.Completed)
+	assert.Nil(t, off.CompletedBy)
 
 	entries := f.audit.Entries()
 	require.Len(t, entries, 3)
