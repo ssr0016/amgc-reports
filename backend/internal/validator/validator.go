@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -21,6 +22,7 @@ func New() *CustomValidator {
 	v := &CustomValidator{validator: validator.New()}
 	v.validator.RegisterTagNameFunc(jsonName)
 	_ = v.validator.RegisterValidation("strongpass", validateStrongPassword)
+	_ = v.validator.RegisterValidation("decimal12_2", validateDecimal12x2)
 	return v
 }
 
@@ -64,6 +66,8 @@ func message(fe validator.FieldError) string {
 		return "must be a valid email address"
 	case "strongpass":
 		return "is too weak; use a longer, more varied password"
+	case "decimal12_2":
+		return "must be a number from 0 to 9999999999.99 with at most 2 decimals"
 	case "min":
 		return bound("at least", fe)
 	case "max":
@@ -79,6 +83,14 @@ func bound(limit string, fe validator.FieldError) string {
 		return fmt.Sprintf("must be %s %s characters", limit, fe.Param())
 	}
 	return fmt.Sprintf("must be %s %s", limit, fe.Param())
+}
+
+// decimal12x2 matches what NUMERIC(12,2) accepts for a non-negative value: up to
+// 10 integer digits and up to 2 decimals, no sign and no exponent (D-4).
+var decimal12x2 = regexp.MustCompile(`^\d{1,10}(\.\d{1,2})?$`)
+
+func validateDecimal12x2(fl validator.FieldLevel) bool {
+	return decimal12x2.MatchString(fl.Field().String())
 }
 
 func validateStrongPassword(fl validator.FieldLevel) bool {
