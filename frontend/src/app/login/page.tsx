@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AuthField } from "@/components/auth-field";
@@ -40,7 +39,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">Sign in</CardTitle>
-          <CardDescription>Use your AMGCReports account.</CardDescription>
+          <CardDescription>Use the account your admin gave you.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -62,12 +61,6 @@ export default function LoginPage() {
             <Button type="submit" disabled={pending || wait > 0}>
               {pending ? "Signing in…" : "Sign in"}
             </Button>
-            <p className="text-sm text-muted-foreground">
-              No account?{" "}
-              <Link href="/register" className="underline underline-offset-4">
-                Register
-              </Link>
-            </p>
           </form>
         </CardContent>
       </Card>

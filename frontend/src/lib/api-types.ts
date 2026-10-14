@@ -362,6 +362,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a user
+         * @description Admin only. Creates an account with an optional role (default: user) and the profile text that prefills the report form. This is the only way to create an account.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description New account */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.CreateUserRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{id}": {
         parameters: {
             query?: never;
@@ -393,7 +492,93 @@ export interface paths {
                 };
             };
         };
-        put?: never;
+        /**
+         * Update a user's name and profile
+         * @description Admin only. Replaces the name and the worker, area and church text. The password and role are not changed here.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Name and profile */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateUserRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -692,83 +877,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Register new user
-         * @description Creates a new user account
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Registration payload */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.RegisterRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Unprocessable Entity */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1675,16 +1783,29 @@ export interface components {
             description?: string;
             name: string;
         };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.CreateUserRequest": {
+            area_assignment?: string;
+            church_name?: string;
+            email: string;
+            name: string;
+            password: string;
+            role_id?: number;
+            worker?: string;
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest": {
             email: string;
             password: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse": {
+            area_assignment?: string;
+            church_name?: string;
             email?: string;
             name?: string;
             permissions?: string[];
             role?: string;
             user_id?: number;
+            /** @description Report form defaults; empty when the admin has not set them. */
+            worker?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks": {
             week1?: number;
@@ -1698,11 +1819,6 @@ export interface components {
             id?: number;
             name?: string;
             resource?: string;
-        };
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.RegisterRequest": {
-            email: string;
-            name: string;
-            password: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata": {
             completed?: boolean;
@@ -1758,7 +1874,15 @@ export interface components {
             description?: string;
             name?: string;
         };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateUserRequest": {
+            area_assignment?: string;
+            church_name?: string;
+            name: string;
+            worker?: string;
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse": {
+            area_assignment?: string;
+            church_name?: string;
             created_at?: string;
             email?: string;
             email_verified?: boolean;
@@ -1766,6 +1890,7 @@ export interface components {
             id?: number;
             name?: string;
             role_id?: number;
+            worker?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta": {
             limit?: number;

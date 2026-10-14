@@ -174,6 +174,7 @@ function ReportsList() {
                   <TableHead>Month</TableHead>
                   <TableHead>Year</TableHead>
                   <TableHead>Worker</TableHead>
+                  <TableHead>Area</TableHead>
                   <TableHead>Church</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>
@@ -187,6 +188,7 @@ function ReportsList() {
                     <TableCell>{r.month}</TableCell>
                     <TableCell>{r.year}</TableCell>
                     <TableCell>{r.worker || "—"}</TableCell>
+                    <TableCell>{r.area_assignment || "—"}</TableCell>
                     <TableCell>{r.church_name || "—"}</TableCell>
                     <TableCell>
                       <Badge variant={r.completed ? "default" : "secondary"}>
