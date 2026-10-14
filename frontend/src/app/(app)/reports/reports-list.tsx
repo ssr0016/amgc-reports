@@ -184,8 +184,19 @@ function ReportsList() {
               </TableHeader>
               <TableBody>
                 {data.data.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>{r.month}</TableCell>
+                  <TableRow
+                    key={r.id}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      // Links and buttons inside the row do their own thing.
+                      if (!(e.target as HTMLElement).closest("a, button")) router.push(`/reports/${r.id}`);
+                    }}
+                  >
+                    <TableCell>
+                      <Link href={`/reports/${r.id}`} className="underline underline-offset-4">
+                        {r.month}
+                      </Link>
+                    </TableCell>
                     <TableCell>{r.year}</TableCell>
                     <TableCell>{r.worker || "—"}</TableCell>
                     <TableCell>{r.area_assignment || "—"}</TableCell>
