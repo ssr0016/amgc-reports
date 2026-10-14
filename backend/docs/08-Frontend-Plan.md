@@ -157,6 +157,8 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 
 **Live checks (2026-10-14, local, admin).** Valid save redirects and lists the row; a duplicate month and year shows the 409 on the month field with the input kept; a blank week is absent and a typed `0` is stored as `0`; editing one field leaves every other field and metric unchanged. Not yet checked: the `user` role (own reports only), the 429 countdown, a real 422, and the phone layout.
 
+**Known issue, not a bug: hydration warning from a browser extension.** With some extensions installed (seen with ColorZilla) the dev console shows "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties", with `cz-shortcut-listen="true"` on `<body>`. The extension adds that attribute before React hydrates, so it is not our code. React prints this warning in development only, and the app behaves the same. Ignore it, or test in a private window or with the extension off. We do not add `suppressHydrationWarning` to `<body>`: it would hide real mismatches there too. (The root layout already sets it on `<html>`.)
+
 ### Account onboarding (Part B, decided 2026-10-14)
 
 **Rule (owner).** Only an admin creates accounts: there are 24 churches, and the admin gives each pastor an account to report with. Self-registration is gone.
