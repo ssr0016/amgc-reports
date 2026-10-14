@@ -1,12 +1,7 @@
 import { api, ApiError, resetCsrf } from "./api";
+import type { Me } from "./api-schema";
 
-export type Me = {
-  user_id: number;
-  name: string;
-  email: string;
-  role: string;
-  permissions: string[];
-};
+export type { Me };
 
 // The session is renewed on login/logout, so the CSRF token is refetched lazily.
 export async function login(email: string, password: string): Promise<Me> {

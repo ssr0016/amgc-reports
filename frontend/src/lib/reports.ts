@@ -1,41 +1,7 @@
 import { api } from "./api";
+import type { MetricWeeks, Page, Report, ReportInput, ReportMetadata } from "./api-schema";
 
-// Temporary hand-written types mirroring backend/internal/model/report.go.
-// F3 replaces them with types generated from the Swagger spec.
-
-// A missing week means "not reported"; 0 means reported zero.
-export type MetricWeeks = Partial<Record<"week1" | "week2" | "week3" | "week4" | "week5", number>>;
-
-export type ReportInput = {
-  month: string;
-  year?: number;
-  worker: string;
-  area_assignment: string;
-  church_name: string;
-  names: string;
-  narrative_report: string;
-  challenges: string;
-  prayer_request: string;
-  metrics: Record<string, MetricWeeks>;
-};
-
-export type Report = Omit<ReportInput, "year"> & {
-  id: number;
-  created_by: number;
-  year: number;
-  completed: boolean;
-  completed_at?: string;
-  completed_by?: number;
-  created_at: string;
-  updated_at: string;
-};
-
-export type ReportMetadata = Pick<Report, "id" | "completed" | "completed_at" | "completed_by">;
-
-export type Page<T> = {
-  data: T[];
-  meta: { page: number; limit: number; total: number; total_pages: number };
-};
+export type { MetricWeeks, Page, Report, ReportInput, ReportMetadata };
 
 export type ReportFilters = {
   month?: string;
