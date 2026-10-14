@@ -157,6 +157,23 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 
 **Live checks (2026-10-14, local, admin).** Valid save redirects and lists the row; a duplicate month and year shows the 409 on the month field with the input kept; a blank week is absent and a typed `0` is stored as `0`; editing one field leaves every other field and metric unchanged. Not yet checked: the `user` role (own reports only), the 429 countdown, a real 422, and the phone layout.
 
+### Account onboarding (Part B, for F9 or F10; decided 2026-10-14)
+
+**Rule (owner).** Only an admin creates accounts: there are 24 churches, and the admin gives each pastor an account to report with. Self-registration is to go.
+
+**Why this is backend work.** Today `POST /auth/register` is public (only rate limited, 5 per minute per IP) and creates a `user`-role account, so hiding the `/register` page would not close it. There is no `POST /admin/users` either (the admin routes are roles, permissions, `GET /admin/users/:id` and `PUT /admin/users/:id/role`), so removing registration with nothing in its place leaves no way to onboard a pastor except SQL or the seed. The `/register` page and its login link therefore stay until the admin path exists.
+
+**Decided.**
+1. Close public registration with a permission check: `POST /auth/register` requires `users:write`, and `POST /admin/users` is the one audited create path (admin and editor hold `users:write`; the `user` role does not).
+2. An admin create-user screen in the frontend, so onboarding needs no SQL.
+3. Profile fields on the user: nullable `worker` (the pastoral title), `area_assignment` and `church_name` (migration, model, repository, `/auth/me`, then `npm run gen:api` for the types). The admin sets them when creating or editing a user.
+4. `/reports/new` fills worker, area and church from the profile as **editable defaults** (decision D-8: `worker` is independent of `created_by`, so they are not locked). Until the profile fields exist, `worker` falls back to the user's `name`.
+5. When registration is closed, delete the `/register` page and the "No account? Register" link, and mark `/auth/register` admin-only in `API.md`.
+
+**Open until then.** Anyone who can reach the API can still create a `user`-role account.
+
+**Also pending.** The previous-month rule is enforced in the UI only (`/reports/new` locks the period); the API still accepts any month. Doing it in the backend needs decisions on the server timezone, whether admins may file late reports, and the integration tests that create reports for arbitrary months. F8 is partly done: the `/` redirect and the app header are in; the alert dialog and the report detail with delete are parked.
+
 ### F14 details (added 2026-10-14)
 
 **Deployment architecture.** `app.<domain>` is the Next.js frontend on Vercel. `api.<domain>` is the Go backend on Railway. Cloudflare holds the DNS records for both. Both hosts are on one registrable domain, so they are the same site (section 1.1). This is the setup that the production smoke test in F14 runs against (see F0 for the setup work).
