@@ -10,6 +10,19 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
+
+  get isConflict() {
+    return this.status === 409;
+  }
+  get isValidation() {
+    return this.status === 422;
+  }
+  get isRateLimited() {
+    return this.status === 429;
+  }
+  get isNetwork() {
+    return this.status === 0;
+  }
 }
 
 // Kept in memory only; the matching HttpOnly cookie is set by the API.
@@ -19,9 +32,20 @@ export function resetCsrf() {
   csrfToken = null;
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+// Called on any 401 except a failed login (wrong password). Registered by the auth UI.
+export function setOnUnauthorized(handler: (() => void) | null) {
+  onUnauthorized = handler;
+}
+
 async function request(path: string, init: RequestInit): Promise<Response> {
   try {
-    return await fetch(`${BASE_URL}${path}`, { ...init, credentials: "include" });
+    return await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      credentials: "include",
+      signal: AbortSignal.timeout(15_000),
+    });
   } catch {
     throw new ApiError(0, "NETWORK", "Cannot reach the server. Check your connection and try again.");
   }
@@ -60,6 +84,7 @@ export async function api<T>(
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status === 401 && path !== "/auth/login") onUnauthorized?.();
     const retry = Number(res.headers.get("Retry-After"));
     throw new ApiError(
       res.status,
