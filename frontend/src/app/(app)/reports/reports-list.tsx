@@ -237,6 +237,7 @@ function ReportsList() {
             name={name}
             label={name[0].toUpperCase() + name.slice(1)}
             placeholder={placeholder}
+            autoComplete="off"
             value={text[name]}
             onChange={(e) => setText({ ...text, [name]: e.target.value })}
           />
