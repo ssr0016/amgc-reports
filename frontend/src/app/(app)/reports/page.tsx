@@ -3,7 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
-import { defaultPeriod, listReports, MONTHS, type ReportFilters } from "@/lib/reports";
+import { defaultPeriod, FIRST_YEAR, listReports, MONTHS, type ReportFilters } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 
 const textFields = [
@@ -20,16 +20,17 @@ const textFields = [
   ["area", "e.g. Metro Manila"],
   ["church", "e.g. AMGC Church"],
 ] as const;
+type Text = Record<(typeof textFields)[number][0], string>;
 
-// A month or year missing from the URL means the default period; present but
-// empty ("?month=&year=") means any. Clear and an "Any" submit write the empty form.
+// A month missing from the URL means the default; present but empty ("month=")
+// means any month. The year is always one of FIRST_YEAR..this year.
 function filtersFrom(params: URLSearchParams): ReportFilters {
   const def = defaultPeriod();
-  const year = params.has("year") ? Number(params.get("year")) : def.year;
+  const year = Number(params.get("year"));
   const page = Number(params.get("page"));
   return {
     month: (params.has("month") ? params.get("month") : def.month) || undefined,
-    year: year > 0 ? year : undefined,
+    year: Number.isInteger(year) && year >= FIRST_YEAR && year <= new Date().getFullYear() ? year : def.year,
     worker: params.get("worker") || undefined,
     area: params.get("area") || undefined,
     church: params.get("church") || undefined,
@@ -43,7 +44,8 @@ function ReportsList() {
   const { can } = useSession();
   const filters = filtersFrom(params);
   const allowed = can("reports:read");
-  const hasFilters = Object.entries(filters).some(([key, value]) => key !== "page" && value !== undefined);
+  const thisYear = new Date().getFullYear();
+  const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
 
   const { data, error, isPending } = useQuery({
     queryKey: ["reports", filters],
@@ -52,16 +54,36 @@ function ReportsList() {
     placeholderData: keepPreviousData,
   });
 
-  // Filters apply on submit, not per keystroke, to spare the read rate limit.
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const next = new URLSearchParams();
-    for (const [key, value] of new FormData(e.currentTarget)) {
-      // month and year are always written, even empty, so "any" survives a reload
-      if (String(value).trim() || key === "month" || key === "year") next.set(key, String(value).trim());
-    }
-    router.push(`/reports?${next}`);
+  // Filters apply as they change. The text boxes wait 300 ms after the last key,
+  // so typing does not spend the per-user read rate limit one request per letter.
+  const urlText: Text = { worker: filters.worker ?? "", area: filters.area ?? "", church: filters.church ?? "" };
+  const [text, setText] = useState<Text>(urlText);
+  const urlKey = JSON.stringify(urlText);
+  const sentKey = useRef(urlKey);
+
+  function go(next: { month?: string; year: number } & Text, mode: "push" | "replace") {
+    const q = new URLSearchParams({ month: next.month ?? "", year: String(next.year) });
+    for (const [name] of textFields) if (next[name].trim()) q.set(name, next[name].trim());
+    router[mode](`/reports?${q}`);
   }
+
+  useEffect(() => {
+    const key = JSON.stringify(text);
+    if (key === sentKey.current) return;
+    const timer = setTimeout(() => {
+      sentKey.current = key;
+      go({ month: filters.month, year: filters.year!, ...text }, "replace");
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- go() only reads the values listed here
+  }, [text, filters.month, filters.year]);
+
+  // The URL changed from outside (Back, a shared link): show its text in the boxes.
+  useEffect(() => {
+    if (urlKey === sentKey.current) return;
+    sentKey.current = urlKey;
+    setText(JSON.parse(urlKey));
+  }, [urlKey]);
 
   function goToPage(page: number) {
     const next = new URLSearchParams(params);
@@ -74,13 +96,17 @@ function ReportsList() {
   }
 
   const meta = data?.meta;
+  const hasText = textFields.some(([name]) => text[name] !== "");
   return (
     <>
-      {/* key remounts the form so Clear and Back reset the inputs */}
-      <form key={params.toString()} onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="month">Month</Label>
-          <NativeSelect id="month" name="month" defaultValue={filters.month ?? ""}>
+          <NativeSelect
+            id="month"
+            value={filters.month ?? ""}
+            onChange={(e) => go({ month: e.target.value, year: filters.year!, ...text }, "push")}
+          >
             <option value="">Any</option>
             {MONTHS.map((m) => (
               <option key={m} value={m}>
@@ -89,22 +115,46 @@ function ReportsList() {
             ))}
           </NativeSelect>
         </div>
-        <AuthField name="year" label="Year" type="number" min={2000} max={2100} defaultValue={filters.year ?? ""} />
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="year">Year</Label>
+          <NativeSelect
+            id="year"
+            value={filters.year}
+            onChange={(e) => go({ month: filters.month, year: Number(e.target.value), ...text }, "push")}
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
         {textFields.map(([name, placeholder]) => (
           <AuthField
             key={name}
             name={name}
             label={name[0].toUpperCase() + name.slice(1)}
             placeholder={placeholder}
-            defaultValue={filters[name] ?? ""}
+            value={text[name]}
+            onChange={(e) => setText({ ...text, [name]: e.target.value })}
           />
         ))}
-        <div className="flex gap-2 sm:col-span-2 lg:col-span-5">
-          <Button type="submit">Apply filters</Button>
-          <Button type="button" variant="outline" onClick={() => router.push("/reports?month=&year=")}>
-            Clear
-          </Button>
-        </div>
+        {hasText && (
+          <div className="sm:col-span-2 lg:col-span-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const empty = { worker: "", area: "", church: "" };
+                sentKey.current = JSON.stringify(empty);
+                setText(empty);
+                go({ month: filters.month, year: filters.year!, ...empty }, "push");
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+        )}
       </form>
 
       {isPending && allowed ? (
@@ -114,9 +164,7 @@ function ReportsList() {
           {error.message}
         </p>
       ) : data && data.data.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {hasFilters ? "No reports match these filters." : "No reports yet."}
-        </p>
+        <p className="text-sm text-muted-foreground">No reports match these filters.</p>
       ) : (
         data && (
           <>

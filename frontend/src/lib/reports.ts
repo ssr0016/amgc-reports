@@ -58,3 +58,6 @@ export function defaultPeriod(now = new Date()) {
   const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   return { month: MONTHS[prev.getMonth()], year: prev.getFullYear() };
 }
+
+// The system started in 2026; earlier years are not offered.
+export const FIRST_YEAR = 2026;
