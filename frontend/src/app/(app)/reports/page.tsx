@@ -119,6 +119,9 @@ function ReportsList() {
                   <TableHead>Worker</TableHead>
                   <TableHead>Church</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -132,6 +135,13 @@ function ReportsList() {
                       <Badge variant={r.completed ? "default" : "secondary"}>
                         {r.completed ? "Completed" : "Pending"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Can permission="reports:write">
+                        <Link href={`/reports/${r.id}/edit`} className="underline underline-offset-4">
+                          Edit
+                        </Link>
+                      </Can>
                     </TableCell>
                   </TableRow>
                 ))}
