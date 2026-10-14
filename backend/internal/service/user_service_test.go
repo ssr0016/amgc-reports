@@ -54,7 +54,7 @@ func newUserFixture() userFixture {
 func createReq() model.CreateUserRequest {
 	return model.CreateUserRequest{
 		Email: "pastor@example.com", Name: "Pia", Password: testPassword,
-		Worker: "Pastor Pia", AreaAssignment: "Metro", ChurchName: "AMGC 1",
+		AreaAssignment: "Metro", ChurchName: "AMGC 1",
 	}
 }
 
@@ -67,8 +67,8 @@ func TestUserService_Create(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, "pastor@example.com", got.Email)
-		require.NotNil(t, got.Worker)
-		assert.Equal(t, "Pastor Pia", *got.Worker)
+		require.NotNil(t, got.AreaAssignment)
+		assert.Equal(t, "Metro", *got.AreaAssignment)
 		assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(got.PasswordHash), []byte(testPassword)))
 		assert.Zero(t, got.RoleID, "no role_id means the repository picks the default role")
 
@@ -174,11 +174,11 @@ func TestUserService_Create(t *testing.T) {
 func TestUserService_Update(t *testing.T) {
 	ctx := context.Background()
 	newUser := func(f userFixture) *model.User {
-		u, err := f.users.Create(ctx, nil, model.NewUser{Email: "u@example.com", Name: "Old", PasswordHash: "keep", Worker: "W"})
+		u, err := f.users.Create(ctx, nil, model.NewUser{Email: "u@example.com", Name: "Old", PasswordHash: "keep", AreaAssignment: "A"})
 		require.NoError(t, err)
 		return u
 	}
-	req := model.UpdateUserRequest{Name: "New Name", Worker: "Pastor New", AreaAssignment: "North", ChurchName: ""}
+	req := model.UpdateUserRequest{Name: "New Name", AreaAssignment: "North", ChurchName: ""}
 
 	t.Run("replaces name and profile and writes one audit row", func(t *testing.T) {
 		f := newUserFixture()
@@ -187,7 +187,7 @@ func TestUserService_Update(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, "New Name", got.Name)
-		assert.Equal(t, "Pastor New", *got.Worker)
+		assert.Equal(t, "North", *got.AreaAssignment)
 		assert.Nil(t, got.ChurchName, "empty text is cleared")
 		assert.Equal(t, "keep", got.PasswordHash)
 

@@ -77,7 +77,7 @@ func (s *UserService) Create(ctx context.Context, actorID int64, ip string, req 
 		var err error
 		user, err = s.users.Create(ctx, q, model.NewUser{
 			Email: req.Email, Name: req.Name, PasswordHash: string(hash), RoleID: roleID,
-			Worker: req.Worker, AreaAssignment: req.AreaAssignment, ChurchName: req.ChurchName,
+			AreaAssignment: req.AreaAssignment, ChurchName: req.ChurchName,
 		})
 		if err != nil {
 			return err

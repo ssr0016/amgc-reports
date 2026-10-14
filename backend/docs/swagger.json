@@ -506,7 +506,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "Admin only. Replaces the name and the worker, area and church text. The password and role are not changed here.",
+                "description": "Admin only. Replaces the name and the area and church text. The password and role are not changed here.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1700,10 +1700,6 @@
                 },
                 "role_id": {
                     "type": "integer"
-                },
-                "worker": {
-                    "type": "string",
-                    "maxLength": 150
                 }
             }
         },
@@ -1726,6 +1722,7 @@
             "type": "object",
             "properties": {
                 "area_assignment": {
+                    "description": "Report form defaults; empty when the admin has not set them.",
                     "type": "string"
                 },
                 "church_name": {
@@ -1748,10 +1745,6 @@
                 },
                 "user_id": {
                     "type": "integer"
-                },
-                "worker": {
-                    "description": "Report form defaults; empty when the admin has not set them.",
-                    "type": "string"
                 }
             }
         },
@@ -1990,10 +1983,6 @@
                     "type": "string",
                     "maxLength": 100,
                     "minLength": 2
-                },
-                "worker": {
-                    "type": "string",
-                    "maxLength": 150
                 }
             }
         },
@@ -2026,9 +2015,6 @@
                 },
                 "role_id": {
                     "type": "integer"
-                },
-                "worker": {
-                    "type": "string"
                 }
             }
         },

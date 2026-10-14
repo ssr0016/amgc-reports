@@ -101,7 +101,7 @@ func (m *MockUserRepo) Create(ctx context.Context, q Querier, n model.NewUser) (
 	}
 	user := &model.User{
 		ID: m.nextID, Email: n.Email, Name: n.Name, PasswordHash: n.PasswordHash, RoleID: n.RoleID,
-		Worker: nullable(n.Worker), AreaAssignment: nullable(n.AreaAssignment), ChurchName: nullable(n.ChurchName),
+		AreaAssignment: nullable(n.AreaAssignment), ChurchName: nullable(n.ChurchName),
 	}
 	m.users[m.nextID] = user
 	m.nextID++
@@ -121,7 +121,7 @@ func (m *MockUserRepo) UpdateProfile(ctx context.Context, q Querier, id int64, p
 		return nil, fmt.Errorf("users: %w", ErrNotFound)
 	}
 	user.Name = p.Name
-	user.Worker, user.AreaAssignment, user.ChurchName = nullable(p.Worker), nullable(p.AreaAssignment), nullable(p.ChurchName)
+	user.AreaAssignment, user.ChurchName = nullable(p.AreaAssignment), nullable(p.ChurchName)
 	return user, nil
 }
 

@@ -93,9 +93,6 @@ definitions:
         type: string
       role_id:
         type: integer
-      worker:
-        maxLength: 150
-        type: string
     required:
     - email
     - name
@@ -114,6 +111,7 @@ definitions:
   github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse:
     properties:
       area_assignment:
+        description: Report form defaults; empty when the admin has not set them.
         type: string
       church_name:
         type: string
@@ -129,9 +127,6 @@ definitions:
         type: string
       user_id:
         type: integer
-      worker:
-        description: Report form defaults; empty when the admin has not set them.
-        type: string
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks:
     properties:
@@ -295,9 +290,6 @@ definitions:
         maxLength: 100
         minLength: 2
         type: string
-      worker:
-        maxLength: 150
-        type: string
     required:
     - name
     type: object
@@ -321,8 +313,6 @@ definitions:
         type: string
       role_id:
         type: integer
-      worker:
-        type: string
     type: object
   github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta:
     properties:
@@ -702,8 +692,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Admin only. Replaces the name and the worker, area and church text.
-        The password and role are not changed here.
+      description: Admin only. Replaces the name and the area and church text. The
+        password and role are not changed here.
       parameters:
       - description: User ID
         in: path

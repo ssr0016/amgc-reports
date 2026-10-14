@@ -513,7 +513,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Admin only. Replaces the name and the worker, area and church text. The password and role are not changed here.",
+                "description": "Admin only. Replaces the name and the area and church text. The password and role are not changed here.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1707,10 +1707,6 @@ const docTemplate = `{
                 },
                 "role_id": {
                     "type": "integer"
-                },
-                "worker": {
-                    "type": "string",
-                    "maxLength": 150
                 }
             }
         },
@@ -1733,6 +1729,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "area_assignment": {
+                    "description": "Report form defaults; empty when the admin has not set them.",
                     "type": "string"
                 },
                 "church_name": {
@@ -1755,10 +1752,6 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
-                },
-                "worker": {
-                    "description": "Report form defaults; empty when the admin has not set them.",
-                    "type": "string"
                 }
             }
         },
@@ -1997,10 +1990,6 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 100,
                     "minLength": 2
-                },
-                "worker": {
-                    "type": "string",
-                    "maxLength": 150
                 }
             }
         },
@@ -2033,9 +2022,6 @@ const docTemplate = `{
                 },
                 "role_id": {
                     "type": "integer"
-                },
-                "worker": {
-                    "type": "string"
                 }
             }
         },

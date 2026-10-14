@@ -27,8 +27,8 @@ Include session cookie with each request:
     curl -b cookies.txt http://localhost:8080/api/v1/auth/me
 
 `/auth/me` returns `user_id`, `name`, `email`, `role`, `permissions`, and the profile text the
-admin set for the account: `worker`, `area_assignment`, `church_name` (empty strings when unset).
-The report form starts from these.
+admin set for the account: `area_assignment` and `church_name` (empty strings when unset).
+The report form starts from these, and from `name` for the report's worker.
 
 ### 4. Logout
 
@@ -106,13 +106,12 @@ POST /admin/users (admin role and `users:write`; this is the only way to create 
       "name": "Pia",
       "password": "StrongPass123!",
       "role_id": 2,
-      "worker": "Pastor Pia",
       "area_assignment": "Metro Manila",
       "church_name": "AMGC Church"
     }
 
 `email`, `name` and `password` are required. `role_id` is optional and defaults to the `user`
-role. The three profile fields are optional (150 characters each) and prefill the report form.
+role. The two profile fields, `area_assignment` and `church_name`, are optional (150 characters each) and prefill the report form; a report's worker defaults to the user's `name`.
 Response (201): the user, without the password. 409 if the email is taken, 422 for invalid
 fields or an unknown `role_id`. The account and its audit row (`CREATE_USER`) are written in
 one transaction. No verification token is created: email verification is not enforced at login.
@@ -123,12 +122,11 @@ PUT /admin/users/:id (admin role and `users:write`)
 
     {
       "name": "Pia",
-      "worker": "Pastor Pia",
       "area_assignment": "Metro Manila",
       "church_name": "AMGC Church"
     }
 
-Replaces the name and the three profile fields; text left out is cleared. The password and the
+Replaces the name and the two profile fields; text left out is cleared. The password and the
 role are not changed here (use Change User Role). Response (200): the user. 404 for an unknown
 user. Audited as `UPDATE_USER`.
 

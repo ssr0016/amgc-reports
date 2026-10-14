@@ -71,7 +71,8 @@ export type FormState = Record<TextField, string> & {
 export const metricErrorKey = (metric: string, week: Week) => `metrics.${metric}.${week}`;
 
 // A new report starts on the previous month, the only one it may be filed for.
-// `defaults` is the user's profile (worker, area, church); the user may edit it.
+// `defaults` comes from the user: worker is their name, area and church their profile.
+// The user may edit all three.
 export function emptyForm(
   defaults: Partial<Pick<FormState, "worker" | "area_assignment" | "church_name">> = {},
 ): FormState {

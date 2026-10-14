@@ -64,7 +64,7 @@ func TestUserService_Create_WritesAccountAndAuditInOneTransaction(t *testing.T) 
 	stored, err := env.users.GetByID(ctx, got.ID)
 	require.NoError(t, err)
 	require.NotNil(t, stored)
-	assert.Equal(t, "Pastor Pia", *stored.Worker)
+	assert.Equal(t, "Metro", *stored.AreaAssignment)
 	assert.Equal(t, "AMGC 1", *stored.ChurchName)
 
 	var performedBy int64
@@ -116,7 +116,7 @@ func TestUserService_Update_WritesProfileAndAudit(t *testing.T) {
 	created, err := svc.Create(ctx, env.admin.ID, "", createReq())
 	require.NoError(t, err)
 
-	got, err := svc.Update(ctx, env.admin.ID, "", created.ID, model.UpdateUserRequest{Name: "Pia Renamed", Worker: "Pastor Pia 2", AreaAssignment: "", ChurchName: "AMGC 2"})
+	got, err := svc.Update(ctx, env.admin.ID, "", created.ID, model.UpdateUserRequest{Name: "Pia Renamed", AreaAssignment: "", ChurchName: "AMGC 2"})
 	require.NoError(t, err)
 	assert.Equal(t, "Pia Renamed", got.Name)
 	assert.Nil(t, got.AreaAssignment)

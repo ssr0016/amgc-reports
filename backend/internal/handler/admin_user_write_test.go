@@ -34,8 +34,8 @@ type fakeUserSvc struct {
 func (f *fakeUserSvc) Create(_ context.Context, actor int64, ip string, req model.CreateUserRequest) (*model.User, error) {
 	f.calls++
 	f.gotActor, f.gotIP, f.gotCreate = actor, ip, req
-	w := req.Worker
-	return &model.User{ID: 5, Email: req.Email, Name: req.Name, PasswordHash: "secret-hash", Worker: &w}, f.err
+	a := req.AreaAssignment
+	return &model.User{ID: 5, Email: req.Email, Name: req.Name, PasswordHash: "secret-hash", AreaAssignment: &a}, f.err
 }
 
 func (f *fakeUserSvc) Update(_ context.Context, actor int64, ip string, id int64, req model.UpdateUserRequest) (*model.User, error) {
@@ -86,7 +86,7 @@ func serveUserAdmin(t *testing.T, svc UserAdminService, sessionUser int64, metho
 const strongPassword = "X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"
 
 func createBody(extra string) string {
-	return `{"email":"pia@example.com","name":"Pia","password":"` + strongPassword + `","worker":"Pastor Pia","area_assignment":"Metro","church_name":"AMGC 1"` + extra + `}`
+	return `{"email":"pia@example.com","name":"Pia","password":"` + strongPassword + `","area_assignment":"Metro","church_name":"AMGC 1"` + extra + `}`
 }
 
 func TestAdminUserHandler_CreateUser(t *testing.T) {
@@ -98,14 +98,15 @@ func TestAdminUserHandler_CreateUser(t *testing.T) {
 		assert.Equal(t, int64(99), svc.gotActor)
 		assert.Equal(t, "10.1.2.3", svc.gotIP)
 		assert.Equal(t, "pia@example.com", svc.gotCreate.Email)
-		assert.Equal(t, "Pastor Pia", svc.gotCreate.Worker)
+		assert.Equal(t, "Metro", svc.gotCreate.AreaAssignment)
 		require.NotNil(t, svc.gotCreate.RoleID)
 		assert.Equal(t, int64(7), *svc.gotCreate.RoleID)
 
 		var got map[string]any
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 		assert.Equal(t, "pia@example.com", got["email"])
-		assert.Equal(t, "Pastor Pia", got["worker"])
+		assert.Equal(t, "Metro", got["area_assignment"])
+		assert.NotContains(t, got, "worker", "an account has no separate worker; reports use the name")
 		assert.NotContains(t, rec.Body.String(), "secret-hash")
 		assert.NotContains(t, rec.Body.String(), "password")
 	})
@@ -118,7 +119,7 @@ func TestAdminUserHandler_CreateUser(t *testing.T) {
 		{"weak password", `{"email":"a@example.com","name":"Pia","password":"password"}`, "password"},
 		{"missing password", `{"email":"a@example.com","name":"Pia"}`, "password"},
 		{"zero role", createBody(`,"role_id":0`), "role_id"},
-		{"worker too long", strings.Replace(createBody(""), `"Pastor Pia"`, `"`+strings.Repeat("x", 151)+`"`, 1), "worker"},
+		{"area too long", strings.Replace(createBody(""), `"Metro"`, `"`+strings.Repeat("x", 151)+`"`, 1), "area_assignment"},
 	}
 	for _, tt := range validation {
 		t.Run("422 "+tt.name, func(t *testing.T) {
@@ -171,7 +172,7 @@ func TestAdminUserHandler_CreateUser(t *testing.T) {
 }
 
 func TestAdminUserHandler_UpdateUser(t *testing.T) {
-	const body = `{"name":"New Name","worker":"Pastor New","area_assignment":"North","church_name":""}`
+	const body = `{"name":"New Name","area_assignment":"North","church_name":""}`
 
 	t.Run("200, passes id, request and session user", func(t *testing.T) {
 		svc := &fakeUserSvc{}
@@ -179,7 +180,7 @@ func TestAdminUserHandler_UpdateUser(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		assert.Equal(t, int64(12), svc.gotID)
 		assert.Equal(t, int64(99), svc.gotActor)
-		assert.Equal(t, "Pastor New", svc.gotUpdate.Worker)
+		assert.Equal(t, "North", svc.gotUpdate.AreaAssignment)
 		assert.NotContains(t, rec.Body.String(), "secret-hash")
 	})
 
@@ -199,8 +200,8 @@ func TestAdminUserHandler_UpdateUser(t *testing.T) {
 
 	t.Run("422 for a short name or long text", func(t *testing.T) {
 		for field, bad := range map[string]string{
-			"name":   `{"name":"P"}`,
-			"worker": `{"name":"Pia","worker":"` + strings.Repeat("x", 151) + `"}`,
+			"name":        `{"name":"P"}`,
+			"church_name": `{"name":"Pia","church_name":"` + strings.Repeat("x", 151) + `"}`,
 		} {
 			svc := &fakeUserSvc{}
 			rec, eb := serveUserAdmin(t, svc, 99, http.MethodPut, "/admin/users/12", bad)

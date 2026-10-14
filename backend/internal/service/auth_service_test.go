@@ -153,8 +153,8 @@ func TestAuthService_Me(t *testing.T) {
 		case 2: // no role assigned
 			return &model.User{ID: 2, Name: "Nora", Email: "nora@example.org"}, nil
 		case 3: // profile set by the admin
-			w, a, c := "Pastor Pia", "Metro", "AMGC 1"
-			return &model.User{ID: 3, Name: "Pia", Email: "pia@example.org", Worker: &w, AreaAssignment: &a, ChurchName: &c}, nil
+			a, c := "Metro", "AMGC 1"
+			return &model.User{ID: 3, Name: "Pia", Email: "pia@example.org", AreaAssignment: &a, ChurchName: &c}, nil
 		}
 		return nil, nil
 	}
@@ -179,15 +179,15 @@ func TestAuthService_Me(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Me() failed: %v", err)
 		}
-		if got.Worker != "Pastor Pia" || got.AreaAssignment != "Metro" || got.ChurchName != "AMGC 1" {
-			t.Errorf("Me() profile = %q, %q, %q", got.Worker, got.AreaAssignment, got.ChurchName)
+		if got.AreaAssignment != "Metro" || got.ChurchName != "AMGC 1" {
+			t.Errorf("Me() profile = %q, %q", got.AreaAssignment, got.ChurchName)
 		}
 		none, err := svc.Me(ctx, 2)
 		if err != nil {
 			t.Fatalf("Me() failed: %v", err)
 		}
-		if none.Worker != "" || none.AreaAssignment != "" || none.ChurchName != "" {
-			t.Errorf("unset profile = %q, %q, %q, want empty", none.Worker, none.AreaAssignment, none.ChurchName)
+		if none.AreaAssignment != "" || none.ChurchName != "" {
+			t.Errorf("unset profile = %q, %q, want empty", none.AreaAssignment, none.ChurchName)
 		}
 	})
 

@@ -494,7 +494,7 @@ export interface paths {
         };
         /**
          * Update a user's name and profile
-         * @description Admin only. Replaces the name and the worker, area and church text. The password and role are not changed here.
+         * @description Admin only. Replaces the name and the area and church text. The password and role are not changed here.
          */
         put: {
             parameters: {
@@ -1790,13 +1790,13 @@ export interface components {
             name: string;
             password: string;
             role_id?: number;
-            worker?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest": {
             email: string;
             password: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse": {
+            /** @description Report form defaults; empty when the admin has not set them. */
             area_assignment?: string;
             church_name?: string;
             email?: string;
@@ -1804,8 +1804,6 @@ export interface components {
             permissions?: string[];
             role?: string;
             user_id?: number;
-            /** @description Report form defaults; empty when the admin has not set them. */
-            worker?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks": {
             week1?: number;
@@ -1878,7 +1876,6 @@ export interface components {
             area_assignment?: string;
             church_name?: string;
             name: string;
-            worker?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse": {
             area_assignment?: string;
@@ -1890,7 +1887,6 @@ export interface components {
             id?: number;
             name?: string;
             role_id?: number;
-            worker?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta": {
             limit?: number;

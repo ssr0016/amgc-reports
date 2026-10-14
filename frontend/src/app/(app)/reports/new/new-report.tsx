@@ -12,10 +12,11 @@ export function NewReport() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { can, user } = useSession();
-  // The profile is set by an admin; worker falls back to the user's name. All three stay editable.
+  // The report's worker is the user's name; area and church come from the profile an
+  // admin sets. All three stay editable.
   const [initial] = useState(() =>
     emptyForm({
-      worker: user?.worker || user?.name,
+      worker: user?.name,
       area_assignment: user?.area_assignment,
       church_name: user?.church_name,
     }),

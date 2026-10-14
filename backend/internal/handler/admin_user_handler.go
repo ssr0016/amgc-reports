@@ -105,7 +105,7 @@ func (h *AdminUserHandler) CreateUser(c echo.Context) error {
 
 // UpdateUser godoc
 // @Summary      Update a user's name and profile
-// @Description  Admin only. Replaces the name and the worker, area and church text. The password and role are not changed here.
+// @Description  Admin only. Replaces the name and the area and church text. The password and role are not changed here.
 // @Tags         admin/users
 // @Accept       json
 // @Produce      json

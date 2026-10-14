@@ -24,15 +24,14 @@ func TestUserRepo_Create_Profile(t *testing.T) {
 		name     string
 		in       model.NewUser
 		wantRole func(defaultRole int64) int64
-		worker   *string
 		area     *string
 		church   *string
 	}{
 		{
 			name:     "profile and explicit role",
-			in:       model.NewUser{Email: "a@example.com", Name: "Ana", PasswordHash: "h", RoleID: roleID, Worker: "Pastor Ana", AreaAssignment: "Metro", ChurchName: "AMGC 1"},
+			in:       model.NewUser{Email: "a@example.com", Name: "Ana", PasswordHash: "h", RoleID: roleID, AreaAssignment: "Metro", ChurchName: "AMGC 1"},
 			wantRole: func(int64) int64 { return roleID },
-			worker:   ptr("Pastor Ana"), area: ptr("Metro"), church: ptr("AMGC 1"),
+			area:     ptr("Metro"), church: ptr("AMGC 1"),
 		},
 		{
 			name:     "no role means the default user role; empty profile is NULL",
@@ -48,14 +47,13 @@ func TestUserRepo_Create_Profile(t *testing.T) {
 			got, err := repo.Create(ctx, tdb.Pool, tt.in)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantRole(def.RoleID), got.RoleID)
-			assert.Equal(t, tt.worker, got.Worker)
 			assert.Equal(t, tt.area, got.AreaAssignment)
 			assert.Equal(t, tt.church, got.ChurchName)
 
 			// Every read path returns the profile.
 			byID, err := repo.GetByID(ctx, got.ID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.worker, byID.Worker)
+			assert.Equal(t, tt.area, byID.AreaAssignment)
 			withRole, err := repo.GetWithRole(ctx, got.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.church, withRole.ChurchName)
@@ -92,14 +90,13 @@ func TestUserRepo_Create_Errors(t *testing.T) {
 func TestUserRepo_UpdateProfile(t *testing.T) {
 	repo, tdb := setupTestRepo(t)
 	ctx := context.Background()
-	u, err := repo.Create(ctx, tdb.Pool, model.NewUser{Email: "u@example.com", Name: "Old", PasswordHash: "keep", Worker: "W", AreaAssignment: "A", ChurchName: "C"})
+	u, err := repo.Create(ctx, tdb.Pool, model.NewUser{Email: "u@example.com", Name: "Old", PasswordHash: "keep", AreaAssignment: "A", ChurchName: "C"})
 	require.NoError(t, err)
 
 	t.Run("replaces name and profile; empty text becomes NULL", func(t *testing.T) {
-		got, err := repo.UpdateProfile(ctx, tdb.Pool, u.ID, model.UserProfile{Name: "New", Worker: "W2", AreaAssignment: "", ChurchName: "C2"})
+		got, err := repo.UpdateProfile(ctx, tdb.Pool, u.ID, model.UserProfile{Name: "New", AreaAssignment: "", ChurchName: "C2"})
 		require.NoError(t, err)
 		assert.Equal(t, "New", got.Name)
-		assert.Equal(t, ptr("W2"), got.Worker)
 		assert.Nil(t, got.AreaAssignment)
 		assert.Equal(t, ptr("C2"), got.ChurchName)
 		assert.Equal(t, "keep", got.PasswordHash, "the password and role are not touched")

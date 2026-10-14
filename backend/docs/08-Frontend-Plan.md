@@ -163,13 +163,13 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 
 **Backend (done).**
 - `POST /auth/register` is removed (route, handler and `AuthService.Register`). Requests to it never create an account.
-- `POST /admin/users` creates an account: `email`, `name`, `password`, optional `role_id` (default `user`) and the profile text `worker`, `area_assignment`, `church_name`. `PUT /admin/users/:id` replaces the name and profile text. Both are in the admin-role group and also require `users:write`, so only an admin can call them (an editor holds `users:write` but is not an admin). Each change and its audit row (`CREATE_USER`, `UPDATE_USER`) are written in one transaction.
-- `users` has nullable `worker`, `area_assignment` and `church_name` (150 characters). `/auth/me` returns them as strings (empty when unset). The API reference is `API.md`.
+- `POST /admin/users` creates an account: `email`, `name`, `password`, optional `role_id` (default `user`) and the profile text `area_assignment`, `church_name`. `PUT /admin/users/:id` replaces the name and profile text. Both are in the admin-role group and also require `users:write`, so only an admin can call them (an editor holds `users:write` but is not an admin). Each change and its audit row (`CREATE_USER`, `UPDATE_USER`) are written in one transaction.
+- `users` has nullable `area_assignment` and `church_name` (150 characters). It has no `worker` column: a report's worker defaults to the user's `name`. The first version added one; migration `20261014110000_drop_user_worker` removed it as redundant (the report itself keeps its own `worker`, which stays editable). `/auth/me` returns them as strings (empty when unset). The API reference is `API.md`.
 - Admin-created accounts get no email verification token (verification is not enforced at login, and email delivery is E-1).
 
 **Frontend (still to do).**
 1. Run `npm run gen:api` (the CI check fails until the generated types match the new `swagger.json`).
-2. `/reports/new` fills worker, area and church from `/auth/me` as **editable defaults** (decision D-8: `worker` is independent of `created_by`, so they are not locked). `worker` falls back to the user's `name` when the profile has none.
+2. `/reports/new` fills worker (the user's `name`), area and church (from `/auth/me`) as **editable defaults** (decision D-8: `worker` is independent of `created_by`, so they are not locked).
 3. Delete the `/register` page and the "No account? Register" link (the endpoint is gone).
 4. Show Worker, Area and Church with labels on each report in the list and the detail view.
 5. Admin create-user and edit-user screens (F9 or F10). Until they exist, the admin creates and edits users with `curl` or a script using an admin session.

@@ -59,7 +59,7 @@ func (s *AuthService) Me(ctx context.Context, userID int64) (*model.MeResponse, 
 	}
 	me := &model.MeResponse{
 		UserID: user.ID, Name: user.Name, Email: user.Email, Permissions: []string{},
-		Worker: deref(user.Worker), AreaAssignment: deref(user.AreaAssignment), ChurchName: deref(user.ChurchName),
+		AreaAssignment: deref(user.AreaAssignment), ChurchName: deref(user.ChurchName),
 	}
 	if user.Role != nil {
 		me.Role = user.Role.Name

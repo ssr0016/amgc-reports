@@ -96,7 +96,6 @@ func (tdb *TestDB) RunMigrations(t *testing.T) {
 			locked_until TIMESTAMPTZ,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			worker VARCHAR(150),
 			area_assignment VARCHAR(150),
 			church_name VARCHAR(150)
 		)`,
