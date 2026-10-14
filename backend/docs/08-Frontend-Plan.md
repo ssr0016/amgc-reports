@@ -141,6 +141,8 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 
 **For F10.** `SessionProvider` treats any `/auth/me` failure (network error, 5xx) as signed out, so a server blip sends a signed-in user to `/login`. F10 should add a retry state that tells "signed out" (401) from "could not check".
 
+**Register then sign in.** `/register` creates the account, then signs in. If the sign-in fails (network error, rate limit), the account already exists, so retrying the form shows "already registered" and the user must use `/login`. Register and login share one rate-limit bucket (burst 3), so the pair spends two tokens.
+
 **Dev note.** After moving or deleting a route file, `tsc` can fail on a stale `.next/dev/types/validator.ts` that points at the old path. It is a build artifact, not a bug: run `rm -rf .next`.
 
 ### F14 details (added 2026-10-14)
@@ -168,3 +170,4 @@ Suggested order: F0 and F1 first (they unblock everything and carry the infrastr
 | R-F2 | The scaffold is Next 16.4, whose conventions differ from older versions | Read the bundled docs first (section 1.3). |
 | R-F3 | Phone and slow-network use is likely for church workers | Keep the form resilient (save-draft locally, never lose input on a failed save). |
 | R-F4 | `npm audit` reports 5 high-severity findings (GHSA-vfj7-8cjw-p6xm, `braces` stack-exhaustion DoS) through `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` → `braces`. Dev-only lint tooling: `npm audit --omit=dev` finds 0. Present before F3 (checked 2026-10-14). | No production exposure. Not fixed: `npm audit fix --force` would downgrade `eslint-config-next` to 14.x, which breaks Next 16. Wait for a newer `braces` or `eslint-config-next` release, then re-run `npm audit`. |
+| R-F5 | Open redirect through the login `?next=` value (found in review, fixed in `f1469f5`): a leading-slash check let `/\t/evil.com` and `/\n/evil.com` through, and browsers strip tabs and newlines, so they resolved to another origin. | `safeNext` in `src/lib/auth-form.ts` now rejects control characters and checks the resolved origin. Any new redirect that takes a URL from the query string must go through `safeNext`. |
