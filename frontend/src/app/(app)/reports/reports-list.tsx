@@ -72,6 +72,9 @@ function ReportsList() {
     queryFn: () => listReports(filters),
     enabled: allowed,
     placeholderData: keepPreviousData,
+    // Fresh for 30 s, so switching tabs back and forth does not refetch every time; the read limit is 60 a minute.
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   // The report the delete dialog is asking about, if any.
