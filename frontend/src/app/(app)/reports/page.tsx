@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { AuthField } from "@/components/auth-field";
+import { Can } from "@/components/can";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
@@ -70,19 +72,14 @@ function ReportsList() {
       <form key={params.toString()} onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="month">Month</Label>
-          <select
-            id="month"
-            name="month"
-            defaultValue={filters.month ?? ""}
-            className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
-          >
+          <NativeSelect id="month" name="month" defaultValue={filters.month ?? ""}>
             <option value="">Any</option>
             {MONTHS.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <AuthField name="year" label="Year" type="number" min={2000} max={2100} defaultValue={filters.year ?? ""} />
         {textFields.map((name) => (
@@ -171,9 +168,16 @@ export default function ReportsPage() {
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-        <Link href="/" className="text-sm underline underline-offset-4">
-          Home
-        </Link>
+        <div className="flex items-center gap-4">
+          <Can permission="reports:write">
+            <Button asChild>
+              <Link href="/reports/new">New report</Link>
+            </Button>
+          </Can>
+          <Link href="/" className="text-sm underline underline-offset-4">
+            Home
+          </Link>
+        </div>
       </div>
       {/* useSearchParams needs a Suspense boundary for the static prerender */}
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
