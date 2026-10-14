@@ -4,25 +4,10 @@ Base URL: http://localhost:8080/api/v1
 
 ## Authentication Flow
 
-### 1. Register
+### 1. Accounts
 
-POST /auth/register
-
-    {
-      "email": "user@example.com",
-      "name": "User Name",
-      "password": "StrongPass123!"
-    }
-
-Response (201):
-
-    {
-      "id": 1,
-      "email": "user@example.com",
-      "name": "User Name",
-      "role_id": 1,
-      "created_at": "2026-01-01T00:00:00Z"
-    }
+There is no self-registration. An admin creates every account with `POST /admin/users`
+(see "Create User" under Admin Endpoints) and gives the credentials to the user.
 
 ### 2. Login
 
@@ -33,13 +18,17 @@ POST /auth/login
       "password": "StrongPass123!"
     }
 
-Response (200): Same as register. Sets app_session cookie.
+Response (200): the user. Sets app_session cookie.
 
 ### 3. Authenticated Requests
 
 Include session cookie with each request:
 
     curl -b cookies.txt http://localhost:8080/api/v1/auth/me
+
+`/auth/me` returns `user_id`, `name`, `email`, `role`, `permissions`, and the profile text the
+admin set for the account: `worker`, `area_assignment`, `church_name` (empty strings when unset).
+The report form starts from these.
 
 ### 4. Logout
 
@@ -107,6 +96,41 @@ PUT /admin/users/:id/role
     {
       "role_id": 2
     }
+
+### Create User
+
+POST /admin/users (admin role and `users:write`; this is the only way to create an account)
+
+    {
+      "email": "pastor@example.com",
+      "name": "Pia",
+      "password": "StrongPass123!",
+      "role_id": 2,
+      "worker": "Pastor Pia",
+      "area_assignment": "Metro Manila",
+      "church_name": "AMGC Church"
+    }
+
+`email`, `name` and `password` are required. `role_id` is optional and defaults to the `user`
+role. The three profile fields are optional (150 characters each) and prefill the report form.
+Response (201): the user, without the password. 409 if the email is taken, 422 for invalid
+fields or an unknown `role_id`. The account and its audit row (`CREATE_USER`) are written in
+one transaction. No verification token is created: email verification is not enforced at login.
+
+### Update User
+
+PUT /admin/users/:id (admin role and `users:write`)
+
+    {
+      "name": "Pia",
+      "worker": "Pastor Pia",
+      "area_assignment": "Metro Manila",
+      "church_name": "AMGC Church"
+    }
+
+Replaces the name and the three profile fields; text left out is cleared. The password and the
+role are not changed here (use Change User Role). Response (200): the user. 404 for an unknown
+user. Audited as `UPDATE_USER`.
 
 ## Reports
 
@@ -237,7 +261,7 @@ POST, PUT, DELETE and PATCH on /reports share one bucket per signed-in user: 60 
 
     {
       "error": "VALIDATION_ERROR",
-      "message": "Key: 'RegisterRequest.Email' Error:Field validation..."
+      "message": "Key: 'CreateUserRequest.Email' Error:Field validation..."
     }
 
 ### Global and read limits
@@ -278,12 +302,8 @@ Full auth flow:
     curl -c cookies.txt http://localhost:8080/health > /dev/null
     CSRF=$(grep csrf_token cookies.txt | awk '{print $NF}')
 
-    # 2. Register
-    curl -X POST http://localhost:8080/api/v1/auth/register \
-      -H "Content-Type: application/json" \
-      -H "X-CSRF-Token: $CSRF" \
-      -b cookies.txt -c cookies.txt \
-      -d '{"email": "user@example.com", "name": "User", "password": "StrongPass123!"}'
+    # 2. An admin creates the account first (POST /admin/users, see "Create User");
+    #    there is no self-registration. Then log in as that user:
 
     # 3. Login
     curl -X POST http://localhost:8080/api/v1/auth/login \
@@ -375,12 +395,12 @@ SQL:
 
 Full example with email verify + password reset:
 
-1. Register
-   POST /api/v1/auth/register
+1. An admin creates the account
+   POST /api/v1/admin/users
    Body: {"email":"user@example.com","name":"User","password":"StrongPass123"}
 
-2. Check token in logs (dev) or email (prod)
-   Look for: "verification token generated"
+2. Email verification is not enforced at login, and an admin-created account gets no token
+   (email delivery arrives with E-1). The verify endpoint still accepts existing tokens.
 
 3. Verify email
    GET /api/v1/auth/verify-email?token=XXX

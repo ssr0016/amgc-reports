@@ -19,6 +19,8 @@ type MockUserRepo struct {
 	GetByIDFunc            func(ctx context.Context, id int64) (*model.User, error)
 	GetByEmailFunc         func(ctx context.Context, email string) (*model.User, error)
 	CreateWithPasswordFunc func(ctx context.Context, email, name, hash string) (*model.User, error)
+	CreateFunc             func(ctx context.Context, q Querier, n model.NewUser) (*model.User, error)
+	UpdateProfileFunc      func(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error)
 	ListFunc               func(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
 	UpdateRoleFunc         func(ctx context.Context, userID, roleID int64) error
 	GetWithRoleFunc        func(ctx context.Context, id int64) (*model.User, error)
@@ -81,6 +83,45 @@ func (m *MockUserRepo) CreateWithPassword(ctx context.Context, email, name, hash
 	}
 	m.users[m.nextID] = user
 	m.nextID++
+	return user, nil
+}
+
+// Create inserts an account (mock); q is ignored.
+func (m *MockUserRepo) Create(ctx context.Context, q Querier, n model.NewUser) (*model.User, error) {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(ctx, q, n)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, u := range m.users {
+		if u.Email == n.Email {
+			return nil, fmt.Errorf("users: %w", ErrUniqueViolation)
+		}
+	}
+	user := &model.User{
+		ID: m.nextID, Email: n.Email, Name: n.Name, PasswordHash: n.PasswordHash, RoleID: n.RoleID,
+		Worker: nullable(n.Worker), AreaAssignment: nullable(n.AreaAssignment), ChurchName: nullable(n.ChurchName),
+	}
+	m.users[m.nextID] = user
+	m.nextID++
+	return user, nil
+}
+
+// UpdateProfile replaces a user's name and profile text (mock); q is ignored.
+func (m *MockUserRepo) UpdateProfile(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error) {
+	if m.UpdateProfileFunc != nil {
+		return m.UpdateProfileFunc(ctx, q, id, p)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.users[id]
+	if !ok {
+		return nil, fmt.Errorf("users: %w", ErrNotFound)
+	}
+	user.Name = p.Name
+	user.Worker, user.AreaAssignment, user.ChurchName = nullable(p.Worker), nullable(p.AreaAssignment), nullable(p.ChurchName)
 	return user, nil
 }
 

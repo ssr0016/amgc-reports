@@ -209,14 +209,16 @@ func run() error {
 	verificationService := service.NewVerificationService(userRepo, verificationRepo, log)
 	authService := service.NewAuthService(userRepo, roleRepo, verificationService, log)
 	passwordResetService := service.NewPasswordResetService(userRepo, passwordResetRepo, log)
-	reportService := service.NewReportService(reportRepo, auditRepo, repository.NewTxManager(db.Pool), db.Pool, userRepo, roleRepo)
+	txManager := repository.NewTxManager(db.Pool)
+	reportService := service.NewReportService(reportRepo, auditRepo, txManager, db.Pool, userRepo, roleRepo)
+	userService := service.NewUserService(userRepo, roleRepo, auditRepo, txManager)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, sm)
 	userHandler := handler.NewUserHandler(userRepo)
 	roleHandler := handler.NewRoleHandler(roleRepo, permissionRepo)
 	permissionHandler := handler.NewPermissionHandler(permissionRepo)
-	adminUserHandler := handler.NewAdminUserHandler(userRepo, roleRepo)
+	adminUserHandler := handler.NewAdminUserHandler(userRepo, roleRepo, userService, sm)
 	verificationHandler := handler.NewVerificationHandler(verificationService)
 	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
 	reportHandler := handler.NewReportHandler(reportService, sm)

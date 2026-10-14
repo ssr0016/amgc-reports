@@ -1,27 +1,145 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 )
+
+// UserAdminService is what AdminUserHandler needs to create and edit accounts,
+// so tests can pass a fake. main passes *service.UserService.
+type UserAdminService interface {
+	Create(ctx context.Context, actorID int64, ip string, req model.CreateUserRequest) (*model.User, error)
+	Update(ctx context.Context, actorID int64, ip string, id int64, req model.UpdateUserRequest) (*model.User, error)
+}
+
+var _ UserAdminService = (*service.UserService)(nil)
 
 type AdminUserHandler struct {
 	userRepo repository.UserRepository
 	roleRepo repository.RoleRepository
+	svc      UserAdminService
+	sm       *scs.SessionManager
 }
 
-func NewAdminUserHandler(userRepo repository.UserRepository, roleRepo repository.RoleRepository) *AdminUserHandler {
+func NewAdminUserHandler(
+	userRepo repository.UserRepository,
+	roleRepo repository.RoleRepository,
+	svc UserAdminService,
+	sm *scs.SessionManager,
+) *AdminUserHandler {
 	return &AdminUserHandler{
 		userRepo: userRepo,
 		roleRepo: roleRepo,
+		svc:      svc,
+		sm:       sm,
 	}
+}
+
+// userError maps service errors to API errors; anything unexpected is a 500
+// that carries no detail.
+func userError(err error, msg string) error {
+	switch {
+	case errors.Is(err, service.ErrEmailTaken):
+		return apperror.Conflict(err.Error())
+	case errors.Is(err, service.ErrRoleNotFound):
+		return apperror.Validation("role not found").WithDetails(map[string]string{"role_id": "role not found"})
+	case errors.Is(err, service.ErrUserNotFound):
+		return apperror.NotFound("user not found")
+	case errors.Is(err, service.ErrUnauthorized):
+		return apperror.Unauthorized("authentication required")
+	}
+	return apperror.Internal(msg).WithError(err)
+}
+
+func (h *AdminUserHandler) actorID(c echo.Context) (int64, error) {
+	id := h.sm.GetInt64(c.Request().Context(), "user_id")
+	if id == 0 {
+		return 0, apperror.Unauthorized("authentication required")
+	}
+	return id, nil
+}
+
+// CreateUser godoc
+// @Summary      Create a user
+// @Description  Admin only. Creates an account with an optional role (default: user) and the profile text that prefills the report form. This is the only way to create an account.
+// @Tags         admin/users
+// @Accept       json
+// @Produce      json
+// @Security     CookieAuth
+// @Param        body body model.CreateUserRequest true "New account"
+// @Success      201 {object} model.UserResponse
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      409 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Router       /admin/users [post]
+func (h *AdminUserHandler) CreateUser(c echo.Context) error {
+	actor, err := h.actorID(c)
+	if err != nil {
+		return err
+	}
+	var req model.CreateUserRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	user, err := h.svc.Create(c.Request().Context(), actor, c.RealIP(), req)
+	if err != nil {
+		return userError(err, "failed to create user")
+	}
+	return c.JSON(http.StatusCreated, user.ToResponse())
+}
+
+// UpdateUser godoc
+// @Summary      Update a user's name and profile
+// @Description  Admin only. Replaces the name and the worker, area and church text. The password and role are not changed here.
+// @Tags         admin/users
+// @Accept       json
+// @Produce      json
+// @Security     CookieAuth
+// @Param        id path int true "User ID"
+// @Param        body body model.UpdateUserRequest true "Name and profile"
+// @Success      200 {object} model.UserResponse
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Router       /admin/users/{id} [put]
+func (h *AdminUserHandler) UpdateUser(c echo.Context) error {
+	actor, err := h.actorID(c)
+	if err != nil {
+		return err
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return apperror.BadRequest("invalid user id")
+	}
+	var req model.UpdateUserRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	user, err := h.svc.Update(c.Request().Context(), actor, c.RealIP(), id, req)
+	if err != nil {
+		return userError(err, "failed to update user")
+	}
+	return c.JSON(http.StatusOK, user.ToResponse())
 }
 
 // GetUser godoc

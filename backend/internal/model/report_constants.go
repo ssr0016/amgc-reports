@@ -29,6 +29,7 @@ const (
 	AuditCreateUser       = "CREATE_USER"
 	AuditUpdateUser       = "UPDATE_USER"
 	AuditTargetTypeReport = "Report"
+	AuditTargetTypeUser   = "User"
 )
 
 var AuditActions = []string{

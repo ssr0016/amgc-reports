@@ -22,90 +22,26 @@ var discardLog = slog.New(slog.DiscardHandler)
 
 const testPassword = "X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"
 
-func TestAuthService_Register_Success(t *testing.T) {
-	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo, nil, nil, discardLog)
-
-	user, err := svc.Register(context.Background(), model.RegisterRequest{
-		Email:    "test@example.com",
-		Name:     "Test User",
-		Password: testPassword,
-	})
-
+// seedUser stores an account whose password is testPassword. bcrypt.MinCost
+// keeps the login tests fast; the cost is not what they test.
+func seedUser(t *testing.T, repo *repository.MockUserRepo, email, name string) *model.User {
+	t.Helper()
+	hash, err := bcrypt.GenerateFromPassword([]byte(testPassword), bcrypt.MinCost)
 	if err != nil {
-		t.Fatalf("Register() failed: %v", err)
+		t.Fatalf("hash: %v", err)
 	}
-	if user == nil {
-		t.Fatal("Register() returned nil user")
-	}
-	if user.Email != "test@example.com" {
-		t.Errorf("Email = %s, want test@example.com", user.Email)
-	}
-	if user.Name != "Test User" {
-		t.Errorf("Name = %s, want Test User", user.Name)
-	}
-	if user.PasswordHash == "" {
-		t.Error("PasswordHash is empty")
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(testPassword)); err != nil {
-		t.Errorf("Password hash doesn't match: %v", err)
-	}
-}
-
-func TestAuthService_Register_DuplicateEmail(t *testing.T) {
-	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo, nil, nil, discardLog)
-
-	_, err := svc.Register(context.Background(), model.RegisterRequest{
-		Email:    "dup@example.com",
-		Name:     "User 1",
-		Password: testPassword,
-	})
+	user, err := repo.CreateWithPassword(context.Background(), email, name, string(hash))
 	if err != nil {
-		t.Fatalf("First Register() failed: %v", err)
+		t.Fatalf("seed user: %v", err)
 	}
-
-	_, err = svc.Register(context.Background(), model.RegisterRequest{
-		Email:    "dup@example.com",
-		Name:     "User 2",
-		Password: testPassword,
-	})
-
-	if !errors.Is(err, ErrEmailTaken) {
-		t.Errorf("Register() error = %v, want ErrEmailTaken", err)
-	}
-}
-
-func TestAuthService_Register_RepoError(t *testing.T) {
-	repo := repository.NewMockUserRepo()
-	repo.GetByEmailFunc = func(ctx context.Context, email string) (*model.User, error) {
-		return nil, errors.New("db error")
-	}
-	svc := NewAuthService(repo, nil, nil, discardLog)
-
-	_, err := svc.Register(context.Background(), model.RegisterRequest{
-		Email:    "err@example.com",
-		Name:     "Err User",
-		Password: testPassword,
-	})
-
-	if err == nil {
-		t.Fatal("Register() expected error, got nil")
-	}
+	return user
 }
 
 func TestAuthService_Login_Success(t *testing.T) {
 	repo := repository.NewMockUserRepo()
 	svc := NewAuthService(repo, nil, nil, discardLog)
 
-	registered, err := svc.Register(context.Background(), model.RegisterRequest{
-		Email:    "login@example.com",
-		Name:     "Login User",
-		Password: testPassword,
-	})
-	if err != nil {
-		t.Fatalf("Register() failed: %v", err)
-	}
+	registered := seedUser(t, repo, "login@example.com", "Login User")
 
 	user, err := svc.Login(context.Background(), "login@example.com", testPassword)
 	if err != nil {
@@ -130,16 +66,9 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 	repo := repository.NewMockUserRepo()
 	svc := NewAuthService(repo, nil, nil, discardLog)
 
-	_, err := svc.Register(context.Background(), model.RegisterRequest{
-		Email:    "wrong@example.com",
-		Name:     "Wrong User",
-		Password: testPassword,
-	})
-	if err != nil {
-		t.Fatalf("Register() failed: %v", err)
-	}
+	seedUser(t, repo, "wrong@example.com", "Wrong User")
 
-	_, err = svc.Login(context.Background(), "wrong@example.com", "wrong-password")
+	_, err := svc.Login(context.Background(), "wrong@example.com", "wrong-password")
 	if !errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("Login() error = %v, want ErrInvalidCredentials", err)
 	}
@@ -155,26 +84,6 @@ func TestAuthService_Login_RepoError(t *testing.T) {
 	_, err := svc.Login(context.Background(), "err@example.com", testPassword)
 	if err == nil {
 		t.Fatal("Login() expected error, got nil")
-	}
-}
-
-// A concurrent Register can pass the GetByEmail check and then lose the insert
-// to the unique index; that must read as "email taken", not a server error.
-func TestAuthService_Register_LosesEmailRace(t *testing.T) {
-	repo := repository.NewMockUserRepo()
-	repo.CreateWithPasswordFunc = func(context.Context, string, string, string) (*model.User, error) {
-		return nil, fmt.Errorf("scan user: %w", repository.ErrUniqueViolation)
-	}
-	svc := NewAuthService(repo, nil, nil, discardLog)
-
-	_, err := svc.Register(context.Background(), model.RegisterRequest{
-		Email:    "race@example.com",
-		Name:     "Racer",
-		Password: testPassword,
-	})
-
-	if !errors.Is(err, ErrEmailTaken) {
-		t.Errorf("Register() error = %v, want ErrEmailTaken", err)
 	}
 }
 
@@ -210,15 +119,10 @@ func TestAuthService_Login_LogsTrackingFailures(t *testing.T) {
 			repo := repository.NewMockUserRepo()
 			svc := NewAuthService(repo, nil, nil, log)
 
-			registered, err := svc.Register(context.Background(), model.RegisterRequest{
-				Email: "track@example.com", Name: "Track", Password: testPassword,
-			})
-			if err != nil {
-				t.Fatalf("Register() failed: %v", err)
-			}
+			registered := seedUser(t, repo, "track@example.com", "Track")
 			tt.configure(repo)
 
-			_, err = svc.Login(context.Background(), "track@example.com", tt.password)
+			_, err := svc.Login(context.Background(), "track@example.com", tt.password)
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Login() error = %v, want %v", err, tt.wantErr)
 			}
@@ -240,46 +144,6 @@ func TestAuthService_Login_LogsTrackingFailures(t *testing.T) {
 	}
 }
 
-// Register does not fail when the verification token cannot be created, but
-// the failure must be logged: a user who never gets a token is stuck
-// unverified, and without a log line nothing says why.
-func TestAuthService_Register_LogsSendVerificationError(t *testing.T) {
-	var buf bytes.Buffer
-	log := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	tokens := newStubVerificationRepo()
-	tokens.createErr = errors.New("connection refused")
-	verification := NewVerificationService(repository.NewMockUserRepo(), tokens, discardLog)
-	svc := NewAuthService(repository.NewMockUserRepo(), nil, verification, log)
-
-	user, err := svc.Register(context.Background(), model.RegisterRequest{
-		Email: "verify-fail@example.com", Name: "Verify", Password: testPassword,
-	})
-	if err != nil {
-		t.Fatalf("Register() failed although only the token step failed: %v", err)
-	}
-	if user == nil {
-		t.Fatal("Register() returned nil user")
-	}
-
-	var entry map[string]any
-	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
-		t.Fatalf("no JSON log line written: %v (output %q)", err, buf.String())
-	}
-	if entry["level"] != "WARN" || entry["msg"] != "failed to send verification token" {
-		t.Errorf("log = level %v msg %v, want WARN %q", entry["level"], entry["msg"], "failed to send verification token")
-	}
-	if entry["user_id"] != float64(user.ID) {
-		t.Errorf("user_id = %v, want %d", entry["user_id"], user.ID)
-	}
-	if got, _ := entry["error"].(string); !strings.Contains(got, "connection refused") {
-		t.Errorf("error = %q, want it to carry the cause", got)
-	}
-	if strings.Contains(buf.String(), "verify-fail@example.com") {
-		t.Errorf("email leaked into logs: %s", buf.String())
-	}
-}
-
 func TestAuthService_Me(t *testing.T) {
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
@@ -288,6 +152,9 @@ func TestAuthService_Me(t *testing.T) {
 			return &model.User{ID: 1, Name: "Ed", Email: "ed@example.org", RoleID: 20, Role: &model.Role{Name: "editor"}}, nil
 		case 2: // no role assigned
 			return &model.User{ID: 2, Name: "Nora", Email: "nora@example.org"}, nil
+		case 3: // profile set by the admin
+			w, a, c := "Pastor Pia", "Metro", "AMGC 1"
+			return &model.User{ID: 3, Name: "Pia", Email: "pia@example.org", Worker: &w, AreaAssignment: &a, ChurchName: &c}, nil
 		}
 		return nil, nil
 	}
@@ -304,6 +171,23 @@ func TestAuthService_Me(t *testing.T) {
 			Permissions: []string{"reports:approve", "reports:read"}}
 		if fmt.Sprint(*got) != fmt.Sprint(want) {
 			t.Errorf("Me() = %+v, want %+v", *got, want)
+		}
+	})
+
+	t.Run("profile fields come through; unset ones are empty strings", func(t *testing.T) {
+		got, err := svc.Me(ctx, 3)
+		if err != nil {
+			t.Fatalf("Me() failed: %v", err)
+		}
+		if got.Worker != "Pastor Pia" || got.AreaAssignment != "Metro" || got.ChurchName != "AMGC 1" {
+			t.Errorf("Me() profile = %q, %q, %q", got.Worker, got.AreaAssignment, got.ChurchName)
+		}
+		none, err := svc.Me(ctx, 2)
+		if err != nil {
+			t.Fatalf("Me() failed: %v", err)
+		}
+		if none.Worker != "" || none.AreaAssignment != "" || none.ChurchName != "" {
+			t.Errorf("unset profile = %q, %q, %q, want empty", none.Worker, none.AreaAssignment, none.ChurchName)
 		}
 	})
 

@@ -17,12 +17,12 @@ type UserRepo struct{ db *database.DB }
 
 func NewUserRepo(db *database.DB) *UserRepo { return &UserRepo{db: db} }
 
-const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at"
+const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at, worker, area_assignment, church_name"
 
 // scanUser scans a single user from a row.
 func scanUser(row pgx.Row) (*model.User, error) {
 	var u model.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.Worker, &u.AreaAssignment, &u.ChurchName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -62,36 +62,71 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*model.User, e
 }
 
 func (r *UserRepo) CreateWithPassword(ctx context.Context, email, name, hash string) (*model.User, error) {
-	// Get default 'user' role ID
-	roleQuery, roleArgs, err := r.db.Builder.
-		Select("id").
-		From("roles").
-		Where(sq.Eq{"name": model.DefaultRoleName}).
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build role query: %w", err)
-	}
+	return r.Create(ctx, r.db.Pool, model.NewUser{Email: email, Name: name, PasswordHash: hash})
+}
 
-	var roleID int64
-	if err := r.db.Pool.QueryRow(ctx, roleQuery, roleArgs...).Scan(&roleID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("get default role %q: %w", model.DefaultRoleName, ErrDefaultRoleMissing)
+// Create inserts an account on q (a transaction, so an audit row can share it).
+// A zero RoleID means the default role.
+func (r *UserRepo) Create(ctx context.Context, q Querier, n model.NewUser) (*model.User, error) {
+	roleID := n.RoleID
+	if roleID == 0 {
+		roleQuery, roleArgs, err := r.db.Builder.
+			Select("id").
+			From("roles").
+			Where(sq.Eq{"name": model.DefaultRoleName}).
+			ToSql()
+		if err != nil {
+			return nil, fmt.Errorf("build role query: %w", err)
 		}
-		return nil, fmt.Errorf("get default role: %w", err)
+		if err := q.QueryRow(ctx, roleQuery, roleArgs...).Scan(&roleID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, fmt.Errorf("get default role %q: %w", model.DefaultRoleName, ErrDefaultRoleMissing)
+			}
+			return nil, fmt.Errorf("get default role: %w", err)
+		}
 	}
 
-	// Insert user with default role
 	query, args, err := r.db.Builder.
 		Insert("users").
-		Columns("email", "name", "password_hash", "role_id").
-		Values(email, name, hash, roleID).
+		Columns("email", "name", "password_hash", "role_id", "worker", "area_assignment", "church_name").
+		Values(n.Email, n.Name, n.PasswordHash, roleID, nullable(n.Worker), nullable(n.AreaAssignment), nullable(n.ChurchName)).
 		Suffix("RETURNING " + userColumns).
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	return scanUser(r.db.Pool.QueryRow(ctx, query, args...))
+	u, err := scanUser(q.QueryRow(ctx, query, args...))
+	if isForeignKeyViolation(err) {
+		return nil, fmt.Errorf("create user: %w: %w", ErrForeignKeyViolation, err)
+	}
+	return u, err
+}
+
+// UpdateProfile replaces a user's name and profile text on q; the password and
+// role are not touched. Empty profile text is stored as NULL.
+func (r *UserRepo) UpdateProfile(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error) {
+	query, args, err := r.db.Builder.
+		Update("users").
+		Set("name", p.Name).
+		Set("worker", nullable(p.Worker)).
+		Set("area_assignment", nullable(p.AreaAssignment)).
+		Set("church_name", nullable(p.ChurchName)).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": id}).
+		Suffix("RETURNING " + userColumns).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+	u, err := scanUser(q.QueryRow(ctx, query, args...))
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, fmt.Errorf("users: %w", ErrNotFound)
+	}
+	return u, nil
 }
 
 func (r *UserRepo) List(ctx context.Context, emailFilter string, limit int) ([]model.User, error) {
@@ -127,7 +162,7 @@ func (r *UserRepo) List(ctx context.Context, emailFilter string, limit int) ([]m
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.Worker, &u.AreaAssignment, &u.ChurchName); err != nil {
 			return nil, fmt.Errorf("scan row: %w", err)
 		}
 		users = append(users, u)
@@ -168,7 +203,7 @@ func (r *UserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, erro
 	query, args, err := r.db.Builder.
 		Select(
 			"u.id", "u.email", "u.name", "u.password_hash", "u.role_id",
-			"u.created_at", "u.updated_at",
+			"u.created_at", "u.updated_at", "u.worker", "u.area_assignment", "u.church_name",
 			"r.id", "r.name", "r.description", "r.created_at", "r.updated_at",
 		).
 		From("users u").
@@ -186,7 +221,7 @@ func (r *UserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, erro
 
 	err = r.db.Pool.QueryRow(ctx, query, args...).Scan(
 		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID,
-		&u.CreatedAt, &u.UpdatedAt,
+		&u.CreatedAt, &u.UpdatedAt, &u.Worker, &u.AreaAssignment, &u.ChurchName,
 		&rID, &rName, &rDesc, &rCreatedAt, &rUpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -265,7 +300,7 @@ func (r *UserRepo) ListWithPagination(ctx context.Context, emailFilter string, p
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.Worker, &u.AreaAssignment, &u.ChurchName); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
 		users = append(users, u)

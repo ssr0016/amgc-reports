@@ -21,7 +21,6 @@ const (
 	forgotPasswordPath = "/api/v1/auth/forgot-password"
 	resetPasswordPath  = "/api/v1/auth/reset-password"
 	loginPath          = "/api/v1/auth/login"
-	registerPath       = "/api/v1/auth/register"
 )
 
 // noLimit is a pass-through for the reports write limiter.
@@ -77,19 +76,6 @@ func postJSON(t *testing.T, e *echo.Echo, path, body string) (int, apperror.Erro
 		t.Fatalf("POST %s: decode body %q: %v", path, rec.Body.String(), err)
 	}
 	return rec.Code, resp
-}
-
-func TestRegister_EmptyBody_Returns422WithFieldDetails(t *testing.T) {
-	code, resp := postJSON(t, newTestServer(), registerPath, `{}`)
-
-	if code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want %d", code, http.StatusUnprocessableEntity)
-	}
-	for _, field := range []string{"email", "name", "password"} {
-		if got := resp.Details[field]; got != "is required" {
-			t.Errorf("details[%s] = %q, want %q (details: %v)", field, got, "is required", resp.Details)
-		}
-	}
 }
 
 func TestResetPassword_ShortPassword_ReturnsDetailsKeyedByJSONName(t *testing.T) {

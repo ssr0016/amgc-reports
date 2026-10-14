@@ -384,6 +384,90 @@
                 }
             }
         },
+        "/admin/users": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Admin only. Creates an account with an optional role (default: user) and the profile text that prefills the report form. This is the only way to create an account.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/users"
+                ],
+                "summary": "Create a user",
+                "parameters": [
+                    {
+                        "description": "New account",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.CreateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/admin/users/{id}": {
             "get": {
                 "security": [
@@ -412,6 +496,95 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Admin only. Replaces the name and the worker, area and church text. The password and role are not changed here.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/users"
+                ],
+                "summary": "Update a user's name and profile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Name and profile",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -632,67 +805,6 @@
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/register": {
-            "post": {
-                "description": "Creates a new user account",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Register new user",
-                "parameters": [
-                    {
-                        "description": "Registration payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RegisterRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1559,6 +1671,42 @@
                 }
             }
         },
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.CreateUserRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "password"
+            ],
+            "properties": {
+                "area_assignment": {
+                    "type": "string",
+                    "maxLength": 150
+                },
+                "church_name": {
+                    "type": "string",
+                    "maxLength": 150
+                },
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role_id": {
+                    "type": "integer"
+                },
+                "worker": {
+                    "type": "string",
+                    "maxLength": 150
+                }
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest": {
             "type": "object",
             "required": [
@@ -1577,6 +1725,12 @@
         "github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse": {
             "type": "object",
             "properties": {
+                "area_assignment": {
+                    "type": "string"
+                },
+                "church_name": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -1594,6 +1748,10 @@
                 },
                 "user_id": {
                     "type": "integer"
+                },
+                "worker": {
+                    "description": "Report form defaults; empty when the admin has not set them.",
+                    "type": "string"
                 }
             }
         },
@@ -1630,27 +1788,6 @@
                     "type": "string"
                 },
                 "resource": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.RegisterRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "name",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 2
-                },
-                "password": {
                     "type": "string"
                 }
             }
@@ -1835,9 +1972,40 @@
                 }
             }
         },
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateUserRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "area_assignment": {
+                    "type": "string",
+                    "maxLength": 150
+                },
+                "church_name": {
+                    "type": "string",
+                    "maxLength": 150
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "worker": {
+                    "type": "string",
+                    "maxLength": 150
+                }
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse": {
             "type": "object",
             "properties": {
+                "area_assignment": {
+                    "type": "string"
+                },
+                "church_name": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -1858,6 +2026,9 @@
                 },
                 "role_id": {
                     "type": "integer"
+                },
+                "worker": {
+                    "type": "string"
                 }
             }
         },

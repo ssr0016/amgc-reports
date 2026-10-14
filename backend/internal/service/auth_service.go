@@ -57,7 +57,10 @@ func (s *AuthService) Me(ctx context.Context, userID int64) (*model.MeResponse, 
 	if user == nil {
 		return nil, ErrUnauthorized
 	}
-	me := &model.MeResponse{UserID: user.ID, Name: user.Name, Email: user.Email, Permissions: []string{}}
+	me := &model.MeResponse{
+		UserID: user.ID, Name: user.Name, Email: user.Email, Permissions: []string{},
+		Worker: deref(user.Worker), AreaAssignment: deref(user.AreaAssignment), ChurchName: deref(user.ChurchName),
+	}
 	if user.Role != nil {
 		me.Role = user.Role.Name
 	}
@@ -71,42 +74,6 @@ func (s *AuthService) Me(ctx context.Context, userID int64) (*model.MeResponse, 
 		}
 	}
 	return me, nil
-}
-
-func (s *AuthService) Register(ctx context.Context, req model.RegisterRequest) (*model.User, error) {
-	existing, err := s.userRepo.GetByEmail(ctx, req.Email)
-	if err != nil {
-		return nil, fmt.Errorf("check email: %w", err)
-	}
-	if existing != nil {
-		return nil, ErrEmailTaken
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, fmt.Errorf("hash password: %w", err)
-	}
-
-	user, err := s.userRepo.CreateWithPassword(ctx, req.Email, req.Name, string(hash))
-	if errors.Is(err, repository.ErrUniqueViolation) {
-		// users.email is the only unique column CreateWithPassword writes;
-		// this is a concurrent Register that passed the check above.
-		return nil, ErrEmailTaken
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// Generate a verification token. Email delivery arrives with E-1; until
-	// then use `make dev-token` to read it from the database.
-	// Note: We don't fail registration if this fails, but we log the failure
-	if s.verificationService != nil {
-		if _, err := s.verificationService.SendVerification(ctx, user.ID); err != nil {
-			s.log.Warn("failed to send verification token", "user_id", user.ID, "error", err)
-		}
-	}
-
-	return user, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (*model.User, error) {
@@ -141,4 +108,11 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 	}
 
 	return user, nil
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

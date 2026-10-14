@@ -21,37 +21,6 @@ func NewAuthHandler(authService *service.AuthService, sm *scs.SessionManager) *A
 	return &AuthHandler{authService: authService, sm: sm}
 }
 
-// Register godoc
-// @Summary      Register new user
-// @Description  Creates a new user account
-// @Tags         auth
-// @Accept       json
-// @Produce      json
-// @Param        body body model.RegisterRequest true "Registration payload"
-// @Success      201 {object} model.UserResponse
-// @Failure      400 {object} map[string]string
-// @Failure      409 {object} map[string]string
-// @Failure      422 {object} map[string]string
-// @Router       /auth/register [post]
-func (h *AuthHandler) Register(c echo.Context) error {
-	var req model.RegisterRequest
-	if err := c.Bind(&req); err != nil {
-		return apperror.BadRequest("invalid request body").WithError(err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return err
-	}
-
-	user, err := h.authService.Register(c.Request().Context(), req)
-	if err != nil {
-		if errors.Is(err, service.ErrEmailTaken) {
-			return apperror.Conflict(err.Error())
-		}
-		return apperror.Internal("registration failed").WithError(err)
-	}
-	return c.JSON(http.StatusCreated, user.ToResponse())
-}
-
 // Login godoc
 // @Summary      Login user
 // @Description  Authenticates user and creates a session

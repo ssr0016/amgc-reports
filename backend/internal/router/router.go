@@ -43,7 +43,6 @@ func Setup(
 	auth := api.Group("/auth")
 	authLimit := ourmiddleware.RateLimit(rate.Limit(5.0/60.0), 3)
 	auth.GET("/csrf", handler.CSRFToken)
-	auth.POST("/register", authHandler.Register, authLimit)
 	auth.POST("/login", authHandler.Login, authLimit)
 
 	// Token flows: one bucket per route, so they cannot starve each other or
@@ -109,6 +108,10 @@ func Setup(
 	// Users (admin management)
 	admin.GET("/users/:id", adminUserHandler.GetUser)
 	admin.PUT("/users/:id/role", adminUserHandler.ChangeRole)
+	// The only way to create an account (there is no self-registration). The group
+	// already requires the admin role; users:write is a second, explicit gate.
+	admin.POST("/users", adminUserHandler.CreateUser, perm("users:write"))
+	admin.PUT("/users/:id", adminUserHandler.UpdateUser, perm("users:write"))
 
 	_ = roleRepo // referenced in RequireRole
 }

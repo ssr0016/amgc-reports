@@ -13,6 +13,8 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id int64) (*model.User, error)
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*model.User, error)
+	Create(ctx context.Context, q Querier, n model.NewUser) (*model.User, error)
+	UpdateProfile(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error)
 	List(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
 	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 	MarkEmailVerified(ctx context.Context, userID int64) error

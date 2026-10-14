@@ -157,20 +157,28 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 
 **Live checks (2026-10-14, local, admin).** Valid save redirects and lists the row; a duplicate month and year shows the 409 on the month field with the input kept; a blank week is absent and a typed `0` is stored as `0`; editing one field leaves every other field and metric unchanged. Not yet checked: the `user` role (own reports only), the 429 countdown, a real 422, and the phone layout.
 
-### Account onboarding (Part B, for F9 or F10; decided 2026-10-14)
+### Account onboarding (Part B, decided 2026-10-14)
 
-**Rule (owner).** Only an admin creates accounts: there are 24 churches, and the admin gives each pastor an account to report with. Self-registration is to go.
+**Rule (owner).** Only an admin creates accounts: there are 24 churches, and the admin gives each pastor an account to report with. Self-registration is gone.
 
-**Why this is backend work.** Today `POST /auth/register` is public (only rate limited, 5 per minute per IP) and creates a `user`-role account, so hiding the `/register` page would not close it. There is no `POST /admin/users` either (the admin routes are roles, permissions, `GET /admin/users/:id` and `PUT /admin/users/:id/role`), so removing registration with nothing in its place leaves no way to onboard a pastor except SQL or the seed. The `/register` page and its login link therefore stay until the admin path exists.
+**Backend (done).**
+- `POST /auth/register` is removed (route, handler and `AuthService.Register`). Requests to it never create an account.
+- `POST /admin/users` creates an account: `email`, `name`, `password`, optional `role_id` (default `user`) and the profile text `worker`, `area_assignment`, `church_name`. `PUT /admin/users/:id` replaces the name and profile text. Both are in the admin-role group and also require `users:write`, so only an admin can call them (an editor holds `users:write` but is not an admin). Each change and its audit row (`CREATE_USER`, `UPDATE_USER`) are written in one transaction.
+- `users` has nullable `worker`, `area_assignment` and `church_name` (150 characters). `/auth/me` returns them as strings (empty when unset). The API reference is `API.md`.
+- Admin-created accounts get no email verification token (verification is not enforced at login, and email delivery is E-1).
 
-**Decided.**
-1. Close public registration with a permission check: `POST /auth/register` requires `users:write`, and `POST /admin/users` is the one audited create path (admin and editor hold `users:write`; the `user` role does not).
-2. An admin create-user screen in the frontend, so onboarding needs no SQL.
-3. Profile fields on the user: nullable `worker` (the pastoral title), `area_assignment` and `church_name` (migration, model, repository, `/auth/me`, then `npm run gen:api` for the types). The admin sets them when creating or editing a user.
-4. `/reports/new` fills worker, area and church from the profile as **editable defaults** (decision D-8: `worker` is independent of `created_by`, so they are not locked). Until the profile fields exist, `worker` falls back to the user's `name`.
-5. When registration is closed, delete the `/register` page and the "No account? Register" link, and mark `/auth/register` admin-only in `API.md`.
+**Frontend (still to do).**
+1. Run `npm run gen:api` (the CI check fails until the generated types match the new `swagger.json`).
+2. `/reports/new` fills worker, area and church from `/auth/me` as **editable defaults** (decision D-8: `worker` is independent of `created_by`, so they are not locked). `worker` falls back to the user's `name` when the profile has none.
+3. Delete the `/register` page and the "No account? Register" link (the endpoint is gone).
+4. Show Worker, Area and Church with labels on each report in the list and the detail view.
+5. Admin create-user and edit-user screens (F9 or F10). Until they exist, the admin creates and edits users with `curl` or a script using an admin session.
 
-**Open until then.** Anyone who can reach the API can still create a `user`-role account.
+**Known gaps.**
+- Existing accounts and the seeded admin have empty profiles until an admin sets them with `PUT /admin/users/:id`.
+- There is no admin way to reset a password or deactivate an account yet; the existing password-reset flow needs email (E-1).
+- `NewAuthService` still takes a verification service it no longer uses; remove the parameter in a cleanup.
+- `01-PRD.md`, `02-App-Flow.md`, `03-Tech-Stack.md` and `06-Implementation-Plan.md` still describe self-registration (FR-AUTH-01, the middleware table, the rate-limit notes); they are analysis documents and have not been rewritten.
 
 **Also pending.** The previous-month rule is enforced in the UI only (`/reports/new` locks the period); the API still accepts any month. Doing it in the backend needs decisions on the server timezone, whether admins may file late reports, and the integration tests that create reports for arbitrary months. F8 is partly done: the `/` redirect and the app header are in; the alert dialog and the report detail with delete are parked.
 
