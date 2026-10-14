@@ -43,7 +43,7 @@ export function EditReport() {
     body = (
       <ReportForm
         initial={fromReport(data)}
-        submitLabel="Save changes"
+        submitLabel="Update Report"
         lockedPeriod={{ month: data.month, year: data.year }}
         onSubmit={async (input) => {
           await updateReport(reportId, input);

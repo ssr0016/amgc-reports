@@ -1,18 +1,27 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
-import { defaultPeriod, FIRST_YEAR, listReports, MONTHS, type ReportFilters } from "@/lib/reports";
+import { defaultPeriod, deleteReport, FIRST_YEAR, listReports, MONTHS, type ReportFilters } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 
 const textFields = [
@@ -53,6 +62,38 @@ function ReportsList() {
     enabled: allowed,
     placeholderData: keepPreviousData,
   });
+
+  // The report the delete dialog is asking about, if any.
+  const queryClient = useQueryClient();
+  const [target, setTarget] = useState<{ id: number; period: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  async function confirmDelete() {
+    if (!target) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteReport(target.id);
+    } catch (err) {
+      setDeleting(false);
+      // 404: it was already deleted elsewhere, so the list below is just stale.
+      if (!(err instanceof ApiError && err.status === 404)) {
+        setDeleteError(
+          err instanceof ApiError
+            ? err.message + (err.retryAfter ? ` Try again in ${err.retryAfter}s.` : "")
+            : "Could not delete the report. Try again.",
+        );
+        return;
+      }
+    }
+    setDeleting(false);
+    setTarget(null);
+    // Deleting the last row of a later page would leave an empty page behind.
+    const lastOnPage = (filters.page ?? 1) > 1 && data?.data.length === 1;
+    await queryClient.invalidateQueries({ queryKey: ["reports"] });
+    if (lastOnPage) goToPage((filters.page ?? 1) - 1);
+  }
 
   // Filters apply as they change. The text boxes wait 300 ms after the last key,
   // so typing does not spend the per-user read rate limit one request per letter.
@@ -184,19 +225,8 @@ function ReportsList() {
               </TableHeader>
               <TableBody>
                 {data.data.map((r) => (
-                  <TableRow
-                    key={r.id}
-                    className="cursor-pointer"
-                    onClick={(e) => {
-                      // Links and buttons inside the row do their own thing.
-                      if (!(e.target as HTMLElement).closest("a, button")) router.push(`/reports/${r.id}`);
-                    }}
-                  >
-                    <TableCell>
-                      <Link href={`/reports/${r.id}`} className="underline underline-offset-4">
-                        {r.month}
-                      </Link>
-                    </TableCell>
+                  <TableRow key={r.id}>
+                    <TableCell>{r.month}</TableCell>
                     <TableCell>{r.year}</TableCell>
                     <TableCell>{r.worker || "—"}</TableCell>
                     <TableCell>{r.area_assignment || "—"}</TableCell>
@@ -207,11 +237,25 @@ function ReportsList() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Can permission="reports:write">
-                        <Link href={`/reports/${r.id}/edit`} className="underline underline-offset-4">
-                          Edit
-                        </Link>
-                      </Can>
+                      <div className="flex gap-2">
+                        <Can permission="reports:write">
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/reports/${r.id}/edit`}>Edit</Link>
+                          </Button>
+                        </Can>
+                        <Can permission="reports:delete">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setDeleteError("");
+                              setTarget({ id: r.id, period: `${r.month} ${r.year}` });
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </Can>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -239,6 +283,27 @@ function ReportsList() {
           </>
         )
       )}
+
+      <AlertDialog open={target !== null} onOpenChange={(open) => !open && !deleting && setTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {target?.period}?</AlertDialogTitle>
+            <AlertDialogDescription>You can file this month again afterwards.</AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError && (
+            <p role="alert" className="text-sm text-destructive">
+              {deleteError}
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            {/* A plain Button, not AlertDialogAction: that one closes the dialog on click, and a failed delete must keep it open. */}
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

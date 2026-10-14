@@ -29,7 +29,7 @@ export function NewReport() {
       {can("reports:write") ? (
         <ReportForm
           initial={initial}
-          submitLabel="Save report"
+          submitLabel="Create Report"
           lockedPeriod={period}
           onSubmit={async (input) => {
             await createReport(input);
