@@ -489,10 +489,8 @@ func TestReportsMigrations_DownThenUp(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	goose.SetBaseFS(os.DirFS("migrations"))
 	require.NoError(t, goose.SetDialect("postgres"))
-	// Newest first: audit_logs, report_metrics, reports.
-	for _, name := range []string{"audit_logs", "report_metrics", "reports"} {
-		require.NoError(t, goose.Down(db, "."), "down %s migration failed", name)
-	}
+	// Back to before the Reports migrations, whatever was added after them.
+	require.NoError(t, goose.DownTo(db, ".", lastPreReportsVersion), "down to the pre-Reports version failed")
 	for _, table := range tables {
 		assert.False(t, relationExists(t, tdb.Pool, table), "down left table %s behind", table)
 	}

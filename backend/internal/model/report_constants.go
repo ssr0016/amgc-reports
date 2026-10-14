@@ -26,6 +26,8 @@ const (
 	AuditUnapproveReport  = "UNAPPROVE_REPORT"
 	AuditDownloadSingle   = "DOWNLOAD_SINGLE_EXCEL"
 	AuditDownloadBulk     = "DOWNLOAD_BULK_EXCEL"
+	AuditCreateUser       = "CREATE_USER"
+	AuditUpdateUser       = "UPDATE_USER"
 	AuditTargetTypeReport = "Report"
 )
 
@@ -33,4 +35,5 @@ var AuditActions = []string{
 	AuditCreateReport, AuditUpdateReport, AuditDeleteReport,
 	AuditApproveReport, AuditUnapproveReport,
 	AuditDownloadSingle, AuditDownloadBulk,
+	AuditCreateUser, AuditUpdateUser,
 }
