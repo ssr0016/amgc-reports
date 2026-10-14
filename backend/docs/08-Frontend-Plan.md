@@ -47,7 +47,7 @@ Libraries (small, to be confirmed at setup): a data-fetching cache (TanStack Que
 | Toggle | `PATCH /reports/:id/complete` returns metadata only (`id`, `completed`, `completed_at`, `completed_by`). Merge it into the cached report; do not expect text fields. |
 | Delete | 204, no body. The month and year can be filed again. |
 | IDs | May have gaps. Never assume contiguous IDs. |
-| List | `{data, meta: {page, limit, total, total_pages}}`; `limit` 1 to 100; filters `month`, `year`, `worker`, `area`, `church`. Without `reports:read_any` the server returns only the caller's reports. |
+| List | `{data, meta: {page, limit, total, total_pages}}`; `limit` 1 to 100; filters `month`, `year`, `worker`, `area`, `church`. Without `reports:read_any` the server returns only the caller's reports; no default role lacks it, so this applies to a custom role only. |
 | Empty fields | Empty text is stored as NULL and omitted from responses. Treat a missing field as `""`. |
 
 ### 2.1 Role and permissions in `/auth/me` (B-F1, implemented)
@@ -71,7 +71,7 @@ Libraries (small, to be confirmed at setup): a data-fetching cache (TanStack Que
 | Report form (create and edit) | Fields per D-7 limits (`worker`, `area_assignment`, `church_name` ≤ 150; `names` ≤ 5,000; `narrative_report`, `challenges`, `prayer_request` ≤ 10,000; year 2000 to 2100). Metrics grid: 21 metrics by 5 weeks, decimals with at most 2 places, blank means not reported, `0` means reported zero. Edit loads the full report and sends every field. Warn before leaving with unsaved changes. |
 | Report detail | **Dropped (2026-10-14).** There is no detail page: the list rows show what is needed, and Edit opens the full form. |
 | Delete | In the list, beside Edit (needs `reports:delete`). Confirm dialog, then soft delete; the month and year can be filed again. |
-| Approve | In the list, beside Edit and Delete, for users with `reports:approve`; there is no detail page to hold it. Optimistic update from the metadata response. |
+| Approve | In the list, beside Edit and Delete, for users with `reports:approve`, which only the admin holds; there is no detail page to hold it. Optimistic update from the metadata response. |
 | Excel export | Out of scope (D-10: the audit must be written server-side where the download happens, so the export waits for a server endpoint). |
 
 ## 5. Error handling
@@ -149,11 +149,15 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 
 **Delivered.** The 429 countdown now covers the report form (`useCountdown`, Save disabled while it runs) and `retryText()` replaces the hand-written "Try again in Ns". The admin screens gate on `isAdmin` (`Me.role === "admin"`) from `useSession()`, not on `users:write`: an editor holds that permission but the server answers 403. The list joins `role_id` to the role name from `GET /admin/roles` and shows `#id` if that request fails.
 
+**Ownership gating (2026-10-15).** Every signed-in user reads every report (`read_any`), so the list shows Edit and Delete only on a user's own reports, or on any report for someone holding `write_any` or `delete_any`. Every other row gets a View link. `/reports/[id]/edit` opens for anyone who may read the report and renders it read-only when the user may not change it: a disabled fieldset, no Save, and Back in place of Cancel. This is UI only; the server still answers 404 to a write on someone else's report.
+
 **Parked.**
 - **Users list pagination.** `GET /users` returns a bare array (max 100, `email` filter) with no page or total. The list says "Showing the first 100" at the limit. Paging needs a backend change.
 - **Role change.** `PUT /admin/users/:id/role` has no screen (deferred). The edit screen changes only name, area and church.
 - **Deactivate and password reset (E-1).** Not built.
 - **`/auth/me` retry state.** The "For F10" note under F4 details (a server blip reads as signed out) is still open; F10 did not touch it.
+- **Stale PRD rows.** `01-PRD.md` still lists FR-REP-01 to FR-REP-04 and FR-REP-06 as Missing, and its open question 3 (section 10) asks whether reporters see only their own reports. Only FR-REP-05 was updated.
+- **Swagger descriptions.** "Without `reports:read_any` only the caller's own" in `report_handler.go` and `swagger.json` is still true as written, so it was not changed.
 - **Swagger mismatch.** `GET /admin/roles` is typed as a bare array in Swagger, but the handler answers `{data, meta}`. `listRoles()` follows the handler.
 
 ### F7 details (added 2026-10-14)

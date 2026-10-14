@@ -153,7 +153,7 @@ User fields: `id, email, name, role_id, email_verified, email_verified_at, creat
 | FR-REP-02 | Report content (pastoral metrics, narrative, period, author) | Must | **Missing** | Undefined; see section 10 |
 | FR-REP-03 | Listing with filters and pagination | Must | **Missing** | A reusable `pkg/pagination` exists (used by roles and permissions) |
 | FR-REP-04 | Review / approval / completion workflow | Should | **Missing** | |
-| FR-REP-05 | Report-level access rules (own vs. all reports) | Must | **Missing** | |
+| FR-REP-05 | Report-level access rules (own vs. all reports) | Must | **Done** | All signed-in users read every report; only the owner, an editor or an admin changes one; only the admin approves. |
 | FR-REP-06 | Aggregations / summaries / exports | Could | **Missing** | |
 
 ### 5.5 Audit Logging

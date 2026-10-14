@@ -29,14 +29,15 @@ Three numbering schemes exist. This doc uses the plan's D-numbers.
 - Not covered by a D-number: Q12 (week 5), Q15 (legacy import), Q16 (gate other endpoints, H-6), Q17 (data-driven seeds). Plan §13.1 treats them as non-blocking.
 
 ## D-1 Ownership scope
-- **Decision:** Seven `reports:*` permissions: `read`, `read_any`, `write`, `write_any`, `delete`, `delete_any`, `approve`. Without a `_any` variant, a user sees, updates and deletes only own reports. For another user's report the API returns **404**, not 403, on get, update and delete. `approve` is global: permission-gated, with no `_any` variant.
+- **Decision:** Seven `reports:*` permissions: `read`, `read_any`, `write`, `write_any`, `delete`, `delete_any`, `approve`. Without a `_any` variant, a user sees, updates and deletes only own reports. For another user's report the API returns **404**, not 403, on get, update and delete. `approve` is global: permission-gated, with no `_any` variant. (Read scope changed 2026-10-15: every default role now holds `read_any`; see the note under Sub-questions and D-2.)
 - **Rationale:** Keeps access permission-based (Decision 6, no hardcoded role). `admin` gets all seven through the seed cross join. 404 doesn't reveal that a report exists.
 - **Implications:**
+  - **Privacy (2026-10-15):** because the default `user` role holds `read_any`, every signed-in user can read the full text of every report, not only its status: the narrative, the names of new believers and the prayer requests. The 404 rule still hides a report from a role without `read_any`, and still stops anyone but the owner, an editor or an admin from changing one.
   - Schema: none. Seven `permissions` rows.
   - API: the service compares `reports.created_by` with the session user. The list query filters to own reports unless the caller holds `read_any`. The service needs the caller's permission set, but `RequirePermission` (`middleware/rbac.go:44`) only allows or denies, so a lookup helper is needed.
   - Tests: own/other × has/lacks `_any` for read, list, update and delete, expecting 404 or a filtered list. Approve works on a report owned by someone else.
 - **Sub-questions (resolved):**
-  - Read scope: `read` is own only; `read_any` is all.
+  - Read scope: `read` is own only; `read_any` is all. **Superseded 2026-10-15:** every default role now holds `read_any` (see D-2), so everyone reads every report. `read` alone, without `read_any`, still means own only, for a custom role.
   - Approve scope: global.
   - The 404 rule applies to GET as well as update and delete.
   - Edge: a custom role with `approve` but without `read_any` can approve any report by ID but cannot list them.
@@ -44,12 +45,13 @@ Three numbering schemes exist. This doc uses the plan's D-numbers.
 
 ## D-2 Default permissions
 - **Decision:**
-  - `user`: `read`, `write`, `delete` (own only).
-  - `editor`: `read`, `write`, `delete`, `read_any`, `write_any`, `delete_any`, `approve`.
-  - `admin`: all seven, via the cross join.
-- **Rationale:** Pastoral workers file their own reports. Editors review and correct everyone's and approve them. Ownership is enforced by D-1.
+  - `user`: `read`, `read_any`, `write`, `delete`. Reads every report; changes only their own.
+  - `editor`: `read`, `write`, `delete`, `read_any`, `write_any`, `delete_any`. No `approve`.
+  - `admin`: all seven, via the cross join. The only role that approves.
+  - **Changed 2026-10-15.** Before: `user` had no `read_any` and `editor` also held `approve`.
+- **Rationale:** Everyone sees who has reported; editors correct; only the admin approves. Pastoral workers file their own reports. Ownership is enforced by D-1.
 - **Implications:**
-  - Seed: add the 7 names and extend the hardcoded `editor` and `user` lists in `seed.go`. Seeds only insert, so changing defaults later won't revoke rows already in prod.
+  - Seed: add the 7 names and extend the hardcoded `editor` and `user` lists in `seed.go`. Seeds only insert, so changing defaults later won't revoke rows already in prod. On 2026-10-15 the `user` role gained `read_any` from the seed on the next boot, and migration `20261014120000_revoke_editor_approve` deleted the editor's `approve` grant.
   - API: routes use `RequirePermission` (its first use). Plan §3.4 assumes H-6 produced the pattern.
   - Tests: seed assertions per role.
 - **Sub-questions (resolved):** editor reach (editor gets `write_any` and `delete_any`) and approve scope (global).

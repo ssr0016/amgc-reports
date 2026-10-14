@@ -145,7 +145,7 @@ All Reports endpoints need a session cookie, and POST/PUT/PATCH/DELETE also need
 
 Note: IDs may have gaps. A failed create consumes a sequence value, so do not assume contiguous IDs.
 
-Default roles: `user` has read, write and delete (own reports only). `editor` and `admin` have all seven. Another person's report returns 404, not 403.
+Default roles: `user` has read, `read_any`, write and delete, so it reads every report and changes only its own. `editor` has everything except `approve`. `admin` has all seven and is the only role that approves. A write to another person's report without the `_any` permission returns 404, not 403.
 
 ### Create Report
 
