@@ -120,6 +120,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Check generated API types are up to date
+        run: npm run gen:api && git diff --exit-code src/lib/api-types.ts
+
       - name: Typecheck
         run: npm run typecheck
 
