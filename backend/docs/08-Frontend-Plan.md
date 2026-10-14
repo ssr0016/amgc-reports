@@ -2,7 +2,7 @@
 
 **Status:** Reviewed by the owner. Frontend work is not started; the backend task B-F1 (section 2.1) is implemented.
 **Depends on:** `05-Backend-Schema.md`, `07-Reports-Decisions.md`, `API.md`, and the Swagger spec (`docs.go`, `swagger.json`).
-**Scope:** the Reports feature for signed-in users (login, list, create, edit, delete, approve). Out of scope for v1: admin screens (roles, permissions, users), Excel export (see D-10), email flows (E-1).
+**Scope:** the Reports feature for signed-in users (login, list, create, edit, delete, approve). Admin screens cover users only (list, create, edit; F10). Out of scope for v1: admin screens for roles and permissions, Excel export (see D-10), email flows (E-1).
 
 ## 1. Decisions
 
@@ -124,7 +124,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 | F7 | Report form: create and edit, 21 by 5 metrics grid, validation, full-replace, unsaved-changes guard | 16 |
 | F8 | Delete with confirmation in the list (the detail page was dropped), `/` redirect and app header | 4 |
 | F9 | Approve and unapprove buttons in the list, with `sonner` toasts. **Delivered** (commit d890b9b) | 3 |
-| F10 | Error UX across screens (409, 422 mapping, 429 countdown, network) | 5 |
+| F10 | Error UX across screens (409, 422 mapping, 429 countdown, network) and admin users screens (list, create, edit). **Delivered** (commits 47a65c5, ad19ac0 and the admin pages commit) | 5 |
 | F11 | Tests: unit 6, component 6, Playwright 10 | 22 |
 | F12 | CI: typecheck, tests, Playwright with Postgres | 4 |
 | F13 | Accessibility and responsive polish | 6 |
@@ -144,6 +144,17 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 **Register then sign in.** `/register` creates the account, then signs in. If the sign-in fails (network error, rate limit), the account already exists, so retrying the form shows "already registered" and the user must use `/login`. Register and login share one rate-limit bucket (burst 3), so the pair spends two tokens.
 
 **Dev note.** After moving or deleting a route file, `tsc` can fail on a stale `.next/dev/types/validator.ts` that points at the old path. It is a build artifact, not a bug: run `rm -rf .next`.
+
+### F10 details (added 2026-10-14)
+
+**Delivered.** The 429 countdown now covers the report form (`useCountdown`, Save disabled while it runs) and `retryText()` replaces the hand-written "Try again in Ns". The admin screens gate on `isAdmin` (`Me.role === "admin"`) from `useSession()`, not on `users:write`: an editor holds that permission but the server answers 403. The list joins `role_id` to the role name from `GET /admin/roles` and shows `#id` if that request fails.
+
+**Parked.**
+- **Users list pagination.** `GET /users` returns a bare array (max 100, `email` filter) with no page or total. The list says "Showing the first 100" at the limit. Paging needs a backend change.
+- **Role change.** `PUT /admin/users/:id/role` has no screen (deferred). The edit screen changes only name, area and church.
+- **Deactivate and password reset (E-1).** Not built.
+- **`/auth/me` retry state.** The "For F10" note under F4 details (a server blip reads as signed out) is still open; F10 did not touch it.
+- **Swagger mismatch.** `GET /admin/roles` is typed as a bare array in Swagger, but the handler answers `{data, meta}`. `listRoles()` follows the handler.
 
 ### F7 details (added 2026-10-14)
 
@@ -176,7 +187,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 2. `/reports/new` fills worker (the user's `name`), area and church (from `/auth/me`) as **editable defaults** (decision D-8: `worker` is independent of `created_by`, so they are not locked).
 3. Delete the `/register` page and the "No account? Register" link (the endpoint is gone).
 4. Show Worker, Area and Church with labels on each report in the list and the detail view.
-5. Admin create-user and edit-user screens (F10). Until they exist, the admin creates and edits users with `curl` or a script using an admin session.
+5. Admin create-user and edit-user screens (F10). **Delivered**: `/admin/users`, `/admin/users/new` and `/admin/users/[id]/edit`.
 
 **Known gaps.**
 - Existing accounts and the seeded admin have empty profiles until an admin sets them with `PUT /admin/users/:id`.

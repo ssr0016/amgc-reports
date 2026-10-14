@@ -11,7 +11,7 @@ import { useSession } from "@/lib/session";
 // proxy.ts (plan section 1.2), so nothing private renders until /auth/me answers.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { status, user, signOut } = useSession();
+  const { status, user, isAdmin, signOut } = useSession();
 
   useEffect(() => {
     if (status !== "unauthenticated") return;
@@ -31,6 +31,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             AMGCReports
           </Link>
           <div className="flex items-center gap-3 text-sm">
+            {isAdmin && (
+              <Link href="/admin/users" className="hover:underline">
+                Users
+              </Link>
+            )}
             <span title={user?.email}>
               {user?.name} · {user?.role || "no role"}
             </span>
