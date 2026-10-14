@@ -90,7 +90,7 @@ Libraries (small, to be confirmed at setup): a data-fetching cache (TanStack Que
 
 All error bodies look like `{"error": CODE, "message": text}`, plus `details` for 422.
 
-Rate limits to know: reports writes are 60 per minute with a burst of 10, per signed-in user. Auth routes are per IP: login and register 5 per minute with burst 3.
+Rate limits to know: reports writes are 60 per minute with a burst of 10, per signed-in user. Reports reads (list and detail) are 60 per minute with a burst of 20, per signed-in user. Every `/api/v1` route also has a per-IP limit of 120 per minute with a burst of 60. Auth routes are per IP: login and register 5 per minute with burst 3.
 
 ## 6. Testing strategy
 
@@ -138,6 +138,8 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 **Cost estimate.** About ₱3,900 to ₱5,400 per year in total (D-F2, D-F6). Estimate only; check the domain and hosting prices when buying.
 
 **Cookie domain fix requirement.** D-F1 sets `Domain=.<domain>` on the session cookie. F14 must verify in production that: the cookie carries the domain and the `Secure` flag; `app.<domain>` receives it; `Lax` and `Strict` behaviour is unchanged; and CSRF writes still work from the browser.
+
+**Client IP behind Cloudflare (F0, F14; no code until the domain exists).** Once DNS is proxied through Cloudflare, the real client address arrives in `CF-Connecting-IP`, not `X-Real-IP`. The backend reads `X-Real-IP` only from Railway's trusted range (`TrustedProxyExtractor`), so behind Cloudflare it would probably see Cloudflare's address. Every user would then share a few rate-limit buckets (the login, global and read limits are per IP), which is R-F1. The fix is to read `CF-Connecting-IP`, and only when the TCP peer is a Cloudflare or Railway range. Verify on the real deployment: log `peer_ip` and `remote_ip` for requests from two different networks and confirm they differ. The limiters are in memory, so they hold for one instance only.
 
 Suggested order: F0 and F1 first (they unblock everything and carry the infrastructure risk), then F2, F3, F4, F5, then F6 to F10 as vertical slices (list, then form, then detail, delete and approve), tests alongside each slice, and F12 to F14 last.
 

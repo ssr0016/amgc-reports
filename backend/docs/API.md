@@ -209,7 +209,7 @@ When reopened, `completed` is `false` and the other two fields are left out. Use
 
 ### Reports Rate Limit
 
-POST, PUT, DELETE and PATCH on /reports share one bucket per signed-in user: 60 per minute with a burst of 10 by default (`REPORTS_WRITE_RATE_LIMIT`, `REPORTS_WRITE_BURST`). Over the limit returns 429 with a `Retry-After` header. GET requests are not limited.
+POST, PUT, DELETE and PATCH on /reports share one bucket per signed-in user: 60 per minute with a burst of 10 by default (`REPORTS_WRITE_RATE_LIMIT`, `REPORTS_WRITE_BURST`). Over the limit returns 429 with a `Retry-After` header. GET requests have their own limits (below).
 
 ## Error Responses
 
@@ -239,6 +239,10 @@ POST, PUT, DELETE and PATCH on /reports share one bucket per signed-in user: 60 
       "error": "VALIDATION_ERROR",
       "message": "Key: 'RegisterRequest.Email' Error:Field validation..."
     }
+
+### Global and read limits
+
+Every `/api/v1` route has a per-IP limit: 120 per minute with a burst of 60. GET /reports and GET /reports/:id also share one bucket per signed-in user: 60 per minute with a burst of 20. The read limit runs after the permission check. `/health`, `/ready`, `/live` and `/metrics` are outside `/api/v1` and are never limited. The values are constants in `cmd/api/main.go`, not environment variables. Over the limit returns 429 with a `Retry-After` header.
 
 ### 429 Rate Limit
 
