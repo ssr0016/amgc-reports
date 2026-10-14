@@ -60,7 +60,7 @@ async function fetchCsrf(): Promise<string> {
 
 export async function api<T>(
   path: string,
-  { method = "GET", body }: { method?: string; body?: unknown } = {},
+  { method = "GET", body, silent401 = false }: { method?: string; body?: unknown; silent401?: boolean } = {},
 ): Promise<T> {
   const write = method !== "GET";
   const send = async () => {
@@ -84,7 +84,7 @@ export async function api<T>(
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    if (res.status === 401 && path !== "/auth/login") onUnauthorized?.();
+    if (res.status === 401 && !silent401 && path !== "/auth/login") onUnauthorized?.();
     const retry = Number(res.headers.get("Retry-After"));
     throw new ApiError(
       res.status,

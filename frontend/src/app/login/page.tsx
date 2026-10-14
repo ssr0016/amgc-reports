@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError } from "@/lib/api";
-import { login } from "@/lib/auth";
+import { useSession } from "@/lib/session";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { signIn } = useSession();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -16,7 +17,7 @@ export default function LoginPage() {
     setError("");
     setPending(true);
     try {
-      await login(String(form.get("email")), String(form.get("password")));
+      await signIn(String(form.get("email")), String(form.get("password")));
       router.replace("/");
     } catch (err) {
       if (!(err instanceof ApiError)) throw err;

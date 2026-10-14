@@ -18,10 +18,11 @@ export async function logout(): Promise<void> {
   }
 }
 
-// Returns null when signed out (401).
+// Returns null when signed out (401). The 401 is the expected answer here, so it
+// does not fire the unauthorized hook.
 export async function getCurrentUser(): Promise<Me | null> {
   try {
-    return await api<Me>("/auth/me");
+    return await api<Me>("/auth/me", { silent401: true });
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) return null;
     throw e;
