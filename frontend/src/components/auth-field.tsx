@@ -1,3 +1,7 @@
+"use client";
+
+import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -6,19 +10,42 @@ export function AuthField({
   label,
   error,
   hint,
+  type,
   ...props
 }: React.ComponentProps<"input"> & { name: string; label: string; error?: string; hint?: string }) {
+  const [shown, setShown] = useState(false);
+  const isPassword = type === "password";
   const note = error ?? hint;
+  const input = (
+    <Input
+      id={name}
+      name={name}
+      type={isPassword && shown ? "text" : type}
+      aria-invalid={!!error}
+      aria-describedby={note ? `${name}-note` : undefined}
+      className={isPassword ? "pr-9" : undefined}
+      {...props}
+    />
+  );
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={name}>{label}</Label>
-      <Input
-        id={name}
-        name={name}
-        aria-invalid={!!error}
-        aria-describedby={note ? `${name}-note` : undefined}
-        {...props}
-      />
+      {isPassword ? (
+        <div className="relative">
+          {input}
+          <button
+            type="button"
+            onClick={() => setShown(!shown)}
+            aria-label={shown ? "Hide password" : "Show password"}
+            aria-pressed={shown}
+            className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        </div>
+      ) : (
+        input
+      )}
       {note && (
         <p id={`${name}-note`} className={`text-sm ${error ? "text-destructive" : "text-muted-foreground"}`}>
           {note}
