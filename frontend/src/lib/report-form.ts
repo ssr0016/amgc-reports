@@ -139,3 +139,24 @@ export function validate(f: FormState): Record<string, string> {
   }
   return errors;
 }
+
+// Maps the 422 `details` of the server into the shape validate() returns.
+// The server names a bad metric as "metrics[key]" but reports a bad week value
+// as a bare "week1".."week5" with no metric, so those (and anything else the
+// form has no field for) go to `general`.
+export function fromServerDetails(details: Record<string, string>): {
+  fields: Record<string, string>;
+  general: string;
+} {
+  const fields: Record<string, string> = {};
+  const general: string[] = [];
+  const known = new Set<string>(["month", "year", ...Object.keys(TEXT_LIMITS)]);
+  for (const [key, message] of Object.entries(details)) {
+    const metric = /^metrics\[(.+)\]$/.exec(key)?.[1];
+    if (metric && METRICS.some((m) => m.key === metric)) fields[`metrics.${metric}`] = message;
+    else if (known.has(key)) fields[key] = message;
+    else if (/^week[1-5]$/.test(key)) general.push(`Week ${key.slice(4)}: ${message}`);
+    else general.push(`${key}: ${message}`);
+  }
+  return { fields, general: general.join(" ") };
+}
