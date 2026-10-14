@@ -135,6 +135,14 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 
 **401 hook (from F2).** `setOnUnauthorized(handler)` in `src/lib/api.ts` fires on every 401 except `/auth/login` (a wrong password). It also fires for `/auth/me`, which is how the session bootstrap learns the user is signed out. If the handler redirects to `/login`, the bootstrap on `/login` can loop. F4 must do one of: skip the redirect when already on `/login`; make `getCurrentUser` bypass the hook; or guard the hook against `/auth/me`.
 
+**Resolved in F4.** The 401 loop is avoided with `silent401` on `getCurrentUser`, so the `/auth/me` bootstrap does not fire the hook. The route guard lives in `src/app/(app)/layout.tsx`.
+
+**Later tasks (not in F4).** Forgot-password, reset-password and verify-email pages. The backend endpoints exist (`/auth/forgot-password`, `/auth/reset-password`, `/auth/verify-email`).
+
+**For F10.** `SessionProvider` treats any `/auth/me` failure (network error, 5xx) as signed out, so a server blip sends a signed-in user to `/login`. F10 should add a retry state that tells "signed out" (401) from "could not check".
+
+**Dev note.** After moving or deleting a route file, `tsc` can fail on a stale `.next/dev/types/validator.ts` that points at the old path. It is a build artifact, not a bug: run `rm -rf .next`.
+
 ### F14 details (added 2026-10-14)
 
 **Deployment architecture.** `app.<domain>` is the Next.js frontend on Vercel. `api.<domain>` is the Go backend on Railway. Cloudflare holds the DNS records for both. Both hosts are on one registrable domain, so they are the same site (section 1.1). This is the setup that the production smoke test in F14 runs against (see F0 for the setup work).
