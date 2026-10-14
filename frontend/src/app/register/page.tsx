@@ -7,7 +7,7 @@ import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, ApiError } from "@/lib/api";
-import { toFormError, useCountdown, type FormError } from "@/lib/auth-form";
+import { HOME, toFormError, useCountdown, type FormError } from "@/lib/auth-form";
 import { useSession } from "@/lib/session";
 
 export default function RegisterPage() {
@@ -27,7 +27,7 @@ export default function RegisterPage() {
     try {
       await api("/auth/register", { method: "POST", body: { email, name: String(form.get("name")), password } });
       await signIn(email, password);
-      router.replace("/");
+      router.replace(HOME);
     } catch (err) {
       // A taken email belongs on the email field, not in the general message.
       const formError =

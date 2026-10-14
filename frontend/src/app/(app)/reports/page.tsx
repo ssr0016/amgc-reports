@@ -235,16 +235,11 @@ export default function ReportsPage() {
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-        <div className="flex items-center gap-4">
-          <Can permission="reports:write">
-            <Button asChild>
-              <Link href="/reports/new">New report</Link>
-            </Button>
-          </Can>
-          <Link href="/" className="text-sm underline underline-offset-4">
-            Home
-          </Link>
-        </div>
+        <Can permission="reports:write">
+          <Button asChild>
+            <Link href="/reports/new">New report</Link>
+          </Button>
+        </Can>
       </div>
       {/* useSearchParams needs a Suspense boundary for the static prerender */}
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>

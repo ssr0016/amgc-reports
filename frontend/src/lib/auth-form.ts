@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "./api";
 
+// Where a signed-in user lands when there is no (safe) ?next=.
+export const HOME = "/reports";
+
 // Only same-site paths: "/reports" is fine, "//evil.com" and "/\evil.com" are not.
 // Browsers drop tabs and newlines inside a URL, so "/\t/evil.com" would become
 // "//evil.com"; control characters are rejected, and the resolved origin is checked.
 export function safeNext(next: string | null): string {
-  if (!next || !/^\/(?![/\\])/.test(next) || /[\u0000-\u001F\u007F]/.test(next)) return "/";
-  return new URL(next, location.origin).origin === location.origin ? next : "/";
+  if (!next || !/^\/(?![/\\])/.test(next) || /[\u0000-\u001F\u007F]/.test(next)) return HOME;
+  return new URL(next, location.origin).origin === location.origin ? next : HOME;
 }
 
 export type FormError = { message: string; fields: Record<string, string>; retryAfter?: number };
