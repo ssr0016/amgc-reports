@@ -22,6 +22,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
+import { retryText } from "@/lib/auth-form";
 import {
   defaultPeriod,
   deleteReport,
@@ -95,7 +96,7 @@ function ReportsList() {
       if (!(err instanceof ApiError && err.status === 404)) {
         setDeleteError(
           err instanceof ApiError
-            ? err.message + (err.retryAfter ? ` Try again in ${err.retryAfter}s.` : "")
+            ? retryText(err)
             : "Could not delete the report. Try again.",
         );
         return;
@@ -137,7 +138,7 @@ function ReportsList() {
       } else {
         toast.error(
           err instanceof ApiError
-            ? err.message + (err.retryAfter ? ` Try again in ${err.retryAfter}s.` : "")
+            ? retryText(err)
             : "Could not update the report. Try again.",
         );
       }

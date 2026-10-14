@@ -8,7 +8,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
-import { toFormError } from "@/lib/auth-form";
+import { toFormError, useCountdown } from "@/lib/auth-form";
 import {
   fromServerDetails,
   METRIC_SECTIONS,
@@ -60,6 +60,7 @@ export function ReportForm({
   const [general, setGeneral] = useState("");
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [wait, setWait] = useCountdown();
   const dirty = !saved && JSON.stringify(form) !== start;
 
   // Covers closing the tab or refreshing; in-app navigation is guarded by Cancel.
@@ -115,9 +116,9 @@ export function ReportForm({
       }
       const failure = toFormError(err);
       const mapped = fromServerDetails(failure.fields);
-      const wait = failure.retryAfter ? ` Try again in ${failure.retryAfter}s.` : "";
+      setWait(failure.retryAfter ?? 0);
       setErrors(mapped.fields);
-      setGeneral(failure.message ? failure.message + wait : mapped.general || "Fix the highlighted fields and try again.");
+      setGeneral(failure.message || mapped.general || "Fix the highlighted fields and try again.");
     }
   }
 
@@ -283,10 +284,11 @@ export function ReportForm({
       {general && (
         <p role="alert" className="text-sm text-destructive">
           {general}
+          {wait > 0 && ` Try again in ${wait}s.`}
         </p>
       )}
       <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || wait > 0}>
           {pending ? "Saving…" : submitLabel}
         </Button>
         <Button type="button" variant="outline" onClick={cancel} disabled={pending}>

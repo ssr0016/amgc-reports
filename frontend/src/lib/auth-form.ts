@@ -25,6 +25,11 @@ export function toFormError(err: unknown, messages: Partial<Record<number, strin
   return { message: messages[err.status] ?? err.message, fields: {} };
 }
 
+// An API error's message, with the wait when the server asked for one (429).
+export function retryText(err: ApiError) {
+  return err.message + (err.retryAfter ? ` Try again in ${err.retryAfter}s.` : "");
+}
+
 // Counts down from the seconds it is given; 0 means idle.
 export function useCountdown() {
   const [left, setLeft] = useState(0);
