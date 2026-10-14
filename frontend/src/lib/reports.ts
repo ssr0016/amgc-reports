@@ -36,3 +36,18 @@ export const deleteReport = (id: number) => api<void>(`/reports/${id}`, { method
 // Toggles between approved and not approved.
 export const toggleComplete = (id: number) =>
   api<ReportMetadata>(`/reports/${id}/complete`, { method: "PATCH" });
+
+export const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;

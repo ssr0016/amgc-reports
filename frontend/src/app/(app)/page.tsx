@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/session";
 
@@ -12,9 +13,14 @@ export default function Home() {
       <p>
         {user?.name} ({user?.email}) · {user?.role || "no role"}
       </p>
-      <Button variant="outline" onClick={signOut}>
-        Sign out
-      </Button>
+      <div className="flex gap-2">
+        <Button asChild>
+          <Link href="/reports">Reports</Link>
+        </Button>
+        <Button variant="outline" onClick={signOut}>
+          Sign out
+        </Button>
+      </div>
     </main>
   );
 }
