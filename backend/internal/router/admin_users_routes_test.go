@@ -38,6 +38,9 @@ func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc)
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
 		return &model.User{ID: id, RoleID: 9, Role: &model.Role{Name: roleName}}, nil
 	}
+	users.GetByIDFunc = func(_ context.Context, id int64) (*model.User, error) {
+		return &model.User{ID: id, Email: "pia@example.com", Name: "Pia"}, nil
+	}
 	svc := &okUserSvc{}
 
 	e := echo.New()
@@ -53,7 +56,7 @@ func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc)
 		}
 	})
 	Setup(e, sm, users, permRoles{perms: perms},
-		handler.NewAuthHandler(nil, nil), nil, nil, nil,
+		handler.NewAuthHandler(nil, nil), handler.NewUserHandler(users), nil, nil,
 		handler.NewAdminUserHandler(users, nil, svc, sm),
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
 		handler.NewReportHandler(okReportSvc{}, sm),
@@ -95,6 +98,31 @@ func TestAdminUserRoutes_Access(t *testing.T) {
 				}
 				if (got == rt.ok) != (svc.calls == 1) {
 					t.Errorf("service calls = %d for status %d: only a request that passes every gate may reach it", svc.calls, got)
+				}
+			})
+		}
+	}
+}
+
+// GET /users and /users/:id expose every account's email and name, so they need
+// the admin role. The editor holds users:read and still gets 403: the role gates
+// the routes, not the permission.
+func TestUsersRoutes_AdminOnly(t *testing.T) {
+	tests := []struct {
+		name, role, user string // user "" = no session
+		want             int
+	}{
+		{"no session", "admin", "", http.StatusUnauthorized},
+		{"plain user", "user", "1", http.StatusForbidden},
+		{"editor holding users:read", "editor", "1", http.StatusForbidden},
+		{"admin", "admin", "1", http.StatusOK},
+	}
+	for _, tt := range tests {
+		for _, path := range []string{"/api/v1/users", "/api/v1/users/1"} {
+			t.Run(tt.name+path, func(t *testing.T) {
+				e, _ := adminUsersServer(tt.role, "users:read")
+				if got := reportRequestAs(e, http.MethodGet, path, "", tt.user); got != tt.want {
+					t.Errorf("status = %d, want %d", got, tt.want)
 				}
 			})
 		}

@@ -40,7 +40,7 @@ Response (200):
 
 ## Users
 
-### List Users (paginated)
+### List Users (paginated, admin role only)
 
 GET /users?page=1&limit=10&email=user
 
@@ -56,7 +56,7 @@ Response (200):
       }
     }
 
-### Get User
+### Get User (admin role only)
 
 GET /users/:id
 
@@ -313,7 +313,7 @@ Full auth flow:
     # 4. Get current user
     curl -b cookies.txt http://localhost:8080/api/v1/auth/me
 
-    # 5. List users (paginated)
+    # 5. List users (paginated; admin session only, any other role gets 403)
     curl -b cookies.txt "http://localhost:8080/api/v1/users?page=1&limit=10"
 
 ---

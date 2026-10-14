@@ -137,7 +137,7 @@ Priority: Must / Should / Could. Status: Implemented / Partial / Missing.
 | ID | Requirement | Priority | Status | Evidence / Notes |
 |---|---|---|---|---|
 | FR-USER-01 | List users with optional `email` filter and `limit` (default 20, max 100) | Should | Partial | `GET /api/v1/users`; no offset/page, no total, no sorting |
-| FR-USER-02 | Get a user by ID | Should | Partial | `GET /api/v1/users/:id`; available to **any authenticated user** for **any user** |
+| FR-USER-02 | Get a user by ID | Should | Partial | `GET /api/v1/users/:id`; admin role only |
 | FR-USER-03 | Admin view of a user including role | Should | Implemented | `GET /api/v1/admin/users/:id` |
 | FR-USER-04 | Create / update / delete users (admin) | Should | Missing | Only self-registration and role change exist |
 | FR-USER-05 | Profile management (name, email) | Should | Missing | |
@@ -202,7 +202,7 @@ User fields: `id, email, name, role_id, email_verified, email_verified_at, creat
 | POST | `/api/v1/auth/reset-password` | none | not rate limited |
 | POST | `/api/v1/auth/logout` | session | |
 | GET | `/api/v1/auth/me` | session | |
-| GET | `/api/v1/users`, `/api/v1/users/:id` | session | any authenticated user |
+| GET | `/api/v1/users`, `/api/v1/users/:id` | session | admin role |
 | GET/POST | `/api/v1/admin/roles` | admin | |
 | GET/PUT/DELETE | `/api/v1/admin/roles/:id` | admin | |
 | POST/DELETE | `/api/v1/admin/roles/:id/permissions[/:pid]` | admin | |

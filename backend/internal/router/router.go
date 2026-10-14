@@ -61,7 +61,9 @@ func Setup(
 	authProtected.POST("/logout", authHandler.Logout)
 	authProtected.GET("/me", authHandler.Me)
 
-	users := api.Group("/users", ourmiddleware.RequireAuth(sm))
+	// Lists every account's email and name, so it is admin-only, like /admin/users.
+	// A permission gate would not do: the plain user role holds users:read.
+	users := api.Group("/users", ourmiddleware.RequireAuth(sm), ourmiddleware.RequireRole(userRepo, sm, "admin"))
 	users.GET("", userHandler.ListUsers)
 	users.GET("/:id", userHandler.GetUser)
 
