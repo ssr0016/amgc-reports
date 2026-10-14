@@ -131,6 +131,10 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 | F14 | Production smoke test and fixes | 2 |
 | | **Total** | **93** |
 
+### F4 details (added 2026-10-14)
+
+**401 hook (from F2).** `setOnUnauthorized(handler)` in `src/lib/api.ts` fires on every 401 except `/auth/login` (a wrong password). It also fires for `/auth/me`, which is how the session bootstrap learns the user is signed out. If the handler redirects to `/login`, the bootstrap on `/login` can loop. F4 must do one of: skip the redirect when already on `/login`; make `getCurrentUser` bypass the hook; or guard the hook against `/auth/me`.
+
 ### F14 details (added 2026-10-14)
 
 **Deployment architecture.** `app.<domain>` is the Next.js frontend on Vercel. `api.<domain>` is the Go backend on Railway. Cloudflare holds the DNS records for both. Both hosts are on one registrable domain, so they are the same site (section 1.1). This is the setup that the production smoke test in F14 runs against (see F0 for the setup work).
