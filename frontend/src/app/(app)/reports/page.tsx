@@ -15,7 +15,11 @@ import { ApiError } from "@/lib/api";
 import { defaultPeriod, listReports, MONTHS, type ReportFilters } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 
-const textFields = ["worker", "area", "church"] as const;
+const textFields = [
+  ["worker", "e.g. Juan Dela Cruz"],
+  ["area", "e.g. Metro Manila"],
+  ["church", "e.g. AMGC Church"],
+] as const;
 
 // A month or year missing from the URL means the default period; present but
 // empty ("?month=&year=") means any. Clear and an "Any" submit write the empty form.
@@ -86,11 +90,12 @@ function ReportsList() {
           </NativeSelect>
         </div>
         <AuthField name="year" label="Year" type="number" min={2000} max={2100} defaultValue={filters.year ?? ""} />
-        {textFields.map((name) => (
+        {textFields.map(([name, placeholder]) => (
           <AuthField
             key={name}
             name={name}
             label={name[0].toUpperCase() + name.slice(1)}
+            placeholder={placeholder}
             defaultValue={filters[name] ?? ""}
           />
         ))}

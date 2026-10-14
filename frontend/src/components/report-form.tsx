@@ -37,11 +37,14 @@ const longTexts = [
 export function ReportForm({
   initial,
   submitLabel,
+  lockedPeriod,
   onSubmit,
   onCancel,
 }: {
   initial: FormState;
   submitLabel: string;
+  // When set, month and year cannot be changed and must match it.
+  lockedPeriod?: { month: string; year: number };
   onSubmit: (input: ReportInput) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -77,7 +80,7 @@ export function ReportForm({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const found = validate(form);
+    const found = validate(form, lockedPeriod);
     setErrors(found);
     setGeneral(Object.keys(found).length ? "Fix the highlighted fields and try again." : "");
     if (Object.keys(found).length) return;
@@ -121,6 +124,7 @@ export function ReportForm({
             id="month"
             value={form.month}
             onChange={(e) => setField("month", e.target.value)}
+            disabled={!!lockedPeriod}
             aria-invalid={!!errors.month}
             aria-describedby={errors.month ? "month-note" : undefined}
           >
@@ -143,6 +147,8 @@ export function ReportForm({
           inputMode="numeric"
           value={form.year}
           onChange={(e) => setField("year", e.target.value)}
+          readOnly={!!lockedPeriod}
+          hint={lockedPeriod ? "Fixed for this report." : undefined}
           error={errors.year}
         />
         {shortTexts.map(([name, label]) => (

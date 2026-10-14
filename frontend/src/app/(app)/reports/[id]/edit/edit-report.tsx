@@ -44,6 +44,7 @@ export function EditReport() {
       <ReportForm
         initial={fromReport(data)}
         submitLabel="Save changes"
+        lockedPeriod={{ month: data.month, year: data.year }}
         onSubmit={async (input) => {
           await updateReport(reportId, input);
           await queryClient.invalidateQueries({ queryKey: ["reports"] });

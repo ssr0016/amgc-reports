@@ -1,4 +1,4 @@
-import { MONTHS, type Report, type ReportInput } from "./reports";
+import { defaultPeriod, MONTHS, type Report, type ReportInput } from "./reports";
 
 // Labels from the legacy Express field names (backend/docs/05-Backend-Schema.md 2.4).
 export const METRICS = [
@@ -49,10 +49,12 @@ export type FormState = Record<TextField, string> & {
 
 export const metricErrorKey = (metric: string, week: Week) => `metrics.${metric}.${week}`;
 
+// A new report starts on the previous month, the only one it may be filed for.
 export function emptyForm(): FormState {
+  const { month, year } = defaultPeriod();
   return {
-    month: "",
-    year: String(new Date().getFullYear()),
+    month,
+    year: String(year),
     worker: "",
     area_assignment: "",
     church_name: "",
@@ -117,10 +119,14 @@ export function toInput(f: FormState): ReportInput {
 const DECIMAL = /^\d{1,10}(\.\d{1,2})?$/;
 
 // Mirrors the server rules for quick feedback; the server stays the authority.
-// Returns a map of field name to message; empty means valid.
-export function validate(f: FormState): Record<string, string> {
+// Returns a map of field name to message; empty means valid. `period` pins the
+// month and year (a new report may only be filed for the previous month).
+export function validate(f: FormState, period?: { month: string; year: number }): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!(MONTHS as readonly string[]).includes(f.month)) errors.month = "Choose a month.";
+  else if (period && (f.month !== period.month || Number(f.year) !== period.year)) {
+    errors.month = "Reports can only be created for the previous month.";
+  }
   const year = f.year.trim();
   if (year && !(/^\d{4}$/.test(year) && Number(year) >= 2000 && Number(year) <= 2100)) {
     errors.year = "Enter a year from 2000 to 2100.";
