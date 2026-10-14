@@ -171,3 +171,21 @@ None.
 
 ## Follow-up doc edits (done)
 Applied to 05 (Part 2, §5.3, Part 4, Part 7 pointer, Appendix A) and 06 (§3.2 to §3.4, M-1, §13, change log 1.13) in the docs sync commit. Pending in 06: recompute of the effort totals (see change log 1.13).
+
+## Frontend and deployment decisions (added 2026-10-14)
+These mirror the open decisions in `08-Frontend-Plan.md` section 9 and use the same IDs. Section 0 above lists D-12 as outside the Reports scope; it is noted here only for the login behaviour that the integration test showed.
+
+### D-F1 Cookie domain fix
+- **Decision:** Set `Domain=.amgreports.com` on the session cookie so Server Components and `proxy.ts` on `app.amgreports.com` can read the session.
+- **Trade-off:** the cookie is sent to every subdomain of the registrable domain. Keep other subdomains under the owner's control.
+- **Implications:** a backend change (session cookie config), with a test that the cookie carries the domain. Until it ships, 08 section 1.2 (client-side fetching, client-side route guard) still applies. 08 section 9 lists this as "not in v1"; this entry records the owner's later decision.
+
+### D-F2 Domain choice
+- **Decision:** `amgreports.com` if it is available. Otherwise another cheap `.com` or `.app` domain (08 section 9). Not bought yet (task F0).
+
+### D-F6 Hosting combo
+- **Decision:** Vercel (frontend, `app.<domain>`), Railway (Go backend, `api.<domain>`) and Cloudflare (DNS for the domain).
+
+### D-12 (pending) Login with `email_verified=false`
+- **Finding (2026-10-14 integration test):** an account with `email_verified=false` can sign in and use Reports. This matches 08 section 3 (verification is not enforced at login; H-3 is blocked on E-1).
+- **Status:** pending. No change until the owner decides whether login must require a verified email.

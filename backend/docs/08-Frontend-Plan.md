@@ -131,6 +131,14 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 | F14 | Production smoke test and fixes | 2 |
 | | **Total** | **93** |
 
+### F14 details (added 2026-10-14)
+
+**Deployment architecture.** `app.<domain>` is the Next.js frontend on Vercel. `api.<domain>` is the Go backend on Railway. Cloudflare holds the DNS records for both. Both hosts are on one registrable domain, so they are the same site (section 1.1). This is the setup that the production smoke test in F14 runs against (see F0 for the setup work).
+
+**Cost estimate.** About ₱3,900 to ₱5,400 per year in total (D-F2, D-F6). Estimate only; check the domain and hosting prices when buying.
+
+**Cookie domain fix requirement.** D-F1 sets `Domain=.<domain>` on the session cookie. F14 must verify in production that: the cookie carries the domain and the `Secure` flag; `app.<domain>` receives it; `Lax` and `Strict` behaviour is unchanged; and CSRF writes still work from the browser.
+
 Suggested order: F0 and F1 first (they unblock everything and carry the infrastructure risk), then F2, F3, F4, F5, then F6 to F10 as vertical slices (list, then form, then detail, delete and approve), tests alongside each slice, and F12 to F14 last.
 
 ## 9. Open decisions and risks
