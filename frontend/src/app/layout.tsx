@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/query";
 import { SessionProvider } from "@/lib/session";
 import "./globals.css";
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <QueryProvider>
           <SessionProvider>{children}</SessionProvider>
+          <Toaster />
         </QueryProvider>
       </body>
     </html>

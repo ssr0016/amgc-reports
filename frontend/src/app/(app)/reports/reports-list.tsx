@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
 import {
@@ -21,7 +22,17 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
-import { defaultPeriod, deleteReport, FIRST_YEAR, listReports, MONTHS, type ReportFilters } from "@/lib/reports";
+import {
+  defaultPeriod,
+  deleteReport,
+  FIRST_YEAR,
+  listReports,
+  MONTHS,
+  toggleComplete,
+  type Page,
+  type Report,
+  type ReportFilters,
+} from "@/lib/reports";
 import { useSession } from "@/lib/session";
 
 const textFields = [
@@ -93,6 +104,47 @@ function ReportsList() {
     const lastOnPage = (filters.page ?? 1) > 1 && data?.data.length === 1;
     await queryClient.invalidateQueries({ queryKey: ["reports"] });
     if (lastOnPage) goToPage((filters.page ?? 1) - 1);
+  }
+
+  // Rows whose approve/unapprove is in flight. The endpoint toggles, so a second
+  // click before the answer would undo the first.
+  const [busy, setBusy] = useState<Set<number>>(new Set());
+
+  function patchRow(id: number, changes: Partial<Report>) {
+    queryClient.setQueriesData<Page<Report>>({ queryKey: ["reports"] }, (old) =>
+      old && { ...old, data: old.data.map((x) => (x.id === id ? { ...x, ...changes } : x)) },
+    );
+  }
+
+  async function toggle(r: Report) {
+    const period = `${r.month} ${r.year}`;
+    setBusy((s) => new Set(s).add(r.id));
+    patchRow(r.id, { completed: !r.completed }); // optimistic
+    try {
+      const meta = await toggleComplete(r.id);
+      // The server decides (another admin may have flipped it first). Named keys, because
+      // the API omits completed_at and completed_by when unapproved and a spread would keep the old ones.
+      patchRow(r.id, { completed: meta.completed, completed_at: meta.completed_at, completed_by: meta.completed_by });
+      toast.success(`${meta.completed ? "Approved" : "Unapproved"} ${period}`);
+    } catch (err) {
+      patchRow(r.id, { completed: r.completed, completed_at: r.completed_at, completed_by: r.completed_by });
+      if (err instanceof ApiError && err.status === 404) {
+        toast.error(`${period} no longer exists.`);
+        queryClient.invalidateQueries({ queryKey: ["reports"] });
+      } else {
+        toast.error(
+          err instanceof ApiError
+            ? err.message + (err.retryAfter ? ` Try again in ${err.retryAfter}s.` : "")
+            : "Could not update the report. Try again.",
+        );
+      }
+    } finally {
+      setBusy((s) => {
+        const n = new Set(s);
+        n.delete(r.id);
+        return n;
+      });
+    }
   }
 
   // Filters apply as they change. The text boxes wait 300 ms after the last key,
@@ -238,6 +290,17 @@ function ReportsList() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
+                        <Can permission="reports:approve">
+                          <Button
+                            size="sm"
+                            variant={r.completed ? "outline" : "default"}
+                            className={r.completed ? undefined : "bg-green-600 text-white hover:bg-green-700"}
+                            disabled={busy.has(r.id)}
+                            onClick={() => toggle(r)}
+                          >
+                            {r.completed ? "Unapprove" : "Approve"}
+                          </Button>
+                        </Can>
                         <Can permission="reports:write">
                           <Button asChild variant="outline" size="sm">
                             <Link href={`/reports/${r.id}/edit`}>Edit</Link>
