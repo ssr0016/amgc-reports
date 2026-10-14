@@ -145,6 +145,18 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 
 **Dev note.** After moving or deleting a route file, `tsc` can fail on a stale `.next/dev/types/validator.ts` that points at the old path. It is a build artifact, not a bug: run `rm -rf .next`.
 
+### F7 details (added 2026-10-14)
+
+**Form state.** Plain controlled state, no Zod or react-hook-form (one server-side source of truth; revisit only if the form grows). Values are strings while typing so a blank week (not reported) stays different from `0` (reported zero); `toInput` in `src/lib/report-form.ts` drops blank weeks and sends every text field, because PUT is a full replace. The edit page loads the report with no cache (`gcTime: 0`) so a stale copy can never overwrite newer data.
+
+**Backend limitation: server week errors have no metric.** On a 422, a bad metric key comes back as `metrics[key]`, but a bad week value comes back as a bare `week1`..`week5` with no metric name, so the server cannot say which row is wrong. The client validator (`validate`) uses the exact keys `metrics.<key>.<week>` and mirrors the server's number rule, so this should only show if the two rules drift apart. `fromServerDetails` maps `metrics[key]` onto that metric's row and puts the bare week errors in one general message. A backend change to name the metric would let the form highlight the cell.
+
+**Draft saving left out (later option).** The form does not save a draft to `localStorage`. Narrative reports can hold sensitive pastoral content and church devices may be shared, so a draft would outlive the session. What is covered: a failed save never clears the form, the browser warns before the tab is closed with unsaved edits, and Cancel asks first. The warning does not cover in-app navigation (Back, a link): the App Router has no leave-blocker. If drafts are wanted later, keep them in `sessionStorage`, key them by user, and clear them on sign-out.
+
+**Instant-navigation warning (dev only).** Next 16 validates that a page can render instantly on navigation. The `(app)` layout shows "Loading…" until `/auth/me` answers, so on the server it never renders the page, and Next reports the page as a "dropped segment". `instant = false` must be exported by the page segment itself, and a Client Component cannot export it, so `/reports/new` and `/reports/[id]/edit` are thin Server Component pages that export it and render the client view from a sibling file (`new-report.tsx`, `edit-report.tsx`). A layout above the page does not help. Still showing the same warning: `/reports` (F6) and `/` (F4). Fix for F10 or F13 with the same split; it never blocks the build.
+
+**Live checks (2026-10-14, local, admin).** Valid save redirects and lists the row; a duplicate month and year shows the 409 on the month field with the input kept; a blank week is absent and a typed `0` is stored as `0`; editing one field leaves every other field and metric unchanged. Not yet checked: the `user` role (own reports only), the 429 countdown, a real 422, and the phone layout.
+
 ### F14 details (added 2026-10-14)
 
 **Deployment architecture.** `app.<domain>` is the Next.js frontend on Vercel. `api.<domain>` is the Go backend on Railway. Cloudflare holds the DNS records for both. Both hosts are on one registrable domain, so they are the same site (section 1.1). This is the setup that the production smoke test in F14 runs against (see F0 for the setup work).
@@ -164,7 +176,7 @@ Suggested order: F0 and F1 first (they unblock everything and carry the infrastr
 | D-F1 | Set `Domain=.<domain>` on the session cookie so Server Components and `proxy.ts` can use the session? | Not in v1. Security trade-off: the cookie is sent to every subdomain. |
 | D-F2 | Which domain, and which hosting? | **Decided (owner):** a cheap `.com` or `.app` domain (for example `amgreports.com`; not bought yet) and Vercel (native Next.js, free tier). |
 | D-F3 | Approve B-F1 (permissions in `/auth/me`)? | **Decided and delivered.** |
-| D-F4 | English labels for the 21 metrics in the UI | Deferred. The API only has the snake_case keys. No label table exists yet; write one when F7 starts. |
+| D-F4 | English labels for the 21 metrics in the UI | **Done in F7.** The labels come from the legacy Express field names and live in `METRICS` in `src/lib/report-form.ts`. |
 | D-F5 | Excel export timing | Waits for a server-side export endpoint (D-10). |
 | R-F1 | The first production run on a custom domain is untested: cookie `Secure` flags, CSRF cookie scheme detection behind the proxy, `peer_ip` and `remote_ip` | Verify in F0 before building features on top. |
 | R-F2 | The scaffold is Next 16.4, whose conventions differ from older versions | Read the bundled docs first (section 1.3). |
