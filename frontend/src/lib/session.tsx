@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { resetCsrf, setOnUnauthorized } from "./api";
+import { queryClient } from "./query";
 import { getCurrentUser, login, logout, type Me } from "./auth";
 import type { Permission } from "./permissions";
 
@@ -41,6 +42,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // A 401 mid-session: the session is gone.
     setOnUnauthorized(() => {
       resetCsrf();
+      queryClient.clear();
       setUser(null);
       setStatus("unauthenticated");
     });
@@ -56,6 +58,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     try {
       await logout();
     } finally {
+      queryClient.clear();
       setUser(null);
       setStatus("unauthenticated");
     }
