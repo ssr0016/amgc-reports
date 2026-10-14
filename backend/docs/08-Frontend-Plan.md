@@ -69,9 +69,9 @@ Libraries (small, to be confirmed at setup): a data-fetching cache (TanStack Que
 | Login, Register | As above. Field errors from 422 `details` (a map of field name to message). |
 | Reports list | Filters (month, year, worker, area, church), pagination, newest first, loading and empty states. Rows show month, year, worker, church, completed badge. |
 | Report form (create and edit) | Fields per D-7 limits (`worker`, `area_assignment`, `church_name` ≤ 150; `names` ≤ 5,000; `narrative_report`, `challenges`, `prayer_request` ≤ 10,000; year 2000 to 2100). Metrics grid: 21 metrics by 5 weeks, decimals with at most 2 places, blank means not reported, `0` means reported zero. Edit loads the full report and sends every field. Warn before leaving with unsaved changes. |
-| Report detail | Read-only view, with Edit, Delete and (if permitted) Approve or Unapprove. |
-| Delete | Confirm dialog, then soft delete. |
-| Approve | Visible to users with `reports:approve`. Optimistic update from the metadata response. |
+| Report detail | **Dropped (2026-10-14).** There is no detail page: the list rows show what is needed, and Edit opens the full form. |
+| Delete | In the list, beside Edit (needs `reports:delete`). Confirm dialog, then soft delete; the month and year can be filed again. |
+| Approve | In the list, beside Edit and Delete, for users with `reports:approve`; there is no detail page to hold it. Optimistic update from the metadata response. |
 | Excel export | Out of scope (D-10: the audit must be written server-side where the download happens, so the export waits for a server endpoint). |
 
 ## 5. Error handling
@@ -122,8 +122,8 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 | F5 | Permissions context from `/auth/me` and gated controls | 2 |
 | F6 | Reports list: filters, pagination, states | 8 |
 | F7 | Report form: create and edit, 21 by 5 metrics grid, validation, full-replace, unsaved-changes guard | 16 |
-| F8 | Report detail and delete with confirmation | 4 |
-| F9 | Approve and unapprove UI | 3 |
+| F8 | Delete with confirmation in the list (the detail page was dropped), `/` redirect and app header | 4 |
+| F9 | Approve and unapprove buttons in the list | 3 |
 | F10 | Error UX across screens (409, 422 mapping, 429 countdown, network) | 5 |
 | F11 | Tests: unit 6, component 6, Playwright 10 | 22 |
 | F12 | CI: typecheck, tests, Playwright with Postgres | 4 |
@@ -182,7 +182,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 - `NewAuthService` still takes a verification service it no longer uses; remove the parameter in a cleanup.
 - `01-PRD.md`, `02-App-Flow.md`, `03-Tech-Stack.md` and `06-Implementation-Plan.md` still describe self-registration (FR-AUTH-01, the middleware table, the rate-limit notes); they are analysis documents and have not been rewritten.
 
-**Also pending.** The previous-month rule is enforced in the UI only (`/reports/new` locks the period); the API still accepts any month. Doing it in the backend needs decisions on the server timezone, whether admins may file late reports, and the integration tests that create reports for arbitrary months. F8 is partly done: the `/` redirect and the app header are in; the alert dialog and the report detail with delete are parked.
+**Also pending.** The previous-month rule is enforced in the UI only (`/reports/new` locks the period); the API still accepts any month. Doing it in the backend needs decisions on the server timezone, whether admins may file late reports, and the integration tests that create reports for arbitrary months. F8 is done: the `/` redirect and the app header, and Delete with a confirm dialog in the list (the planned detail page was dropped, so F9's Approve and Unapprove also go in the list).
 
 ### F14 details (added 2026-10-14)
 
