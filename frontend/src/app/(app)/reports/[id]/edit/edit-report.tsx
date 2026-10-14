@@ -11,10 +11,10 @@ import { useSession } from "@/lib/session";
 export function EditReport() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { can } = useSession();
+  const { can, user } = useSession();
   const reportId = Number(useParams<{ id: string }>().id);
   const valid = Number.isInteger(reportId) && reportId > 0;
-  const allowed = can("reports:write");
+  const allowed = can("reports:read");
 
   // gcTime 0: PUT replaces everything, so the form must start from a fresh
   // load, never from a cached copy that may be out of date.
@@ -25,9 +25,13 @@ export function EditReport() {
     gcTime: 0,
   });
 
+  // Anyone who may read a report may open it; only its owner, or someone with write_any, may change it.
+  // The server enforces the same rule (404 on save), so this only keeps the form from pretending.
+  const editable = !data || (can("reports:write") && (data.created_by === user?.user_id || can("reports:write_any")));
+
   let body: React.ReactNode;
   if (!allowed) {
-    body = <p className="text-sm text-muted-foreground">You are not allowed to edit reports.</p>;
+    body = <p className="text-sm text-muted-foreground">You are not allowed to view reports.</p>;
   } else if (!valid || (error instanceof ApiError && error.status === 404)) {
     // The API gives 404 for missing, deleted and not-yours alike, by design.
     body = <p className="text-sm text-muted-foreground">Report not found.</p>;
@@ -45,6 +49,7 @@ export function EditReport() {
         initial={fromReport(data)}
         submitLabel="Update Report"
         lockedPeriod={{ month: data.month, year: data.year }}
+        readOnly={!editable}
         onSubmit={async (input) => {
           await updateReport(reportId, input);
           await queryClient.invalidateQueries({ queryKey: ["reports"] });
@@ -57,7 +62,7 @@ export function EditReport() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Edit report</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{editable ? "Edit report" : "View report"}</h1>
       {body}
     </main>
   );

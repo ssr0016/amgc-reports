@@ -44,6 +44,7 @@ export function ReportForm({
   initial,
   submitLabel,
   lockedPeriod,
+  readOnly = false,
   onSubmit,
   onCancel,
 }: {
@@ -51,6 +52,8 @@ export function ReportForm({
   submitLabel: string;
   // When set, month and year cannot be changed and must match it.
   lockedPeriod?: { month: string; year: number };
+  // Shows the report without letting anything change: every field is disabled and there is no Save.
+  readOnly?: boolean;
   onSubmit: (input: ReportInput) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -135,151 +138,156 @@ export function ReportForm({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-8">
-      <section aria-labelledby="section-basic" className={sectionClass}>
-        <h2 id="section-basic" className={headingClass}>
-          Basic Information
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="month">Month</Label>
-            <NativeSelect
-              id="month"
-              value={form.month}
-              onChange={(e) => setField("month", e.target.value)}
-              disabled={!!lockedPeriod}
-              aria-invalid={!!errors.month}
-              aria-describedby={errors.month ? "month-note" : undefined}
-            >
-              <option value="">Choose a month</option>
-              {MONTHS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </NativeSelect>
-            {errors.month && (
-              <p id="month-note" className="text-sm text-destructive">
-                {errors.month}
-              </p>
-            )}
-          </div>
-          <AuthField
-            name="year"
-            label="Year"
-            inputMode="numeric"
-            value={form.year}
-            onChange={(e) => setField("year", e.target.value)}
-            readOnly={!!lockedPeriod}
-            hint={lockedPeriod ? "Fixed for this report." : undefined}
-            error={errors.year}
-          />
-          {shortTexts.map(([name, label, placeholder]) => (
+      <fieldset
+        disabled={readOnly}
+        className={`flex min-w-0 flex-col gap-8${readOnly ? " [&_:disabled]:opacity-100! [&_select:disabled]:text-foreground!" : ""}`}
+      >
+        <section aria-labelledby="section-basic" className={sectionClass}>
+          <h2 id="section-basic" className={headingClass}>
+            Basic Information
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="month">Month</Label>
+              <NativeSelect
+                id="month"
+                value={form.month}
+                onChange={(e) => setField("month", e.target.value)}
+                disabled={!!lockedPeriod}
+                aria-invalid={!!errors.month}
+                aria-describedby={errors.month ? "month-note" : undefined}
+              >
+                <option value="">Choose a month</option>
+                {MONTHS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </NativeSelect>
+              {errors.month && (
+                <p id="month-note" className="text-sm text-destructive">
+                  {errors.month}
+                </p>
+              )}
+            </div>
             <AuthField
-              key={name}
-              name={name}
-              label={label}
-              placeholder={placeholder}
-              value={form[name]}
-              onChange={(e) => setField(name, e.target.value)}
-              error={errors[name]}
+              name="year"
+              label="Year"
+              inputMode="numeric"
+              value={form.year}
+              onChange={(e) => setField("year", e.target.value)}
+              readOnly={!!lockedPeriod}
+              hint={lockedPeriod ? "Fixed for this report." : undefined}
+              error={errors.year}
             />
-          ))}
-        </div>
-      </section>
+            {shortTexts.map(([name, label, placeholder]) => (
+              <AuthField
+                key={name}
+                name={name}
+                label={label}
+                placeholder={placeholder}
+                value={form[name]}
+                onChange={(e) => setField(name, e.target.value)}
+                error={errors[name]}
+              />
+            ))}
+          </div>
+        </section>
 
-      {weekErrors.length > 0 && (
-        <ul role="alert" className="list-disc pl-5 text-sm text-destructive">
-          {weekErrors.map((message) => (
-            <li key={message}>{message}</li>
-          ))}
-        </ul>
-      )}
+        {weekErrors.length > 0 && (
+          <ul role="alert" className="list-disc pl-5 text-sm text-destructive">
+            {weekErrors.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        )}
 
-      {METRIC_SECTIONS.map((section, i) => {
-        const id = `section-${section.title.toLowerCase().replace(/\s+/g, "-")}`;
-        return (
-          <section key={section.title} aria-labelledby={id} className={`${sectionClass} border-t pt-6`}>
-            <h2 id={id} className={headingClass}>
-              {section.title}
-            </h2>
-            {i === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Leave a week blank if it was not reported. Enter 0 if it was reported as zero.
-              </p>
-            )}
-            {/* table-fixed gives every section the same column widths; min-w keeps phones scrolling sideways */}
-            <Table className="min-w-[40rem] table-fixed">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="sticky left-0 w-56 bg-background">Metric</TableHead>
-                  {WEEKS.map((w) => (
-                    <TableHead key={w}>Week {w.slice(4)}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {section.metrics.map((m) => (
-                  <TableRow key={m.key}>
-                    <TableCell className="sticky left-0 bg-background font-medium">
-                      {m.label}
-                      {errors[`metrics.${m.key}`] && (
-                        <span className="block text-sm font-normal text-destructive">{errors[`metrics.${m.key}`]}</span>
-                      )}
-                    </TableCell>
+        {METRIC_SECTIONS.map((section, i) => {
+          const id = `section-${section.title.toLowerCase().replace(/\s+/g, "-")}`;
+          return (
+            <section key={section.title} aria-labelledby={id} className={`${sectionClass} border-t pt-6`}>
+              <h2 id={id} className={headingClass}>
+                {section.title}
+              </h2>
+              {i === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Leave a week blank if it was not reported. Enter 0 if it was reported as zero.
+                </p>
+              )}
+              {/* table-fixed gives every section the same column widths; min-w keeps phones scrolling sideways */}
+              <Table className="min-w-[40rem] table-fixed">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 w-56 bg-background">Metric</TableHead>
                     {WEEKS.map((w) => (
-                      <TableCell key={w}>
-                        <input
-                          inputMode={m.key === "tithes_offering" ? "decimal" : "numeric"}
-                          pattern={m.key === "tithes_offering" ? undefined : "[0-9]*"} // a hint only: the form has noValidate
-                          aria-label={`${m.label}, week ${w.slice(4)}`}
-                          aria-invalid={!!errors[`metrics.${m.key}.${w}`]}
-                          value={form.metrics[m.key]?.[w] ?? ""}
-                          onChange={(e) => setWeek(m.key, w, e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          onBlur={(e) => checkWeek(m.key, w, e.target.value)}
-                          className="h-8 w-20 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30"
-                        />
-                        {errors[`metrics.${m.key}.${w}`] && (
-                          <span className="mt-1 block text-xs text-destructive">{errors[`metrics.${m.key}.${w}`]}</span>
-                        )}
-                      </TableCell>
+                      <TableHead key={w}>Week {w.slice(4)}</TableHead>
                     ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </section>
-        );
-      })}
+                </TableHeader>
+                <TableBody>
+                  {section.metrics.map((m) => (
+                    <TableRow key={m.key}>
+                      <TableCell className="sticky left-0 bg-background font-medium">
+                        {m.label}
+                        {errors[`metrics.${m.key}`] && (
+                          <span className="block text-sm font-normal text-destructive">{errors[`metrics.${m.key}`]}</span>
+                        )}
+                      </TableCell>
+                      {WEEKS.map((w) => (
+                        <TableCell key={w}>
+                          <input
+                            inputMode={m.key === "tithes_offering" ? "decimal" : "numeric"}
+                            pattern={m.key === "tithes_offering" ? undefined : "[0-9]*"} // a hint only: the form has noValidate
+                            aria-label={`${m.label}, week ${w.slice(4)}`}
+                            aria-invalid={!!errors[`metrics.${m.key}.${w}`]}
+                            value={form.metrics[m.key]?.[w] ?? ""}
+                            onChange={(e) => setWeek(m.key, w, e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={(e) => checkWeek(m.key, w, e.target.value)}
+                            className="h-8 w-20 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30"
+                          />
+                          {errors[`metrics.${m.key}.${w}`] && (
+                            <span className="mt-1 block text-xs text-destructive">{errors[`metrics.${m.key}.${w}`]}</span>
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </section>
+          );
+        })}
 
-      <section aria-labelledby="section-details" className={`${sectionClass} border-t pt-6`}>
-        <h2 id="section-details" className={headingClass}>
-          Report Details
-        </h2>
-        {longTexts.map(([name, label, placeholder]) => (
-          <div key={name} className="flex flex-col gap-2">
-            <Label htmlFor={name}>{label}</Label>
-            <Textarea
-              id={name}
-              name={name}
-              rows={4}
-              placeholder={placeholder}
-              value={form[name]}
-              onChange={(e) => setField(name, e.target.value)}
-              aria-invalid={!!errors[name]}
-              aria-describedby={errors[name] ? `${name}-note` : undefined}
-            />
-            {errors[name] && (
-              <p id={`${name}-note`} className="text-sm text-destructive">
-                {errors[name]}
+        <section aria-labelledby="section-details" className={`${sectionClass} border-t pt-6`}>
+          <h2 id="section-details" className={headingClass}>
+            Report Details
+          </h2>
+          {longTexts.map(([name, label, placeholder]) => (
+            <div key={name} className="flex flex-col gap-2">
+              <Label htmlFor={name}>{label}</Label>
+              <Textarea
+                id={name}
+                name={name}
+                rows={4}
+                placeholder={placeholder}
+                value={form[name]}
+                onChange={(e) => setField(name, e.target.value)}
+                aria-invalid={!!errors[name]}
+                aria-describedby={errors[name] ? `${name}-note` : undefined}
+              />
+              {errors[name] && (
+                <p id={`${name}-note`} className="text-sm text-destructive">
+                  {errors[name]}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {[...form[name]].length} / {TEXT_LIMITS[name]}
               </p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {[...form[name]].length} / {TEXT_LIMITS[name]}
-            </p>
-          </div>
-        ))}
-      </section>
+            </div>
+          ))}
+        </section>
+      </fieldset>
 
       {general && (
         <p role="alert" className="text-sm text-destructive">
@@ -288,11 +296,13 @@ export function ReportForm({
         </p>
       )}
       <div className="flex gap-2">
-        <Button type="submit" disabled={pending || wait > 0}>
-          {pending ? "Saving…" : submitLabel}
-        </Button>
+        {!readOnly && (
+          <Button type="submit" disabled={pending || wait > 0}>
+            {pending ? "Saving…" : submitLabel}
+          </Button>
+        )}
         <Button type="button" variant="outline" onClick={cancel} disabled={pending}>
-          Cancel
+          {readOnly ? "Back" : "Cancel"}
         </Button>
       </div>
     </form>

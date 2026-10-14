@@ -62,7 +62,7 @@ function filtersFrom(params: URLSearchParams): ReportFilters {
 function ReportsList() {
   const router = useRouter();
   const params = useSearchParams();
-  const { can } = useSession();
+  const { can, user } = useSession();
   const filters = filtersFrom(params);
   const allowed = can("reports:read");
   const thisYear = new Date().getFullYear();
@@ -109,6 +109,11 @@ function ReportsList() {
     await queryClient.invalidateQueries({ queryKey: ["reports"] });
     if (lastOnPage) goToPage((filters.page ?? 1) - 1);
   }
+
+  // Another user's report is readable (read_any) but only its owner, or someone with the _any permission, may change it.
+  const mine = (r: Report) => r.created_by === user?.user_id;
+  const canEdit = (r: Report) => can("reports:write") && (mine(r) || can("reports:write_any"));
+  const canDelete = (r: Report) => can("reports:delete") && (mine(r) || can("reports:delete_any"));
 
   // Rows whose approve/unapprove is in flight. The endpoint toggles, so a second
   // click before the answer would undo the first.
@@ -305,12 +310,10 @@ function ReportsList() {
                             {r.completed ? "Unapprove" : "Approve"}
                           </Button>
                         </Can>
-                        <Can permission="reports:write">
-                          <Button asChild variant="outline" size="sm">
-                            <Link href={`/reports/${r.id}/edit`}>Edit</Link>
-                          </Button>
-                        </Can>
-                        <Can permission="reports:delete">
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/reports/${r.id}/edit`}>{canEdit(r) ? "Edit" : "View"}</Link>
+                        </Button>
+                        {canDelete(r) && (
                           <Button
                             variant="destructive"
                             size="sm"
@@ -321,7 +324,7 @@ function ReportsList() {
                           >
                             Delete
                           </Button>
-                        </Can>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
