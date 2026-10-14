@@ -3,12 +3,15 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { resetCsrf, setOnUnauthorized } from "./api";
 import { getCurrentUser, login, logout, type Me } from "./auth";
+import type { Permission } from "./permissions";
 
 type Status = "loading" | "authenticated" | "unauthenticated";
 
 type Session = {
   user: Me | null;
   status: Status;
+  // False while loading or signed out.
+  can: (permission: Permission) => boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -58,8 +61,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const can = (permission: Permission) => !!user?.permissions.includes(permission);
+
   return (
-    <SessionContext.Provider value={{ user, status, signIn, signOut }}>
+    <SessionContext.Provider value={{ user, status, can, signIn, signOut }}>
       {children}
     </SessionContext.Provider>
   );
