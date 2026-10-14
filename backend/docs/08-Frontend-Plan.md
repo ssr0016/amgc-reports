@@ -123,7 +123,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 | F6 | Reports list: filters, pagination, states | 8 |
 | F7 | Report form: create and edit, 21 by 5 metrics grid, validation, full-replace, unsaved-changes guard | 16 |
 | F8 | Delete with confirmation in the list (the detail page was dropped), `/` redirect and app header | 4 |
-| F9 | Approve and unapprove buttons in the list | 3 |
+| F9 | Approve and unapprove buttons in the list, with `sonner` toasts. **Delivered** (commit d890b9b) | 3 |
 | F10 | Error UX across screens (409, 422 mapping, 429 countdown, network) | 5 |
 | F11 | Tests: unit 6, component 6, Playwright 10 | 22 |
 | F12 | CI: typecheck, tests, Playwright with Postgres | 4 |
@@ -174,7 +174,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 2. `/reports/new` fills worker (the user's `name`), area and church (from `/auth/me`) as **editable defaults** (decision D-8: `worker` is independent of `created_by`, so they are not locked).
 3. Delete the `/register` page and the "No account? Register" link (the endpoint is gone).
 4. Show Worker, Area and Church with labels on each report in the list and the detail view.
-5. Admin create-user and edit-user screens (F9 or F10). Until they exist, the admin creates and edits users with `curl` or a script using an admin session.
+5. Admin create-user and edit-user screens (F10). Until they exist, the admin creates and edits users with `curl` or a script using an admin session.
 
 **Known gaps.**
 - Existing accounts and the seeded admin have empty profiles until an admin sets them with `PUT /admin/users/:id`.
@@ -182,7 +182,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 - `NewAuthService` still takes a verification service it no longer uses; remove the parameter in a cleanup.
 - `01-PRD.md`, `02-App-Flow.md`, `03-Tech-Stack.md` and `06-Implementation-Plan.md` still describe self-registration (FR-AUTH-01, the middleware table, the rate-limit notes); they are analysis documents and have not been rewritten.
 
-**Also pending.** The previous-month rule is enforced in the UI only (`/reports/new` locks the period); the API still accepts any month. Doing it in the backend needs decisions on the server timezone, whether admins may file late reports, and the integration tests that create reports for arbitrary months. F8 is done: the `/` redirect and the app header, and Delete with a confirm dialog in the list (the planned detail page was dropped, so F9's Approve and Unapprove also go in the list).
+**Also pending.** The previous-month rule is enforced in the UI only (`/reports/new` locks the period); the API still accepts any month. Doing it in the backend needs decisions on the server timezone, whether admins may file late reports, and the integration tests that create reports for arbitrary months. F8 is done: the `/` redirect and the app header, and Delete with a confirm dialog in the list (the planned detail page was dropped). F9 is done: Approve and Unapprove in the list, with an optimistic update and `sonner` toasts.
 
 ### F14 details (added 2026-10-14)
 
