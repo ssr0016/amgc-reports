@@ -12,6 +12,14 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 )
 
+// Limiters are the rate limiters Setup mounts. Global covers every /api/v1
+// route (system routes such as /health are registered outside it and stay
+// open). Read and Write guard the reports routes and run after the permission
+// check, so a caller without the permission cannot use up tokens.
+type Limiters struct {
+	Global, Read, Write echo.MiddlewareFunc
+}
+
 func Setup(
 	e *echo.Echo,
 	sm *scs.SessionManager,
@@ -25,9 +33,9 @@ func Setup(
 	verificationHandler *handler.VerificationHandler,
 	passwordResetHandler *handler.PasswordResetHandler,
 	reportHandler *handler.ReportHandler,
-	reportWriteLimit echo.MiddlewareFunc,
+	limits Limiters,
 ) {
-	api := e.Group("/api/v1")
+	api := e.Group("/api/v1", limits.Global)
 
 	// ============================================================
 	// Public routes
@@ -65,15 +73,15 @@ func Setup(
 		return ourmiddleware.RequirePermission(roleRepo, userRepo, sm, name)
 	}
 	reports := api.Group("/reports", ourmiddleware.RequireAuth(sm))
-	reports.GET("", reportHandler.ListReports, perm("reports:read"))
+	reports.GET("", reportHandler.ListReports, perm("reports:read"), limits.Read)
 	// One shared bucket for all four writes (each costs a transaction and an audit
 	// row). It runs after RequirePermission, so only callers who may write use
 	// tokens; a user without the permission cannot exhaust a bucket others share.
-	reports.POST("", reportHandler.CreateReport, perm("reports:write"), reportWriteLimit)
-	reports.GET("/:id", reportHandler.GetReport, perm("reports:read"))
-	reports.PUT("/:id", reportHandler.UpdateReport, perm("reports:write"), reportWriteLimit)
-	reports.DELETE("/:id", reportHandler.SoftDeleteReport, perm("reports:delete"), reportWriteLimit)
-	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, perm("reports:approve"), reportWriteLimit)
+	reports.POST("", reportHandler.CreateReport, perm("reports:write"), limits.Write)
+	reports.GET("/:id", reportHandler.GetReport, perm("reports:read"), limits.Read)
+	reports.PUT("/:id", reportHandler.UpdateReport, perm("reports:write"), limits.Write)
+	reports.DELETE("/:id", reportHandler.SoftDeleteReport, perm("reports:delete"), limits.Write)
+	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, perm("reports:approve"), limits.Write)
 
 	// ============================================================
 	// Admin routes (RBAC-protected)

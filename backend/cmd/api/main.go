@@ -45,6 +45,17 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/session"
 )
 
+// Per-process request limits for /api/v1. Reports writes are configured in
+// cfg.Reports. shortcut: fixed values, move to env when they need tuning
+// without a deploy; in-memory buckets, so move to a shared store before
+// running more than one instance.
+const (
+	globalRatePerMinute = 120 // per client IP, all /api/v1 routes
+	globalBurst         = 60
+	readRatePerMinute   = 60 // per signed-in user, reports GET routes
+	readBurst           = 20
+)
+
 const usage = `usage: api [migrate]
 
   (no arguments)  start the HTTP server
@@ -229,7 +240,11 @@ func run() error {
 		verificationHandler,
 		passwordResetHandler,
 		reportHandler,
-		ourmiddleware.RateLimitByUser(sm, rate.Limit(float64(cfg.Reports.WriteRatePerMinute)/60), cfg.Reports.WriteBurst),
+		router.Limiters{
+			Global: ourmiddleware.RateLimit(rate.Limit(globalRatePerMinute/60.0), globalBurst),
+			Read:   ourmiddleware.RateLimitByUser(sm, rate.Limit(readRatePerMinute/60.0), readBurst),
+			Write:  ourmiddleware.RateLimitByUser(sm, rate.Limit(float64(cfg.Reports.WriteRatePerMinute)/60), cfg.Reports.WriteBurst),
+		},
 	)
 
 	scsHandler := sm.LoadAndSave(e)

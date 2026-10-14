@@ -62,8 +62,14 @@ func reportsServer(perms ...string) *echo.Echo {
 }
 
 func reportsServerLimited(mkLimit func(*scs.SessionManager) echo.MiddlewareFunc, perms ...string) *echo.Echo {
+	return reportsServerWith(func(sm *scs.SessionManager) Limiters {
+		return Limiters{Global: noLimit, Read: noLimit, Write: mkLimit(sm)}
+	}, perms...)
+}
+
+func reportsServerWith(mk func(*scs.SessionManager) Limiters, perms ...string) *echo.Echo {
 	sm := scs.New()
-	limit := mkLimit(sm)
+	limits := mk(sm)
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
 		return &model.User{ID: id, RoleID: 9}, nil
@@ -84,7 +90,7 @@ func reportsServerLimited(mkLimit func(*scs.SessionManager) echo.MiddlewareFunc,
 	Setup(e, sm, users, permRoles{perms: perms},
 		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}, sm), limit,
+		handler.NewReportHandler(okReportSvc{}, sm), limits,
 	)
 	return e
 }
