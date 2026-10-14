@@ -142,6 +142,16 @@ export function toInput(f: FormState): ReportInput {
 }
 
 const DECIMAL = /^\d{1,10}(\.\d{1,2})?$/;
+const WHOLE = /^\d{1,10}$/;
+
+// One rule for blur and submit. Only tithes_offering is money; the other 20 count
+// people or events. Whole numbers are a client rule: the server accepts decimals for all 21.
+export function metricError(metric: string, text: string): string | undefined {
+  const t = text.trim();
+  if (!t) return undefined; // blank means not reported
+  if (metric === "tithes_offering") return DECIMAL.test(t) ? undefined : "Must be a valid amount (0.00)";
+  return WHOLE.test(t) ? undefined : "Must be a whole number";
+}
 
 // Mirrors the server rules for quick feedback; the server stays the authority.
 // Returns a map of field name to message; empty means valid. `period` pins the
@@ -162,10 +172,8 @@ export function validate(f: FormState, period?: { month: string; year: number })
   }
   for (const [metric, weeks] of Object.entries(f.metrics)) {
     for (const week of WEEKS) {
-      const text = weeks[week]?.trim();
-      if (text && !DECIMAL.test(text)) {
-        errors[metricErrorKey(metric, week)] = "Use a number from 0 with at most 2 decimals.";
-      }
+      const message = metricError(metric, weeks[week] ?? "");
+      if (message) errors[metricErrorKey(metric, week)] = message;
     }
   }
   return errors;

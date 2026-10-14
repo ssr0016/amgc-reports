@@ -12,6 +12,8 @@ import { toFormError } from "@/lib/auth-form";
 import {
   fromServerDetails,
   METRIC_SECTIONS,
+  metricError,
+  metricErrorKey,
   METRICS,
   TEXT_LIMITS,
   toInput,
@@ -80,6 +82,17 @@ export function ReportForm({
   function setWeek(metric: string, week: (typeof WEEKS)[number], value: string) {
     setForm((f) => ({ ...f, metrics: { ...f.metrics, [metric]: { ...f.metrics[metric], [week]: value } } }));
     clearError(`metrics.${metric}.${week}`, `metrics.${metric}`);
+  }
+
+  function checkWeek(metric: string, week: (typeof WEEKS)[number], value: string) {
+    const key = metricErrorKey(metric, week);
+    const message = metricError(metric, value);
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (message) next[key] = message;
+      else delete next[key];
+      return next;
+    });
   }
 
   async function submit(e: React.FormEvent) {
@@ -173,6 +186,14 @@ export function ReportForm({
         </div>
       </section>
 
+      {weekErrors.length > 0 && (
+        <ul role="alert" className="list-disc pl-5 text-sm text-destructive">
+          {weekErrors.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
+      )}
+
       {METRIC_SECTIONS.map((section, i) => {
         const id = `section-${section.title.toLowerCase().replace(/\s+/g, "-")}`;
         return (
@@ -207,13 +228,19 @@ export function ReportForm({
                     {WEEKS.map((w) => (
                       <TableCell key={w}>
                         <input
-                          inputMode="decimal"
+                          inputMode={m.key === "tithes_offering" ? "decimal" : "numeric"}
+                          pattern={m.key === "tithes_offering" ? undefined : "[0-9]*"} // a hint only: the form has noValidate
                           aria-label={`${m.label}, week ${w.slice(4)}`}
                           aria-invalid={!!errors[`metrics.${m.key}.${w}`]}
                           value={form.metrics[m.key]?.[w] ?? ""}
                           onChange={(e) => setWeek(m.key, w, e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          onBlur={(e) => checkWeek(m.key, w, e.target.value)}
                           className="h-8 w-20 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30"
                         />
+                        {errors[`metrics.${m.key}.${w}`] && (
+                          <span className="mt-1 block text-xs text-destructive">{errors[`metrics.${m.key}.${w}`]}</span>
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -223,14 +250,6 @@ export function ReportForm({
           </section>
         );
       })}
-
-      {weekErrors.length > 0 && (
-        <ul className="list-disc pl-5 text-sm text-destructive">
-          {weekErrors.map((message) => (
-            <li key={message}>{message}</li>
-          ))}
-        </ul>
-      )}
 
       <section aria-labelledby="section-details" className={`${sectionClass} border-t pt-6`}>
         <h2 id="section-details" className={headingClass}>
