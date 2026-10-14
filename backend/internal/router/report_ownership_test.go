@@ -2,8 +2,11 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/alexedwards/scs/v2"
@@ -22,14 +25,16 @@ const (
 	otherUser  = "2" // plain user, not the owner
 	editorUser = "3" // holds the _any permissions
 	adminUser  = "4" // holds every permission
+	readerUser = "5" // a plain user as seeded: reads every report, changes only their own
 )
 
 // rolePerms maps a user ID to the role ID and permissions the fixtures give it.
 var rolePerms = map[int64][]string{
 	1: {"reports:read", "reports:write", "reports:delete"},
 	2: {"reports:read", "reports:write", "reports:delete"},
-	3: {"reports:read", "reports:write", "reports:delete", "reports:read_any", "reports:write_any", "reports:delete_any", "reports:approve"},
+	3: {"reports:read", "reports:write", "reports:delete", "reports:read_any", "reports:write_any", "reports:delete_any"},
 	4: {"reports:read", "reports:write", "reports:delete", "reports:read_any", "reports:write_any", "reports:delete_any", "reports:approve"},
+	5: {"reports:read", "reports:write", "reports:delete", "reports:read_any"},
 }
 
 // byRole serves permissions by role ID; a user's role ID is their user ID here.
@@ -81,7 +86,8 @@ func ownershipServer() *echo.Echo {
 }
 
 // Another user's report is a 404, never a 403, so its existence is not disclosed (D-1).
-// The _any permissions (editor, admin) reach it; the owner always can.
+// The _any permissions (editor, admin) reach it; the owner always can. A user with
+// only read_any (the seeded user role) can read it but not change or approve it.
 func TestReportsOwnership(t *testing.T) {
 	const report = "/api/v1/reports/1"
 	body := `{"month":"May"}`
@@ -97,6 +103,12 @@ func TestReportsOwnership(t *testing.T) {
 		{"admin PUT", adminUser, http.MethodPut, body, http.StatusOK},
 		{"owner PUT", ownerUser, http.MethodPut, body, http.StatusOK},
 		{"owner DELETE", ownerUser, http.MethodDelete, "", http.StatusNoContent},
+		{"reader GET", readerUser, http.MethodGet, "", http.StatusOK},
+		{"reader PUT", readerUser, http.MethodPut, body, http.StatusNotFound},
+		{"reader DELETE", readerUser, http.MethodDelete, "", http.StatusNotFound},
+		{"reader approve", readerUser, http.MethodPatch, "", http.StatusForbidden},
+		{"editor approve", editorUser, http.MethodPatch, "", http.StatusForbidden},
+		{"admin approve", adminUser, http.MethodPatch, "", http.StatusOK},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -104,8 +116,44 @@ func TestReportsOwnership(t *testing.T) {
 			if got := reportRequestAs(e, http.MethodPost, "/api/v1/reports", body, ownerUser); got != http.StatusCreated {
 				t.Fatalf("seed POST: status = %d, want 201", got)
 			}
-			if got := reportRequestAs(e, tc.method, report, tc.body, tc.user); got != tc.want {
+			path := report
+			if tc.method == http.MethodPatch {
+				path += "/complete" // the only PATCH route is approve
+			}
+			if got := reportRequestAs(e, tc.method, path, tc.body, tc.user); got != tc.want {
 				t.Errorf("status = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// With read_any the list holds every user's reports; without it, only the caller's own.
+func TestReportsList_ReadAny(t *testing.T) {
+	cases := []struct {
+		name, user string
+		want       int
+	}{
+		{"reader sees the owner's report", readerUser, 1},
+		{"user without read_any does not", otherUser, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := ownershipServer()
+			if got := reportRequestAs(e, http.MethodPost, "/api/v1/reports", `{"month":"May"}`, ownerUser); got != http.StatusCreated {
+				t.Fatalf("seed POST: status = %d, want 201", got)
+			}
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/reports", strings.NewReader(""))
+			req.Header.Set("X-Test-User", tc.user)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			var page struct {
+				Data []json.RawMessage `json:"data"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &page); err != nil || rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, body = %s", rec.Code, rec.Body)
+			}
+			if len(page.Data) != tc.want {
+				t.Errorf("list has %d reports, want %d", len(page.Data), tc.want)
 			}
 		})
 	}

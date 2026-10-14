@@ -35,7 +35,8 @@ func TestUsersProfileColumns_WorkerRemovedAndRestorable(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	goose.SetBaseFS(os.DirFS("migrations"))
 	require.NoError(t, goose.SetDialect("postgres"))
-	require.NoError(t, goose.Down(db, "."))
+	// DownTo, not Down: Down undoes only the newest migration, which is not this one any more.
+	require.NoError(t, goose.DownTo(db, ".", 20261014100100))
 	assert.True(t, has("worker"), "down restores the column")
 
 	var nullable string

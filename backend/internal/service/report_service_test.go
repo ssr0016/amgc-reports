@@ -60,7 +60,7 @@ func newFixture() fixture {
 	}
 	roles := stubRoles{perms: map[int64][]string{
 		roleU: {"reports:read", "reports:write", "reports:delete"},
-		roleE: {"reports:read", "reports:write", "reports:delete", "reports:read_any", "reports:write_any", "reports:delete_any", "reports:approve"},
+		roleE: {"reports:read", "reports:write", "reports:delete", "reports:read_any", "reports:write_any", "reports:delete_any"},
 	}}
 	f := fixture{reports: repository.NewMockReportRepo(), audit: repository.NewMockAuditRepo()}
 	f.svc = NewReportService(f.reports, f.audit, fakeTx{}, nil, users, roles)

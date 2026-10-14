@@ -78,6 +78,16 @@ func allReportPermissions() []string {
 	return out
 }
 
+func withoutApprove(perms []string) []string {
+	out := make([]string, 0, len(perms))
+	for _, p := range perms {
+		if p != "reports:approve" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 func TestSeed_ReportsPermissionsExist(t *testing.T) {
 	app := seeded(t)
 
@@ -102,11 +112,12 @@ func TestSeed_RoleDefaults(t *testing.T) {
 	app := seeded(t)
 
 	assert.ElementsMatch(t,
-		[]string{"users:read", "reports:read", "reports:write", "reports:delete"},
+		[]string{"users:read", "reports:read", "reports:read_any", "reports:write", "reports:delete"},
 		permissionsOf(t, app, "user"))
 
+	// Only the admin approves.
 	assert.ElementsMatch(t,
-		append([]string{"users:read", "users:write"}, allReportPermissions()...),
+		append([]string{"users:read", "users:write"}, withoutApprove(allReportPermissions())...),
 		permissionsOf(t, app, "editor"))
 
 	assert.ElementsMatch(t,
@@ -115,13 +126,28 @@ func TestSeed_RoleDefaults(t *testing.T) {
 	assert.Subset(t, permissionsOf(t, app, "admin"), allReportPermissions())
 }
 
+// Every signed-in user reads every report (read-only); only the owner, an editor or
+// an admin may change one, and only the admin approves.
 func TestSeed_NoPrivilegeLeakToUser(t *testing.T) {
 	app := seeded(t)
 
 	for _, name := range permissionsOf(t, app, "user") {
+		if name == "reports:read_any" {
+			continue
+		}
 		assert.False(t, strings.HasSuffix(name, "_any"), "user holds %s", name)
 		assert.NotEqual(t, "reports:approve", name, "user must not approve reports")
 	}
+}
+
+func TestSeed_OnlyAdminApproves(t *testing.T) {
+	app := seeded(t)
+
+	roles := names(t, app, `SELECT r.name FROM role_permissions rp
+		JOIN roles r ON r.id = rp.role_id
+		JOIN permissions p ON p.id = rp.permission_id
+		WHERE p.name = 'reports:approve'`)
+	assert.Equal(t, []string{"admin"}, roles)
 }
 
 func TestSeed_IdempotentWithReports(t *testing.T) {
