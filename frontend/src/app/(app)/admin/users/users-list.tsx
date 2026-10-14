@@ -3,6 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,9 @@ export function Users() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>
+                <span className="sr-only">Avatar</span>
+              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
@@ -68,6 +72,9 @@ export function Users() {
           <TableBody>
             {data.map((u) => (
               <TableRow key={u.id}>
+                <TableCell>
+                  <Avatar name={u.name} />
+                </TableCell>
                 <TableCell>{u.name}</TableCell>
                 <TableCell>{u.email}</TableCell>
                 <TableCell>{roleName.get(u.role_id) ?? `#${u.role_id}`}</TableCell>

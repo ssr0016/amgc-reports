@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { HOME } from "@/lib/auth-form";
 import { useSession } from "@/lib/session";
@@ -36,6 +37,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 Users
               </Link>
             )}
+            <Avatar name={user?.name ?? ""} />
             <span title={user?.email}>
               {user?.name} · {user?.role || "no role"}
             </span>

@@ -159,6 +159,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 - **Stale PRD rows.** `01-PRD.md` still lists FR-REP-01 to FR-REP-04 and FR-REP-06 as Missing, and its open question 3 (section 10) asks whether reporters see only their own reports. Only FR-REP-05 was updated.
 - **Swagger descriptions.** "Without `reports:read_any` only the caller's own" in `report_handler.go` and `swagger.json` is still true as written, so it was not changed.
 - **Swagger mismatch.** `GET /admin/roles` is typed as a bare array in Swagger, but the handler answers `{data, meta}`. `listRoles()` follows the handler.
+- **Profile picture upload.** The header and the users list show an initials avatar (`components/ui/avatar.tsx`) with a colour taken from the name. Uploading a picture is parked: it needs file storage, an upload endpoint with size and type checks, and the frontend (roughly 8 to 12 hours). The Radix Avatar in `radix-ui` can show the image with these initials as its fallback.
 
 ### F7 details (added 2026-10-14)
 
