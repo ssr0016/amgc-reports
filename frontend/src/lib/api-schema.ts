@@ -23,6 +23,11 @@ export type Report = Always<
 >;
 export type ReportMetadata = Always<Model<"ReportMetadata">, "id" | "completed">;
 
+export type User = Always<Model<"UserResponse">, "id" | "email" | "name" | "role_id" | "email_verified" | "created_at">;
+export type Role = Always<Model<"RoleResponse">, "id" | "name">;
+export type UserInput = Model<"CreateUserRequest">;
+export type UserUpdate = Model<"UpdateUserRequest">;
+
 // The generated list response is typed for reports only, so Page<T> stays generic.
 export type PageMeta = Required<Schemas["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"]>;
 export type Page<T> = { data: T[]; meta: PageMeta };

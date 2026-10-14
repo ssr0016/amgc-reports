@@ -13,6 +13,8 @@ type Session = {
   status: Status;
   // False while loading or signed out.
   can: (permission: Permission) => boolean;
+  // False while loading or signed out. Gates the admin screens; the server still enforces the role.
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -65,9 +67,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   const can = (permission: Permission) => !!user?.permissions.includes(permission);
+  const isAdmin = user?.role === "admin";
 
   return (
-    <SessionContext.Provider value={{ user, status, can, signIn, signOut }}>
+    <SessionContext.Provider value={{ user, status, can, isAdmin, signIn, signOut }}>
       {children}
     </SessionContext.Provider>
   );
