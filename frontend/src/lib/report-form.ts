@@ -12,9 +12,9 @@ export const METRICS = [
   { key: "children_fellowship", label: "Children's Fellowship" },
   { key: "tithes_offering", label: "Tithes & Offering" },
   { key: "home_visited", label: "Homes Visited" },
-  { key: "bible_study_group_led", label: "Bible Study Groups Led" },
+  { key: "bible_study_group_led", label: "Bible Study Group Led" },
   { key: "sermon_preached", label: "Sermons Preached" },
-  { key: "person_newly_contacted", label: "Persons Newly Contacted" },
+  { key: "person_newly_contacted", label: "Newly Contacted" },
   { key: "person_followed_up", label: "Persons Followed Up" },
   { key: "person_evangelized", label: "Persons Evangelized" },
   { key: "outreach", label: "Outreach" },
@@ -24,6 +24,27 @@ export const METRICS = [
   { key: "other", label: "Other" },
   { key: "family_day", label: "Family Day" },
 ] as const;
+
+type MetricKey = (typeof METRICS)[number]["key"];
+
+// How the form groups the 21 metrics. Every key appears exactly once. The
+// owner's list of sections left out three metrics: Youth and Children's
+// Fellowship join Fellowship, and Tithes & Offering, a weekly figure taken at
+// the services, joins Weekly Attendance. Move a key here to change that.
+const SECTIONS: { title: string; keys: MetricKey[] }[] = [
+  { title: "Weekly Attendance", keys: ["worship_service", "sunday_school", "prayer_meeting", "bible_studies", "tithes_offering"] },
+  { title: "Fellowship", keys: ["mens_fellowship", "womens_fellowship", "youth_fellowship", "children_fellowship"] },
+  {
+    title: "Weekly Ministry",
+    keys: ["home_visited", "bible_study_group_led", "sermon_preached", "person_newly_contacted", "person_followed_up", "person_evangelized"],
+  },
+  { title: "Ministry Activities", keys: ["outreach", "training", "leadership", "baptism", "other", "family_day"] },
+];
+
+export const METRIC_SECTIONS = SECTIONS.map((section) => ({
+  title: section.title,
+  metrics: section.keys.map((key) => METRICS.find((m) => m.key === key)!),
+}));
 
 export const WEEKS = ["week1", "week2", "week3", "week4", "week5"] as const;
 type Week = (typeof WEEKS)[number];
