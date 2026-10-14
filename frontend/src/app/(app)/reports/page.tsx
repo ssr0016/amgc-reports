@@ -12,16 +12,19 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
-import { listReports, MONTHS, type ReportFilters } from "@/lib/reports";
+import { defaultPeriod, listReports, MONTHS, type ReportFilters } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 
 const textFields = ["worker", "area", "church"] as const;
 
+// A month or year missing from the URL means the default period; present but
+// empty ("?month=&year=") means any. Clear and an "Any" submit write the empty form.
 function filtersFrom(params: URLSearchParams): ReportFilters {
-  const year = Number(params.get("year"));
+  const def = defaultPeriod();
+  const year = params.has("year") ? Number(params.get("year")) : def.year;
   const page = Number(params.get("page"));
   return {
-    month: params.get("month") || undefined,
+    month: (params.has("month") ? params.get("month") : def.month) || undefined,
     year: year > 0 ? year : undefined,
     worker: params.get("worker") || undefined,
     area: params.get("area") || undefined,
@@ -50,7 +53,8 @@ function ReportsList() {
     e.preventDefault();
     const next = new URLSearchParams();
     for (const [key, value] of new FormData(e.currentTarget)) {
-      if (String(value).trim()) next.set(key, String(value).trim());
+      // month and year are always written, even empty, so "any" survives a reload
+      if (String(value).trim() || key === "month" || key === "year") next.set(key, String(value).trim());
     }
     router.push(`/reports?${next}`);
   }
@@ -92,7 +96,7 @@ function ReportsList() {
         ))}
         <div className="flex gap-2 sm:col-span-2 lg:col-span-5">
           <Button type="submit">Apply filters</Button>
-          <Button type="button" variant="outline" onClick={() => router.push("/reports")}>
+          <Button type="button" variant="outline" onClick={() => router.push("/reports?month=&year=")}>
             Clear
           </Button>
         </div>

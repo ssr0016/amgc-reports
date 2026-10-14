@@ -51,3 +51,10 @@ export const MONTHS = [
   "November",
   "December",
 ] as const;
+
+// Reports are filed for the month that just ended, so that is the list default
+// (January shows December of the previous year).
+export function defaultPeriod(now = new Date()) {
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return { month: MONTHS[prev.getMonth()], year: prev.getFullYear() };
+}
