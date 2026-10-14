@@ -1,70 +1,76 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ApiError } from "@/lib/api";
+import { AuthField } from "@/components/auth-field";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeNext, toFormError, useCountdown, type FormError } from "@/lib/auth-form";
 import { useSession } from "@/lib/session";
 
 export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useSession();
-  const [error, setError] = useState("");
+  const [error, setError] = useState<FormError | null>(null);
   const [pending, setPending] = useState(false);
+  const [wait, setWait] = useCountdown();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    setError("");
+    setError(null);
     setPending(true);
     try {
       await signIn(String(form.get("email")), String(form.get("password")));
-      router.replace("/");
+      router.replace(safeNext(new URLSearchParams(location.search).get("next")));
     } catch (err) {
-      if (!(err instanceof ApiError)) throw err;
-      const fields = err.details ? Object.values(err.details).join(" ") : "";
-      const wait = err.status === 429 && err.retryAfter ? ` Try again in ${err.retryAfter}s.` : "";
-      setError((fields || err.message) + wait);
+      const formError = toFormError(err, {
+        401: "Invalid email or password.",
+        403: "This account is locked. Try again later.",
+      });
+      setError(formError);
+      setWait(formError.retryAfter ?? 0);
       setPending(false);
     }
   }
 
   return (
     <main className="flex flex-1 items-center justify-center p-4">
-      <form onSubmit={onSubmit} className="flex w-full max-w-sm flex-col gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-        <label className="flex flex-col gap-1 text-sm">
-          Email
-          <input
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            className="rounded border border-zinc-400 px-3 py-2 text-base"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Password
-          <input
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            className="rounded border border-zinc-400 px-3 py-2 text-base"
-          />
-        </label>
-        {error && (
-          <p role="alert" className="text-sm text-red-600">
-            {error}
-          </p>
-        )}
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-foreground px-3 py-2 text-background disabled:opacity-50"
-        >
-          {pending ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-xl">Sign in</CardTitle>
+          <CardDescription>Use your AMGCReports account.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+            <AuthField name="email" label="Email" type="email" autoComplete="email" required error={error?.fields.email} />
+            <AuthField
+              name="password"
+              label="Password"
+              type="password"
+              autoComplete="current-password"
+              required
+              error={error?.fields.password}
+            />
+            {error?.message && (
+              <p role="alert" className="text-sm text-destructive">
+                {error.message}
+                {wait > 0 && ` Try again in ${wait}s.`}
+              </p>
+            )}
+            <Button type="submit" disabled={pending || wait > 0}>
+              {pending ? "Signing in…" : "Sign in"}
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              No account?{" "}
+              <Link href="/register" className="underline underline-offset-4">
+                Register
+              </Link>
+            </p>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   );
 }
