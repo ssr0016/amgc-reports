@@ -166,7 +166,7 @@ None.
 
 ## Deferred / implementation-time
 - D-3: retention and purge of soft-deleted narratives.
-- D-5: whether summaries count absent as 0 (Phase 5).
+- D-5: whether summaries count absent as 0 (Phase 5). Decided only for the admin preview Avg (D-A5): weeks with a value, a dash when none.
 - D-8: free-text drift in church, area and worker (revisit before Phase 5).
 - D-10: audit retention.
 - D-10: resolved as Option 2 (server-side audit, no `log-download`); implementation deferred until exports exist.
@@ -198,3 +198,42 @@ These mirror the open decisions in `08-Frontend-Plan.md` section 9 and use the s
 ### D-12 (pending) Login with `email_verified=false`
 - **Finding (2026-10-14 integration test):** an account with `email_verified=false` can sign in and use Reports. This matches 08 section 3 (verification is not enforced at login; H-3 is blocked on E-1).
 - **Status:** pending. No change until the owner decides whether login must require a verified email.
+
+## Admin panel decisions (decided by the owner 2026-10-15)
+These support `08-Frontend-Plan.md` section 10. All seven recommendations were accepted.
+
+### D-A1 User status and delete
+- **Decided:** deactivate, not delete; Phase C, with F-3 and H-2.
+- **Question:** the design has an Active or Inactive status and a Delete action. Users have neither a flag nor a delete endpoint.
+- **Recommendation:** deactivate (a flag, reversible, keeps audit history) instead of hard delete, in Phase C with F-3 and H-2. `audit_logs.performed_by` is `ON DELETE SET NULL`, so a hard delete would orphan the Logs tab. The alternative is to leave the Status column and Delete button out for now.
+
+### D-A2 Username
+- **Decided:** show the email; no username.
+- **Question:** the design shows `@username`. Users have email and name only.
+- **Recommendation:** show the email, no username. A username needs a column, uniqueness, login changes and seeding.
+
+### D-A3 Tracker denominator
+- **Decided:** the `user` role; "For Review" is submitted and not approved.
+- **Question:** who counts as expected to submit (role `user` only, or anyone with `reports:write`), and is "For Review" simply submitted and not approved?
+- **Recommendation:** the `user` role; "For Review" as stated, with no new status.
+
+### D-A4 Login and logout audit, and the IP address
+- **Decided:** successful logins and logouts only; the IP is not shown.
+- **Question:** log every login and logout, or logins only? Log failed logins? Show the IP address in the Logs tab?
+- **Recommendation:** successful logins and logouts, no failed logins (the rate limiter and lockout already cover them), IP address not shown in the table. The actions need a CHECK constraint migration.
+
+### D-A5 The Avg column
+- **Decided:** average of the weeks with a value; a dash when there are none. This settles D-5 for the preview.
+- **Question:** is the average over the weeks reported, or over five weeks with a blank as 0? This is D-5, which was deferred.
+- **Recommendation:** average of the weeks that have a value; show a dash when none. D-5 says a blank means not reported and 0 means reported zero, so counting blanks as 0 would invent data.
+
+### D-A6 Excel export
+- **Decided:** `excelize`, approved as a new dependency. The owner still has to provide the legacy template; until then the layout is not defined and Phase C item 10 is blocked.
+- **Question:** which library, and what layout? The repo has no template and the legacy workbook was not provided.
+- **Recommendation:** `excelize` (needs owner approval as a new dependency), with the legacy template as the layout. Without the template the layout would be invented.
+
+### D-A7 Default period
+- **Decided:** the previous month in Asia/Manila (D-F8).
+- **Question:** the cards say "September 2026". Is that the previous month or the current one?
+- **Recommendation:** the previous month in Asia/Manila (D-F8), the same as the reports list.
+

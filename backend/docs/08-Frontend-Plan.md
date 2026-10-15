@@ -282,3 +282,68 @@ Suggested order: F0 and F1 first (they unblock everything and carry the infrastr
 | R-F3 | Phone and slow-network use is likely for church workers | Keep the form resilient (save-draft locally, never lose input on a failed save). |
 | R-F4 | `npm audit` reports 5 high-severity findings (GHSA-vfj7-8cjw-p6xm, `braces` stack-exhaustion DoS) through `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` → `braces`. Dev-only lint tooling: `npm audit --omit=dev` finds 0. Present before F3 (checked 2026-10-14). | No production exposure. Not fixed: `npm audit fix --force` would downgrade `eslint-config-next` to 14.x, which breaks Next 16. Wait for a newer `braces` or `eslint-config-next` release, then re-run `npm audit`. |
 | R-F5 | Open redirect through the login `?next=` value (found in review, fixed in `f1469f5`): a leading-slash check let `/\t/evil.com` and `/\n/evil.com` through, and browsers strip tabs and newlines, so they resolved to another origin. | `safeNext` in `src/lib/auth-form.ts` now rejects control characters and checks the resolved origin. Any new redirect that takes a URL from the query string must go through `safeNext`. |
+
+## 10. Admin panel (planned 2026-10-15; decisions made, not started)
+
+Scope: `/admin` with four statistics cards and the tabs Reports, Tracker, Users and Logs, designed from the owner's screenshots. Excludes new report or auth features and F0. Decisions D-A1 to D-A7 are made (07).
+
+**Order (owner, 2026-10-15).** Launch work first: F0 (domain setup, owner), F-1 (change password) and F14 (smoke test), about 9 h; then Phase A below (about 28 h). F-1 is a launch blocker: an admin sets every password, so a user cannot change theirs, and there is no recovery path yet.
+
+**What exists.** Only `/admin/users` (list, create, edit) from F10. Admin API: roles and permissions CRUD, `GET /admin/users/:id`, `POST` and `PUT /admin/users`, `PUT /admin/users/:id/role`, `GET /users`. `GET /reports` already filters by month, year, worker, area and church, shows every user's reports to an admin, and carries each report's status. Radix (`radix-ui`, already installed) ships Tabs, Dialog and Progress; the repo has no shadcn wrappers for them (it has alert-dialog, avatar, badge, button, card, input, label, native-select, sonner, table, textarea), so the wrappers are new files, not a new dependency.
+
+**What does not exist.**
+- No statistics endpoint and no tracker query.
+- No audit log read: `AuditRepository` has `Insert` only. The table is written for report and user actions. `DOWNLOAD_SINGLE_EXCEL` and `DOWNLOAD_BULK_EXCEL` are allowed by the CHECK constraint but nothing writes them.
+- No login or logout audit: the actions are not in the CHECK constraint (a migration) and the auth service does not write audit rows.
+- No Excel export: no library, no template in the repo, no code.
+- No username on users (email and name only), no active or inactive flag, no user delete.
+- No average anywhere. The preview's Avg column needs a rule: D-5 (whether an absent week counts as 0) was deferred and this forces it.
+
+**Mapping of the design to the data.**
+
+| Design element | Status |
+|---|---|
+| Cards: month's reports, approved and pending | Counts over `reports` for a period |
+| Cards: total users, total admins | Counts over `users` by role |
+| Reports tab, filters, Approve and Unapprove, empty state, "X total" | Reuses `GET /reports` and `PATCH /reports/:id/complete` |
+| Preview modal: metadata, the two metric tables | Reuses the report form's sections; Avg is new (D-A5) |
+| Download Excel, single and bulk | New backend and a library (D-A6) |
+| Tracker: Submitted, Not Submitted, Approved, progress bar | New query: users joined to reports for a month (D-A3) |
+| Tracker "For Review" | Submitted and not approved (no new state) |
+| Worker as name and `@username` | No username: show the email (D-A2) |
+| Users: Active or Inactive filter and status | New column, login check and session revocation (D-A1) |
+| Users: Delete | No endpoint (D-A1) |
+| Logs: filter, table, "X total logs" | New read endpoint; action badges map to the audit actions |
+| Logs: Logged In, Logged Out | New audit actions (D-A4) |
+
+**Modules (hours include tests, axe and docs; estimates, not commitments).**
+
+| # | Module | Hours | Priority | Needs |
+|---|---|---|---|---|
+| 1 | Admin shell: `/admin`, tablist with arrow keys, guard, header link, titles | 3 | P0 | None |
+| 2 | Stats endpoint and the four cards | 5 | P0 | Decided (D-A7) |
+| 3 | Reports tab (reuse list, filters, approve, empty state) | 5 | P0 | None |
+| 7 | Users tab inside the panel (existing list, "You" badge, role filter) | 3 | P1 | Decided (D-A2) |
+| 11 | Preview modal | 4 | P2 | Decided (D-A5) |
+| 12 | Tests, axe and docs for the panel (spread over the above) | 8 | P0 | None |
+| 4 | Tracker tab (query, progress bar, search, filters) | 9 | P1 | Decided (D-A3) |
+| 5 | Logs tab (read endpoint with filter and pagination, table, badges) | 8 | P1 | Decided (D-A4) |
+| 6 | Login and logout audit actions (migration, writes) | 4 | P1 | Decided (D-A4) |
+| 8 | User status: column, login check, session revocation (needs H-2) | 10 | P2 | Decided (D-A1) |
+| 9 | Deactivate (not delete), last-admin protection (F-3) | 6 | P2 | Decided (D-A1) |
+| 10 | Excel export, single and bulk, with audit rows | 16 | P2 | The legacy template (owner to provide); `excelize` approved |
+| | Total | about 81 | | |
+
+**Phases and commits (one commit per group, tests first, full diff in a file, no push).**
+- **Phase A (about 28 h, no schema change):** shell and tabs; stats endpoint with its cards (Swagger and `gen:api` in the same commit); Reports tab; Users tab; preview modal; a11y spec for the panel.
+- **Phase B (about 21 h):** audit read endpoint and Logs tab; login and logout audit (migration last: code first, migration last); tracker query and tab.
+- **Phase C (about 32 h):** Excel export; user status and delete.
+
+**Cross-cutting.**
+- Every new endpoint sits in the admin group; add a permission gate where one fits (as `POST /admin/users` does) and the read rate limiter for the heavy queries.
+- Counts and tracker rows carry no narrative text. Bulk export of narrative text is sensitive: admin only, one audit row per download, size cap.
+- The logs endpoint returns IP addresses and activity history; decide whether the IP is shown (D-A4).
+- Keep the F13 standard: ARIA tabs with arrow keys, focus on the panel when a tab changes, row actions named by their target, dialog focus return, axe in the E2E job.
+- Use the thin Server Component with `instant = false` and a client guard, as the other pages do.
+- The default period is `defaultPeriod()` (previous month, Asia/Manila), per D-F8, unless D-A7 says otherwise.
+
