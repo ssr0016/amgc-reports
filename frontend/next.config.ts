@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // The e2e run builds into its own directory, so it can run while `next dev` holds .next.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
   cacheComponents: true,
   partialPrefetching: true,
   // The home page is the reports list. Temporary (307) so browsers do not cache it.
