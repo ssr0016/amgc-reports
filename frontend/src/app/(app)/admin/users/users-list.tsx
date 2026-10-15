@@ -82,7 +82,10 @@ export function Users() {
                 <TableCell>{u.church_name || "—"}</TableCell>
                 <TableCell>
                   <Button asChild variant="outline" size="sm">
-                    <Link href={`/admin/users/${u.id}/edit`}>Edit</Link>
+                    <Link href={`/admin/users/${u.id}/edit`}>
+                      Edit{" "}
+                      <span className="sr-only">{u.name}</span>
+                    </Link>
                   </Button>
                 </TableCell>
               </TableRow>
@@ -97,7 +100,7 @@ export function Users() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4">
+    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
         {isAdmin && (

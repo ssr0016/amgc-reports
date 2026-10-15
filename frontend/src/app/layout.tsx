@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AMGCReports",
+  title: { default: "AMGCReports", template: "%s · AMGCReports" },
   description: "Pastoral reports for workers and churches",
 };
 

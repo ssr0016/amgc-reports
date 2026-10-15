@@ -26,6 +26,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
   return (
     <>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:border focus:border-ring focus:bg-background focus:px-3 focus:py-2 focus:text-sm"
+      >
+        Skip to main content
+      </a>
       <header className="border-b">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 p-4">
           <Link href={HOME} className="font-semibold tracking-tight">

@@ -89,6 +89,31 @@ describe("reports list: access", () => {
   });
 });
 
+describe("reports list: accessible names", () => {
+  // Every row has the same four actions; a screen reader user needs to know which report each is for (WCAG 2.4.6, 4.1.2).
+  it("each row action says which report it acts on", async () => {
+    renderList("reports:read", "reports:write", "reports:delete", "reports:approve");
+    await screen.findByText("Worker 1");
+    const mine = within(row("Worker 1"));
+    expect(mine.getByRole("link", { name: "Edit April 2026, Worker 1" })).toBeInTheDocument();
+    expect(mine.getByRole("button", { name: "Delete April 2026, Worker 1" })).toBeInTheDocument();
+    expect(mine.getByRole("button", { name: "Approve April 2026, Worker 1" })).toBeInTheDocument();
+  });
+
+  it("a report without a worker is named by its month alone", async () => {
+    h.listReports.mockResolvedValue(page([report(1, 1, { worker: undefined })]));
+    renderList("reports:read");
+    expect(await screen.findByRole("link", { name: "View April 2026" })).toBeInTheDocument();
+  });
+
+  it("the page's main landmark is the skip link target", async () => {
+    renderList("reports:read");
+    await screen.findByText("Worker 1");
+    expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+    expect(screen.getByRole("main")).toHaveAttribute("tabindex", "-1");
+  });
+});
+
 describe("reports list: gated buttons", () => {
   it("New report needs reports:write", async () => {
     renderList("reports:read");
@@ -99,24 +124,24 @@ describe("reports list: gated buttons", () => {
   it("a plain user can edit and delete only their own report", async () => {
     renderList("reports:read", "reports:read_any", "reports:write", "reports:delete");
     await screen.findByText("Worker 1");
-    expect(within(row("Worker 1")).getByRole("link", { name: "Edit" })).toBeInTheDocument();
-    expect(within(row("Worker 1")).getByRole("button", { name: "Delete" })).toBeInTheDocument();
-    expect(within(row("Worker 2")).getByRole("link", { name: "View" })).toBeInTheDocument();
-    expect(within(row("Worker 2")).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(within(row("Worker 1")).getByRole("link", { name: /^Edit / })).toBeInTheDocument();
+    expect(within(row("Worker 1")).getByRole("button", { name: /^Delete / })).toBeInTheDocument();
+    expect(within(row("Worker 2")).getByRole("link", { name: /^View / })).toBeInTheDocument();
+    expect(within(row("Worker 2")).queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
   });
 
   it("_any permissions reach other people's reports", async () => {
     renderList("reports:read", "reports:write", "reports:write_any", "reports:delete", "reports:delete_any");
     await screen.findByText("Worker 2");
-    expect(within(row("Worker 2")).getByRole("link", { name: "Edit" })).toBeInTheDocument();
-    expect(within(row("Worker 2")).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    expect(within(row("Worker 2")).getByRole("link", { name: /^Edit / })).toBeInTheDocument();
+    expect(within(row("Worker 2")).getByRole("button", { name: /^Delete / })).toBeInTheDocument();
   });
 
   it("without write or delete, even the owner only views", async () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");
-    expect(within(row("Worker 1")).getByRole("link", { name: "View" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(within(row("Worker 1")).getByRole("link", { name: /^View / })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
   });
 
   it("Approve shows only with reports:approve", async () => {
@@ -133,21 +158,21 @@ describe("reports list: approve", () => {
     const { user } = renderList("reports:read", "reports:approve");
     await screen.findByText("Worker 1");
 
-    await user.click(within(row("Worker 1")).getByRole("button", { name: "Approve" }));
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Approve / }));
     // optimistic: Completed and Unapprove while the request is in flight; the button is held
     expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument();
-    expect(within(row("Worker 1")).getByRole("button", { name: "Unapprove" })).toBeDisabled();
+    expect(within(row("Worker 1")).getByRole("button", { name: /^Unapprove / })).toBeDisabled();
 
     resolve({ id: 1, completed: true });
     await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Approved April 2026"));
-    expect(within(row("Worker 1")).getByRole("button", { name: "Unapprove" })).toBeEnabled();
+    expect(within(row("Worker 1")).getByRole("button", { name: /^Unapprove / })).toBeEnabled();
   });
 
   it("rolls back and reports a failure", async () => {
     h.toggleComplete.mockRejectedValue(new ApiError(429, "RATE_LIMIT", "Slow down.", undefined, 9));
     const { user } = renderList("reports:read", "reports:approve");
     await screen.findByText("Worker 1");
-    await user.click(within(row("Worker 1")).getByRole("button", { name: "Approve" }));
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Approve / }));
     await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Slow down. Try again in 9s."));
     expect(within(row("Worker 1")).getByText("Pending")).toBeInTheDocument();
   });
@@ -156,7 +181,7 @@ describe("reports list: approve", () => {
     h.toggleComplete.mockRejectedValue(new ApiError(404, "NOT_FOUND", "gone"));
     const { user } = renderList("reports:read", "reports:approve");
     await screen.findByText("Worker 1");
-    await user.click(within(row("Worker 1")).getByRole("button", { name: "Approve" }));
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Approve / }));
     await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("April 2026 no longer exists."));
     await waitFor(() => expect(h.listReports).toHaveBeenCalledTimes(2));
   });
@@ -165,13 +190,13 @@ describe("reports list: approve", () => {
   it("the Approve button is dark enough for white text", async () => {
     renderList("reports:read", "reports:approve");
     await screen.findByText("Worker 1");
-    expect(within(row("Worker 1")).getByRole("button", { name: "Approve" })).toHaveClass("bg-green-700", "hover:bg-green-800");
+    expect(within(row("Worker 1")).getByRole("button", { name: /^Approve / })).toHaveClass("bg-green-700", "hover:bg-green-800");
   });
 
   it("an approved report offers Unapprove", async () => {
     h.listReports.mockResolvedValue(page([report(1, 1, { completed: true })]));
     renderList("reports:read", "reports:approve");
-    expect(await screen.findByRole("button", { name: "Unapprove" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Unapprove / })).toBeInTheDocument();
   });
 });
 
@@ -182,7 +207,7 @@ describe("reports list: delete", () => {
     h.deleteReport.mockResolvedValue(undefined);
     const { user } = renderList(...mine);
     await screen.findByText("Worker 1");
-    await user.click(within(row("Worker 1")).getByRole("button", { name: "Delete" }));
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
     expect(await screen.findByText("Delete April 2026?")).toBeInTheDocument();
     expect(h.deleteReport).not.toHaveBeenCalled();
 
@@ -195,7 +220,7 @@ describe("reports list: delete", () => {
   it("Cancel closes the dialog without deleting", async () => {
     const { user } = renderList(...mine);
     await screen.findByText("Worker 1");
-    await user.click(within(row("Worker 1")).getByRole("button", { name: "Delete" }));
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
     await user.click(await screen.findByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     expect(h.deleteReport).not.toHaveBeenCalled();
@@ -205,7 +230,7 @@ describe("reports list: delete", () => {
     h.deleteReport.mockRejectedValue(new ApiError(500, "ERROR", "Server error."));
     const { user } = renderList(...mine);
     await screen.findByText("Worker 1");
-    await user.click(within(row("Worker 1")).getByRole("button", { name: "Delete" }));
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent("Server error.");
   });
@@ -214,7 +239,7 @@ describe("reports list: delete", () => {
     h.deleteReport.mockRejectedValue(new ApiError(404, "NOT_FOUND", "gone"));
     const { user } = renderList(...mine);
     await screen.findByText("Worker 1");
-    await user.click(within(row("Worker 1")).getByRole("button", { name: "Delete" }));
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
   });
@@ -225,7 +250,7 @@ describe("reports list: delete", () => {
     h.deleteReport.mockResolvedValue(undefined);
     const { user } = renderList(...mine);
     await screen.findByText("Worker 1");
-    await user.click(within(row("Worker 1")).getByRole("button", { name: "Delete" }));
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(h.push).toHaveBeenCalledWith(expect.stringContaining("page=2")));
   });

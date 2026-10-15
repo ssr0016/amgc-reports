@@ -59,6 +59,9 @@ function filtersFrom(params: URLSearchParams): ReportFilters {
   };
 }
 
+// Which report a row action is for, so a screen reader user can tell the rows apart.
+const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
+
 function ReportsList() {
   const router = useRouter();
   const params = useSearchParams();
@@ -308,11 +311,14 @@ function ReportsList() {
                             disabled={busy.has(r.id)}
                             onClick={() => toggle(r)}
                           >
-                            {r.completed ? "Unapprove" : "Approve"}
+                            {r.completed ? "Unapprove" : "Approve"}{" "}
+                            <span className="sr-only">{rowName(r)}</span>
                           </Button>
                         </Can>
                         <Button asChild variant="outline" size="sm">
-                          <Link href={`/reports/${r.id}/edit`}>{canEdit(r) ? "Edit" : "View"}</Link>
+                          <Link href={`/reports/${r.id}/edit`}>{canEdit(r) ? "Edit" : "View"}{" "}
+                            <span className="sr-only">{rowName(r)}</span>
+                          </Link>
                         </Button>
                         {canDelete(r) && (
                           <Button
@@ -323,7 +329,8 @@ function ReportsList() {
                               setTarget({ id: r.id, period: `${r.month} ${r.year}` });
                             }}
                           >
-                            Delete
+                            Delete{" "}
+                            <span className="sr-only">{rowName(r)}</span>
                           </Button>
                         )}
                       </div>
@@ -381,7 +388,7 @@ function ReportsList() {
 
 export function Reports() {
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4">
+    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
         <Can permission="reports:write">
