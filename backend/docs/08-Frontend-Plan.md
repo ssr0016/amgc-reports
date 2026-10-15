@@ -96,7 +96,7 @@ Rate limits to know: reports writes are 60 per minute with a burst of 10, per si
 
 - **Unit (Vitest, `src/lib`):** API client (CSRF fetch, reuse and retry, 401 handling, 429 parsing, error mapping), session provider, number and metric handling, form rules, `safeNext`, `defaultPeriod` at the Asia/Manila month boundary. Coverage gate: 80% on `src/lib/**` only.
 - **Component (Testing Library):** `Can`, `ReportForm` (validation, locked period, 409, 422 and 429 handling, unsaved-edit guard) and the reports list (filters and pagination, ownership-gated Edit, View and Delete, approve with rollback, delete dialog). The other components are shadcn wrappers and page shells and are not tested on their own.
-- **End to end (Playwright):** against a local backend and a fresh Postgres database: login and logout, the login rate limit, create, duplicate (409), edit, the user's late report (422), editor and admin filing late, approve (admin only: 403 for editor and user), delete. Self-registration was removed, so there is no register flow. Not yet in CI (F12).
+- **End to end (Playwright):** against a local backend and a fresh Postgres database: login and logout, the login rate limit, create, duplicate (409), edit, the user's late report (422), editor and admin filing late, approve (admin only: 403 for editor and user), delete. Self-registration was removed, so there is no register flow. Runs in CI as the `e2e` job (F12).
 - **Contract:** types generated from `swagger.json` (convert Swagger 2.0 to OpenAPI 3 first) and checked in CI so a backend change breaks the build, not the user.
 - **Production smoke:** with a dedicated test account and fake data (audit rows are permanent).
 
@@ -126,7 +126,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 | F9 | Approve and unapprove buttons in the list, with `sonner` toasts. **Delivered** (commit d890b9b) | 3 |
 | F10 | Error UX across screens (409, 422 mapping, 429 countdown, network) and admin users screens (list, create, edit). **Delivered** (commits 47a65c5, ad19ac0 and the admin pages commit) | 5 |
 | F11 | Tests: unit 6, component 6, Playwright 10. **Delivered** (commits ee9fae5, f244d87, b0398c2; details below) | 22 |
-| F12 | CI: typecheck, tests, Playwright with Postgres | 4 |
+| F12 | CI: typecheck, tests, Playwright with Postgres. **Written, not yet run in CI** (see F12 details) | 4 |
 | F13 | Accessibility and responsive polish | 6 |
 | F14 | Production smoke test and fixes | 2 |
 | | **Total** | **93** |
@@ -204,9 +204,9 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 
 ### F11 details (added 2026-10-15)
 
-**Run them.** `npm test` (Vitest, 108 tests), `npm run test:cov` (adds the 80% gate on `src/lib`, now 100% of lines), `npm run e2e` (Playwright, 21 specs, about 16 s). The E2E run needs the Postgres container `pastoral-test-pg` (`make db-start` in `backend/`), Docker access for `docker exec`, and ports 3001 and 8081 free. It runs beside the dev servers on 3000 and 8080. After a fresh clone, run `npx playwright install chromium` once.
+**Run them.** `npm test` (Vitest, 108 tests), `npm run test:cov` (adds the 80% gate on `src/lib`, now 100% of lines), `npm run e2e` (Playwright, 21 specs, about 16 s). The E2E run needs Postgres on `localhost:5440` (the `pastoral-test-pg` container: `make db-start` in `backend/`), the `psql` client, and ports 3001 and 8081 free. It runs beside the dev servers on 3000 and 8080. After a fresh clone, run `npx playwright install chromium` once.
 
-**How the E2E run is wired.** `e2e/start-backend.sh` drops and recreates the `pastoral_e2e` database and starts the API on 8081 (migrations and the admin seed run at start-up), so every run begins empty; audit rows are permanent, so reusing a database would pile them up. The frontend is `next dev -p 3001` with `NEXT_DIST_DIR=.next-e2e` (`next.config.ts` reads it), because Next 16 allows one dev server per distDir and `next dev` already holds `.next`. `e2e/setup.ts` signs in as the seeded admin, creates the editor and user through `POST /admin/users`, and saves one session per role to `e2e/.auth/` (ignored by git). Specs run serially, with one worker: they share a database and the user files a report that the editor and admin then act on.
+**How the E2E run is wired.** `e2e/start-backend.sh` drops and recreates the `pastoral_e2e` database (with `psql` over TCP, so no `docker exec`; `backend/.env` is read when present, and `DB_USER`, `DB_PASSWORD` and `TEST_DB_PORT` default to `postgres`, `postgres` and 5440) and starts the API on 8081 (migrations and the admin seed run at start-up), so every run begins empty; audit rows are permanent, so reusing a database would pile them up. The frontend is `next dev -p 3001` with `NEXT_DIST_DIR=.next-e2e` (`next.config.ts` reads it), because Next 16 allows one dev server per distDir and `next dev` already holds `.next`. `e2e/setup.ts` signs in as the seeded admin, creates the editor and user through `POST /admin/users`, and saves one session per role to `e2e/.auth/` (ignored by git). Specs run serially, with one worker: they share a database and the user files a report that the editor and admin then act on.
 
 **Rate limits in the E2E run.** The login limit is 5 a minute with a burst of 3 per IP and is hard-coded (`router.go`), so three role logins would empty the bucket. No backend change was needed: the test API sets `TRUSTED_PROXY_CIDRS` to loopback, and each test sends its own `X-Real-IP`, so each test gets its own login and global buckets. Account lockout needs 5 failed logins in a row and a success resets the count; the specs never make more than 3 in a row. Signing out destroys the server session, so the sign-out spec logs in on its own and never uses the shared admin session.
 
@@ -221,7 +221,13 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 - **Red step.** These tests cover code that already existed, so instead of a failing test first, each suite was checked by breaking the code on purpose (UTC instead of Manila, no CSRF retry, no owner check on Edit, no approve rollback, no 409 mapping, an open approve gate, the backend's previous-month rule off) and confirming the intended test failed.
 - **Date-proof.** The specs file the previous month and two months back, computed from the clock with the same Manila rule as the app.
 
-**Not covered.** The admin users screens have no tests (F11 scope was reports and auth). An admin filing a late report is tested through the API only, because `/reports/new` locks the period for everyone. CI wiring is F12.
+**Not covered.** The admin users screens have no tests (F11 scope was reports and auth). An admin filing a late report is tested through the API only, because `/reports/new` locks the period for everyone. CI wiring is F12 (below).
+
+### F12 details (added 2026-10-15)
+
+The `frontend` job in `.github/workflows/ci.yml` gains `npm run test:cov` (Vitest with the 80% gate on `src/lib`) before the build. A new `e2e` job runs Playwright: Postgres is a `services:` container on port 5440 (the port the local `pastoral-test-pg` uses, so one script serves both); `start-backend.sh` recreates the `pastoral_e2e` database in it and the API migrates and seeds it on start, so no separate migration step or `docker exec` is needed. Go and Node are set up with their caches. The Chromium download is cached in `~/.cache/ms-playwright`, keyed by the hash of `package-lock.json` (which pins the Playwright version, so any dependency change re-downloads; keying on the Playwright version alone would need a lookup step). System libraries are not part of that cache, so they are installed on every run: `install --with-deps` on a cache miss, `install-deps` on a hit. On failure the HTML report and traces are uploaded as an artifact for 7 days. `forbidOnly` is on in CI, and there are no retries: a flaky spec should fail loudly. The job is independent of the Go jobs and is not a dependency of `build`.
+
+**Not verified locally.** The workflow was checked only as valid YAML, and the script by running it with no `backend/.env` and a bare environment (health answered 200). The first push is the real test; things to look at if it fails: `psql` on the runner, the 120 s `next dev` start-up timeout, and Chromium system libraries.
 
 ### F14 details (added 2026-10-14)
 
