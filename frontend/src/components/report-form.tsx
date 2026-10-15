@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFocusFirstError } from "@/lib/form-focus";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -64,6 +65,7 @@ export function ReportForm({
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
   const [wait, setWait] = useCountdown();
+  const [formRef, focusError] = useFocusFirstError<HTMLFormElement>();
   const dirty = !saved && JSON.stringify(form) !== start;
 
   // Covers closing the tab or refreshing; in-app navigation is guarded by Cancel.
@@ -104,7 +106,10 @@ export function ReportForm({
     const found = validate(form, lockedPeriod);
     setErrors(found);
     setGeneral(Object.keys(found).length ? "Fix the highlighted fields and try again." : "");
-    if (Object.keys(found).length) return;
+    if (Object.keys(found).length) {
+      focusError();
+      return;
+    }
 
     setPending(true);
     try {
@@ -115,6 +120,7 @@ export function ReportForm({
       if (err instanceof ApiError && err.isConflict) {
         setErrors({ month: "You already have a report for this month and year." });
         setGeneral("");
+        focusError();
         return;
       }
       const failure = toFormError(err);
@@ -122,6 +128,7 @@ export function ReportForm({
       setWait(failure.retryAfter ?? 0);
       setErrors(mapped.fields);
       setGeneral(failure.message || mapped.general || "Fix the highlighted fields and try again.");
+      focusError();
     }
   }
 
@@ -137,7 +144,7 @@ export function ReportForm({
   );
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-8">
+    <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-8">
       <fieldset
         disabled={readOnly}
         className={`flex min-w-0 flex-col gap-8${readOnly ? " [&_:disabled]:opacity-100! [&_select:disabled]:text-foreground!" : ""}`}
@@ -165,7 +172,7 @@ export function ReportForm({
                 ))}
               </NativeSelect>
               {errors.month && (
-                <p id="month-note" className="text-sm text-destructive">
+                <p id="month-note" data-field-error tabIndex={-1} className="text-sm text-destructive focus:outline-none">
                   {errors.month}
                 </p>
               )}
@@ -240,6 +247,7 @@ export function ReportForm({
                             pattern={m.key === "tithes_offering" ? undefined : "[0-9]*"} // a hint only: the form has noValidate
                             aria-label={`${m.label}, week ${w.slice(4)}`}
                             aria-invalid={!!errors[`metrics.${m.key}.${w}`]}
+                            aria-describedby={errors[`metrics.${m.key}.${w}`] ? `err-${m.key}-${w}` : undefined}
                             value={form.metrics[m.key]?.[w] ?? ""}
                             onChange={(e) => setWeek(m.key, w, e.target.value)}
                             onFocus={(e) => e.target.select()}
@@ -247,7 +255,7 @@ export function ReportForm({
                             className="h-8 w-20 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30"
                           />
                           {errors[`metrics.${m.key}.${w}`] && (
-                            <span className="mt-1 block text-xs text-destructive">{errors[`metrics.${m.key}.${w}`]}</span>
+                            <span id={`err-${m.key}-${w}`} className="mt-1 block text-xs text-destructive">{errors[`metrics.${m.key}.${w}`]}</span>
                           )}
                         </TableCell>
                       ))}

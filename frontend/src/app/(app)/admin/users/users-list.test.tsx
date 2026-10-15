@@ -23,4 +23,13 @@ describe("users list", () => {
     expect(screen.getByRole("link", { name: "Edit Ben Reyes" })).toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
   });
+
+  it("loading is a status message", () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Users />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+  });
 });

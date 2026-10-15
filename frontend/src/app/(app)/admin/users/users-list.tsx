@@ -47,9 +47,9 @@ export function Users() {
       </p>
     );
   } else if (isPending) {
-    body = <p className="text-sm text-muted-foreground">Loading…</p>;
+    body = <p role="status" className="text-sm text-muted-foreground">Loading…</p>;
   } else if (data.length === 0) {
-    body = <p className="text-sm text-muted-foreground">No users match.</p>;
+    body = <p role="status" className="text-sm text-muted-foreground">No users match.</p>;
   } else {
     body = (
       <>

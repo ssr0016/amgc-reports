@@ -36,7 +36,7 @@ export function AuthField({
           <button
             type="button"
             onClick={() => setShown(!shown)}
-            aria-label={shown ? "Hide password" : "Show password"}
+            aria-label="Show password"
             aria-pressed={shown}
             className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >

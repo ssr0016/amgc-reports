@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFocusFirstError } from "@/lib/form-focus";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -56,6 +57,7 @@ export function UserForm({
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
   const [wait, setWait] = useCountdown();
+  const [formRef, focusError] = useFocusFirstError<HTMLFormElement>();
   const dirty = !saved && JSON.stringify(form) !== JSON.stringify(seed);
 
   // Covers closing the tab or refreshing; in-app navigation is guarded by Cancel.
@@ -83,12 +85,14 @@ export function UserForm({
       setPending(false);
       if (err instanceof ApiError && err.isConflict) {
         setErrors({ email: "That email is already in use." });
+        focusError();
         return;
       }
       const failure = toFormError(err);
       setWait(failure.retryAfter ?? 0);
       setErrors(failure.fields);
       setGeneral(failure.message || "Fix the highlighted fields and try again.");
+      focusError();
     }
   }
 
@@ -97,7 +101,7 @@ export function UserForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex max-w-xl flex-col gap-4">
+    <form ref={formRef} onSubmit={submit} className="flex max-w-xl flex-col gap-4">
       {!create && <p className="text-sm text-muted-foreground">Only name, area, and church can be edited.</p>}
       <AuthField
         name="email"

@@ -264,13 +264,13 @@ function ReportsList() {
       </form>
 
       {isPending && allowed ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p role="status" className="text-sm text-muted-foreground">Loading…</p>
       ) : error ? (
         <p role="alert" className="text-sm text-destructive">
           {error.message}
         </p>
       ) : data && data.data.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No reports match these filters.</p>
+        <p role="status" className="text-sm text-muted-foreground">No reports match these filters.</p>
       ) : (
         data && (
           <>
@@ -341,7 +341,7 @@ function ReportsList() {
             </Table>
             {meta && (
               <div className="flex items-center justify-between gap-4">
-                <p className="text-sm text-muted-foreground">
+                <p role="status" className="text-sm text-muted-foreground">
                   Page {meta.page} of {meta.total_pages} ({meta.total} reports)
                 </p>
                 <div className="flex gap-2">
@@ -398,7 +398,7 @@ export function Reports() {
         </Can>
       </div>
       {/* useSearchParams needs a Suspense boundary for the static prerender */}
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+      <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">Loading…</p>}>
         <ReportsList />
       </Suspense>
     </main>

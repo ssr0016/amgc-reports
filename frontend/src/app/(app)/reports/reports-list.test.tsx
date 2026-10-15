@@ -114,6 +114,27 @@ describe("reports list: accessible names", () => {
   });
 });
 
+// WCAG 4.1.3: filters apply without a submit, so a screen reader user hears what changed.
+describe("reports list: live regions", () => {
+  it("loading and the empty state are status messages", async () => {
+    h.listReports.mockReturnValue(new Promise(() => {}));
+    renderList("reports:read");
+    expect(await screen.findByRole("status")).toHaveTextContent("Loading…");
+  });
+
+  it("says when nothing matches, as a status", async () => {
+    h.listReports.mockResolvedValue(page([]));
+    renderList("reports:read");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("No reports match these filters."));
+  });
+
+  it("the page summary is announced when it changes", async () => {
+    h.listReports.mockResolvedValue(page([report(1, 1)], { total_pages: 3, total: 41 }));
+    renderList("reports:read");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Page 1 of 3 (41 reports)"));
+  });
+});
+
 describe("reports list: gated buttons", () => {
   it("New report needs reports:write", async () => {
     renderList("reports:read");

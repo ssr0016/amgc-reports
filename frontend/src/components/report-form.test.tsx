@@ -143,4 +143,40 @@ describe("ReportForm", () => {
     await user.type(screen.getByLabelText("Prayer Request"), "😀😀");
     expect(screen.getByText("2 / 10000")).toBeInTheDocument();
   });
+
+  // WCAG 3.3.1: after a failed submit, keyboard and screen reader users land on the problem.
+  describe("after a failed submit", () => {
+    it("focuses the first invalid field", async () => {
+      const { user } = setup();
+      await user.type(metric("Outreach", 2), "1.5");
+      await user.type(metric("Tithes & Offering", 1), "1.234");
+      await user.click(screen.getByRole("button", { name: "Save report" }));
+      // Tithes is in an earlier section than Outreach, so it is first in the page.
+      expect(metric("Tithes & Offering", 1)).toHaveFocus();
+    });
+
+    it("focuses the field a 422 names", async () => {
+      const err = new ApiError(422, "VALIDATION_ERROR", "bad", { worker: "Too long" });
+      const { user } = setup({ onSubmit: vi.fn().mockRejectedValue(err) });
+      await user.click(screen.getByRole("button", { name: "Save report" }));
+      await screen.findByText("Too long");
+      expect(screen.getByLabelText("Worker Name")).toHaveFocus();
+    });
+
+    it("a 409 on the locked month focuses its message, since the select is disabled", async () => {
+      const { user } = setup({ onSubmit: vi.fn().mockRejectedValue(new ApiError(409, "CONFLICT", "exists")) });
+      await user.click(screen.getByRole("button", { name: "Save report" }));
+      expect(await screen.findByText("You already have a report for this month and year.")).toHaveFocus();
+    });
+  });
+
+  it("links a metric's error message to its input", async () => {
+    const { user } = setup();
+    await user.type(metric("Outreach", 2), "1.5");
+    await user.tab();
+    const input = metric("Outreach", 2);
+    const id = input.getAttribute("aria-describedby");
+    expect(id).toBeTruthy();
+    expect(document.getElementById(id!)).toHaveTextContent("Must be a whole number");
+  });
 });

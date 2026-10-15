@@ -34,7 +34,7 @@ export function EditUser() {
       </p>
     );
   } else if (isPending) {
-    body = <p className="text-sm text-muted-foreground">Loading…</p>;
+    body = <p role="status" className="text-sm text-muted-foreground">Loading…</p>;
   } else {
     body = (
       <UserForm
