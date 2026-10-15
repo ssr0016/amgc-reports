@@ -188,6 +188,13 @@ These mirror the open decisions in `08-Frontend-Plan.md` section 9 and use the s
 ### D-F6 Hosting combo
 - **Decision:** Vercel (frontend, `app.<domain>`), Railway (Go backend, `api.<domain>`) and Cloudflare (DNS for the domain).
 
+### D-F8 Previous-month rule
+- **Decision:** `ReportService.Create` rejects any period but the previous month unless the caller holds `reports:write_any` (editor and admin, who may file late). Rejection is `ErrPeriodNotAllowed`, mapped to 422 with `details.month`, the key the form already maps to the month field.
+- **Time zone:** months are counted in `Asia/Manila`, loaded once in `NewReportService` (it panics if tzdata is missing; the Dockerfile installs it). The browser's `defaultPeriod()` uses the same zone.
+- **Year default:** a missing `year` is the previous month's year when the month asked for is the previous month (December filed in January lands in last year), else the current year in Manila.
+- **Not covered:** `Update` is not restricted. The UI locks the period on edit, and the owner chose the smaller scope (2026-10-15). Revisit if the API must refuse a period change.
+- **Tests:** service tests pin the clock around the Manila month boundary; the router ownership tests derive the month from the clock. Repository and schema integration tests do not use the service and are unchanged.
+
 ### D-12 (pending) Login with `email_verified=false`
 - **Finding (2026-10-14 integration test):** an account with `email_verified=false` can sign in and use Reports. This matches 08 section 3 (verification is not enforced at login; H-3 is blocked on E-1).
 - **Status:** pending. No change until the owner decides whether login must require a verified email.

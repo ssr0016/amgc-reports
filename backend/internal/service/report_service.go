@@ -19,6 +19,9 @@ var (
 	// ErrReportExists is returned when the owner already has an active report
 	// for that month and year. The caller maps it to 409.
 	ErrReportExists = errors.New("a report for this month and year already exists")
+	// ErrPeriodNotAllowed is returned when a caller without reports:write_any
+	// files a report for any month but the previous one. The caller maps it to 422.
+	ErrPeriodNotAllowed = errors.New("reports can only be created for the previous month")
 )
 
 // ReportService holds the report business rules: year default, ownership scope
@@ -37,6 +40,7 @@ type ReportService struct {
 	users   repository.UserRepository
 	roles   repository.RoleRepository
 	now     func() time.Time
+	loc     *time.Location // months are counted in Philippine time, whatever the server clock says
 }
 
 func NewReportService(
@@ -47,7 +51,11 @@ func NewReportService(
 	users repository.UserRepository,
 	roles repository.RoleRepository,
 ) *ReportService {
-	return &ReportService{reports: reports, audit: audit, tx: tx, q: q, users: users, roles: roles, now: time.Now}
+	loc, err := time.LoadLocation("Asia/Manila")
+	if err != nil {
+		panic(fmt.Sprintf("load Asia/Manila (is tzdata installed?): %v", err))
+	}
+	return &ReportService{reports: reports, audit: audit, tx: tx, q: q, users: users, roles: roles, now: time.Now, loc: loc}
 }
 
 type actor struct {
@@ -122,15 +130,32 @@ func mapErr(err error) error {
 	return err
 }
 
-// Create files a report for userID. A missing year defaults to the current year (D-8).
+// previousMonth returns the month before now, counted in s.loc.
+func (s *ReportService) previousMonth() (string, int) {
+	t := s.now().In(s.loc)
+	prev := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, s.loc).AddDate(0, -1, 0)
+	return model.Months[prev.Month()-1], prev.Year()
+}
+
+// Create files a report for userID. A missing year defaults to the current
+// year (D-8), or to the previous month's year when that is the month asked for
+// (so December filed in January lands in last year). Without reports:write_any
+// the period must be the previous month (D-F8).
 func (s *ReportService) Create(ctx context.Context, userID int64, ip string, req model.CreateReportRequest) (*model.ReportResponse, error) {
 	a, err := s.actor(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	year := s.now().Year()
+	prevMonth, prevYear := s.previousMonth()
+	year := s.now().In(s.loc).Year()
+	if req.Month == prevMonth {
+		year = prevYear
+	}
 	if req.Year != nil {
 		year = *req.Year
+	}
+	if !a.perms["reports:write_any"] && (req.Month != prevMonth || year != prevYear) {
+		return nil, ErrPeriodNotAllowed
 	}
 
 	var rep *model.Report

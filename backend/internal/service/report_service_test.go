@@ -77,7 +77,7 @@ func TestReportService_Create(t *testing.T) {
 	f := newFixture()
 
 	t.Run("defaults year, writes one audit row without narrative text", func(t *testing.T) {
-		got, err := f.svc.Create(ctx, alice, "10.0.0.1", req("January"))
+		got, err := f.svc.Create(ctx, alice, "10.0.0.1", req("April"))
 		require.NoError(t, err)
 		assert.Equal(t, 2026, got.Year)
 
@@ -88,21 +88,21 @@ func TestReportService_Create(t *testing.T) {
 		assert.Equal(t, "Report", e.TargetType)
 		assert.Equal(t, "user", *e.PerformedByRole)
 		assert.Equal(t, "10.0.0.1", *e.IPAddress)
-		assert.Equal(t, map[string]any{"month": "January", "year": 2026, "count": 1}, e.Details)
+		assert.Equal(t, map[string]any{"month": "April", "year": 2026, "count": 1}, e.Details)
 	})
 
 	t.Run("explicit year wins", func(t *testing.T) {
 		y := 2024
 		r := req("January")
 		r.Year = &y
-		got, err := f.svc.Create(ctx, alice, "", r)
+		got, err := f.svc.Create(ctx, bob, "", r)
 		require.NoError(t, err)
 		assert.Equal(t, 2024, got.Year)
 	})
 
 	t.Run("duplicate period is ErrReportExists and writes no audit row", func(t *testing.T) {
 		before := len(f.audit.Entries())
-		_, err := f.svc.Create(ctx, alice, "", req("January"))
+		_, err := f.svc.Create(ctx, alice, "", req("April"))
 		require.ErrorIs(t, err, ErrReportExists)
 		assert.Len(t, f.audit.Entries(), before)
 	})
@@ -111,7 +111,7 @@ func TestReportService_Create(t *testing.T) {
 		boom := errors.New("boom")
 		f.audit.InsertFunc = func(context.Context, repository.Querier, model.AuditLog) error { return boom }
 		defer func() { f.audit.InsertFunc = nil }()
-		_, err := f.svc.Create(ctx, alice, "", req("February"))
+		_, err := f.svc.Create(ctx, bob, "", req("February"))
 		require.ErrorIs(t, err, boom)
 	})
 
@@ -121,18 +121,63 @@ func TestReportService_Create(t *testing.T) {
 	})
 }
 
+func TestReportService_CreatePeriod(t *testing.T) {
+	ctx := context.Background()
+	at := func(f fixture, t time.Time) { f.svc.now = func() time.Time { return t } }
+
+	t.Run("user may file only the previous month in Asia/Manila", func(t *testing.T) {
+		f := newFixture()
+		// 17:00 UTC on 31 May is already 1 June in Manila.
+		at(f, time.Date(2026, 5, 31, 17, 0, 0, 0, time.UTC))
+		_, err := f.svc.Create(ctx, alice, "", req("April"))
+		require.ErrorIs(t, err, ErrPeriodNotAllowed)
+		assert.Empty(t, f.audit.Entries(), "a rejected report writes no audit row")
+		got, err := f.svc.Create(ctx, alice, "", req("May"))
+		require.NoError(t, err)
+		assert.Equal(t, 2026, got.Year)
+	})
+
+	t.Run("1 January in Manila means December of the previous year", func(t *testing.T) {
+		f := newFixture()
+		at(f, time.Date(2025, 12, 31, 16, 0, 0, 0, time.UTC)) // 00:00 on 1 Jan, Manila
+		got, err := f.svc.Create(ctx, alice, "", req("December"))
+		require.NoError(t, err)
+		assert.Equal(t, 2025, got.Year, "a missing year follows the previous month")
+
+		y := 2026
+		r := req("December")
+		r.Year = &y
+		_, err = f.svc.Create(ctx, alice, "", r)
+		require.ErrorIs(t, err, ErrPeriodNotAllowed, "right month, wrong year")
+	})
+
+	t.Run("a user cannot file the current month, a future month or an older year", func(t *testing.T) {
+		f := newFixture() // 1 May: previous month is April
+		for _, m := range []string{"May", "June", "March"} {
+			_, err := f.svc.Create(ctx, alice, "", req(m))
+			require.ErrorIs(t, err, ErrPeriodNotAllowed, m)
+		}
+	})
+
+	t.Run("write_any may file late", func(t *testing.T) {
+		f := newFixture()
+		_, err := f.svc.Create(ctx, bob, "", req("January"))
+		require.NoError(t, err)
+	})
+}
+
 func TestReportService_Ownership(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
-	mine, err := f.svc.Create(ctx, alice, "", req("January"))
+	mine, err := f.svc.Create(ctx, alice, "", req("April"))
 	require.NoError(t, err)
-	theirs, err := f.svc.Create(ctx, bob, "", req("January"))
+	theirs, err := f.svc.Create(ctx, bob, "", req("April"))
 	require.NoError(t, err)
 
 	t.Run("another user's report is 404 on get, update and delete", func(t *testing.T) {
 		_, err := f.svc.Get(ctx, alice, theirs.ID)
 		require.ErrorIs(t, err, ErrReportNotFound)
-		_, err = f.svc.Update(ctx, alice, "", theirs.ID, model.UpdateReportRequest(req("January")))
+		_, err = f.svc.Update(ctx, alice, "", theirs.ID, model.UpdateReportRequest(req("April")))
 		require.ErrorIs(t, err, ErrReportNotFound)
 		require.ErrorIs(t, f.svc.Delete(ctx, alice, "", theirs.ID), ErrReportNotFound)
 	})
@@ -146,7 +191,7 @@ func TestReportService_Ownership(t *testing.T) {
 		got, err := f.svc.Get(ctx, bob, mine.ID)
 		require.NoError(t, err)
 		assert.Equal(t, mine.ID, got.ID)
-		_, err = f.svc.Update(ctx, bob, "", mine.ID, model.UpdateReportRequest(req("January")))
+		_, err = f.svc.Update(ctx, bob, "", mine.ID, model.UpdateReportRequest(req("April")))
 		require.NoError(t, err)
 	})
 
@@ -177,12 +222,12 @@ func TestReportService_Update(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
 	v1, v2 := json.Number("1"), json.Number("2")
-	first := req("January")
+	first := req("April")
 	first.Metrics = map[string]model.MetricWeeks{"outreach": {Week1: &v1}}
 	created, err := f.svc.Create(ctx, alice, "", first)
 	require.NoError(t, err)
 
-	upd := model.UpdateReportRequest(req("January"))
+	upd := model.UpdateReportRequest(req("April"))
 	upd.Worker = "" // empty string clears the field (D-8)
 	upd.Metrics = map[string]model.MetricWeeks{"training": {Week2: &v2}}
 	got, err := f.svc.Update(ctx, alice, "", created.ID, upd)
@@ -196,9 +241,10 @@ func TestReportService_Update(t *testing.T) {
 	_, err = f.svc.Update(ctx, alice, "", 9999, upd)
 	require.ErrorIs(t, err, ErrReportNotFound)
 
-	_, err = f.svc.Create(ctx, alice, "", req("February"))
+	f.svc.now = func() time.Time { return time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC) }
+	_, err = f.svc.Create(ctx, alice, "", req("May"))
 	require.NoError(t, err)
-	upd.Month = "February"
+	upd.Month = "May"
 	_, err = f.svc.Update(ctx, alice, "", created.ID, upd)
 	require.ErrorIs(t, err, ErrReportExists)
 }
@@ -206,7 +252,7 @@ func TestReportService_Update(t *testing.T) {
 func TestReportService_ToggleComplete(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
-	created, err := f.svc.Create(ctx, alice, "", req("January"))
+	created, err := f.svc.Create(ctx, alice, "", req("April"))
 	require.NoError(t, err)
 
 	// bob approves alice's report; the result is metadata only, never report text

@@ -46,6 +46,9 @@ func reportError(err error, msg string) error {
 		return apperror.NotFound("report not found")
 	case errors.Is(err, service.ErrReportExists):
 		return apperror.Conflict(service.ErrReportExists.Error())
+	case errors.Is(err, service.ErrPeriodNotAllowed):
+		msg := "Reports can only be created for the previous month."
+		return apperror.Validation(msg).WithDetails(map[string]string{"month": msg})
 	case errors.Is(err, repository.ErrNotFound):
 		return apperror.Unauthorized("user not found")
 	}

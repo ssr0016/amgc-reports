@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
@@ -53,6 +54,18 @@ type runTx struct{}
 
 func (runTx) WithTx(_ context.Context, fn func(repository.Querier) error) error { return fn(nil) }
 
+// previousMonthBody is a create body for the month a plain user may file, so the
+// seed POST passes the previous-month rule whatever day the tests run (D-F8).
+func previousMonthBody() string {
+	loc, err := time.LoadLocation("Asia/Manila")
+	if err != nil {
+		panic(err)
+	}
+	t := time.Now().In(loc)
+	prev := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, -1, 0)
+	return `{"month":"` + model.Months[prev.Month()-1] + `"}`
+}
+
 // ownershipServer wires the real routes, handler and ReportService over in-memory
 // repositories, so the ownership rule is exercised through HTTP. Unlike
 // reportsServer it has no stub service.
@@ -90,7 +103,7 @@ func ownershipServer() *echo.Echo {
 // only read_any (the seeded user role) can read it but not change or approve it.
 func TestReportsOwnership(t *testing.T) {
 	const report = "/api/v1/reports/1"
-	body := `{"month":"May"}`
+	body := previousMonthBody()
 	cases := []struct {
 		name, user, method, body string
 		want                     int
@@ -139,7 +152,7 @@ func TestReportsList_ReadAny(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			e := ownershipServer()
-			if got := reportRequestAs(e, http.MethodPost, "/api/v1/reports", `{"month":"May"}`, ownerUser); got != http.StatusCreated {
+			if got := reportRequestAs(e, http.MethodPost, "/api/v1/reports", previousMonthBody(), ownerUser); got != http.StatusCreated {
 				t.Fatalf("seed POST: status = %d, want 201", got)
 			}
 			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/reports", strings.NewReader(""))

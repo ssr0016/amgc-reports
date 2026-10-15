@@ -200,7 +200,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 - `NewAuthService` still takes a verification service it no longer uses; remove the parameter in a cleanup.
 - `01-PRD.md`, `02-App-Flow.md`, `03-Tech-Stack.md` and `06-Implementation-Plan.md` still describe self-registration (FR-AUTH-01, the middleware table, the rate-limit notes); they are analysis documents and have not been rewritten.
 
-**Also pending.** The previous-month rule is enforced in the UI only (`/reports/new` locks the period); the API still accepts any month. Doing it in the backend needs decisions on the server timezone, whether admins may file late reports, and the integration tests that create reports for arbitrary months. F8 is done: the `/` redirect and the app header, and Delete with a confirm dialog in the list (the planned detail page was dropped). F9 is done: Approve and Unapprove in the list, with an optimistic update and `sonner` toasts.
+**Also pending.** The previous-month rule is now enforced by the API on create as well (D-F8 in 07): Asia/Manila time, `reports:write_any` may file late, edit is not restricted. F8 is done: the `/` redirect and the app header, and Delete with a confirm dialog in the list (the planned detail page was dropped). F9 is done: Approve and Unapprove in the list, with an optimistic update and `sonner` toasts.
 
 ### F14 details (added 2026-10-14)
 

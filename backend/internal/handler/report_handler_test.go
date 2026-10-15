@@ -136,6 +136,18 @@ func TestReportHandler_ErrorMapping(t *testing.T) {
 	}
 }
 
+// The form maps details["month"] onto the month field.
+func TestReportHandler_PeriodNotAllowedIs422WithMonthDetail(t *testing.T) {
+	f := &fakeReportSvc{err: fmt.Errorf("x: %w", service.ErrPeriodNotAllowed)}
+	rec, body := serveReport(t, f, 5, http.MethodPost, "/reports", validBody)
+	if rec.Code != 422 || body.Error != "VALIDATION_ERROR" {
+		t.Errorf("got %d %q, want 422 VALIDATION_ERROR", rec.Code, body.Error)
+	}
+	if !strings.Contains(rec.Body.String(), `"month":"Reports can only be created for the previous month."`) {
+		t.Errorf("body = %s", rec.Body.String())
+	}
+}
+
 func TestReportHandler_NoSessionIs401(t *testing.T) {
 	rec, _ := serveReport(t, &fakeReportSvc{}, 0, http.MethodGet, "/reports/7", "")
 	if rec.Code != http.StatusUnauthorized {
