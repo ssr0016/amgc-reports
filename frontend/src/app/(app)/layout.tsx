@@ -33,11 +33,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         Skip to main content
       </a>
       <header className="border-b">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 p-4">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4">
           <Link href={HOME} className="font-semibold tracking-tight">
             AMGCReports
           </Link>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
             {isAdmin && (
               <Link href="/admin/users" className="hover:underline">
                 Users

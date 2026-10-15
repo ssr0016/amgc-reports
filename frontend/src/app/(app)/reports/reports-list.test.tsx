@@ -238,6 +238,29 @@ describe("reports list: delete", () => {
     await waitFor(() => expect(h.listReports).toHaveBeenCalledTimes(2));
   });
 
+  // WCAG 2.4.3: the dialog has no trigger element, so without help focus falls to the page body.
+  it("Escape closes the dialog and gives focus back to the Delete button that opened it", async () => {
+    const { user } = renderList(...mine);
+    await screen.findByText("Worker 1");
+    const open = within(row("Worker 1")).getByRole("button", { name: /^Delete / });
+    await user.click(open);
+    await screen.findByRole("alertdialog");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(open).toHaveFocus();
+  });
+
+  it("after a delete the row is gone, so focus goes to the main content", async () => {
+    h.deleteReport.mockResolvedValue(undefined);
+    h.listReports.mockResolvedValueOnce(page([report(1, 1), report(2, 2)])).mockResolvedValue(page([report(2, 2)]));
+    const { user } = renderList(...mine);
+    await screen.findByText("Worker 1");
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByText("Worker 1")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("main")).toHaveFocus());
+  });
+
   it("Cancel closes the dialog without deleting", async () => {
     const { user } = renderList(...mine);
     await screen.findByText("Worker 1");

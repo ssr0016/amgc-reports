@@ -22,7 +22,8 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: "next dev -p 3001",
+      // A stale .next-e2e cache once served CSS from before an edit, so start from nothing.
+      command: "rm -rf .next-e2e && next dev -p 3001",
       url: "http://localhost:3001/login",
       timeout: 120_000,
       reuseExistingServer: false,

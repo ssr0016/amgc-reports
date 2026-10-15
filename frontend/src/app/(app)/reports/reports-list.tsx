@@ -86,6 +86,9 @@ function ReportsList() {
   const [target, setTarget] = useState<{ id: number; period: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  // The dialog is controlled and has no trigger element, so Radix cannot return focus
+  // by itself: remember the Delete button that opened it (WCAG 2.4.3).
+  const opener = useRef<HTMLElement | null>(null);
 
   async function confirmDelete() {
     if (!target) return;
@@ -324,7 +327,8 @@ function ReportsList() {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => {
+                            onClick={(e) => {
+                              opener.current = e.currentTarget;
                               setDeleteError("");
                               setTarget({ id: r.id, period: `${r.month} ${r.year}` });
                             }}
@@ -363,7 +367,13 @@ function ReportsList() {
       )}
 
       <AlertDialog open={target !== null} onOpenChange={(open) => !open && !deleting && setTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            // After a delete the row is gone; the main content is the next best place.
+            (opener.current?.isConnected ? opener.current : document.getElementById("main-content"))?.focus();
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {target?.period}?</AlertDialogTitle>
             <AlertDialogDescription>You can file this month again afterwards.</AlertDialogDescription>

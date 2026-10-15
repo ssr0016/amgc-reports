@@ -38,7 +38,9 @@ export default function LoginPage() {
     <main className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Sign in</CardTitle>
+          <CardTitle className="text-xl">
+            <h1>Sign in</h1>
+          </CardTitle>
           <CardDescription>Use the account your admin gave you.</CardDescription>
         </CardHeader>
         <CardContent>

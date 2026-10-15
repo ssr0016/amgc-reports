@@ -96,7 +96,7 @@ Rate limits to know: reports writes are 60 per minute with a burst of 10, per si
 
 - **Unit (Vitest, `src/lib`):** API client (CSRF fetch, reuse and retry, 401 handling, 429 parsing, error mapping), session provider, number and metric handling, form rules, `safeNext`, `defaultPeriod` at the Asia/Manila month boundary. Coverage gate: 80% on `src/lib/**` only.
 - **Component (Testing Library):** `Can`, `ReportForm` (validation, locked period, 409, 422 and 429 handling, unsaved-edit guard) and the reports list (filters and pagination, ownership-gated Edit, View and Delete, approve with rollback, delete dialog). The other components are shadcn wrappers and page shells and are not tested on their own.
-- **End to end (Playwright):** against a local backend and a fresh Postgres database: login and logout, the login rate limit, create, duplicate (409), edit, the user's late report (422), editor and admin filing late, approve (admin only: 403 for editor and user), delete. Self-registration was removed, so there is no register flow. Runs in CI as the `e2e` job (F12).
+- **End to end (Playwright):** against a local backend and a fresh Postgres database: login and logout, the login rate limit, create, duplicate (409), edit, the user's late report (422), editor and admin filing late, approve (admin only: 403 for editor and user), delete. Self-registration was removed, so there is no register flow. Runs in CI as the `e2e` job (F12). `e2e/a11y.spec.ts` adds axe scans (WCAG 2.x A and AA plus best practices) in light and dark themes, keyboard flows, page titles, reduced motion and 320 px reflow (F13).
 - **Contract:** types generated from `swagger.json` (convert Swagger 2.0 to OpenAPI 3 first) and checked in CI so a backend change breaks the build, not the user.
 - **Production smoke:** with a dedicated test account and fake data (audit rows are permanent).
 
@@ -127,7 +127,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 | F10 | Error UX across screens (409, 422 mapping, 429 countdown, network) and admin users screens (list, create, edit). **Delivered** (commits 47a65c5, ad19ac0 and the admin pages commit) | 5 |
 | F11 | Tests: unit 6, component 6, Playwright 10. **Delivered** (commits ee9fae5, f244d87, b0398c2; details below) | 22 |
 | F12 | CI: typecheck, tests, Playwright with Postgres. **Written, not yet run in CI** (see F12 details) | 4 |
-| F13 | Accessibility and responsive polish | 6 |
+| F13 | Accessibility and responsive polish. **Delivered** (commits c461449, f210bb3, 0fed379 and the reduced-motion and axe commit; details below) | 6 |
 | F14 | Production smoke test and fixes | 2 |
 | | **Total** | **93** |
 
@@ -228,6 +228,33 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 The `frontend` job in `.github/workflows/ci.yml` gains `npm run test:cov` (Vitest with the 80% gate on `src/lib`) before the build. A new `e2e` job runs Playwright: Postgres is a `services:` container on port 5440 (the port the local `pastoral-test-pg` uses, so one script serves both); `start-backend.sh` recreates the `pastoral_e2e` database in it and the API migrates and seeds it on start, so no separate migration step or `docker exec` is needed. Go and Node are set up with their caches. The Chromium download is cached in `~/.cache/ms-playwright`, keyed by the hash of `package-lock.json` (which pins the Playwright version, so any dependency change re-downloads; keying on the Playwright version alone would need a lookup step). System libraries are not part of that cache, so they are installed on every run: `install --with-deps` on a cache miss, `install-deps` on a hit. On failure the HTML report and traces are uploaded as an artifact for 7 days. `forbidOnly` is on in CI, and there are no retries: a flaky spec should fail loudly. The job is independent of the Go jobs and is not a dependency of `build`.
 
 **Not verified locally.** The workflow was checked only as valid YAML, and the script by running it with no `backend/.env` and a bare environment (health answered 200). The first push is the real test; things to look at if it fails: `psql` on the runner, the 120 s `next dev` start-up timeout, and Chromium system libraries.
+
+### F13 details (added 2026-10-15)
+
+**Method.** An audit of the code, theme contrast computed from the real tokens, then `e2e/a11y.spec.ts`: axe (`@axe-core/playwright`, tags wcag2a, wcag2aa, wcag21a, wcag21aa, wcag22aa, best-practice) on login, the reports list with a row, the open delete dialog, the users screens, the new report form and a read-only report, each in light and dark; plus keyboard flows, page titles, reduced motion and reflow at 320 px (also scanned with axe). The Next dev overlay (`nextjs-portal`) is excluded from the scans. Because it runs in the `e2e` job, an accessibility regression now breaks CI.
+
+**Fixed.**
+- **Contrast.** The light focus ring was 2.59:1 against white; `--ring` is now `oklch(0.556)` (4.73:1), so the focus border passes 3:1. The Approve button was white on green-600 (3.30:1); it is green-700 (5.02:1). The destructive button's red text on its own tint failed in both themes (axe); the variant now uses `text-red-800` and `dark:text-red-300`, with the tint unchanged. The variant's weak `border-destructive/40` focus override is gone, so it gets the same focus border as every other control. `src/lib/theme.test.ts` reads `globals.css` and checks ring and text contrast in both themes.
+- **Names.** Every row action says which report or user it is for ("Edit April 2026, Ana"), through visually hidden text. A space has to sit outside that span (`{" "}`): inside it the accessible name came out as "EditApril 2026".
+- **Structure.** Each page has a title (`%s · AMGCReports`), a skip link starts the app layout and each `<main>` is its target, and the login page has an `<h1>` (its title was a `div`, so the page had no heading).
+- **Focus and announcements.** A failed submit moves focus to the first invalid control (`useFocusFirstError`). A 409 on a report's locked month has no focusable field, so focus goes to its message; before this it was neither focused nor announced. Loading text, empty states and the list's page summary are `role="status"`. The password toggle keeps one label and uses `aria-pressed`. A metric's error is linked to its input with `aria-describedby`. The delete dialog is controlled and has no trigger, so Radix could not return focus: it now goes back to the Delete button that opened it, or to the main content after a delete.
+- **Motion and reflow.** A `prefers-reduced-motion` block turns animations and transitions off. At 320 px the header overflowed (355 px for an admin); it now wraps.
+
+**Decisions.** `--input` (field borders, 1.26:1 against white) is left as it is: WCAG 1.4.11 asks for 3:1, but it would make every field heavier. This is a known gap. `--ring` was darkened for every control in light mode. Row-action wording is "Verb Month Year, Worker".
+
+**Known gaps and limits.**
+- Field borders are below 3:1 (above).
+- `muted-foreground` on a muted or secondary background is 4.34:1. Axe found no element using that pair, so it is untouched; `theme.test.ts` only guards text on the page background.
+- Axe cannot judge reading order, focus visibility or what a screen reader says. Nothing here was tested with NVDA, JAWS or VoiceOver, nor at 200% zoom or with custom text spacing by eye.
+- Login errors rely on their `role="alert"` message and do not move focus.
+- A metric-level error from the server (shown under the metric name, not under a week) is not linked to its inputs; the summary alert lists it.
+- Axe runs only on the pages and states listed above.
+
+**Lessons.**
+- Alpha tints must be blended in gamma-encoded sRGB, as the browser does. Blending in linear light gave 4.39:1 for the destructive button; the true value was 3.99:1, and axe caught it.
+- Axe's color-contrast check measures the real background, so a button inside the dialog footer (`bg-muted/50`) failed in dark where the same button in the table did not.
+- A stale `.next-e2e` build cache once served CSS from before an edit, and a rule looked ineffective. The E2E server now starts with `rm -rf .next-e2e`.
+- A new `layout.tsx` makes the generated `.next/dev/types` stale and `tsc` fails until `next typegen` runs (`npm run typecheck` does it).
 
 ### F14 details (added 2026-10-14)
 
