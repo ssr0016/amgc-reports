@@ -34,7 +34,7 @@ func (m meRoles) GetPermissions(context.Context, int64) ([]model.Permission, err
 func serveMe(t *testing.T, users *repository.MockUserRepo, perms []string, userID int64) *httptest.ResponseRecorder {
 	t.Helper()
 	sm := scs.New()
-	h := NewAuthHandler(service.NewAuthService(users, meRoles{perms: perms}, nil, nil), sm)
+	h := NewAuthHandler(service.NewAuthService(users, meRoles{perms: perms}, nil, nil, nil, nil), sm)
 
 	e := echo.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler

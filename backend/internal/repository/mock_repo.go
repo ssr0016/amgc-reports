@@ -16,19 +16,20 @@ type MockUserRepo struct {
 	nextID int64
 
 	// Override functions for testing specific behaviors
-	GetByIDFunc            func(ctx context.Context, id int64) (*model.User, error)
-	GetByEmailFunc         func(ctx context.Context, email string) (*model.User, error)
-	CreateWithPasswordFunc func(ctx context.Context, email, name, hash string) (*model.User, error)
-	CreateFunc             func(ctx context.Context, q Querier, n model.NewUser) (*model.User, error)
-	UpdateProfileFunc      func(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error)
-	ListFunc               func(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
-	UpdateRoleFunc         func(ctx context.Context, userID, roleID int64) error
-	GetWithRoleFunc        func(ctx context.Context, id int64) (*model.User, error)
-	ListWithPaginationFunc func(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
-	MarkEmailVerifiedFunc  func(ctx context.Context, userID int64) error
-	UpdatePasswordFunc     func(ctx context.Context, userID int64, hash string) error
-	RecordFailedLoginFunc  func(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
-	ResetLoginAttemptsFunc func(ctx context.Context, userID int64) error
+	GetByIDFunc                   func(ctx context.Context, id int64) (*model.User, error)
+	GetByEmailFunc                func(ctx context.Context, email string) (*model.User, error)
+	CreateWithPasswordFunc        func(ctx context.Context, email, name, hash string) (*model.User, error)
+	CreateFunc                    func(ctx context.Context, q Querier, n model.NewUser) (*model.User, error)
+	UpdateProfileFunc             func(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error)
+	ListFunc                      func(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
+	UpdateRoleFunc                func(ctx context.Context, userID, roleID int64) error
+	GetWithRoleFunc               func(ctx context.Context, id int64) (*model.User, error)
+	ListWithPaginationFunc        func(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
+	MarkEmailVerifiedFunc         func(ctx context.Context, userID int64) error
+	UpdatePasswordFunc            func(ctx context.Context, userID int64, hash string) error
+	UpdatePasswordKeepSessionFunc func(ctx context.Context, q Querier, userID int64, hash, keepToken string) (int64, error)
+	RecordFailedLoginFunc         func(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
+	ResetLoginAttemptsFunc        func(ctx context.Context, userID int64) error
 }
 
 // NewMockUserRepo creates a new mock repository.
@@ -217,6 +218,14 @@ func (m *MockUserRepo) UpdatePassword(ctx context.Context, userID int64, hash st
 	}
 	user.PasswordHash = hash
 	return nil
+}
+
+// UpdatePasswordKeepSession sets the password (mock); the mock has no sessions, so it ends none.
+func (m *MockUserRepo) UpdatePasswordKeepSession(ctx context.Context, q Querier, userID int64, hash, keepToken string) (int64, error) {
+	if m.UpdatePasswordKeepSessionFunc != nil {
+		return m.UpdatePasswordKeepSessionFunc(ctx, q, userID, hash, keepToken)
+	}
+	return 0, m.UpdatePassword(ctx, userID, hash)
 }
 
 // RecordFailedLogin increments failed attempts (mock).

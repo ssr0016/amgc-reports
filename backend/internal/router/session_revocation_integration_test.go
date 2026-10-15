@@ -58,7 +58,7 @@ func TestResetPassword_EndsExistingSession(t *testing.T) {
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	Setup(e, sm, users, nil,
-		handler.NewAuthHandler(service.NewAuthService(users, repository.NewRoleRepo(db), nil, log), sm),
+		handler.NewAuthHandler(service.NewAuthService(users, repository.NewRoleRepo(db), nil, nil, nil, log), sm),
 		nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil),
 		handler.NewPasswordResetHandler(service.NewPasswordResetService(users, resets, log)),

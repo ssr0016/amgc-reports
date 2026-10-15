@@ -370,6 +370,39 @@ func (r *UserRepo) UpdatePassword(ctx context.Context, userID int64, hash string
 	return nil
 }
 
+// UpdatePasswordKeepSession sets the password and revokes the user's sessions
+// except keepToken, the one the user is changing it from. It runs on q, so the
+// caller can put it in one transaction with the audit row, and it returns how
+// many sessions it ended. A missing user is ErrNotFound and revokes nothing.
+// UpdatePassword, by contrast, ends every session (used when the user is not signed in).
+func (r *UserRepo) UpdatePasswordKeepSession(ctx context.Context, q Querier, userID int64, hash, keepToken string) (int64, error) {
+	query, args, err := r.db.Builder.
+		Update("users").
+		Set("password_hash", hash).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": userID}).
+		ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build query: %w", err)
+	}
+	result, err := q.Exec(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("update password: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return 0, fmt.Errorf("users: %w", ErrNotFound)
+	}
+
+	// A tombstone, not a delete: see the session store.
+	revoked, err := q.Exec(ctx,
+		`UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND token <> $2 AND revoked_at IS NULL`,
+		userID, keepToken)
+	if err != nil {
+		return 0, fmt.Errorf("revoke sessions: %w", err)
+	}
+	return revoked.RowsAffected(), nil
+}
+
 // RecordFailedLogin increments failed_login_attempts and locks account if threshold reached.
 func (r *UserRepo) RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error {
 	query, args, err := r.db.Builder.

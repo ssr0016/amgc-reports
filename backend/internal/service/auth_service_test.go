@@ -39,7 +39,7 @@ func seedUser(t *testing.T, repo *repository.MockUserRepo, email, name string) *
 
 func TestAuthService_Login_Success(t *testing.T) {
 	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo, nil, nil, discardLog)
+	svc := NewAuthService(repo, nil, nil, nil, nil, discardLog)
 
 	registered := seedUser(t, repo, "login@example.com", "Login User")
 
@@ -54,7 +54,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 func TestAuthService_Login_UserNotFound(t *testing.T) {
 	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo, nil, nil, discardLog)
+	svc := NewAuthService(repo, nil, nil, nil, nil, discardLog)
 
 	_, err := svc.Login(context.Background(), "nobody@example.com", testPassword)
 	if !errors.Is(err, ErrInvalidCredentials) {
@@ -64,7 +64,7 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 
 func TestAuthService_Login_WrongPassword(t *testing.T) {
 	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo, nil, nil, discardLog)
+	svc := NewAuthService(repo, nil, nil, nil, nil, discardLog)
 
 	seedUser(t, repo, "wrong@example.com", "Wrong User")
 
@@ -79,7 +79,7 @@ func TestAuthService_Login_RepoError(t *testing.T) {
 	repo.GetByEmailFunc = func(ctx context.Context, email string) (*model.User, error) {
 		return nil, errors.New("db error")
 	}
-	svc := NewAuthService(repo, nil, nil, discardLog)
+	svc := NewAuthService(repo, nil, nil, nil, nil, discardLog)
 
 	_, err := svc.Login(context.Background(), "err@example.com", testPassword)
 	if err == nil {
@@ -117,7 +117,7 @@ func TestAuthService_Login_LogsTrackingFailures(t *testing.T) {
 			var buf bytes.Buffer
 			log := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 			repo := repository.NewMockUserRepo()
-			svc := NewAuthService(repo, nil, nil, log)
+			svc := NewAuthService(repo, nil, nil, nil, nil, log)
 
 			registered := seedUser(t, repo, "track@example.com", "Track")
 			tt.configure(repo)
@@ -159,7 +159,7 @@ func TestAuthService_Me(t *testing.T) {
 		return nil, nil
 	}
 	roles := stubRoles{perms: map[int64][]string{20: {"reports:approve", "reports:read"}}}
-	svc := NewAuthService(users, roles, nil, discardLog)
+	svc := NewAuthService(users, roles, nil, nil, nil, discardLog)
 	ctx := context.Background()
 
 	t.Run("role and permissions", func(t *testing.T) {

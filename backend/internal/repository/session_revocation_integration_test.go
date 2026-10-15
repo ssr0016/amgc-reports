@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -111,4 +112,70 @@ func TestUserRepo_UpdatePassword_RollbackOnRevokeFailure(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "oldhash", got.PasswordHash, "the password changed although the revocation failed")
 	assert.Equal(t, 1, liveSessions(t, tdb, a.ID))
+}
+
+// A signed-in user changing their own password ends their other sessions but
+// keeps the one they are using, and reports how many it ended.
+func TestUserRepo_UpdatePasswordKeepSession(t *testing.T) {
+	users, tdb := setupSessions(t)
+	ctx := context.Background()
+	a, err := users.CreateWithPassword(ctx, "a@example.com", "A", "oldhash")
+	require.NoError(t, err)
+	b, err := users.CreateWithPassword(ctx, "b@example.com", "B", "hash")
+	require.NoError(t, err)
+	addSession(t, tdb, "a-here", a.ID)
+	addSession(t, tdb, "a-phone", a.ID)
+	addSession(t, tdb, "a-laptop", a.ID)
+	addSession(t, tdb, "b1", b.ID)
+
+	ended, err := users.UpdatePasswordKeepSession(ctx, tdb.Pool, a.ID, "newhash", "a-here")
+
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, ended)
+	got, err := users.GetByEmail(ctx, "a@example.com")
+	require.NoError(t, err)
+	assert.Equal(t, "newhash", got.PasswordHash)
+	assert.Equal(t, 1, liveSessions(t, tdb, a.ID), "only the current session should be left")
+	var kept string
+	require.NoError(t, tdb.Pool.QueryRow(ctx,
+		`SELECT token FROM sessions WHERE user_id = $1 AND revoked_at IS NULL`, a.ID).Scan(&kept))
+	assert.Equal(t, "a-here", kept)
+	assert.Equal(t, 1, liveSessions(t, tdb, b.ID), "another user's session was revoked")
+}
+
+func TestUserRepo_UpdatePasswordKeepSession_MissingUser(t *testing.T) {
+	users, tdb := setupSessions(t)
+	ctx := context.Background()
+	b, err := users.CreateWithPassword(ctx, "b@example.com", "B", "hash")
+	require.NoError(t, err)
+	addSession(t, tdb, "b1", b.ID)
+
+	_, err = users.UpdatePasswordKeepSession(ctx, tdb.Pool, 99999, "newhash", "x")
+
+	require.ErrorIs(t, err, ErrNotFound)
+	assert.Equal(t, 1, liveSessions(t, tdb, b.ID))
+}
+
+// Run inside the caller's transaction, a failure to revoke rolls the password back with it.
+func TestUserRepo_UpdatePasswordKeepSession_RollsBackWithItsTransaction(t *testing.T) {
+	users, tdb := setupSessions(t)
+	ctx := context.Background()
+	a, err := users.CreateWithPassword(ctx, "a@example.com", "A", "oldhash")
+	require.NoError(t, err)
+	addSession(t, tdb, "a-here", a.ID)
+	addSession(t, tdb, "a-phone", a.ID)
+
+	boom := errors.New("audit failed")
+	err = WithTx(ctx, tdb.Pool, func(q Querier) error {
+		if _, err := users.UpdatePasswordKeepSession(ctx, q, a.ID, "newhash", "a-here"); err != nil {
+			return err
+		}
+		return boom // what a failed audit insert would do
+	})
+
+	require.ErrorIs(t, err, boom)
+	got, err := users.GetByEmail(ctx, "a@example.com")
+	require.NoError(t, err)
+	assert.Equal(t, "oldhash", got.PasswordHash)
+	assert.Equal(t, 2, liveSessions(t, tdb, a.ID), "the revocation survived the rollback")
 }

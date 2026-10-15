@@ -205,11 +205,12 @@ func run() error {
 	reportRepo := repository.NewReportRepo(db)
 	auditRepo := repository.NewAuditRepo(db)
 
+	txManager := repository.NewTxManager(db.Pool)
+
 	// Services
 	verificationService := service.NewVerificationService(userRepo, verificationRepo, log)
-	authService := service.NewAuthService(userRepo, roleRepo, verificationService, log)
+	authService := service.NewAuthService(userRepo, roleRepo, verificationService, auditRepo, txManager, log)
 	passwordResetService := service.NewPasswordResetService(userRepo, passwordResetRepo, log)
-	txManager := repository.NewTxManager(db.Pool)
 	reportService := service.NewReportService(reportRepo, auditRepo, txManager, db.Pool, userRepo, roleRepo)
 	userService := service.NewUserService(userRepo, roleRepo, auditRepo, txManager)
 

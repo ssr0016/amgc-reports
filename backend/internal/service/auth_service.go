@@ -18,17 +18,25 @@ var (
 	ErrEmailTaken         = errors.New("email already taken")
 	ErrUnauthorized       = errors.New("unauthorized")
 	ErrAccountLocked      = errors.New("account is locked, try again later")
+	// ErrPasswordUnchanged: the new password equals the current one.
+	ErrPasswordUnchanged = errors.New("new password must differ from the current one")
+	// ErrPasswordTooLong: bcrypt reads 72 bytes and no more, so a longer password
+	// would be silently cut. It counts bytes, not characters.
+	ErrPasswordTooLong = errors.New("password must be at most 72 bytes")
 )
 
 const (
 	maxFailedLoginAttempts = 5
 	lockoutDuration        = 15 * time.Minute
+	maxPasswordBytes       = 72
 )
 
 type AuthService struct {
 	userRepo            repository.UserRepository
 	roleRepo            repository.RoleRepository // for Me; nil in callers that never call it
 	verificationService *VerificationService
+	audit               repository.AuditRepository // for ChangePassword; nil in callers that never call it
+	tx                  repository.TxRunner        // likewise
 	log                 *slog.Logger
 }
 
@@ -36,12 +44,16 @@ func NewAuthService(
 	userRepo repository.UserRepository,
 	roleRepo repository.RoleRepository,
 	verificationService *VerificationService,
+	audit repository.AuditRepository,
+	tx repository.TxRunner,
 	log *slog.Logger,
 ) *AuthService {
 	return &AuthService{
 		userRepo:            userRepo,
 		roleRepo:            roleRepo,
 		verificationService: verificationService,
+		audit:               audit,
+		tx:                  tx,
 		log:                 log,
 	}
 }
@@ -108,6 +120,64 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 	}
 
 	return user, nil
+}
+
+// ChangePassword changes the signed-in user's own password. keepToken is the
+// session they are using; their other sessions end with the change.
+//
+// The current password is checked against the same failure counter as login, so
+// a stolen session cannot use this to guess it. The "same as current" rule
+// is applied only after the current password is verified: before that, its
+// answer would tell the caller what the current password is.
+func (s *AuthService) ChangePassword(ctx context.Context, userID int64, ip, keepToken, current, next string) error {
+	user, err := s.userRepo.GetWithRole(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+	if user == nil {
+		return ErrUnauthorized
+	}
+	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
+		return ErrAccountLocked
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(current)); err != nil {
+		if err := s.userRepo.RecordFailedLogin(ctx, user.ID, maxFailedLoginAttempts, lockoutDuration); err != nil {
+			s.log.Warn("failed to record failed login", "user_id", user.ID, "error", err)
+		}
+		return ErrInvalidCredentials
+	}
+	if err := s.userRepo.ResetLoginAttempts(ctx, user.ID); err != nil {
+		s.log.Warn("failed to reset login attempts", "user_id", user.ID, "error", err)
+	}
+
+	if next == current {
+		return ErrPasswordUnchanged
+	}
+	if len(next) > maxPasswordBytes {
+		return ErrPasswordTooLong
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(next), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+		ended, err := s.userRepo.UpdatePasswordKeepSession(ctx, q, user.ID, string(hash), keepToken)
+		if err != nil {
+			return err
+		}
+		return s.audit.Insert(ctx, q, userAudit(user, ip, model.AuditChangePassword, user,
+			map[string]any{"sessions_ended": ended}))
+	})
+	if errors.Is(err, repository.ErrNotFound) {
+		return ErrUnauthorized // the user was deleted meanwhile
+	}
+	if err != nil {
+		return fmt.Errorf("change password: %w", err)
+	}
+	s.log.Info("password changed", "user_id", user.ID)
+	return nil
 }
 
 func deref(s *string) string {
