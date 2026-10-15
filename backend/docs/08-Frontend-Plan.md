@@ -94,9 +94,9 @@ Rate limits to know: reports writes are 60 per minute with a burst of 10, per si
 
 ## 6. Testing strategy
 
-- **Unit (Vitest):** API client (CSRF retry, 401 handling, 429 parsing, error mapping), number and metric handling, form schema.
-- **Component (Testing Library):** list filters and pagination, form validation and full-replace behaviour, permission-gated buttons.
-- **End to end (Playwright):** against a local backend and Postgres: register, login, create, duplicate (409), edit, approve as editor (403 as user), delete, logout. Runs in CI with a Postgres service.
+- **Unit (Vitest, `src/lib`):** API client (CSRF fetch, reuse and retry, 401 handling, 429 parsing, error mapping), session provider, number and metric handling, form rules, `safeNext`, `defaultPeriod` at the Asia/Manila month boundary. Coverage gate: 80% on `src/lib/**` only.
+- **Component (Testing Library):** `Can`, `ReportForm` (validation, locked period, 409, 422 and 429 handling, unsaved-edit guard) and the reports list (filters and pagination, ownership-gated Edit, View and Delete, approve with rollback, delete dialog). The other components are shadcn wrappers and page shells and are not tested on their own.
+- **End to end (Playwright):** against a local backend and a fresh Postgres database: login and logout, the login rate limit, create, duplicate (409), edit, the user's late report (422), editor and admin filing late, approve (admin only: 403 for editor and user), delete. Self-registration was removed, so there is no register flow. Not yet in CI (F12).
 - **Contract:** types generated from `swagger.json` (convert Swagger 2.0 to OpenAPI 3 first) and checked in CI so a backend change breaks the build, not the user.
 - **Production smoke:** with a dedicated test account and fake data (audit rows are permanent).
 
@@ -125,7 +125,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 | F8 | Delete with confirmation in the list (the detail page was dropped), `/` redirect and app header | 4 |
 | F9 | Approve and unapprove buttons in the list, with `sonner` toasts. **Delivered** (commit d890b9b) | 3 |
 | F10 | Error UX across screens (409, 422 mapping, 429 countdown, network) and admin users screens (list, create, edit). **Delivered** (commits 47a65c5, ad19ac0 and the admin pages commit) | 5 |
-| F11 | Tests: unit 6, component 6, Playwright 10 | 22 |
+| F11 | Tests: unit 6, component 6, Playwright 10. **Delivered** (commits ee9fae5, f244d87, b0398c2; details below) | 22 |
 | F12 | CI: typecheck, tests, Playwright with Postgres | 4 |
 | F13 | Accessibility and responsive polish | 6 |
 | F14 | Production smoke test and fixes | 2 |
@@ -201,6 +201,27 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 - `01-PRD.md`, `02-App-Flow.md`, `03-Tech-Stack.md` and `06-Implementation-Plan.md` still describe self-registration (FR-AUTH-01, the middleware table, the rate-limit notes); they are analysis documents and have not been rewritten.
 
 **Also pending.** The previous-month rule is now enforced by the API on create as well (D-F8 in 07): Asia/Manila time, `reports:write_any` may file late, edit is not restricted. F8 is done: the `/` redirect and the app header, and Delete with a confirm dialog in the list (the planned detail page was dropped). F9 is done: Approve and Unapprove in the list, with an optimistic update and `sonner` toasts.
+
+### F11 details (added 2026-10-15)
+
+**Run them.** `npm test` (Vitest, 108 tests), `npm run test:cov` (adds the 80% gate on `src/lib`, now 100% of lines), `npm run e2e` (Playwright, 21 specs, about 16 s). The E2E run needs the Postgres container `pastoral-test-pg` (`make db-start` in `backend/`), Docker access for `docker exec`, and ports 3001 and 8081 free. It runs beside the dev servers on 3000 and 8080. After a fresh clone, run `npx playwright install chromium` once.
+
+**How the E2E run is wired.** `e2e/start-backend.sh` drops and recreates the `pastoral_e2e` database and starts the API on 8081 (migrations and the admin seed run at start-up), so every run begins empty; audit rows are permanent, so reusing a database would pile them up. The frontend is `next dev -p 3001` with `NEXT_DIST_DIR=.next-e2e` (`next.config.ts` reads it), because Next 16 allows one dev server per distDir and `next dev` already holds `.next`. `e2e/setup.ts` signs in as the seeded admin, creates the editor and user through `POST /admin/users`, and saves one session per role to `e2e/.auth/` (ignored by git). Specs run serially, with one worker: they share a database and the user files a report that the editor and admin then act on.
+
+**Rate limits in the E2E run.** The login limit is 5 a minute with a burst of 3 per IP and is hard-coded (`router.go`), so three role logins would empty the bucket. No backend change was needed: the test API sets `TRUSTED_PROXY_CIDRS` to loopback, and each test sends its own `X-Real-IP`, so each test gets its own login and global buckets. Account lockout needs 5 failed logins in a row and a success resets the count; the specs never make more than 3 in a row. Signing out destroys the server session, so the sign-out spec logs in on its own and never uses the shared admin session.
+
+**Lessons.**
+- **A browser cannot send `X-Real-IP`.** Playwright's `extraHTTPHeaders` adds it to the browser's cross-origin calls, which forces a CORS preflight the API rejects (the form showed "Cannot reach the server"). `route.continue` adds the header on the wire, after the browser's CORS checks. Only the API-only `request` fixture sets it as a context header.
+- **Approval is admin-only.** Earlier text here said "approve as editor"; the editor gets 403, and so does the user. The specs check both the missing button and the API answer.
+- **Testing Library does not clean up by itself** when Vitest runs without globals. `vitest.setup.ts` calls `cleanup` after each test; without it renders leaked between tests.
+- **`@vitejs/plugin-react` is not installed.** Version 6 does not resolve against the babel 7 that shadcn pulls in (ERESOLVE), and Vitest compiles JSX from `tsconfig` anyway. Do not force it with `--legacy-peer-deps`.
+- **No MSW.** API tests stub `fetch` with `vi.stubGlobal`; component tests mock `@/lib/reports`, `@/lib/session`, `next/navigation` and `sonner`, but keep the real `defaultPeriod` and month constants.
+- **Locators.** `getByLabel("Password")` also matches the "Show password" button, so use `exact: true`. Next's route announcer has `role="alert"`, so scope alert checks to the form. A metric error shows in both the summary list and under the input, so match the text exactly.
+- **ESLint** turns off `react-hooks/rules-of-hooks` for `e2e/**`: Playwright's fixture callback is named `use`.
+- **Red step.** These tests cover code that already existed, so instead of a failing test first, each suite was checked by breaking the code on purpose (UTC instead of Manila, no CSRF retry, no owner check on Edit, no approve rollback, no 409 mapping, an open approve gate, the backend's previous-month rule off) and confirming the intended test failed.
+- **Date-proof.** The specs file the previous month and two months back, computed from the clock with the same Manila rule as the app.
+
+**Not covered.** The admin users screens have no tests (F11 scope was reports and auth). An admin filing a late report is tested through the API only, because `/reports/new` locks the period for everyone. CI wiring is F12.
 
 ### F14 details (added 2026-10-14)
 
