@@ -304,7 +304,7 @@ function ReportsList() {
                           <Button
                             size="sm"
                             variant={r.completed ? "outline" : "default"}
-                            className={r.completed ? undefined : "bg-green-600 text-white hover:bg-green-700"}
+                            className={r.completed ? undefined : "bg-green-700 text-white hover:bg-green-800"}
                             disabled={busy.has(r.id)}
                             onClick={() => toggle(r)}
                           >

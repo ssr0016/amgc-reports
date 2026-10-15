@@ -161,6 +161,13 @@ describe("reports list: approve", () => {
     await waitFor(() => expect(h.listReports).toHaveBeenCalledTimes(2));
   });
 
+  // White on green-600 is 3.3:1; green-700 is 5.0:1 (WCAG 1.4.3 wants 4.5:1 for this text).
+  it("the Approve button is dark enough for white text", async () => {
+    renderList("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+    expect(within(row("Worker 1")).getByRole("button", { name: "Approve" })).toHaveClass("bg-green-700", "hover:bg-green-800");
+  });
+
   it("an approved report offers Unapprove", async () => {
     h.listReports.mockResolvedValue(page([report(1, 1, { completed: true })]));
     renderList("reports:read", "reports:approve");
