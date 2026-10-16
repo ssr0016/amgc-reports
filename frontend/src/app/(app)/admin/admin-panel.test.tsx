@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({ isAdmin: true }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ isAdmin: h.isAdmin }) }));
 vi.mock("./stats-cards", () => ({ StatsCards: () => <p>stats</p> }));
 vi.mock("./admin-reports", () => ({ AdminReports: () => <p>admin reports</p> }));
+vi.mock("./users/users-list", () => ({ UsersPanel: () => <p>users panel</p> }));
 
 describe("AdminPanel", () => {
   it("shows an admin the Reports and Users tabs, Reports first", () => {
@@ -76,7 +77,7 @@ describe("AdminPanel", () => {
 
     await user.click(screen.getByRole("tab", { name: "Users" }));
     expect(screen.queryByText("admin reports")).not.toBeInTheDocument();
-    expect(within(screen.getByRole("tabpanel")).getByText("Users")).toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel")).getByText("users panel")).toBeInTheDocument();
   });
 
   it("does not render the table for a non-admin", () => {

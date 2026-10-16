@@ -36,7 +36,7 @@
   - [x] 20a. Admin shell: `/admin`, tablist with arrow keys, guard, header link, titles (~3h)
   - [x] 20b. Stats endpoint and the four cards, with Swagger and `gen:api` in the same commit (~5h)
   - [x] 20c. Reports tab: reuse `GET /reports`, filters, approve/unapprove, empty state, "X total" (~5h)
-  - [ ] 20d. Users tab: reuse the existing users list, "You" badge, role filter (~3h)
+  - [x] 20d. Users tab: reuse the existing users list, "You" badge, role filter (~3h)
   - [ ] 20e. Preview modal: metadata, the two metric tables, Avg per D-A5 (~4h)
   - [ ] 20f. Sidebar navigation and profile menu: left sidebar on every signed-in page (Reports for everyone; Admin, Users for admins only; Tracker and Logs hidden until Phase B); top bar with only the app name, the avatar with name and Sign out; "Change password" moves into the avatar menu; the sidebar collapses behind a "Menu" button at 320 px
 - [ ] 21. Phase B (~21h)

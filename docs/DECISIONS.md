@@ -23,6 +23,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
 | D-18 | Report field visibility | Decided | here |
+| D-19 | Role filter is client-side | Decided 2026-10-16 | here |
 
 ## Log
 
@@ -149,3 +150,11 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Excel (Phase C, D-A6, D-10):** a "Download Bulk" button and a per-row "Excel" control are disabled placeholders; there is no endpoint and no request. The stats cards stay on the previous month and do not follow the dropdowns.
 - **Why:** approval is an admin task and the admin panel is where an admin reviews who has reported; the list is for the people who write and edit reports.
 - **Consequence:** the approve endpoint (`PATCH /reports/:id/complete`) is unchanged; the API and its permission (`reports:approve`, admin only) are as before. An approved report is undone from the same tab.
+
+### D-19 Role filter is client-side
+**Date:** 2026-10-16 · **Status:** Decided by the owner (admin panel feature 20d)
+
+- **Decision:** the Role filter on the Users tab (and on `/admin/users`) narrows the rows already loaded. `GET /admin/users` has no role parameter and the API is unchanged.
+- **Known limitation:** the list returns at most `LIMIT` (100) users, so the filter only sees those. Upgrade to a server-side filter (a `role_id` query parameter, then `make swagger` and `npm run gen:api`) when the user count exceeds `LIMIT`.
+- **Why:** there are 24 churches, so the dataset is small; no backend change and about 3h instead of 5h.
+- **Where:** `UsersPanel` in `frontend/src/app/(app)/admin/users/users-list.tsx`, shared by the Users tab and the standalone page.
