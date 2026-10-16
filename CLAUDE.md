@@ -1,4 +1,10 @@
-## Code Exploration Policy
+# CLAUDE.md
+
+@AGENTS.md
+
+## Claude-specific tooling
+
+### Code Exploration Policy
 
 Always use jCodeMunch-MCP for code navigation. Never fall back to Read, Grep, Glob, or Bash for code exploration.
 **Exception:** use `Read` when you are about to edit a file — the harness requires a `Read` before `Edit`/`Write`. Use jCodeMunch to _find and understand_ code, then `Read` only the file you are changing.
@@ -28,7 +34,7 @@ This server runs the **front door** surface: three tools reach every jCodeMunch 
 - With PostToolUse hooks installed (Claude Code), edited files are reindexed automatically.
 - Otherwise `order { "action": "register_edit", "args": { "paths": [...] } }` after an edit, batched for bulk changes.
 
-## Documentation Exploration Policy
+### Documentation Exploration Policy
 
 Always use jDocMunch-MCP for reading project docs (`.md`, `.yaml`, `.json` specs, plans). Never fall back to Read, Grep, Glob, or Bash to browse documentation.
 **Exception:** use `Read` when you are about to edit a doc — the harness requires a `Read` before `Edit`/`Write`.
@@ -47,7 +53,7 @@ Always use jDocMunch-MCP for reading project docs (`.md`, `.yaml`, `.json` specs
 
 **After editing docs:** re-run `index_local` so the index is not stale (the index reports `source_dirty: true` when it is behind the working tree).
 
-## Output Rules (adapted from jOutputMunch)
+### Output Rules (adapted from jOutputMunch)
 
 Source: https://github.com/jgravelle/jOutputMunch
 
@@ -68,3 +74,9 @@ Source: https://github.com/jgravelle/jOutputMunch
   and meaningful empty fields, null values, and counts.
 - These rules must not override user requests, project requirements,
   security guidance, testing, or required workflows.
+
+## Claude-specific workflow
+
+- Do not disable chrome-devtools-mcp.
+- Stop the dev server in a separate step before building.
+- Show the full diff before committing.

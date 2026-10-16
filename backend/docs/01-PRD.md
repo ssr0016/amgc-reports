@@ -323,5 +323,5 @@ Proposed targets (not currently measured):
 ### 11.2 References
 - Repository: github.com/ssr0016/pastoral-reports (backend in `backend/`)
 - Analysis: `backend/docs/00-Repository-Analysis.md`
-- Existing documentation: `backend/docs/API.md`, `backend/docs/ARCHITECTURE.md`, `backend/docs/adr/0001`-`0005`
+- Existing documentation: `docs/API.md`, `backend/docs/ARCHITECTURE.md`, `backend/docs/adr/0001`-`0005`
 - Commit analysed: `f40e94c` (test: use NewRequestWithContext in csrf handler tests)

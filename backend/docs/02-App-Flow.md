@@ -460,24 +460,7 @@ Per D-1 and D-2. Another person's report is 404 (not 403) on get, update and del
 
 Implemented: every report mutation writes one `audit_logs` row in the same transaction (D-10, D-14).
 
-**Actions:** `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT`, and the reserved `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL` (written only by a future server-side export, D-10). (The reference logged only the last five plus admin deletes; create/update are additions.)
-
-**Entry fields:** action, target type, target ID, target name, details, IP address (plus actor ID/name/role and timestamp).
-
-**Proposed `audit_logs` table**
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | BIGSERIAL PK | |
-| `performed_by` | BIGINT REFERENCES users(id) ON DELETE SET NULL | |
-| `performed_by_name`, `performed_by_role` | TEXT | Snapshot, survives user changes |
-| `action` | TEXT NOT NULL, CHECK in the list above | |
-| `target_type` | TEXT NOT NULL | `Report`, later `User`, `System` |
-| `target_id` | TEXT NULL | String, as in the reference |
-| `target_name` | TEXT NULL | e.g. `"{worker} — {church}"` |
-| `details` | JSONB NOT NULL DEFAULT '{}' | `{month, year, count}` |
-| `ip_address` | TEXT NULL | See note |
-| `created_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | Indexed, with `action` and `target_id` |
+**Actions and table:** the full list of audit actions is in [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md); the `audit_logs` DDL is in `05-Backend-Schema.md` §2.5 (implemented). Every report mutation writes one row.
 
 **Behavioural rules**
 - Write the audit row in the **same transaction** as the change so they cannot diverge. (The reference swallowed logging errors; for audit data, failing the request is safer. Open question.)

@@ -268,12 +268,16 @@ Deployed on Railway with:
 - SSL/TLS
 - Custom domain ready
 
+See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for the deployment layout and [SETUP.md](SETUP.md) for the Railway runbook.
+
 ## Documentation
 
 - SETUP.md - Setup guide
 - ROADMAP.md - Project roadmap
 - docs/ARCHITECTURE.md - Architecture rules
-- docs/API.md - API examples
+- ../docs/API.md - API examples
+- ../docs/ARCHITECTURE.md - System architecture (deployment, auth, audit actions, migrations)
+- ../docs/DECISIONS.md - Decision log
 
 ## Contributing
 

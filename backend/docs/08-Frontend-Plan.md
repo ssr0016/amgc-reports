@@ -1,7 +1,7 @@
 # 08 Frontend Plan (Phase 4)
 
-**Status:** Reviewed by the owner. Frontend work is not started; the backend task B-F1 (section 2.1) is implemented.
-**Depends on:** `05-Backend-Schema.md`, `07-Reports-Decisions.md`, `API.md`, and the Swagger spec (`docs.go`, `swagger.json`).
+**Status (2026-10-16):** F1–F13 are done; F14 (production smoke test) is blocked on F0 (domain). The admin panel (section 10) is planned, not started. Shared decisions are in [docs/DECISIONS.md](../../docs/DECISIONS.md).
+**Depends on:** `05-Backend-Schema.md`, `07-Reports-Decisions.md`, `docs/API.md`, and the Swagger spec (`docs.go`, `swagger.json`).
 **Scope:** the Reports feature for signed-in users (login, list, create, edit, delete, approve). Admin screens cover users only (list, create, edit; F10). Out of scope for v1: admin screens for roles and permissions, Excel export (see D-10), email flows (E-1).
 
 ## 1. Decisions
@@ -184,7 +184,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 **Backend (done).**
 - `POST /auth/register` is removed (route, handler and `AuthService.Register`). Requests to it never create an account.
 - `POST /admin/users` creates an account: `email`, `name`, `password`, optional `role_id` (default `user`) and the profile text `area_assignment`, `church_name`. `PUT /admin/users/:id` replaces the name and profile text. Both are in the admin-role group and also require `users:write`, so only an admin can call them (an editor holds `users:write` but is not an admin). Each change and its audit row (`CREATE_USER`, `UPDATE_USER`) are written in one transaction.
-- `users` has nullable `area_assignment` and `church_name` (150 characters). It has no `worker` column: a report's worker defaults to the user's `name`. The first version added one; migration `20261014110000_drop_user_worker` removed it as redundant (the report itself keeps its own `worker`, which stays editable). `/auth/me` returns them as strings (empty when unset). The API reference is `API.md`.
+- `users` has nullable `area_assignment` and `church_name` (150 characters). It has no `worker` column: a report's worker defaults to the user's `name`. The first version added one; migration `20261014110000_drop_user_worker` removed it as redundant (the report itself keeps its own `worker`, which stays editable). `/auth/me` returns them as strings (empty when unset). The API reference is `docs/API.md`.
 - Admin-created accounts get no email verification token (verification is not enforced at login, and email delivery is E-1).
 
 **Frontend (still to do).**

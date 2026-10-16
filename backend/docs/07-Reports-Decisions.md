@@ -174,19 +174,8 @@ None.
 ## Follow-up doc edits (done)
 Applied to 05 (Part 2, §5.3, Part 4, Part 7 pointer, Appendix A) and 06 (§3.2 to §3.4, M-1, §13, change log 1.13) in the docs sync commit. Pending in 06: recompute of the effort totals (see change log 1.13).
 
-## Frontend and deployment decisions (added 2026-10-14)
-These mirror the open decisions in `08-Frontend-Plan.md` section 9 and use the same IDs. Section 0 above lists D-12 as outside the Reports scope; it is noted here only for the login behaviour that the integration test showed.
-
-### D-F1 Cookie domain fix
-- **Decision:** Set `Domain=.amgreports.com` on the session cookie so Server Components and `proxy.ts` on `app.amgreports.com` can read the session.
-- **Trade-off:** the cookie is sent to every subdomain of the registrable domain. Keep other subdomains under the owner's control.
-- **Implications:** a backend change (session cookie config), with a test that the cookie carries the domain. Until it ships, 08 section 1.2 (client-side fetching, client-side route guard) still applies. 08 section 9 lists this as "not in v1"; this entry records the owner's later decision.
-
-### D-F2 Domain choice
-- **Decision:** `amgreports.com` if it is available. Otherwise another cheap `.com` or `.app` domain (08 section 9). Not bought yet (task F0).
-
-### D-F6 Hosting combo
-- **Decision:** Vercel (frontend, `app.<domain>`), Railway (Go backend, `api.<domain>`) and Cloudflare (DNS for the domain).
+## Frontend, deployment and admin-panel decisions
+Moved to [docs/DECISIONS.md](../../docs/DECISIONS.md): D-F1, D-F2, D-F6, D-F7, D-12, D-A1..D-A7, F-1, L-3. Only D-F8, which shapes `ReportService`, stays here.
 
 ### D-F8 Previous-month rule
 - **Decision:** `ReportService.Create` rejects any period but the previous month unless the caller holds `reports:write_any` (editor and admin, who may file late). Rejection is `ErrPeriodNotAllowed`, mapped to 422 with `details.month`, the key the form already maps to the month field.
@@ -194,55 +183,3 @@ These mirror the open decisions in `08-Frontend-Plan.md` section 9 and use the s
 - **Year default:** a missing `year` is the previous month's year when the month asked for is the previous month (December filed in January lands in last year), else the current year in Manila.
 - **Not covered:** `Update` is not restricted. The UI locks the period on edit, and the owner chose the smaller scope (2026-10-15). Revisit if the API must refuse a period change.
 - **Tests:** service tests pin the clock around the Manila month boundary; the router ownership tests derive the month from the clock. Repository and schema integration tests do not use the service and are unchanged.
-
-### D-12 (pending) Login with `email_verified=false`
-- **Finding (2026-10-14 integration test):** an account with `email_verified=false` can sign in and use Reports. This matches 08 section 3 (verification is not enforced at login; H-3 is blocked on E-1).
-- **Status:** pending. No change until the owner decides whether login must require a verified email.
-
-## F-1 Change password (done 2026-10-16)
-- **Endpoint:** `POST /auth/change-password` with `current_password` and `new_password`; answers 204. It sits behind `RequireAuth` and the per-user write limit.
-- **Errors:** a wrong current password is a 422 on `current_password` (not 401, so the client does not read it as a lost session). 422 on `new_password` for a weak password, the same as the current one, or over 72 bytes (checked in the service: bcrypt counts bytes, the validator counts characters). 403 when the account is locked. 429 when rate limited.
-- **Lockout:** the current password uses the same failure counter as login (5 wrong attempts lock the account for 15 minutes).
-- **Sessions:** the other sessions of the user end; the one in use stays and its token is renewed. The password update and the `CHANGE_PASSWORD` audit row share one transaction.
-- **UI:** `/account/password` (Account link in the header). Per-field show/hide toggles, no confirm field, plain `useState` form like the others.
-- **P0 incident:** the service (commit `065d32f`) was deployed before the migration that lets `audit_logs` hold `CHANGE_PASSWORD`. The audit insert failed the CHECK, so every call answered 500. Fixed by migration `20261015100000`. Based on transaction semantics in `ChangePassword`: the audit insert shares the transaction with the password update, so a CHECK violation rolls back the whole change. Not verified against production logs. Lesson: a new audit action ships in the same deploy as its migration; the integration test `TestModelConstants_MatchCheckConstraints` now covers the action.
-- **Deferred:** a confirm-new-password field, a forgot-password flow (blocked on E-1), an admin password reset, and E2E cases for the locked (403) and rate-limited (429) states.
-
-## Admin panel decisions (decided by the owner 2026-10-15)
-These support `08-Frontend-Plan.md` section 10. All seven recommendations were accepted.
-
-### D-A1 User status and delete
-- **Decided:** deactivate, not delete; Phase C, with F-3 and H-2.
-- **Question:** the design has an Active or Inactive status and a Delete action. Users have neither a flag nor a delete endpoint.
-- **Recommendation:** deactivate (a flag, reversible, keeps audit history) instead of hard delete, in Phase C with F-3 and H-2. `audit_logs.performed_by` is `ON DELETE SET NULL`, so a hard delete would orphan the Logs tab. The alternative is to leave the Status column and Delete button out for now.
-
-### D-A2 Username
-- **Decided:** show the email; no username.
-- **Question:** the design shows `@username`. Users have email and name only.
-- **Recommendation:** show the email, no username. A username needs a column, uniqueness, login changes and seeding.
-
-### D-A3 Tracker denominator
-- **Decided:** the `user` role; "For Review" is submitted and not approved.
-- **Question:** who counts as expected to submit (role `user` only, or anyone with `reports:write`), and is "For Review" simply submitted and not approved?
-- **Recommendation:** the `user` role; "For Review" as stated, with no new status.
-
-### D-A4 Login and logout audit, and the IP address
-- **Decided:** successful logins and logouts only; the IP is not shown.
-- **Question:** log every login and logout, or logins only? Log failed logins? Show the IP address in the Logs tab?
-- **Recommendation:** successful logins and logouts, no failed logins (the rate limiter and lockout already cover them), IP address not shown in the table. The actions need a CHECK constraint migration.
-
-### D-A5 The Avg column
-- **Decided:** average of the weeks with a value; a dash when there are none. This settles D-5 for the preview.
-- **Question:** is the average over the weeks reported, or over five weeks with a blank as 0? This is D-5, which was deferred.
-- **Recommendation:** average of the weeks that have a value; show a dash when none. D-5 says a blank means not reported and 0 means reported zero, so counting blanks as 0 would invent data.
-
-### D-A6 Excel export
-- **Decided:** `excelize`, approved as a new dependency. The owner still has to provide the legacy template; until then the layout is not defined and Phase C item 10 is blocked.
-- **Question:** which library, and what layout? The repo has no template and the legacy workbook was not provided.
-- **Recommendation:** `excelize` (needs owner approval as a new dependency), with the legacy template as the layout. Without the template the layout would be invented.
-
-### D-A7 Default period
-- **Decided:** the previous month in Asia/Manila (D-F8).
-- **Question:** the cards say "September 2026". Is that the previous month or the current one?
-- **Recommendation:** the previous month in Asia/Manila (D-F8), the same as the reports list.
-

@@ -290,6 +290,8 @@ never set, so Railway does not read `backend/railway.json`. The file stays in
 the repo for reference and for a future move to Infrastructure as Code. Treat
 the dashboard as the source of truth; changing `railway.json` has no effect.
 
+Verified in the dashboard (2026-10-16): Pre-deploy Command `/app/api migrate`, timeout 300 s, no custom start command (the Dockerfile sets it), Teardown disabled, and **Wait for CI disabled**, so a push to `main` deploys immediately without waiting for the CI workflow.
+
 ## Access URLs
 
 | Service | URL | Credentials |

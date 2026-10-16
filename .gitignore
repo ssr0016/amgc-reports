@@ -1,1 +1,5 @@
 cookies.txt
+
+# AI Blueprint runtime state
+blueprint/.state/
+.claude/skills/

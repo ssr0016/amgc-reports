@@ -1,5 +1,7 @@
 # ROADMAP
 
+> Starter-kit history. Current work is in `blueprint/build-plan.md`; the API reference moved to `../docs/API.md` and system architecture is in `../docs/ARCHITECTURE.md`. Counts below (permissions, roles) are as of the starter kit.
+
 **Backend for the Pastoral Reports app**, started from a Go starter kit. Work in progress is tracked in `docs/06-Implementation-Plan.md`.
 
 ---

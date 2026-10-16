@@ -1,5 +1,7 @@
 # Architecture Rules
 
+> Backend layering and testing rules only. System-wide architecture (deployment, auth, audit actions, migrations) is in [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md).
+
 ## Service Layer Rule (Hybrid Approach)
 
 ### Default: Pattern (with Service layer)

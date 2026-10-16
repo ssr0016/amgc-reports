@@ -421,7 +421,7 @@ Stored keys are snake_case (D-6). The legacy frontend and Excel templates need a
 
 ## 2.5 Table: audit_logs (carried over from Document 2)
 
-Not one of the seven owner decisions. It is included because Documents 1 and 2 require audit logging for report actions, and it is confirmed (D-10, `07-Reports-Decisions.md`).
+The current list of audit actions is in [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md). Not one of the seven owner decisions. It is included because Documents 1 and 2 require audit logging for report actions, and it is confirmed (D-10, `07-Reports-Decisions.md`).
 
 ```sql
 CREATE TABLE audit_logs (
@@ -701,6 +701,8 @@ Transactions: `repository.WithTx` and the `TxRunner` interface (D-14). Create, U
 
 # Part 4: Migration Plan
 
+> Historical: this part plans the first three Reports migrations. The current migration list is in [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md).
+
 > Phase 1 migrations 1 to 3 exist (2de41a4) and are the source of truth; the seed changes in 4.2 are done. Names follow `YYYYMMDDHHMMSS_<description>.sql` with goose `Up`/`Down` and `StatementBegin/End`.
 
 ## 4.1 Proposed Migrations (in order)
@@ -723,7 +725,7 @@ Seeding is idempotent (`ON CONFLICT DO NOTHING`), so it is safe on existing data
 
 ## 4.3 Rollout Order
 
-1. Run migrations 1 to 3 against the target database (on Railway this runs automatically as `preDeployCommand: /app/api migrate`; `make migrate-up` is the manual route).
+1. Run migrations 1 to 3 against the target database (on Railway this runs automatically as the Pre-deploy Command `/app/api migrate`, set in the Railway UI; `make migrate-up` is the manual route).
 2. Deploy the application version that contains the seed changes and reports code.
 3. Verify: tables and constraints present; `permissions` contains the seven new rows; admin has them.
 
