@@ -8,7 +8,6 @@ describe("page titles", () => {
     ["./(app)/reports/new/page", "New report"],
     ["./(app)/reports/[id]/edit/page", "Edit report"],
     ["./(app)/admin/page", "Admin"],
-    ["./(app)/admin/users/page", "Users"],
     ["./(app)/admin/users/new/page", "New user"],
     ["./(app)/admin/users/[id]/edit/page", "Edit user"],
     ["./(app)/account/password/page", "Change password"],

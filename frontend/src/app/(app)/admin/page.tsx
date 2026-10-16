@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AdminPanel } from "./admin-panel";
 
 export const metadata = { title: "Admin" };
@@ -7,5 +8,10 @@ export const metadata = { title: "Admin" };
 export const instant = false;
 
 export default function Page() {
-  return <AdminPanel />;
+  // useSearchParams needs a Suspense boundary under cacheComponents.
+  return (
+    <Suspense>
+      <AdminPanel />
+    </Suspense>
+  );
 }

@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { Avatar } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { HOME } from "@/lib/auth-form";
 import { useSession } from "@/lib/session";
+import { ProfileMenu } from "./profile-menu";
+import { Sidebar } from "./sidebar";
 
 // Client-side guard: the session cookie is not visible to Server Components or
 // proxy.ts (plan section 1.2), so nothing private renders until /auth/me answers.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { status, user, isAdmin, signOut } = useSession();
+  const { status, signOut } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (status !== "unauthenticated") return;
@@ -33,35 +35,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         Skip to main content
       </a>
       <header className="border-b">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4">
-          <Link href={HOME} className="font-semibold tracking-tight">
-            AMGCReports
-          </Link>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            {isAdmin && (
-              <>
-                <Link href="/admin" className="hover:underline">
-                  Admin
-                </Link>
-                <Link href="/admin/users" className="hover:underline">
-                  Users
-                </Link>
-              </>
-            )}
-            <Link href="/account/password" className="hover:underline">
-              Account
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="md:hidden"
+              aria-expanded={menuOpen}
+              aria-controls="main-nav"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              Menu
+            </Button>
+            <Link href={HOME} className="font-semibold tracking-tight">
+              AMGCReports
             </Link>
-            <Avatar name={user?.name ?? ""} />
-            <span title={user?.email}>
-              {user?.name} · {user?.role || "no role"}
-            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <ProfileMenu />
             <Button variant="outline" size="sm" onClick={signOut}>
               Sign out
             </Button>
           </div>
         </div>
       </header>
-      {children}
+      <div className="flex flex-1 flex-col md:flex-row">
+        <Sidebar id="main-nav" open={menuOpen} onNavigate={() => setMenuOpen(false)} />
+        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      </div>
     </>
   );
 }

@@ -17,16 +17,7 @@ import { listRoles, listUsers } from "@/lib/users";
 // The list endpoint has no pages, so it returns at most this many.
 const LIMIT = 100;
 
-export function Users() {
-  return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
-      <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
-      <UsersPanel />
-    </main>
-  );
-}
-
-// The page and the /admin tab share this; it brings no landmark or heading of its own.
+// The Users tab of /admin; it brings no landmark or heading of its own.
 export function UsersPanel() {
   const { isAdmin, user } = useSession();
   const [search, setSearch] = useState("");

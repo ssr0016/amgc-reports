@@ -22,7 +22,9 @@ test.describe("signed out", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(page.getByText(`${ACCOUNTS.user.name} · user`)).toBeVisible();
-    await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0); // admin only
+    // Admin and Users are for admins only; a plain user's sidebar holds just Reports.
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["Reports"]);
+    await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0);
   });
 
   test("?next= is followed, but never to another site", async ({ page }) => {

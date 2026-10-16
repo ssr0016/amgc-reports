@@ -35,9 +35,9 @@ export function NewUser() {
             church_name: v.church_name.trim(),
           });
           await queryClient.invalidateQueries({ queryKey: ["users"] });
-          router.replace("/admin/users");
+          router.replace("/admin?tab=users");
         }}
-        onCancel={() => router.push("/admin/users")}
+        onCancel={() => router.push("/admin?tab=users")}
       />
     );
   }

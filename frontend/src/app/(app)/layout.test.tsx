@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import AppLayout from "./layout";
 
 const h = vi.hoisted(() => ({ status: "authenticated" }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports" }));
 vi.mock("@/lib/session", () => ({
   useSession: () => ({ status: h.status, user: { name: "Ana", email: "a@b.c", role: "user" }, isAdmin: false, signOut: vi.fn() }),
 }));
@@ -18,15 +19,49 @@ describe("app layout", () => {
     expect(screen.getAllByRole("link")[0]).toBe(skip);
   });
 
-  it("does not show the Admin link to a non-admin", () => {
+  it("gives a non-admin a sidebar with only Reports", () => {
     render(<AppLayout>content</AppLayout>);
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Reports"]);
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
   });
 
-  it("shows no header, and so no skip link, while the session loads", () => {
+  it("puts the sidebar after the header and before the page", () => {
+    render(<AppLayout>content</AppLayout>);
+    const header = screen.getByRole("banner");
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(header.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(nav.compareDocumentPosition(screen.getByText("content")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("has a Menu button that opens and closes the sidebar", async () => {
+    const user = userEvent.setup();
+    render(<AppLayout>content</AppLayout>);
+    const menu = screen.getByRole("button", { name: "Menu" });
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+    expect(menu).toHaveAttribute("aria-controls", nav.id);
+    expect(nav.id).not.toBe("");
+    await user.click(menu);
+    expect(menu).toHaveAttribute("aria-expanded", "true");
+    await user.click(menu);
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("closes the menu when an item is chosen", async () => {
+    const user = userEvent.setup();
+    render(<AppLayout>content</AppLayout>);
+    const menu = screen.getByRole("button", { name: "Menu" });
+    await user.click(menu);
+    await user.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Reports" }));
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows no header, and so no skip link or sidebar, while the session loads", () => {
     h.status = "loading";
     render(<AppLayout>content</AppLayout>);
     expect(screen.queryByRole("link", { name: "Skip to main content" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveTextContent("Loading…");
     h.status = "authenticated";
   });

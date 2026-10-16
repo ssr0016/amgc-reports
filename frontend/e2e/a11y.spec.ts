@@ -82,7 +82,7 @@ for (const scheme of ["light", "dark"] as const) {
       });
 
       test("users list and new user", async ({ page }) => {
-        await page.goto("/admin/users");
+        await page.goto("/admin/users"); // redirects to the Users tab of /admin
         await expect(page.getByRole("link", { name: /^Edit E2E User/ })).toBeVisible();
         await scan(page);
         await page.goto("/admin/users/new");
@@ -117,8 +117,9 @@ test.describe("page titles", () => {
   test("each page names itself, and a client-side navigation updates it", async ({ page }) => {
     await page.goto("/reports");
     await expect(page).toHaveTitle("Reports · AMGCReports");
-    await page.getByRole("link", { name: "Users" }).click();
-    await expect(page).toHaveTitle("Users · AMGCReports");
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" }).click();
+    await expect(page).toHaveTitle("Admin · AMGCReports");
+    await page.getByRole("tab", { name: "Users" }).click();
     await page.getByRole("link", { name: "New user" }).click();
     await expect(page).toHaveTitle("New user · AMGCReports");
     await page.goto("/reports/new");
@@ -231,7 +232,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
       ["reports list", `/reports?month=&year=${earlierPeriod(3).year}`, /Reports/],
       ["new report", "/reports/new", /New report/],
       ["admin", "/admin", /Admin/],
-      ["users", "/admin/users", /Users/],
+      ["users tab", "/admin?tab=users", /Admin/],
       ["new user", "/admin/users/new", /New user/],
     ] as const) {
       test(name, async ({ page }) => {
@@ -246,5 +247,13 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
         await scan(page); // wide tables scroll inside their container, which must be reachable by keyboard
       });
     }
+
+    test("admin, with the sidebar menu open", async ({ page }) => {
+      await page.goto("/reports");
+      await page.getByRole("button", { name: "Menu" }).click();
+      await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
+      expect(await noSidewaysScroll(page)).toBe(true);
+      await scan(page);
+    });
   });
 });

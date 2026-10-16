@@ -1,11 +1,6 @@
-import { Users } from "./users-list";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Users" };
-
-// A Client Component page cannot export `instant`, so this Server Component
-// page does. The screen loads after navigation by design (it needs the session).
-export const instant = false;
-
+// The list lives in the Users tab of /admin; this keeps old links and bookmarks working.
 export default function Page() {
-  return <Users />;
+  redirect("/admin?tab=users");
 }

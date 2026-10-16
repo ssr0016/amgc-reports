@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AdminPanel } from "./admin-panel";
 
-const h = vi.hoisted(() => ({ isAdmin: true }));
+const h = vi.hoisted(() => ({ isAdmin: true, tab: null as string | null }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(h.tab ? { tab: h.tab } : {}) }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ isAdmin: h.isAdmin }) }));
 vi.mock("./stats-cards", () => ({ StatsCards: () => <p>stats</p> }));
 vi.mock("./admin-reports", () => ({ AdminReports: () => <p>admin reports</p> }));
@@ -78,6 +79,20 @@ describe("AdminPanel", () => {
     await user.click(screen.getByRole("tab", { name: "Users" }));
     expect(screen.queryByText("admin reports")).not.toBeInTheDocument();
     expect(within(screen.getByRole("tabpanel")).getByText("users panel")).toBeInTheDocument();
+  });
+
+  it("opens the Users tab for ?tab=users, and Reports for anything else", () => {
+    h.isAdmin = true;
+    h.tab = "users";
+    const { unmount } = render(<AdminPanel />);
+    expect(screen.getByRole("tab", { name: "Users" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("users panel")).toBeInTheDocument();
+    unmount();
+
+    h.tab = "nonsense";
+    render(<AdminPanel />);
+    expect(screen.getByRole("tab", { name: "Reports" })).toHaveAttribute("aria-selected", "true");
+    h.tab = null;
   });
 
   it("does not render the table for a non-admin", () => {

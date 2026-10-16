@@ -19,6 +19,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-12 | Login with unverified email | Pending | here |
 | D-A1..D-A7 | Admin panel | Decided 2026-10-15 | here |
 | D-A8 | Approval lives in the admin panel | Decided 2026-10-16 | here |
+| D-A9 | Navigation is a left sidebar; the profile menu holds Change password | Decided 2026-10-16 | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -158,3 +159,12 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Known limitation:** the list returns at most `LIMIT` (100) users, so the filter only sees those. Upgrade to a server-side filter (a `role_id` query parameter, then `make swagger` and `npm run gen:api`) when the user count exceeds `LIMIT`.
 - **Why:** there are 24 churches, so the dataset is small; no backend change and about 3h instead of 5h.
 - **Where:** `UsersPanel` in `frontend/src/app/(app)/admin/users/users-list.tsx`, shared by the Users tab and the standalone page.
+
+### D-A9 Navigation is a left sidebar; the profile menu holds Change password
+**Date:** 2026-10-16 · **Status:** Decided by the owner (admin panel feature 20f)
+
+- **Decision:** every signed-in page has a left sidebar (`<nav aria-label="Main">`): Reports for everyone, Admin for admins only. Tracker and Logs are not rendered until Phase B. The top bar keeps the app name, the profile menu (avatar, name and role) and Sign out. "Change password" is the only item of the profile menu; the "Account", "Admin" and "Users" header links are gone. There is no Users link: the list is the Users tab of `/admin`.
+- **Small screens:** below `md` (768 px, so also at 320 px) the sidebar is hidden behind a "Menu" button (`aria-expanded`, `aria-controls`). Opening it pushes the page content down rather than overlaying it. The build-plan said "at 320 px"; the owner chose `md`.
+- **One way to the users list:** the Users tab of `/admin` (D-19). `/admin/users` now redirects to `/admin?tab=users`, so old links and bookmarks work; `?tab=users` only picks the tab on arrival (tab state is otherwise in memory, 20a). `/admin/users/new` and `/admin/users/[id]/edit` stay, and the sidebar marks Admin on them. This reverses the earlier choice to keep both routes.
+- **Why:** one place for navigation that grows with Phase B, and a header that no longer wraps at 320 px for an admin.
+- **Consequence:** hiding Admin is a convenience; the pages and the API still enforce the role. Routes, titles and the API are unchanged. Frontend only: `sidebar.tsx`, `profile-menu.tsx`, `components/ui/dropdown-menu.tsx` and `layout.tsx` in `frontend/src/app/(app)/`.

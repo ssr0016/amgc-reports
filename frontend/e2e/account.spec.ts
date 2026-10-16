@@ -34,7 +34,8 @@ test.describe.configure({ mode: "serial" });
 
 test("a wrong current password is shown on that field and keeps you signed in", async ({ page }) => {
   await signIn(page, account.password);
-  await page.getByRole("link", { name: "Account" }).click();
+  await page.getByRole("button", { name: `${account.name} · user` }).click();
+  await page.getByRole("menuitem", { name: "Change password" }).click();
   await expect(page).toHaveURL(/\/account\/password$/);
   await page.getByLabel("Current password").fill("not-the-password");
   await page.getByLabel("New password").fill(next);
