@@ -1,6 +1,6 @@
 # AMGCReports - Project Overview
 
-<!-- blueprint:source-hash 735d1b99b143b281ae3912bcff76010cbe749794de7d8e91ea59c7b9376c5c0a -->
+<!-- blueprint:source-hash e989f984d69642a201b72e0fef775769e884fd7d2c6ec08f447a0927377749e9 -->
 
 > Pastoral reports management for 24 churches: workers file weekly reports, admins review and approve.
 
@@ -45,7 +45,7 @@ Build order from `build-plan.md` (27 items). Shipped (1-15 and 27) are done.
 17. **F14 prod smoke test** - blocked on 16 (deferred).
 18. **Rotate Railway Postgres password.**
 19. **Seed idempotency.**
-20. **Admin Panel Phase A** (~28h).
+20. **Admin Panel Phase A** (~28h, no schema change; tests/axe/docs spread over the sub-items), in order: 20a shell and tabs, 20b stats endpoint and cards, 20c Reports tab, 20d Users tab, 20e preview modal.
 21. **Admin Panel Phase B** (~21h).
 22. **Admin Panel Phase C** (~32h) - includes exports.
 23. **E-1 email delivery.**
@@ -112,5 +112,5 @@ shadcn over Radix, Tailwind 4, Sonner toasts. Skip link, focus management, annou
 ## Open questions
 
 - Excel audit actions are Reserved, Phase C; no download endpoint is confirmed shipped (`docs/DECISIONS.md`).
-- Phase A/B/C tasks are unsplit (`backend/docs/06-Implementation-Plan.md`).
+- Phase B/C tasks are unsplit (`backend/docs/08-Frontend-Plan.md` section 10). Phase A is split into 20a-20e.
 - Monetization "none" is `TODO (confirm)`: no decision yet.

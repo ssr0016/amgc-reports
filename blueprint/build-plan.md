@@ -33,6 +33,11 @@
 ## P2 — Admin Panel
 
 - [ ] 20. Phase A (~28h)
+  - [ ] 20a. Admin shell: `/admin`, tablist with arrow keys, guard, header link, titles (~3h)
+  - [ ] 20b. Stats endpoint and the four cards, with Swagger and `gen:api` in the same commit (~5h)
+  - [ ] 20c. Reports tab: reuse `GET /reports`, filters, approve/unapprove, empty state, "X total" (~5h)
+  - [ ] 20d. Users tab: reuse the existing users list, "You" badge, role filter (~3h)
+  - [ ] 20e. Preview modal: metadata, the two metric tables, Avg per D-A5 (~4h)
 - [ ] 21. Phase B (~21h)
 - [ ] 22. Phase C (~32h), including exports
 
