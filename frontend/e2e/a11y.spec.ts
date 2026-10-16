@@ -57,6 +57,16 @@ for (const scheme of ["light", "dark"] as const) {
         await scan(page);
       });
 
+      test("admin panel, Users tab", async ({ page }) => {
+        await page.goto("/admin");
+        await page.getByRole("tab", { name: "Users" }).click();
+        const panel = page.getByRole("tabpanel", { name: "Users" });
+        await expect(panel.getByText("You")).toBeVisible(); // the signed-in admin's own row
+        await scan(page);
+        await panel.getByLabel("Role").selectOption({ label: "admin" });
+        await expect(panel.getByText("You")).toBeVisible();
+        await scan(page);
+      });
 
       test("reports list, with a row", async ({ page }) => {
         await page.goto(`/reports?month=&year=${earlierPeriod(3).year}`);
