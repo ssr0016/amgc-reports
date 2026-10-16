@@ -381,7 +381,7 @@ The outline listed six security items totalling 18h; five of them (session revoc
 | ID | Item | Source | Estimate |
 |----|------|--------|----------|
 | E-1 | Email delivery for verification and reset (provider integration, templates, config; a development-only mailer for local use) | Doc 01 FR-AUTH-11/12; PRD open question | 8h (assumption) |
-| F-1 | Change-password for logged-in users | Doc 01 FR-AUTH-14 | 4h (assumption) |
+| F-1 | Change-password for logged-in users (done 2026-10-16: `POST /auth/change-password`, UI at `/account/password`; see 07 "F-1") | Doc 01 FR-AUTH-14 | 4h (assumption) |
 | F-2 | Reset the lockout counter when the lock expires; optional admin unlock | Doc 02 sec. 3.5 | 2h (assumption) |
 | F-3 | Protect against removing the last admin / deleting built-in roles | Doc 01 FR-RBAC-08 | 2h (assumption) |
 

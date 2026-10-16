@@ -44,10 +44,9 @@ test("a wrong current password is shown on that field and keeps you signed in", 
   await expect(page.getByText(`${account.name} · user`)).toBeVisible();
 });
 
-// TODO(F-1 Commit 4): enable once the migration allows the CHANGE_PASSWORD audit action;
-// until then the API answers 500 and this fails.
-test.skip("changing the password keeps this session and the new password signs in", async ({ page }) => {
+test("changing the password keeps this session and the new password signs in", async ({ page }) => {
   await signIn(page, account.password);
+  await expect(page).toHaveURL(/\/reports$/); // goto before the login lands would drop the session
   await page.goto("/account/password");
   await page.getByLabel("Current password").fill(account.password);
   await page.getByLabel("New password").fill(next);
@@ -60,7 +59,7 @@ test.skip("changing the password keeps this session and the new password signs i
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await signIn(page, account.password);
-  await expect(page.getByRole("alert")).toHaveText("Invalid email or password.");
+  await expect(page.locator("form").getByRole("alert")).toHaveText("Invalid email or password.");
   await signIn(page, next);
   await expect(page).toHaveURL(/\/reports$/);
 });

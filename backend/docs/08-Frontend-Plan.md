@@ -287,7 +287,7 @@ Suggested order: F0 and F1 first (they unblock everything and carry the infrastr
 
 Scope: `/admin` with four statistics cards and the tabs Reports, Tracker, Users and Logs, designed from the owner's screenshots. Excludes new report or auth features and F0. Decisions D-A1 to D-A7 are made (07).
 
-**Order (owner, 2026-10-15).** Launch work first: F0 (domain setup, owner), F-1 (change password) and F14 (smoke test), about 9 h; then Phase A below (about 28 h). F-1 is a launch blocker: an admin sets every password, so a user cannot change theirs, and there is no recovery path yet.
+**Order (owner, 2026-10-15).** Launch work first: F0 (domain setup, owner), F-1 (change password) and F14 (smoke test), about 9 h; then Phase A below (about 28 h). F-1 was a launch blocker: an admin sets every password, so a user could not change theirs. **F-1 is done (2026-10-16):** the page is `/account/password`, linked as "Account" in the header. There is still no recovery path for a forgotten password (E-1).
 
 **What exists.** Only `/admin/users` (list, create, edit) from F10. Admin API: roles and permissions CRUD, `GET /admin/users/:id`, `POST` and `PUT /admin/users`, `PUT /admin/users/:id/role`, `GET /users`. `GET /reports` already filters by month, year, worker, area and church, shows every user's reports to an admin, and carries each report's status. Radix (`radix-ui`, already installed) ships Tabs, Dialog and Progress; the repo has no shadcn wrappers for them (it has alert-dialog, avatar, badge, button, card, input, label, native-select, sonner, table, textarea), so the wrappers are new files, not a new dependency.
 

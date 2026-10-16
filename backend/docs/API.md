@@ -38,6 +38,16 @@ Response (200):
 
     {"message": "logged out"}
 
+### 5. Change Own Password
+```
+POST /auth/change-password
+{"current_password": "...", "new_password": "..."}
+```
+Requires a session and a CSRF token. Answers 204. The user's other sessions end; the current one stays
+and its token is renewed. A wrong current password is a 422 on `current_password` (and counts toward the
+login lockout: 5 wrong attempts lock the account for 15 minutes, then 403). A weak, unchanged or
+over-72-byte new password is a 422 on `new_password`. The audit row is `CHANGE_PASSWORD`.
+
 ## Users
 
 ### List Users (paginated, admin role only)

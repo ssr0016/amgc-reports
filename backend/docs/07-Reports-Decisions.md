@@ -199,6 +199,15 @@ These mirror the open decisions in `08-Frontend-Plan.md` section 9 and use the s
 - **Finding (2026-10-14 integration test):** an account with `email_verified=false` can sign in and use Reports. This matches 08 section 3 (verification is not enforced at login; H-3 is blocked on E-1).
 - **Status:** pending. No change until the owner decides whether login must require a verified email.
 
+## F-1 Change password (done 2026-10-16)
+- **Endpoint:** `POST /auth/change-password` with `current_password` and `new_password`; answers 204. It sits behind `RequireAuth` and the per-user write limit.
+- **Errors:** a wrong current password is a 422 on `current_password` (not 401, so the client does not read it as a lost session). 422 on `new_password` for a weak password, the same as the current one, or over 72 bytes (checked in the service: bcrypt counts bytes, the validator counts characters). 403 when the account is locked. 429 when rate limited.
+- **Lockout:** the current password uses the same failure counter as login (5 wrong attempts lock the account for 15 minutes).
+- **Sessions:** the other sessions of the user end; the one in use stays and its token is renewed. The password update and the `CHANGE_PASSWORD` audit row share one transaction.
+- **UI:** `/account/password` (Account link in the header). Per-field show/hide toggles, no confirm field, plain `useState` form like the others.
+- **P0 incident:** the service (commit `065d32f`) was deployed before the migration that lets `audit_logs` hold `CHANGE_PASSWORD`. The audit insert failed the CHECK, so every call answered 500. Fixed by migration `20261015100000`. Based on transaction semantics in `ChangePassword`: the audit insert shares the transaction with the password update, so a CHECK violation rolls back the whole change. Not verified against production logs. Lesson: a new audit action ships in the same deploy as its migration; the integration test `TestModelConstants_MatchCheckConstraints` now covers the action.
+- **Deferred:** a confirm-new-password field, a forgot-password flow (blocked on E-1), an admin password reset, and E2E cases for the locked (403) and rate-limited (429) states.
+
 ## Admin panel decisions (decided by the owner 2026-10-15)
 These support `08-Frontend-Plan.md` section 10. All seven recommendations were accepted.
 

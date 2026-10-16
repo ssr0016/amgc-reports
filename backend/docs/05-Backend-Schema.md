@@ -440,7 +440,8 @@ CREATE TABLE audit_logs (
     CONSTRAINT chk_audit_logs_action CHECK (action IN (
         'CREATE_REPORT','UPDATE_REPORT','DELETE_REPORT',
         'APPROVE_REPORT','UNAPPROVE_REPORT',
-        'DOWNLOAD_SINGLE_EXCEL','DOWNLOAD_BULK_EXCEL'))
+        'DOWNLOAD_SINGLE_EXCEL','DOWNLOAD_BULK_EXCEL',
+        'CREATE_USER','UPDATE_USER','CHANGE_PASSWORD'))
 );
 ```
 
@@ -1110,7 +1111,7 @@ stateDiagram-v2
 | `chk_report_metrics_week` | CHECK | week_no between 1 and 5 |
 | `chk_report_metrics_value` | CHECK | value >= 0 |
 | `report_metrics` PK | PRIMARY KEY | `(report_id, metric, week_no)` |
-| `chk_audit_logs_action` | CHECK | action in 7 values |
+| `chk_audit_logs_action` | CHECK | action in 10 values |
 | `idx_audit_logs_created_at` | index | `(created_at DESC)` |
 | `idx_audit_logs_target` | index | `(target_type, target_id)` |
 | `idx_audit_logs_action` | index | `(action)` |
