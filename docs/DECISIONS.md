@@ -134,3 +134,8 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Rationale:** the Tracker and "who has reported" need metadata, not pastoral content.
 - **Consequence:** the rule lives in two places (backend and frontend); change both together. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
+### Unconfirmed items
+**Date:** 2026-10-16 · **Status:** Open
+
+- **Excel audit actions:** `DOWNLOAD_SINGLE_EXCEL` and `DOWNLOAD_BULK_EXCEL` are in the audit enum but no download endpoint is confirmed. Recorded as Reserved, Phase C (see [ARCHITECTURE.md](ARCHITECTURE.md)).
+- **Monetization:** none planned. TODO (confirm): no decision yet.

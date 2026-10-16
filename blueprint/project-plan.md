@@ -46,7 +46,7 @@ Church workers submit weekly reports. Admins review and approve them.
 | API contract | Swagger → OpenAPI → `openapi-typescript` (`npm run gen:api`); CI fails on drift |
 | Tests | Go unit + testcontainers integration; Vitest (144) + Playwright (47, incl. axe a11y) |
 | CI | `.github/workflows/ci.yml`: lint, test, integration, build, gosec, frontend, e2e |
-| Hosting | Railway (backend + Postgres); Docker compose for local/prod |
+| Hosting | Railway (backend + Postgres); Frontend: Vercel (app.<domain>); Docker compose for local/prod |
 
 Stack is intentional; nothing is legacy.
 

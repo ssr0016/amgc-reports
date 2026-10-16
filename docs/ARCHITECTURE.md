@@ -84,7 +84,7 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 |---|---|
 | Reports | `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT` |
 | Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD` |
-| Reserved | `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL` (written only by a future server-side export, D-10) |
+| Reserved | `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL` (written only by a future server-side export, D-10). Reserved, Phase C; no endpoint is confirmed shipped |
 
 ## Migration history
 
