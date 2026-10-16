@@ -905,7 +905,7 @@ const docTemplate = `{
         },
         "/auth/reset-password": {
             "post": {
-                "description": "Resets the user's password using a valid reset token",
+                "description": "Resets the user's password using a valid reset token. The new password follows the same rules as change-password: strong enough (422 on new_password) and at most 72 bytes.",
                 "consumes": [
                     "application/json"
                 ],
@@ -939,6 +939,15 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2204,9 +2213,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "new_password": {
-                    "type": "string",
-                    "maxLength": 72,
-                    "minLength": 8
+                    "type": "string"
                 },
                 "token": {
                     "type": "string"

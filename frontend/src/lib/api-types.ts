@@ -991,7 +991,7 @@ export interface paths {
         put?: never;
         /**
          * Reset password with token
-         * @description Resets the user's password using a valid reset token
+         * @description Resets the user's password using a valid reset token. The new password follows the same rules as change-password: strong enough (422 on new_password) and at most 72 bytes.
          */
         post: {
             parameters: {
@@ -1020,6 +1020,17 @@ export interface paths {
                 };
                 /** @description Bad Request */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };

@@ -318,7 +318,7 @@ Notes:
 |----|------|--------|--------------|
 | L-1 | Index naming exception (`sessions_expiry_idx`) | Cosmetic | 1h |
 | L-2 | Tagalog comments in migrations and `session.go` | Consistency | 2h |
-| L-3 | Reset-password does not apply `strongpass` | Security | 1h |
+| L-3 | Reset-password does not apply `strongpass` (done 2026-10-16: `strongpass` on the request plus the 72-byte check in `PasswordResetService`, 422 on `new_password`) | Security | 1h |
 | L-4 **(added)** | `err == service.ErrX` vs `errors.Is` in verification/reset handlers (Doc 04 #8) | Maintainability | 1h |
 | L-5 **(added)** | `UpdateRoleRequest` cannot distinguish omitted from empty (Doc 04 #14) | Correctness | 2h |
 | L-6 **(added)** | Pagination clamping duplicated in repositories (Doc 04 #3) | Maintainability | 2h |

@@ -57,6 +57,10 @@ func (s *PasswordResetService) RequestReset(ctx context.Context, email string) e
 }
 
 func (s *PasswordResetService) ResetPassword(ctx context.Context, tokenStr, newPassword string) error {
+	// Checked first: it needs no lookup, and bcrypt would otherwise cut the password at 72 bytes.
+	if len(newPassword) > maxPasswordBytes {
+		return ErrPasswordTooLong
+	}
 	token, err := s.passwordResetRepo.GetByToken(ctx, tokenStr)
 	if err != nil {
 		return fmt.Errorf("get token: %w", err)

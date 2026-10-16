@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -13,6 +14,9 @@ import (
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
+	"github.com/ssr0016/pastoral-reports/backend/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
 
@@ -78,17 +82,58 @@ func postJSON(t *testing.T, e *echo.Echo, path, body string) (int, apperror.Erro
 	return rec.Code, resp
 }
 
-func TestResetPassword_ShortPassword_ReturnsDetailsKeyedByJSONName(t *testing.T) {
-	code, resp := postJSON(t, newTestServer(), resetPasswordPath, `{"token":"abc","new_password":"short"}`)
+// noTokenRepo knows no reset token, so a request that passes validation ends at the
+// service as an invalid token (400).
+type noTokenRepo struct {
+	repository.PasswordResetRepository
+}
 
-	if code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want %d", code, http.StatusUnprocessableEntity)
+func (noTokenRepo) GetByToken(context.Context, string) (*model.PasswordReset, error) { return nil, nil }
+
+func resetServer() *echo.Echo {
+	e := echo.New()
+	e.Validator = validator.New()
+	e.HTTPErrorHandler = apperror.ErrorHandler
+	svc := service.NewPasswordResetService(repository.NewMockUserRepo(), noTokenRepo{}, slog.New(slog.DiscardHandler))
+	Setup(e, nil, nil, nil,
+		handler.NewAuthHandler(nil, nil),
+		nil, nil, nil, nil,
+		handler.NewVerificationHandler(nil),
+		handler.NewPasswordResetHandler(svc),
+		nil, noLimits,
+	)
+	return e
+}
+
+const strongPassword = "X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"
+
+// Reset applies the same password rules as change-password and admin user creation.
+func TestResetPassword_PasswordRules(t *testing.T) {
+	tests := []struct {
+		name     string
+		password string
+		status   int
+		detail   string
+	}{
+		{"too short", "short", http.StatusUnprocessableEntity, "is too weak; use a longer, more varied password"},
+		{"eight weak characters", "aaaaaaaa", http.StatusUnprocessableEntity, "is too weak; use a longer, more varied password"},
+		{"strong but over 72 bytes", strongPassword + strings.Repeat("é", 21), http.StatusUnprocessableEntity, "must be at most 72 bytes"},
+		{"strong passes validation and fails on the token", strongPassword, http.StatusBadRequest, ""},
 	}
-	if got, want := resp.Details["new_password"], "must be at least 8 characters"; got != want {
-		t.Errorf("details[new_password] = %q, want %q (details: %v)", got, want, resp.Details)
-	}
-	if _, ok := resp.Details["token"]; ok {
-		t.Errorf("details has token, which was valid: %v", resp.Details)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, resp := postJSON(t, resetServer(), resetPasswordPath,
+				`{"token":"abc","new_password":"`+tt.password+`"}`)
+			if code != tt.status {
+				t.Fatalf("status = %d, want %d (body: %+v)", code, tt.status, resp)
+			}
+			if got := resp.Details["new_password"]; got != tt.detail {
+				t.Errorf("details[new_password] = %q, want %q", got, tt.detail)
+			}
+			if _, ok := resp.Details["token"]; ok {
+				t.Errorf("details has token, which was valid: %v", resp.Details)
+			}
+		})
 	}
 }
 
