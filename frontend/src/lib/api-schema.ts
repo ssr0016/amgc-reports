@@ -14,6 +14,7 @@ type Model<N extends keyof Models> = Models[N];
 type Always<T, K extends keyof T> = Required<Pick<T, K>> & Omit<T, K>;
 
 export type Me = Required<Model<"MeResponse">>;
+export type AdminStats = Required<Model<"AdminStats">>;
 
 export type MetricWeeks = Model<"MetricWeeks">;
 export type ReportInput = Model<"CreateReportRequest">;

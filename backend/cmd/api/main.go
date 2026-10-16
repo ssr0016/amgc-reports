@@ -212,6 +212,7 @@ func run() error {
 	authService := service.NewAuthService(userRepo, roleRepo, verificationService, auditRepo, txManager, log)
 	passwordResetService := service.NewPasswordResetService(userRepo, passwordResetRepo, log)
 	reportService := service.NewReportService(reportRepo, auditRepo, txManager, db.Pool, userRepo, roleRepo)
+	statsService := service.NewStatsService(repository.NewStatsRepo(db))
 	userService := service.NewUserService(userRepo, roleRepo, auditRepo, txManager)
 
 	// Handlers
@@ -223,6 +224,7 @@ func run() error {
 	verificationHandler := handler.NewVerificationHandler(verificationService)
 	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
 	reportHandler := handler.NewReportHandler(reportService, sm)
+	statsHandler := handler.NewStatsHandler(statsService)
 	healthHandler := handler.NewHealthHandler(db.Pool)
 
 	e := newEcho(cfg, log)
@@ -243,6 +245,7 @@ func run() error {
 		verificationHandler,
 		passwordResetHandler,
 		reportHandler,
+		statsHandler,
 		router.Limiters{
 			Global: ourmiddleware.RateLimit(rate.Limit(globalRatePerMinute/60.0), globalBurst),
 			Read:   ourmiddleware.RateLimitByUser(sm, rate.Limit(readRatePerMinute/60.0), readBurst),

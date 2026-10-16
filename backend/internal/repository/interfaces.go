@@ -80,6 +80,11 @@ type ReportRepository interface {
 	ToggleComplete(ctx context.Context, q Querier, id, approverID int64) (*model.Report, error)
 }
 
+// StatsRepository defines read-only counts for the admin dashboard.
+type StatsRepository interface {
+	Counts(ctx context.Context, month string, year int) (model.AdminStats, error)
+}
+
 // AuditRepository defines the interface for writing audit rows. Pass the
 // transaction of the change being audited.
 type AuditRepository interface {
@@ -95,6 +100,7 @@ var (
 	_ PasswordResetRepository = (*PasswordResetRepo)(nil)
 	_ ReportRepository        = (*ReportRepo)(nil)
 	_ AuditRepository         = (*AuditRepo)(nil)
+	_ StatsRepository         = (*StatsRepo)(nil)
 	_ AuditRepository         = (*MockAuditRepo)(nil)
 	_ ReportRepository        = (*MockReportRepo)(nil)
 )

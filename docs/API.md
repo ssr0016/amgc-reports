@@ -140,6 +140,24 @@ Replaces the name and the two profile fields; text left out is cleared. The pass
 role are not changed here (use Change User Role). Response (200): the user. 404 for an unknown
 user. Audited as `UPDATE_USER`.
 
+### Admin Stats (admin role only)
+
+GET /admin/stats?month=September&year=2026
+
+Counts for the admin panel cards. `month` (English name, case-insensitive) and `year` go together; send both or neither. Without them the period is the previous month in Asia/Manila. Rate limited like report reads. Counts only: no report text, names or emails.
+
+ {
+ "month": "September",
+ "year": 2026,
+ "reports_total": 3,
+ "reports_approved": 1,
+ "reports_pending": 2,
+ "users_total": 7,
+ "admins_total": 2
+ }
+
+`users_total` and `admins_total` count every account whatever the month. Errors: 400 for a year that is not a positive number, 401 without a session, 403 for any role but admin, 422 when only one of month and year is sent or the month is not a month name.
+
 ## Reports
 
 All Reports endpoints need a session cookie, and POST/PUT/PATCH/DELETE also need the CSRF token (see CSRF Protection). Each route needs one permission. A role may also hold an `_any` permission, which widens the scope from the caller's own reports to all reports.

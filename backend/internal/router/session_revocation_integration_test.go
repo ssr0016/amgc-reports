@@ -63,7 +63,7 @@ func TestResetPassword_EndsExistingSession(t *testing.T) {
 		nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil),
 		handler.NewPasswordResetHandler(service.NewPasswordResetService(users, resets, log)),
-		nil, noLimits,
+		nil, nil, noLimits,
 	)
 	h := sm.LoadAndSave(e)
 
@@ -112,7 +112,7 @@ func TestChangePassword_KeepsThisDeviceAndEndsTheRest(t *testing.T) {
 		repository.NewMockAuditRepo(), repository.NewTxManager(tdb.Pool), log)
 	Setup(e, sm, users, nil, handler.NewAuthHandler(authService, sm),
 		nil, nil, nil, nil, handler.NewVerificationHandler(nil),
-		handler.NewPasswordResetHandler(nil), nil, noLimits,
+		handler.NewPasswordResetHandler(nil), nil, nil, noLimits,
 	)
 	h := sm.LoadAndSave(e)
 

@@ -33,6 +33,7 @@ func Setup(
 	verificationHandler *handler.VerificationHandler,
 	passwordResetHandler *handler.PasswordResetHandler,
 	reportHandler *handler.ReportHandler,
+	statsHandler *handler.StatsHandler,
 	limits Limiters,
 ) {
 	api := e.Group("/api/v1", limits.Global)
@@ -117,6 +118,9 @@ func Setup(
 	// already requires the admin role; users:write is a second, explicit gate.
 	admin.POST("/users", adminUserHandler.CreateUser, perm("users:write"))
 	admin.PUT("/users/:id", adminUserHandler.UpdateUser, perm("users:write"))
+
+	// Counts for the admin panel cards. The group already requires the admin role.
+	admin.GET("/stats", statsHandler.GetStats, limits.Read)
 
 	_ = roleRepo // referenced in RequireRole
 }

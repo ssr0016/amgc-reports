@@ -1,5 +1,22 @@
 basePath: /api/v1
 definitions:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats:
+    properties:
+      admins_total:
+        type: integer
+      month:
+        type: string
+      reports_approved:
+        type: integer
+      reports_pending:
+        type: integer
+      reports_total:
+        type: integer
+      users_total:
+        type: integer
+      year:
+        type: integer
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest:
     properties:
       permission_id:
@@ -621,6 +638,57 @@ paths:
       summary: Revoke a permission from a role
       tags:
       - admin/roles
+  /admin/stats:
+    get:
+      description: 'Counts for one month: reports (total, approved, pending) and,
+        regardless of month, all users and admins. Admin role only. Without month
+        and year the period is the previous month in Asia/Manila. Month and year go
+        together; the month is an English month name, case-insensitive.'
+      parameters:
+      - description: Month name, case-insensitive; requires year
+        in: query
+        name: month
+        type: string
+      - description: Year; requires month
+        in: query
+        name: year
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Admin panel counts
+      tags:
+      - admin/stats
   /admin/users:
     post:
       consumes:

@@ -384,6 +384,81 @@
                 }
             }
         },
+        "/admin/stats": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Counts for one month: reports (total, approved, pending) and, regardless of month, all users and admins. Admin role only. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/stats"
+                ],
+                "summary": "Admin panel counts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Month name, case-insensitive; requires year",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year; requires month",
+                        "name": "year",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/admin/users": {
             "post": {
                 "security": [
@@ -1658,6 +1733,32 @@
         }
     },
     "definitions": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats": {
+            "type": "object",
+            "properties": {
+                "admins_total": {
+                    "type": "integer"
+                },
+                "month": {
+                    "type": "string"
+                },
+                "reports_approved": {
+                    "type": "integer"
+                },
+                "reports_pending": {
+                    "type": "integer"
+                },
+                "reports_total": {
+                    "type": "integer"
+                },
+                "users_total": {
+                    "type": "integer"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest": {
             "type": "object",
             "required": [

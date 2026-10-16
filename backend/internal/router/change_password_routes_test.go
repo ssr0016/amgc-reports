@@ -62,7 +62,7 @@ func changePasswordServer(t *testing.T, write func(*scs.SessionManager) echo.Mid
 	})
 	Setup(e, sm, users, permRoles{}, handler.NewAuthHandler(svc, sm), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}, sm),
+		handler.NewReportHandler(okReportSvc{}, sm), nil,
 		Limiters{Global: noLimit, Read: noLimit, Write: write(sm)},
 	)
 	return e

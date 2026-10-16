@@ -52,6 +52,7 @@ for (const scheme of ["light", "dark"] as const) {
       test("admin panel", async ({ page }) => {
         await page.goto("/admin");
         await expect(page.getByRole("tab", { name: "Reports" })).toBeVisible();
+        await expect(page.getByRole("region", { name: "Statistics" })).toBeVisible(); // the cards, once /admin/stats answered
         await scan(page);
       });
 
@@ -226,6 +227,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1, name: ready })).toBeVisible();
         await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+        if (path === "/admin") await expect(page.getByRole("region", { name: "Statistics" })).toBeVisible();
         expect(await noSidewaysScroll(page)).toBe(true);
         await scan(page); // wide tables scroll inside their container, which must be reachable by keyboard
       });

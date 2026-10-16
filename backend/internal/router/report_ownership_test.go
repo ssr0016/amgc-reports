@@ -94,7 +94,7 @@ func ownershipServer() *echo.Echo {
 	Setup(e, sm, users, byRole{},
 		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(svc, sm),
+		handler.NewReportHandler(svc, sm), nil,
 		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},
 	)
 	return e

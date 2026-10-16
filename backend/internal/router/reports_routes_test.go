@@ -90,7 +90,7 @@ func reportsServerWith(mk func(*scs.SessionManager) Limiters, perms ...string) *
 	Setup(e, sm, users, permRoles{perms: perms},
 		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}, sm), limits,
+		handler.NewReportHandler(okReportSvc{}, sm), nil, limits,
 	)
 	return e
 }

@@ -59,7 +59,7 @@ func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc)
 		handler.NewAuthHandler(nil, nil), handler.NewUserHandler(users), nil, nil,
 		handler.NewAdminUserHandler(users, nil, svc, sm),
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}, sm),
+		handler.NewReportHandler(okReportSvc{}, sm), nil,
 		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},
 	)
 	return e, svc

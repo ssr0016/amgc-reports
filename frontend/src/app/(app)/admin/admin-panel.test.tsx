@@ -5,6 +5,7 @@ import { AdminPanel } from "./admin-panel";
 
 const h = vi.hoisted(() => ({ isAdmin: true }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ isAdmin: h.isAdmin }) }));
+vi.mock("./stats-cards", () => ({ StatsCards: () => <p>stats</p> }));
 
 describe("AdminPanel", () => {
   it("shows an admin the Reports and Users tabs, Reports first", () => {
@@ -15,6 +16,18 @@ describe("AdminPanel", () => {
     expect(tabs.map((t) => t.textContent)).toEqual(["Reports", "Users"]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Reports");
+  });
+
+  it("puts the stats cards above the tabs for an admin, and shows a non-admin none", () => {
+    h.isAdmin = true;
+    const { unmount } = render(<AdminPanel />);
+    const stats = screen.getByText("stats");
+    expect(stats.compareDocumentPosition(screen.getByRole("tablist")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    unmount();
+
+    h.isAdmin = false;
+    render(<AdminPanel />);
+    expect(screen.queryByText("stats")).not.toBeInTheDocument();
   });
 
   it("moves between tabs with the arrow keys, Home and End", async () => {
