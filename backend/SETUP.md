@@ -60,6 +60,8 @@ nano .env
 make db-start
 docker ps | grep pastoral
 
+`backend/volumes/` contains Docker data dirs owned by the Postgres container (uid 70). A placeholder `go.mod` there prevents `go list ./...` and gopls from scanning it. Recreate it with `sudo touch backend/volumes/go.mod` if `make db-reset` removes it.
+
 ### 4. Install Dependencies
 go mod download
 go mod tidy
