@@ -109,17 +109,58 @@ test.describe("editor", () => {
 test.describe("admin", () => {
   test.use({ storageState: authFile("admin") });
 
-  test("approves and unapproves a report in the list", async ({ page }) => {
-    await page.goto("/reports");
-    const row = rowOf(page, "E2E User Edited");
-    await row.getByRole("button", { name: "Approve" }).click();
-    await expect(row.getByText("Completed")).toBeVisible();
+  // Approving lives in the admin panel only; the stats cards above its table count the same reports.
+  test("approves and unapproves from the admin panel, and the stats cards follow", async ({ page }) => {
+    await page.goto("/admin");
+    const card = (name: string) =>
+      page
+        .getByRole("region", { name: "Statistics" })
+        .locator("[data-slot=card]")
+        .filter({ has: page.getByText(name, { exact: true }) })
+        .locator("[data-slot=card-title]");
+    const row = () => rowOf(page, "E2E User Edited");
+
+    await expect(page.getByText(/\d+ total reports/)).toBeVisible();
+    await expect(page.getByRole("columnheader")).toHaveText([
+      "Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Action", "Download",
+    ]);
+    // Download Bulk is on the right of the filter row, level with the dropdowns and flush with the table's right edge.
+    const bulk = await page.getByRole("button", { name: "Download Bulk" }).boundingBox();
+    const year = await page.getByLabel("Year").boundingBox();
+    const table = await page.getByRole("table").boundingBox();
+    expect(bulk!.x).toBeGreaterThan(year!.x + year!.width);
+    expect(Math.abs(bulk!.x + bulk!.width - (table!.x + table!.width))).toBeLessThan(2);
+    await expect(row().getByText("Pending")).toBeVisible(); // the tab opens on the previous month
+    await expect(card("Approved")).toBeVisible();
+    const approved = Number(await card("Approved").innerText());
+    const pending = Number(await card("Pending").innerText());
+
+    await row().getByRole("button", { name: /^Approve / }).click();
+    await expect(row().getByText("Completed")).toBeVisible();
     await expect(page.getByText(`Approved ${label}`)).toBeVisible();
+    await expect(row().getByRole("button", { name: /^Unapprove / })).toBeVisible();
+    await expect(card("Approved")).toHaveText(String(approved + 1));
+    await expect(card("Pending")).toHaveText(String(pending - 1));
 
     await page.reload(); // the server kept it
-    await expect(rowOf(page, "E2E User Edited").getByText("Completed")).toBeVisible();
-    await rowOf(page, "E2E User Edited").getByRole("button", { name: "Unapprove" }).click();
+    await expect(row().getByText("Completed")).toBeVisible();
+    await row().getByRole("button", { name: /^Unapprove / }).click();
+    await expect(row().getByText("Pending")).toBeVisible();
+    await expect(card("Approved")).toHaveText(String(approved));
+    await expect(card("Pending")).toHaveText(String(pending));
+
+    // The next tests expect the report Pending, so wait for the server to say so.
+    await page.reload();
+    await expect(row().getByText("Pending")).toBeVisible();
+  });
+
+  test("the reports list shows the status but has no Approve or Unapprove", async ({ page }) => {
+    await page.goto("/reports");
     await expect(rowOf(page, "E2E User Edited").getByText("Pending")).toBeVisible();
+    await expect(page.getByRole("button", { name: /approve/i })).toHaveCount(0);
+    await expect(page.getByRole("columnheader")).toHaveText([
+      "Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Actions",
+    ]);
   });
 
   test("may file a late report", async ({ request }) => {

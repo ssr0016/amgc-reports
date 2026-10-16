@@ -1,6 +1,6 @@
 # AMGCReports - Project Overview
 
-<!-- blueprint:source-hash e989f984d69642a201b72e0fef775769e884fd7d2c6ec08f447a0927377749e9 -->
+<!-- blueprint:source-hash 04515615735b4f5028f476866fb395edbe4f9f8e34f211ba2e1f0e52de199596 -->
 
 > Pastoral reports management for 24 churches: workers file weekly reports, admins review and approve.
 
@@ -45,7 +45,7 @@ Build order from `build-plan.md` (27 items). Shipped (1-15 and 27) are done.
 17. **F14 prod smoke test** - blocked on 16 (deferred).
 18. **Rotate Railway Postgres password.**
 19. **Seed idempotency.**
-20. **Admin Panel Phase A** (~28h, no schema change; tests/axe/docs spread over the sub-items), in order: 20a shell and tabs, 20b stats endpoint and cards, 20c Reports tab, 20d Users tab, 20e preview modal.
+20. **Admin Panel Phase A** (~28h, no schema change; tests/axe/docs spread over the sub-items), in order: 20a shell and tabs, 20b stats endpoint and cards, 20c Reports tab, 20d Users tab, 20e preview modal, 20f sidebar navigation and profile menu.
 21. **Admin Panel Phase B** (~21h).
 22. **Admin Panel Phase C** (~32h) - includes exports.
 23. **E-1 email delivery.**

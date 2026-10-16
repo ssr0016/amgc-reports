@@ -2,6 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSession } from "@/lib/session";
+import { AdminReports } from "./admin-reports";
 import { StatsCards } from "./stats-cards";
 
 // Tab state lives in memory, not the URL. 20c and 20d fill the panels; keep the order.
@@ -20,7 +21,7 @@ export function AdminPanel() {
               <TabsTrigger value="users">Users</TabsTrigger>
             </TabsList>
             <TabsContent value="reports">
-              <p className="text-sm text-muted-foreground">Reports</p>
+              <AdminReports />
             </TabsContent>
             <TabsContent value="users">
               <p className="text-sm text-muted-foreground">Users</p>

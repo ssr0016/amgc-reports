@@ -13,15 +13,12 @@ const h = vi.hoisted(() => ({
   me: { user_id: 1, perms: [] as string[] },
   listReports: vi.fn(),
   deleteReport: vi.fn(),
-  toggleComplete: vi.fn(),
-  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: h.push, replace: h.replace }),
   useSearchParams: () => new URLSearchParams(h.search),
 }));
-vi.mock("sonner", () => ({ toast: h.toast }));
 vi.mock("@/lib/session", () => ({
   useSession: () => ({ user: { user_id: h.me.user_id }, can: (p: string) => h.me.perms.includes(p) }),
 }));
@@ -30,7 +27,6 @@ vi.mock("@/lib/reports", async (orig) => ({
   ...(await orig<typeof import("@/lib/reports")>()),
   listReports: h.listReports,
   deleteReport: h.deleteReport,
-  toggleComplete: h.toggleComplete,
 }));
 
 const report = (id: number, by: number, extra: Partial<Report> = {}): Report =>
@@ -89,15 +85,39 @@ describe("reports list: access", () => {
   });
 });
 
+describe("reports list: columns", () => {
+  it("reads Worker, Month, Year, Area of Assignment, Church, Status, Actions, in that order", async () => {
+    renderList("reports:read");
+    await screen.findByText("Worker 1");
+    expect(screen.getAllByRole("columnheader").map((c) => c.textContent)).toEqual([
+      "Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Actions",
+    ]);
+    // "Actions" is a visible heading, not just a screen reader label
+    expect(screen.getByRole("columnheader", { name: "Actions" }).querySelector(".sr-only")).toBeNull();
+  });
+
+  it("a row's cells follow the same order, with a dash for what is empty", async () => {
+    h.listReports.mockResolvedValue(
+      page([report(1, 1, { area_assignment: "Metro Manila", church_name: "AMGC Church" }), report(2, 2, { completed: true })]),
+    );
+    renderList("reports:read", "reports:write");
+    await screen.findByText("Worker 1");
+    const full = within(row("Worker 1")).getAllByRole("cell");
+    expect(full.slice(0, 6).map((c) => c.textContent)).toEqual(["Worker 1", "April", "2026", "Metro Manila", "AMGC Church", "Pending"]);
+    expect(within(full[6]).getByRole("link", { name: /^Edit / })).toBeInTheDocument();
+    const bare = within(row("Worker 2")).getAllByRole("cell");
+    expect(bare.slice(0, 6).map((c) => c.textContent)).toEqual(["Worker 2", "April", "2026", "—", "—", "Completed"]);
+  });
+});
+
 describe("reports list: accessible names", () => {
-  // Every row has the same four actions; a screen reader user needs to know which report each is for (WCAG 2.4.6, 4.1.2).
+  // Every row has the same actions; a screen reader user needs to know which report each is for (WCAG 2.4.6, 4.1.2).
   it("each row action says which report it acts on", async () => {
     renderList("reports:read", "reports:write", "reports:delete", "reports:approve");
     await screen.findByText("Worker 1");
     const mine = within(row("Worker 1"));
     expect(mine.getByRole("link", { name: "Edit April 2026, Worker 1" })).toBeInTheDocument();
     expect(mine.getByRole("button", { name: "Delete April 2026, Worker 1" })).toBeInTheDocument();
-    expect(mine.getByRole("button", { name: "Approve April 2026, Worker 1" })).toBeInTheDocument();
   });
 
   it("a report without a worker is named by its month alone", async () => {
@@ -165,59 +185,16 @@ describe("reports list: gated buttons", () => {
     expect(screen.queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
   });
 
-  it("Approve shows only with reports:approve", async () => {
-    renderList("reports:read");
+  // Approving moved to the admin panel (/admin), whatever the role: this page only shows the status.
+  it("has no Approve or Unapprove, even for someone holding reports:approve, and the status stays", async () => {
+    h.listReports.mockResolvedValue(page([report(1, 1, { completed: true }), report(2, 2)]));
+    renderList("reports:read", "reports:write", "reports:write_any", "reports:delete", "reports:delete_any", "reports:approve");
     await screen.findByText("Worker 1");
     expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
-  });
-});
-
-describe("reports list: approve", () => {
-  it("flips the row at once and confirms with the server's answer", async () => {
-    let resolve!: (v: unknown) => void;
-    h.toggleComplete.mockReturnValue(new Promise((r) => (resolve = r)));
-    const { user } = renderList("reports:read", "reports:approve");
-    await screen.findByText("Worker 1");
-
-    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Approve / }));
-    // optimistic: Completed and Unapprove while the request is in flight; the button is held
     expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument();
-    expect(within(row("Worker 1")).getByRole("button", { name: /^Unapprove / })).toBeDisabled();
-
-    resolve({ id: 1, completed: true });
-    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Approved April 2026"));
-    expect(within(row("Worker 1")).getByRole("button", { name: /^Unapprove / })).toBeEnabled();
-  });
-
-  it("rolls back and reports a failure", async () => {
-    h.toggleComplete.mockRejectedValue(new ApiError(429, "RATE_LIMIT", "Slow down.", undefined, 9));
-    const { user } = renderList("reports:read", "reports:approve");
-    await screen.findByText("Worker 1");
-    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Approve / }));
-    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Slow down. Try again in 9s."));
-    expect(within(row("Worker 1")).getByText("Pending")).toBeInTheDocument();
-  });
-
-  it("a 404 says the report is gone and reloads the list", async () => {
-    h.toggleComplete.mockRejectedValue(new ApiError(404, "NOT_FOUND", "gone"));
-    const { user } = renderList("reports:read", "reports:approve");
-    await screen.findByText("Worker 1");
-    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Approve / }));
-    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("April 2026 no longer exists."));
-    await waitFor(() => expect(h.listReports).toHaveBeenCalledTimes(2));
-  });
-
-  // White on green-600 is 3.3:1; green-700 is 5.0:1 (WCAG 1.4.3 wants 4.5:1 for this text).
-  it("the Approve button is dark enough for white text", async () => {
-    renderList("reports:read", "reports:approve");
-    await screen.findByText("Worker 1");
-    expect(within(row("Worker 1")).getByRole("button", { name: /^Approve / })).toHaveClass("bg-green-700", "hover:bg-green-800");
-  });
-
-  it("an approved report offers Unapprove", async () => {
-    h.listReports.mockResolvedValue(page([report(1, 1, { completed: true })]));
-    renderList("reports:read", "reports:approve");
-    expect(await screen.findByRole("button", { name: /^Unapprove / })).toBeInTheDocument();
+    expect(within(row("Worker 2")).getByText("Pending")).toBeInTheDocument();
+    expect(within(row("Worker 2")).getByRole("link", { name: /^Edit / })).toBeInTheDocument();
+    expect(within(row("Worker 2")).getByRole("button", { name: /^Delete / })).toBeInTheDocument();
   });
 });
 

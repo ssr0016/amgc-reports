@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AdminPanel } from "./admin-panel";
@@ -6,6 +6,7 @@ import { AdminPanel } from "./admin-panel";
 const h = vi.hoisted(() => ({ isAdmin: true }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ isAdmin: h.isAdmin }) }));
 vi.mock("./stats-cards", () => ({ StatsCards: () => <p>stats</p> }));
+vi.mock("./admin-reports", () => ({ AdminReports: () => <p>admin reports</p> }));
 
 describe("AdminPanel", () => {
   it("shows an admin the Reports and Users tabs, Reports first", () => {
@@ -65,5 +66,22 @@ describe("AdminPanel", () => {
     render(<AdminPanel />);
     expect(screen.getByText("You are not allowed to view the admin panel.")).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
+  it("shows the admin reports table in the Reports tab, and not in the Users tab", async () => {
+    h.isAdmin = true;
+    const user = userEvent.setup();
+    render(<AdminPanel />);
+    expect(within(screen.getByRole("tabpanel")).getByText("admin reports")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Users" }));
+    expect(screen.queryByText("admin reports")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel")).getByText("Users")).toBeInTheDocument();
+  });
+
+  it("does not render the table for a non-admin", () => {
+    h.isAdmin = false;
+    render(<AdminPanel />);
+    expect(screen.queryByText("admin reports")).not.toBeInTheDocument();
   });
 });

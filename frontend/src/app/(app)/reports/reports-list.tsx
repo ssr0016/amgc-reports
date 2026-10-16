@@ -4,7 +4,6 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
 import {
@@ -29,8 +28,6 @@ import {
   FIRST_YEAR,
   listReports,
   MONTHS,
-  toggleComplete,
-  type Page,
   type Report,
   type ReportFilters,
 } from "@/lib/reports";
@@ -120,47 +117,6 @@ function ReportsList() {
   const mine = (r: Report) => r.created_by === user?.user_id;
   const canEdit = (r: Report) => can("reports:write") && (mine(r) || can("reports:write_any"));
   const canDelete = (r: Report) => can("reports:delete") && (mine(r) || can("reports:delete_any"));
-
-  // Rows whose approve/unapprove is in flight. The endpoint toggles, so a second
-  // click before the answer would undo the first.
-  const [busy, setBusy] = useState<Set<number>>(new Set());
-
-  function patchRow(id: number, changes: Partial<Report>) {
-    queryClient.setQueriesData<Page<Report>>({ queryKey: ["reports"] }, (old) =>
-      old && { ...old, data: old.data.map((x) => (x.id === id ? { ...x, ...changes } : x)) },
-    );
-  }
-
-  async function toggle(r: Report) {
-    const period = `${r.month} ${r.year}`;
-    setBusy((s) => new Set(s).add(r.id));
-    patchRow(r.id, { completed: !r.completed }); // optimistic
-    try {
-      const meta = await toggleComplete(r.id);
-      // The server decides (another admin may have flipped it first). Named keys, because
-      // the API omits completed_at and completed_by when unapproved and a spread would keep the old ones.
-      patchRow(r.id, { completed: meta.completed, completed_at: meta.completed_at, completed_by: meta.completed_by });
-      toast.success(`${meta.completed ? "Approved" : "Unapproved"} ${period}`);
-    } catch (err) {
-      patchRow(r.id, { completed: r.completed, completed_at: r.completed_at, completed_by: r.completed_by });
-      if (err instanceof ApiError && err.status === 404) {
-        toast.error(`${period} no longer exists.`);
-        queryClient.invalidateQueries({ queryKey: ["reports"] });
-      } else {
-        toast.error(
-          err instanceof ApiError
-            ? retryText(err)
-            : "Could not update the report. Try again.",
-        );
-      }
-    } finally {
-      setBusy((s) => {
-        const n = new Set(s);
-        n.delete(r.id);
-        return n;
-      });
-    }
-  }
 
   // Filters apply as they change. The text boxes wait 300 ms after the last key,
   // so typing does not spend the per-user read rate limit one request per letter.
@@ -280,23 +236,21 @@ function ReportsList() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Worker</TableHead>
                   <TableHead>Month</TableHead>
                   <TableHead>Year</TableHead>
-                  <TableHead>Worker</TableHead>
-                  <TableHead>Area</TableHead>
+                  <TableHead>Area of Assignment</TableHead>
                   <TableHead>Church</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.data.map((r) => (
                   <TableRow key={r.id}>
+                    <TableCell>{r.worker || "—"}</TableCell>
                     <TableCell>{r.month}</TableCell>
                     <TableCell>{r.year}</TableCell>
-                    <TableCell>{r.worker || "—"}</TableCell>
                     <TableCell>{r.area_assignment || "—"}</TableCell>
                     <TableCell>{r.church_name || "—"}</TableCell>
                     <TableCell>
@@ -306,18 +260,6 @@ function ReportsList() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Can permission="reports:approve">
-                          <Button
-                            size="sm"
-                            variant={r.completed ? "outline" : "default"}
-                            className={r.completed ? undefined : "bg-green-700 text-white hover:bg-green-800"}
-                            disabled={busy.has(r.id)}
-                            onClick={() => toggle(r)}
-                          >
-                            {r.completed ? "Unapprove" : "Approve"}{" "}
-                            <span className="sr-only">{rowName(r)}</span>
-                          </Button>
-                        </Can>
                         <Button asChild variant="outline" size="sm">
                           <Link href={`/reports/${r.id}/edit`}>{canEdit(r) ? "Edit" : "View"}{" "}
                             <span className="sr-only">{rowName(r)}</span>

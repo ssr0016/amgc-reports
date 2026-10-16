@@ -1,0 +1,388 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "@/lib/api";
+import type { Page, Report } from "@/lib/reports";
+import { AdminReports } from "./admin-reports";
+
+const h = vi.hoisted(() => ({
+  perms: [] as string[],
+  listReports: vi.fn(),
+  toggleComplete: vi.fn(),
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock("sonner", () => ({ toast: h.toast }));
+vi.mock("@/lib/session", () => ({ useSession: () => ({ can: (p: string) => h.perms.includes(p) }) }));
+// Keep the real constants and defaultPeriod; replace only the calls that hit the network.
+vi.mock("@/lib/reports", async (orig) => ({
+  ...(await orig<typeof import("@/lib/reports")>()),
+  listReports: h.listReports,
+  toggleComplete: h.toggleComplete,
+}));
+
+const report = (id: number, extra: Partial<Report> = {}): Report =>
+  ({
+    id, created_by: 1, month: "September", year: 2026, metrics: {}, completed: false, created_at: "", updated_at: "",
+    worker: `Worker ${id}`, area_assignment: `Area ${id}`, church_name: `Church ${id}`, ...extra,
+  }) as Report;
+
+const page = (data: Report[], extra: Partial<Page<Report>["meta"]> = {}): Page<Report> =>
+  ({ data, meta: { page: 1, limit: 20, total: data.length, total_pages: 1, ...extra } }) as Page<Report>;
+
+function renderReports(...perms: string[]) {
+  h.perms = perms;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const user = userEvent.setup();
+  render(
+    <QueryClientProvider client={client}>
+      <AdminReports />
+    </QueryClientProvider>,
+  );
+  return { user, client };
+}
+
+const row = (text: string) => screen.getByText(text).closest("tr")!;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  h.listReports.mockResolvedValue(page([report(1), report(2)]));
+});
+
+describe("admin reports: table", () => {
+  it("has the eight columns, in order", async () => {
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    const heads = screen.getAllByRole("columnheader").map((c) => c.textContent);
+    expect(heads).toEqual(["Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Action", "Download"]);
+  });
+
+  it("shows a report's cells, and a dash for what is empty", async () => {
+    h.listReports.mockResolvedValue(
+      page([report(1), report(2, { worker: undefined, area_assignment: undefined, church_name: undefined })]),
+    );
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    const cells = within(row("Worker 1")).getAllByRole("cell").map((c) => c.textContent);
+    expect(cells.slice(0, 5)).toEqual(["Worker 1", "September", "2026", "Area 1", "Church 1"]);
+    const empty = within(screen.getAllByRole("row")[2]).getAllByRole("cell").map((c) => c.textContent);
+    expect([empty[0], empty[3], empty[4]]).toEqual(["—", "—", "—"]);
+  });
+
+  it("says Completed or Pending", async () => {
+    h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument();
+    expect(within(row("Worker 2")).getByText("Pending")).toBeInTheDocument();
+  });
+
+  it("has an Excel control that does nothing yet, named for its row", async () => {
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    const excel = within(row("Worker 1")).getByRole("button", { name: /^Excel / });
+    expect(excel).toBeDisabled();
+    expect(excel).toHaveAccessibleName("Excel September 2026, Worker 1");
+    expect(excel).toHaveAttribute("title");
+  });
+
+  it("offers no Edit, View or Delete", async () => {
+    h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
+    renderReports("reports:read", "reports:approve", "reports:write", "reports:delete");
+    await screen.findByText("Worker 1");
+    for (const name of [/Edit/, /View/, /Delete/]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    }
+  });
+});
+
+describe("admin reports: header and states", () => {
+  it("counts the reports in a status message", async () => {
+    h.listReports.mockResolvedValue(page([report(1), report(2)], { total: 41, total_pages: 3 }));
+    renderReports("reports:read");
+    expect(await screen.findByText("41 total reports")).toBeInTheDocument();
+    expect(screen.getByText("41 total reports").closest("[role=status]")).not.toBeNull();
+  });
+
+  it("reads '1 total reports' for one", async () => {
+    h.listReports.mockResolvedValue(page([report(1)]));
+    renderReports("reports:read");
+    expect(await screen.findByText("1 total reports")).toBeInTheDocument();
+  });
+
+  it("loading is a status message", () => {
+    h.listReports.mockReturnValue(new Promise(() => {}));
+    renderReports("reports:read");
+    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+  });
+
+  it("an empty period says so, as a status, and shows no table", async () => {
+    h.listReports.mockResolvedValue(page([]));
+    renderReports("reports:read");
+    expect(await screen.findByText("No reports match these filters.")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("shows an API error as an alert", async () => {
+    h.listReports.mockRejectedValue(new ApiError(500, "ERROR", "Server error."));
+    renderReports("reports:read");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Server error.");
+  });
+
+  it("without reports:read it says so and never asks the API", () => {
+    renderReports();
+    expect(screen.getByText("You are not allowed to view reports.")).toBeInTheDocument();
+    expect(h.listReports).not.toHaveBeenCalled();
+  });
+
+  it("a 403 from the API reads the same", async () => {
+    h.listReports.mockRejectedValue(new ApiError(403, "FORBIDDEN", "no"));
+    renderReports("reports:read");
+    expect(await screen.findByText("You are not allowed to view reports.")).toBeInTheDocument();
+  });
+});
+
+describe("admin reports: filters", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("starts on the previous month in Asia/Manila", async () => {
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    const { defaultPeriod } = await import("@/lib/reports");
+    const def = defaultPeriod();
+    expect(h.listReports).toHaveBeenCalledWith({ month: def.month, year: def.year });
+    expect(screen.getByLabelText("Month")).toHaveValue(def.month);
+    expect(screen.getByLabelText("Year")).toHaveValue(String(def.year));
+  });
+
+  it("has only the Month and Year dropdowns: no text boxes, no Clear", async () => {
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    expect(screen.getAllByRole("combobox").map((c) => c.id)).toEqual(["month", "year"]);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
+  });
+
+  it("Month lists the twelve months and no Any, so one view is one month", async () => {
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    const options = within(screen.getByLabelText("Month")).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]);
+  });
+
+  // The period follows the calendar: in 2027 the admin can still go back to 2026.
+  it("Year runs from 2026 to the current year, and an earlier year can be chosen", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2027-03-10T04:00:00Z") });
+    const { user } = renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    expect(within(screen.getByLabelText("Year")).getAllByRole("option").map((o) => o.textContent)).toEqual(["2026", "2027"]);
+    expect(h.listReports).toHaveBeenLastCalledWith({ month: "February", year: 2027 }); // March 2027: the previous month
+
+    await user.selectOptions(screen.getByLabelText("Year"), "2026");
+    await user.selectOptions(screen.getByLabelText("Month"), "October");
+    await waitFor(() => expect(h.listReports).toHaveBeenLastCalledWith({ month: "October", year: 2026 }));
+  });
+
+  it("the previous month of January is December of last year", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2027-01-15T04:00:00Z") });
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    expect(h.listReports).toHaveBeenLastCalledWith({ month: "December", year: 2026 });
+  });
+
+  it("choosing a month or a year refetches with it", async () => {
+    const { user } = renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    await user.selectOptions(screen.getByLabelText("Month"), "March");
+    await waitFor(() => expect(h.listReports).toHaveBeenLastCalledWith(expect.objectContaining({ month: "March" })));
+    await user.selectOptions(screen.getByLabelText("Year"), "2026");
+    await waitFor(() => expect(h.listReports).toHaveBeenLastCalledWith(expect.objectContaining({ month: "March", year: 2026 })));
+  });
+});
+
+// A placeholder for Phase C: the export has no endpoint yet, so the button sends nothing.
+describe("admin reports: Download Bulk", () => {
+  it("is a disabled button in the filter row, and clicking it sends nothing", async () => {
+    const { user } = renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    const bulk = screen.getByRole("button", { name: "Download Bulk" });
+    expect(bulk).toBeDisabled();
+    expect(bulk).toHaveAttribute("title");
+    expect(bulk.closest("form")).toContainElement(screen.getByLabelText("Month"));
+
+    h.listReports.mockClear();
+    await user.click(bulk);
+    expect(h.listReports).not.toHaveBeenCalled();
+    expect(h.toggleComplete).not.toHaveBeenCalled();
+  });
+
+  // jsdom has no layout, so the right side is checked as the DOM order (last in the row) and the class that pushes it there.
+  it("sits on the right of the filter row, after Month and Year", async () => {
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    const form = screen.getByLabelText("Month").closest("form")!;
+    const bulk = screen.getByRole("button", { name: "Download Bulk" });
+    expect(bulk).toHaveClass("ml-auto");
+    expect(form.lastElementChild).toBe(bulk);
+    expect(screen.getByLabelText("Month").compareDocumentPosition(screen.getByLabelText("Year")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByLabelText("Year").compareDocumentPosition(bulk) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("is there even when the period has no reports", async () => {
+    h.listReports.mockResolvedValue(page([]));
+    renderReports("reports:read");
+    await screen.findByText("No reports match these filters.");
+    expect(screen.getByRole("button", { name: "Download Bulk" })).toBeDisabled();
+  });
+});
+
+describe("admin reports: pages", () => {
+  it("has no page buttons for a single page", async () => {
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+  });
+
+  it("Next and Previous move the page, and a new filter goes back to page 1", async () => {
+    h.listReports.mockImplementation((f: { page?: number }) =>
+      Promise.resolve(page([report(1)], { page: f.page ?? 1, total_pages: 3, total: 41 })),
+    );
+    const { user } = renderReports("reports:read");
+    expect(await screen.findByText("Page 1 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Page 2 of 3")).toBeInTheDocument();
+    expect(h.listReports).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    await screen.findByText("Page 1 of 3");
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("Page 2 of 3");
+    await user.selectOptions(screen.getByLabelText("Month"), "March");
+    await screen.findByText("Page 1 of 3");
+    expect(h.listReports).toHaveBeenLastCalledWith(expect.not.objectContaining({ page: 2 }));
+  });
+});
+
+describe("admin reports: approve", () => {
+  const approve = (name: string) => within(row(name)).getByRole("button", { name: /^Approve / });
+
+  const unapprove = (name: string) => within(row(name)).getByRole("button", { name: /^Unapprove / });
+
+  it("a Pending row offers Approve and a Completed row offers Unapprove, each named for its row", async () => {
+    h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
+    renderReports("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+    expect(unapprove("Worker 1")).toHaveAccessibleName("Unapprove September 2026, Worker 1");
+    expect(within(row("Worker 1")).queryByRole("button", { name: /^Approve / })).not.toBeInTheDocument();
+    expect(approve("Worker 2")).toHaveAccessibleName("Approve September 2026, Worker 2");
+    expect(within(row("Worker 2")).queryByRole("button", { name: /Unapprove/ })).not.toBeInTheDocument();
+  });
+
+  it("neither is there without reports:approve", async () => {
+    h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
+  });
+
+  it("Unapprove toggles once, holds the button, then refreshes the list and the stats cards", async () => {
+    let resolve!: (v: unknown) => void;
+    h.toggleComplete.mockReturnValue(new Promise((r) => (resolve = r)));
+    h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
+    const { user, client } = renderReports("reports:read", "reports:approve");
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    await screen.findByText("Worker 1");
+
+    await user.click(unapprove("Worker 1"));
+    expect(h.toggleComplete).toHaveBeenCalledTimes(1);
+    expect(h.toggleComplete).toHaveBeenCalledWith(1);
+    expect(unapprove("Worker 1")).toBeDisabled();
+
+    h.listReports.mockResolvedValue(page([report(1), report(2)]));
+    resolve({ id: 1, completed: false });
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Unapproved September 2026"));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reports"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["admin-stats"] });
+    await waitFor(() => expect(within(row("Worker 1")).getByText("Pending")).toBeInTheDocument());
+    expect(approve("Worker 1")).toBeEnabled();
+  });
+
+  it("a failed Unapprove leaves the row Completed and does not touch the cards", async () => {
+    h.toggleComplete.mockRejectedValue(new ApiError(500, "ERROR", "Server error."));
+    h.listReports.mockResolvedValue(page([report(1, { completed: true })]));
+    const { user, client } = renderReports("reports:read", "reports:approve");
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    await screen.findByText("Worker 1");
+    await user.click(unapprove("Worker 1"));
+    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Server error."));
+    expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument();
+    expect(unapprove("Worker 1")).toBeEnabled();
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["admin-stats"] });
+  });
+
+  it("toggles once, holds the button while it waits, then refreshes the list and the stats cards", async () => {
+    let resolve!: (v: unknown) => void;
+    h.toggleComplete.mockReturnValue(new Promise((r) => (resolve = r)));
+    const { user, client } = renderReports("reports:read", "reports:approve");
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    await screen.findByText("Worker 1");
+
+    await user.click(approve("Worker 1"));
+    expect(h.toggleComplete).toHaveBeenCalledTimes(1);
+    expect(h.toggleComplete).toHaveBeenCalledWith(1);
+    expect(approve("Worker 1")).toBeDisabled(); // a second click would undo the first: the endpoint toggles
+
+    h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
+    resolve({ id: 1, completed: true });
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Approved September 2026"));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reports"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["admin-stats"] });
+    // the refetched list now shows it done, with no button
+    await waitFor(() => expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument());
+    expect(within(row("Worker 1")).queryByRole("button", { name: /Approve/ })).not.toBeInTheDocument();
+  });
+
+  it("tells the truth when the server unapproved it instead (it was already approved elsewhere)", async () => {
+    h.toggleComplete.mockResolvedValue({ id: 1, completed: false });
+    const { user } = renderReports("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+    await user.click(approve("Worker 1"));
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Unapproved September 2026"));
+  });
+
+  it("a 404 says the report is gone and reloads the list, not the cards", async () => {
+    h.toggleComplete.mockRejectedValue(new ApiError(404, "NOT_FOUND", "gone"));
+    const { user, client } = renderReports("reports:read", "reports:approve");
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    await screen.findByText("Worker 1");
+    await user.click(approve("Worker 1"));
+    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("September 2026 no longer exists."));
+    await waitFor(() => expect(h.listReports).toHaveBeenCalledTimes(2));
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["admin-stats"] });
+  });
+
+  it("another error shows its message with the retry hint, leaves the row, and does not touch the cards", async () => {
+    h.toggleComplete.mockRejectedValue(new ApiError(429, "RATE_LIMIT", "Slow down.", undefined, 9));
+    const { user, client } = renderReports("reports:read", "reports:approve");
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    await screen.findByText("Worker 1");
+    await user.click(approve("Worker 1"));
+    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Slow down. Try again in 9s."));
+    expect(within(row("Worker 1")).getByText("Pending")).toBeInTheDocument();
+    expect(approve("Worker 1")).toBeEnabled();
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["admin-stats"] });
+  });
+
+  it("a failure that is not an API error gets a generic message", async () => {
+    h.toggleComplete.mockRejectedValue(new Error("network down"));
+    const { user } = renderReports("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+    await user.click(approve("Worker 1"));
+    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Could not update the report. Try again."));
+  });
+});

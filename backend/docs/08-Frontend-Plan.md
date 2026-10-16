@@ -71,7 +71,7 @@ Libraries (small, to be confirmed at setup): a data-fetching cache (TanStack Que
 | Report form (create and edit) | Fields per D-7 limits (`worker`, `area_assignment`, `church_name` ≤ 150; `names` ≤ 5,000; `narrative_report`, `challenges`, `prayer_request` ≤ 10,000; year 2000 to 2100). Metrics grid: 21 metrics by 5 weeks, decimals with at most 2 places, blank means not reported, `0` means reported zero. Edit loads the full report and sends every field. Warn before leaving with unsaved changes. |
 | Report detail | **Dropped (2026-10-14).** There is no detail page: the list rows show what is needed, and Edit opens the full form. |
 | Delete | In the list, beside Edit (needs `reports:delete`). Confirm dialog, then soft delete; the month and year can be filed again. |
-| Approve | In the list, beside Edit and Delete, for users with `reports:approve`, which only the admin holds; there is no detail page to hold it. Optimistic update from the metadata response. |
+| Approve | **Moved to the admin panel (D-A8, 2026-10-16).** The Reports tab of `/admin` has Approve and Unapprove for users with `reports:approve`, which only the admin holds; the list no longer has them and shows the status read-only. Originally (F9) the list held it, with an optimistic update from the metadata response. |
 | Excel export | Out of scope (D-10: the audit must be written server-side where the download happens, so the export waits for a server endpoint). |
 
 ## 5. Error handling
@@ -123,7 +123,7 @@ Hours are for one developer and are estimates, not commitments. They exclude Exc
 | F6 | Reports list: filters, pagination, states | 8 |
 | F7 | Report form: create and edit, 21 by 5 metrics grid, validation, full-replace, unsaved-changes guard | 16 |
 | F8 | Delete with confirmation in the list (the detail page was dropped), `/` redirect and app header | 4 |
-| F9 | Approve and unapprove buttons in the list, with `sonner` toasts. **Delivered** (commit d890b9b) | 3 |
+| F9 | Approve and unapprove buttons in the list, with `sonner` toasts. **Delivered** (commit d890b9b); **moved to the admin panel Reports tab** (D-A8) | 3 |
 | F10 | Error UX across screens (409, 422 mapping, 429 countdown, network) and admin users screens (list, create, edit). **Delivered** (commits 47a65c5, ad19ac0 and the admin pages commit) | 5 |
 | F11 | Tests: unit 6, component 6, Playwright 10. **Delivered** (commits ee9fae5, f244d87, b0398c2; details below) | 22 |
 | F12 | CI: typecheck, tests, Playwright with Postgres. **Written, not yet run in CI** (see F12 details) | 4 |

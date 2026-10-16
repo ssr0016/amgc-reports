@@ -18,6 +18,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-F8 | Previous-month rule | Decided | 07 |
 | D-12 | Login with unverified email | Pending | here |
 | D-A1..D-A7 | Admin panel | Decided 2026-10-15 | here |
+| D-A8 | Approval lives in the admin panel | Decided 2026-10-16 | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -139,3 +140,12 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 
 - **Excel audit actions:** `DOWNLOAD_SINGLE_EXCEL` and `DOWNLOAD_BULK_EXCEL` are in the audit enum but no download endpoint is confirmed. Recorded as Reserved, Phase C (see [ARCHITECTURE.md](ARCHITECTURE.md)).
 - **Monetization:** none planned. TODO (confirm): no decision yet.
+
+### D-A8 Approval lives in the admin panel
+**Date:** 2026-10-16 · **Status:** Decided by the owner (admin panel feature 20c)
+
+- **Decision:** Approve and Unapprove are in the Reports tab of `/admin` only. `/reports` no longer has them: it shows each report's status read-only and keeps Edit, View and Delete.
+- **Admin Reports tab:** one month at a time. Month and Year dropdowns only (no "Any", no text filters), starting on the previous month in Asia/Manila (D-A7) and able to go back to any year from 2026. Columns: Worker, Month, Year, Area of Assignment, Church, Status, Action, Download. The header reads "N total reports".
+- **Excel (Phase C, D-A6, D-10):** a "Download Bulk" button and a per-row "Excel" control are disabled placeholders; there is no endpoint and no request. The stats cards stay on the previous month and do not follow the dropdowns.
+- **Why:** approval is an admin task and the admin panel is where an admin reviews who has reported; the list is for the people who write and edit reports.
+- **Consequence:** the approve endpoint (`PATCH /reports/:id/complete`) is unchanged; the API and its permission (`reports:approve`, admin only) are as before. An approved report is undone from the same tab.
