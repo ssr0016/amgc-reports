@@ -99,3 +99,10 @@ goose, in `backend/internal/database/migrations/`. 20 migrations.
 ## CI
 
 `.github/workflows/ci.yml`: Go lint, tests, integration tests (testcontainers), build, gosec; frontend lint, `gen:api` drift check, typecheck, build; Playwright e2e. Because Wait for CI is disabled on Railway, a red CI does not block a deploy.
+
+## Reference material
+
+- `backend/docs/reference/report-analysis.docx` — legacy snapshot of the
+  Express/MongoDB report backend. Not authoritative: where it differs, the
+  code and 07-Reports-Decisions.md win. **Contains no Excel template**
+  (D-A6 is still waiting for the legacy workbook).

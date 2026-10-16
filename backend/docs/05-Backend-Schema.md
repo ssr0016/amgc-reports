@@ -1149,4 +1149,4 @@ stateDiagram-v2
 - `internal/database/migrations/*.sql`, `internal/database/seed.go`
 - `internal/model/{user,role,password_reset,verification_token}.go`
 - `internal/repository/interfaces.go`
-- `06-Implementation-Plan.md` (to be created)
+- `06-Implementation-Plan.md`

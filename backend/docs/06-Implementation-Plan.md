@@ -791,4 +791,4 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 - `00-Repository-Analysis.md`, `01-PRD.md`, `02-App-Flow.md`, `03-Tech-Stack.md`, `04-Content-Guidelines.md`, `05-Backend-Schema.md`
 - `reference/report-analysis.docx` (Express/MongoDB reference)
 - ADRs 0001 to 0005 in `docs/adr/`
-- `CONTRIBUTING.md`, `ROADMAP.md`, `SETUP.md`, `docs/ARCHITECTURE.md`, `docs/API.md`
+- `CONTRIBUTING.md`, `ROADMAP.md`, `SETUP.md`, `docs/ARCHITECTURE.md` (backend layering and testing), `../../docs/ARCHITECTURE.md` (system), `../../docs/API.md`

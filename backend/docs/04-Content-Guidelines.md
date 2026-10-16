@@ -556,4 +556,4 @@ The code does not (yet) define a pattern for these. They are listed so nobody as
 - `docs/02-App-Flow.md`
 - `docs/03-Tech-Stack.md`
 - `docs/adr/0001` to `0005`
-- `06-Implementation-Plan.md` (to be created; tracks fixes for section 18)
+- `06-Implementation-Plan.md`
