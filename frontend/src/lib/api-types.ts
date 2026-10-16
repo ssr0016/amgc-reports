@@ -630,6 +630,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change own password
+         * @description Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sessions end; this one stays and its token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Current and new password */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ChangePasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/csrf": {
         parameters: {
             query?: never;
@@ -1642,7 +1739,7 @@ export interface paths {
         };
         /**
          * List users
-         * @description Returns paginated list of users
+         * @description Admin only. Returns paginated list of users
          */
         get: {
             parameters: {
@@ -1699,7 +1796,7 @@ export interface paths {
         };
         /**
          * Get user by ID
-         * @description Returns a single user
+         * @description Admin only. Returns a single user
          */
         get: {
             parameters: {
@@ -1760,6 +1857,10 @@ export interface components {
     schemas: {
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest": {
             permission_id: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.ChangePasswordRequest": {
+            current_password: string;
+            new_password: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeRoleRequest": {
             role_id: number;

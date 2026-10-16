@@ -60,6 +60,9 @@ func Setup(
 	authProtected := auth.Group("", ourmiddleware.RequireAuth(sm))
 	authProtected.POST("/logout", authHandler.Logout)
 	authProtected.GET("/me", authHandler.Me)
+	// Shares the per-user write bucket. It runs after RequireAuth, so only a signed-in
+	// caller uses tokens. The lockout counter, not this limit, stops password guessing.
+	authProtected.POST("/change-password", authHandler.ChangePassword, limits.Write)
 
 	// Lists every account's email and name, so it is admin-only, like /admin/users.
 	// A permission gate would not do: the plain user role holds users:read.

@@ -95,6 +95,14 @@ type UpdateUserRequest struct {
 	ChurchName     string `json:"church_name" validate:"max=150"`
 }
 
+// ChangePasswordRequest is the body of POST /auth/change-password. The 72-byte
+// limit on the new password is checked in the service, because bcrypt counts bytes
+// and the validator counts characters.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,strongpass"`
+}
+
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`

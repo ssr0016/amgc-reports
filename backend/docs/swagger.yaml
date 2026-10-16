@@ -7,6 +7,16 @@ definitions:
     required:
     - permission_id
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.ChangePasswordRequest:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeRoleRequest:
     properties:
       role_id:
@@ -776,6 +786,62 @@ paths:
       summary: Change a user's role
       tags:
       - admin/users
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Changes the signed-in user's password. The current password is
+        checked against the same failure counter as login (5 wrong attempts lock the
+        account for 15 minutes). The user's other sessions end; this one stays and
+        its token is renewed. A wrong current password is a 422 on current_password,
+        not a 401, so the client does not read it as a lost session.
+      parameters:
+      - description: Current and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Change own password
+      tags:
+      - auth
   /auth/csrf:
     get:
       description: Returns the CSRF token for the current client. The same value is
@@ -1320,7 +1386,7 @@ paths:
       - reports
   /users:
     get:
-      description: Returns paginated list of users
+      description: Admin only. Returns paginated list of users
       parameters:
       - description: Page number (default 1)
         in: query
@@ -1356,7 +1422,7 @@ paths:
       - users
   /users/{id}:
     get:
-      description: Returns a single user
+      description: Admin only. Returns a single user
       parameters:
       - description: User ID
         in: path
