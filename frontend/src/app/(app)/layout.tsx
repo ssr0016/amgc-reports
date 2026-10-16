@@ -39,9 +39,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             {isAdmin && (
-              <Link href="/admin/users" className="hover:underline">
-                Users
-              </Link>
+              <>
+                <Link href="/admin" className="hover:underline">
+                  Admin
+                </Link>
+                <Link href="/admin/users" className="hover:underline">
+                  Users
+                </Link>
+              </>
             )}
             <Link href="/account/password" className="hover:underline">
               Account

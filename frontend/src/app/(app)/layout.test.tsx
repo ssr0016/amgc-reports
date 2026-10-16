@@ -18,6 +18,11 @@ describe("app layout", () => {
     expect(screen.getAllByRole("link")[0]).toBe(skip);
   });
 
+  it("does not show the Admin link to a non-admin", () => {
+    render(<AppLayout>content</AppLayout>);
+    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+  });
+
   it("shows no header, and so no skip link, while the session loads", () => {
     h.status = "loading";
     render(<AppLayout>content</AppLayout>);

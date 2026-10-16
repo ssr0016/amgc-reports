@@ -49,6 +49,13 @@ for (const scheme of ["light", "dark"] as const) {
     test.describe("as admin", () => {
       test.use({ storageState: authFile("admin") });
 
+      test("admin panel", async ({ page }) => {
+        await page.goto("/admin");
+        await expect(page.getByRole("tab", { name: "Reports" })).toBeVisible();
+        await scan(page);
+      });
+
+
       test("reports list, with a row", async ({ page }) => {
         await page.goto(`/reports?month=&year=${earlierPeriod(3).year}`);
         await expect(page.getByRole("row", { name: new RegExp(FIXTURE_WORKER) })).toBeVisible();
@@ -211,6 +218,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
     for (const [name, path, ready] of [
       ["reports list", `/reports?month=&year=${earlierPeriod(3).year}`, /Reports/],
       ["new report", "/reports/new", /New report/],
+      ["admin", "/admin", /Admin/],
       ["users", "/admin/users", /Users/],
       ["new user", "/admin/users/new", /New user/],
     ] as const) {
