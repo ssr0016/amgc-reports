@@ -3,6 +3,7 @@ import {
   emptyForm,
   fromReport,
   fromServerDetails,
+  isRestricted,
   metricError,
   metricErrorKey,
   METRICS,
@@ -128,5 +129,22 @@ describe("fromServerDetails", () => {
     });
     expect(out.fields).toEqual({ month: "bad month", "metrics.outreach": "bad metric" });
     expect(out.general).toBe("Week 3: bad week metrics[nope]: unknown metric other: odd");
+  });
+});
+
+// D-18: the backend (ReportService.redact) applies the same rule; keep the two in sync.
+describe("isRestricted", () => {
+  const report = { created_by: 7 };
+  const perms = (...held: string[]) => (p: string) => held.includes(p);
+
+  it("is false for the owner, and for write_any or delete_any", () => {
+    expect(isRestricted(report, 7, perms())).toBe(false);
+    expect(isRestricted(report, 8, perms("reports:write_any"))).toBe(false);
+    expect(isRestricted(report, 8, perms("reports:delete_any"))).toBe(false);
+  });
+
+  it("is true for a reader with only read_any, and with no session user", () => {
+    expect(isRestricted(report, 8, perms("reports:read", "reports:read_any"))).toBe(true);
+    expect(isRestricted(report, undefined, perms())).toBe(true);
   });
 });

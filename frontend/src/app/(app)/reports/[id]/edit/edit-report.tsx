@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { ReportForm } from "@/components/report-form";
 import { ApiError } from "@/lib/api";
-import { fromReport } from "@/lib/report-form";
+import { fromReport, isRestricted } from "@/lib/report-form";
 import { getReport, updateReport } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 
@@ -50,6 +50,7 @@ export function EditReport() {
         submitLabel="Update Report"
         lockedPeriod={{ month: data.month, year: data.year }}
         readOnly={!editable}
+        restricted={isRestricted(data, user?.user_id, can)}
         onSubmit={async (input) => {
           await updateReport(reportId, input);
           await queryClient.invalidateQueries({ queryKey: ["reports"] });

@@ -56,14 +56,16 @@ func (runTx) WithTx(_ context.Context, fn func(repository.Querier) error) error 
 
 // previousMonthBody is a create body for the month a plain user may file, so the
 // seed POST passes the previous-month rule whatever day the tests run (D-F8).
-func previousMonthBody() string {
+func previousMonthBody() string { return `{"month":"` + previousMonthName() + `"}` }
+
+func previousMonthName() string {
 	loc, err := time.LoadLocation("Asia/Manila")
 	if err != nil {
 		panic(err)
 	}
 	t := time.Now().In(loc)
 	prev := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, -1, 0)
-	return `{"month":"` + model.Months[prev.Month()-1] + `"}`
+	return model.Months[prev.Month()-1]
 }
 
 // ownershipServer wires the real routes, handler and ReportService over in-memory
@@ -169,5 +171,45 @@ func TestReportsList_ReadAny(t *testing.T) {
 				t.Errorf("list has %d reports, want %d", len(page.Data), tc.want)
 			}
 		})
+	}
+}
+
+// D-18: a reader (read_any only) gets the report without free text or tithes_offering;
+// the owner and an editor get everything.
+func TestReportsVisibility(t *testing.T) {
+	body := `{"month":"` + previousMonthName() + `","narrative_report":"secret","prayer_request":"pray","metrics":{"tithes_offering":{"week1":5},"outreach":{"week1":2}}}`
+	cases := []struct {
+		name, user string
+		full       bool
+	}{
+		{"owner", ownerUser, true},
+		{"editor", editorUser, true},
+		{"reader", readerUser, false},
+	}
+	for _, path := range []string{"/api/v1/reports/1", "/api/v1/reports"} {
+		for _, tc := range cases {
+			t.Run(tc.name+" "+path, func(t *testing.T) {
+				e := ownershipServer()
+				if got := reportRequestAs(e, http.MethodPost, "/api/v1/reports", body, ownerUser); got != http.StatusCreated {
+					t.Fatalf("seed POST: status = %d, want 201", got)
+				}
+				req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, strings.NewReader(""))
+				req.Header.Set("X-Test-User", tc.user)
+				rec := httptest.NewRecorder()
+				e.ServeHTTP(rec, req)
+				if rec.Code != http.StatusOK {
+					t.Fatalf("status = %d, body = %s", rec.Code, rec.Body)
+				}
+				out := rec.Body.String()
+				for _, hidden := range []string{"secret", "pray", "tithes_offering"} {
+					if got := strings.Contains(out, hidden); got != tc.full {
+						t.Errorf("body contains %q = %v, want %v", hidden, got, tc.full)
+					}
+				}
+				if !strings.Contains(out, "outreach") {
+					t.Errorf("other metrics must stay visible: %s", out)
+				}
+			})
+		}
 	}
 }

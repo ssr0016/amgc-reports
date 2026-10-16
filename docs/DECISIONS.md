@@ -21,6 +21,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
+| D-18 | Report field visibility | Decided | here |
 
 ## Log
 
@@ -120,3 +121,16 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - The Pre-deploy Command (`/app/api migrate`, timeout 300 s) is set in the Railway UI (pastoral-reports → Settings → Deploy). `backend/railway.json` only mirrors it; Railway does not read it.
 - Wait for CI is **disabled**: a push to `main` deploys immediately, without waiting for the CI workflow.
 - See [docs/ARCHITECTURE.md](ARCHITECTURE.md).
+
+### D-18 Report field visibility
+**Date:** 2026-10-16 · **Status:** Decided by the owner (resolves Finding #1)
+
+- **Context:** the default `user` role holds `reports:read_any` (D-2, 2026-10-15) so everyone can see who has filed. That also exposed the narrative, the names of new believers, prayer requests and the tithes to every signed-in user (D-1 privacy note).
+- **Decision:** keep `read_any`, but withhold sensitive fields from a caller who is not the report's owner (`created_by` = caller) and holds neither `reports:write_any` nor `reports:delete_any`.
+  - **Hidden:** `names`, `narrative_report`, `challenges`, `prayer_request`, and the `tithes_offering` metric (financial).
+  - **Visible:** `id`, `month`, `year`, `worker`, `area_assignment`, `church_name`, `completed`, `completed_at`, `completed_by`, `created_by`, `created_at`, `updated_at`, and the other 20 metrics.
+  - Editors (`write_any`), admins and owners see everything. `delete_any` also counts, as the owner chose.
+- **Where:** `ReportService.redact`, applied by `Get` and `List` (`Create`, `Update` and `ToggleComplete` are only reachable by owners or `write_any`, or return metadata only). The detail page shows "Restricted" in place of the fields; the frontend derives this with `isRestricted` (`lib/report-form.ts`), so the API and Swagger are unchanged.
+- **Rationale:** the Tracker and "who has reported" need metadata, not pastoral content.
+- **Consequence:** the rule lives in two places (backend and frontend); change both together. See [ARCHITECTURE.md](ARCHITECTURE.md).
+

@@ -1,3 +1,4 @@
+import type { Permission } from "@/lib/permissions";
 import { defaultPeriod, MONTHS, type Report, type ReportInput } from "./reports";
 
 // Labels from the legacy Express field names (backend/docs/05-Backend-Schema.md 2.4).
@@ -199,3 +200,11 @@ export function fromServerDetails(details: Record<string, string>): {
   }
   return { fields, general: general.join(" ") };
 }
+
+// D-18: free text and tithes_offering are hidden from a reader who neither owns the report nor holds
+// write_any or delete_any. The server removes them (ReportService.redact); this only tells the form why
+// they are missing. Keep the two rules in sync.
+export const RESTRICTED_METRIC = "tithes_offering";
+
+export const isRestricted = (report: { created_by: number }, userId: number | undefined, can: (p: Permission) => boolean) =>
+  report.created_by !== userId && !can("reports:write_any") && !can("reports:delete_any");

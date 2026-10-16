@@ -21,9 +21,9 @@
 
 > TODO (confirm): F-1 (Commits 1–4) and L-3 are recent commits the owner named. I did not find their scope in the survey, so they are covered under the items above and not listed on their own.
 
-## P0 — Decide first
+## P0 — Done
 
-- [ ] Finding #1: decide whether a plain `user` may see all reports (`read_any`)
+- [x] Finding #1: plain `user` keeps `read_any`, but free text and `tithes_offering` are hidden from non-owners (D-18)
 
 ## P1 — Launch
 

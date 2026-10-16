@@ -89,6 +89,17 @@ func (a *actor) canSee(rep *model.Report, anyPerm string) bool {
 	return rep != nil && (rep.CreatedBy == a.user.ID || a.perms[anyPerm])
 }
 
+// redact removes what D-18 keeps from readers who neither own the report nor
+// hold write_any or delete_any: the free text and the tithes_offering metric.
+// The frontend repeats this rule in edit-report.tsx; keep the two in sync.
+func (a *actor) redact(resp *model.ReportResponse) {
+	if resp.CreatedBy == a.user.ID || a.perms["reports:write_any"] || a.perms["reports:delete_any"] {
+		return
+	}
+	resp.Names, resp.NarrativeReport, resp.Challenges, resp.PrayerRequest = "", "", "", ""
+	delete(resp.Metrics, "tithes_offering")
+}
+
 func (a *actor) auditEntry(ip, action string, rep *model.Report) model.AuditLog {
 	id := strconv.FormatInt(rep.ID, 10)
 	name := fmt.Sprintf("%s %d", rep.Month, rep.Year)
@@ -182,7 +193,9 @@ func (s *ReportService) Get(ctx context.Context, userID, id int64) (*model.Repor
 	if err != nil {
 		return nil, err
 	}
-	return respond(rep), nil
+	resp := respond(rep)
+	a.redact(resp)
+	return resp, nil
 }
 
 // List returns one page. Without reports:read_any the list is limited to the caller's own reports.
@@ -200,7 +213,9 @@ func (s *ReportService) List(ctx context.Context, userID int64, p model.ListRepo
 	}
 	out := make([]model.ReportResponse, 0, len(reports))
 	for _, r := range reports {
-		out = append(out, r.ToResponse())
+		resp := r.ToResponse()
+		a.redact(&resp)
+		out = append(out, resp)
 	}
 	return out, total, nil
 }

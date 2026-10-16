@@ -57,7 +57,11 @@ Frontend API types are generated from `backend/docs/swagger.json` (`npm run gen:
 | editor | users:read, users:write, reports:read, reports:write, reports:delete, reports:read_any, reports:write_any, reports:delete_any (no `reports:approve`; revoked by migration `20261014120000`) |
 | user | users:read, reports:read, reports:read_any, reports:write, reports:delete |
 
-`reports:read_any` for `user` is the open P0 decision (Finding #1): a plain user can see every report.
+`user` holds `reports:read_any`, so every signed-in user can list and open every report. D-18 limits what they see: without ownership, `write_any` or `delete_any`, the free text (`names`, `narrative_report`, `challenges`, `prayer_request`) and the `tithes_offering` metric are withheld.
+
+**Duplicated rule:** the backend applies it in `ReportService.redact` (`backend/internal/service/report_service.go`) and the frontend repeats it in `isRestricted` (`frontend/src/lib/report-form.ts`) so the detail page can show "Restricted" instead of empty fields. Keep the two in sync; the API does not signal redaction.
+
+**Known limitation:** the field-visibility rule is duplicated in `ReportService.redact` (backend) and `isRestricted` (frontend). They must be kept in sync; a drift would show the wrong view but not leak data, since the backend is authoritative. No automated test covers the sync.
 
 ## Layers
 

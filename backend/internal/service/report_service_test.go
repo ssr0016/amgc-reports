@@ -37,8 +37,12 @@ func (s stubRoles) GetPermissions(_ context.Context, roleID int64) ([]model.Perm
 const (
 	alice = int64(1) // plain user: own reports only
 	bob   = int64(2) // editor: _any + approve
+	carol = int64(3) // reader: read_any only, as the seeded user role
+	dave  = int64(4) // read_any and delete_any, no write_any
 	roleU = int64(10)
 	roleE = int64(20)
+	roleR = int64(30)
+	roleD = int64(40)
 )
 
 type fixture struct {
@@ -55,12 +59,18 @@ func newFixture() fixture {
 			return &model.User{ID: alice, Name: "Alice", RoleID: roleU, Role: &model.Role{Name: "user"}}, nil
 		case bob:
 			return &model.User{ID: bob, Name: "Bob", RoleID: roleE, Role: &model.Role{Name: "editor"}}, nil
+		case carol:
+			return &model.User{ID: carol, Name: "Carol", RoleID: roleR, Role: &model.Role{Name: "user"}}, nil
+		case dave:
+			return &model.User{ID: dave, Name: "Dave", RoleID: roleD, Role: &model.Role{Name: "custom"}}, nil
 		}
 		return nil, nil
 	}
 	roles := stubRoles{perms: map[int64][]string{
 		roleU: {"reports:read", "reports:write", "reports:delete"},
 		roleE: {"reports:read", "reports:write", "reports:delete", "reports:read_any", "reports:write_any", "reports:delete_any"},
+		roleR: {"reports:read", "reports:write", "reports:delete", "reports:read_any"},
+		roleD: {"reports:read", "reports:read_any", "reports:delete_any"},
 	}}
 	f := fixture{reports: repository.NewMockReportRepo(), audit: repository.NewMockAuditRepo()}
 	f.svc = NewReportService(f.reports, f.audit, fakeTx{}, nil, users, roles)
@@ -279,4 +289,79 @@ func TestReportService_ToggleComplete(t *testing.T) {
 
 	_, err = f.svc.ToggleComplete(ctx, bob, "", 9999)
 	require.ErrorIs(t, err, ErrReportNotFound)
+}
+
+// D-18: callers without ownership, write_any or delete_any get no free text and
+// no tithes_offering; the period, status and the other 20 metrics stay.
+func TestReportService_FieldVisibility(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	n := json.Number("7")
+	full := req("April")
+	full.Names, full.Challenges, full.PrayerRequest = "Juan", "none", "pray for Ana"
+	full.Metrics = map[string]model.MetricWeeks{
+		"tithes_offering": {Week1: &n},
+		"outreach":        {Week1: &n},
+	}
+	mine, err := f.svc.Create(ctx, alice, "", full)
+	require.NoError(t, err)
+	pg := pagination.Params{Page: 1, Limit: 10}
+
+	full_ := func(t *testing.T, r *model.ReportResponse) {
+		t.Helper()
+		assert.Equal(t, "secret text", r.NarrativeReport)
+		assert.Equal(t, "Juan", r.Names)
+		assert.Equal(t, "none", r.Challenges)
+		assert.Equal(t, "pray for Ana", r.PrayerRequest)
+		assert.Contains(t, r.Metrics, "tithes_offering")
+	}
+	restricted := func(t *testing.T, r *model.ReportResponse) {
+		t.Helper()
+		assert.Empty(t, r.NarrativeReport)
+		assert.Empty(t, r.Names)
+		assert.Empty(t, r.Challenges)
+		assert.Empty(t, r.PrayerRequest)
+		assert.NotContains(t, r.Metrics, "tithes_offering")
+		assert.Contains(t, r.Metrics, "outreach", "other metrics stay visible")
+		assert.Equal(t, mine.ID, r.ID)
+		assert.Equal(t, "April", r.Month)
+		assert.Equal(t, "Ana", r.Worker)
+		assert.Equal(t, alice, r.CreatedBy)
+	}
+
+	cases := []struct {
+		name string
+		user int64
+		full bool
+	}{
+		{"owner", alice, true},
+		{"write_any holder", bob, true},
+		{"delete_any holder", dave, true},
+		{"reader with read_any only", carol, false},
+	}
+	for _, tc := range cases {
+		check := restricted
+		if tc.full {
+			check = full_
+		}
+		t.Run(tc.name+" Get", func(t *testing.T) {
+			got, err := f.svc.Get(ctx, tc.user, mine.ID)
+			require.NoError(t, err)
+			check(t, got)
+		})
+		t.Run(tc.name+" List", func(t *testing.T) {
+			got, total, err := f.svc.List(ctx, tc.user, model.ListReportsParams{}, pg)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, total)
+			check(t, &got[0])
+		})
+	}
+
+	t.Run("redaction does not change what is stored", func(t *testing.T) {
+		_, err := f.svc.Get(ctx, carol, mine.ID)
+		require.NoError(t, err)
+		got, err := f.svc.Get(ctx, alice, mine.ID)
+		require.NoError(t, err)
+		full_(t, got)
+	})
 }

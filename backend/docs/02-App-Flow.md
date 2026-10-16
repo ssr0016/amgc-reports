@@ -447,14 +447,14 @@ Implemented.
 |---|---|:---:|:---:|:---:|
 | Create report | `reports:write` | yes | yes | yes |
 | Read own report | `reports:read` | yes | yes | yes |
-| Read any report | `reports:read_any` | no | yes | yes |
+| Read any report | `reports:read_any` | yes | yes | yes |
 | Update own report | `reports:write` | yes | yes | yes |
 | Update any report | `reports:write_any` | no | yes | yes |
 | Delete own report | `reports:delete` | yes | yes | yes |
 | Delete any report | `reports:delete_any` | no | yes | yes |
-| Approve / unapprove (any report) | `reports:approve` | no | yes | yes |
+| Approve / unapprove (any report) | `reports:approve` | no | no | yes |
 
-Per D-1 and D-2. Another person's report is 404 (not 403) on get, update and delete. `approve` is global: a custom role with `approve` but without `read_any` can approve by ID but cannot list.
+Per D-1, D-2 (2026-10-15: `user` gained `read_any`, `editor` lost `approve`) and D-18 (without ownership, `write_any` or `delete_any`, the free text and `tithes_offering` are withheld). Another person's report is 404 (not 403) on get, update and delete. `approve` is global: a custom role with `approve` but without `read_any` can approve by ID but cannot list.
 
 ## 16. Report Audit Logging
 

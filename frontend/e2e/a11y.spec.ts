@@ -84,6 +84,8 @@ for (const scheme of ["light", "dark"] as const) {
       test("another user's report is read-only", async ({ page }) => {
         await page.goto(`/reports/${fixtureId}/edit`);
         await expect(page.getByRole("heading", { name: "View report" })).toBeVisible();
+        // D-18: a reader without write_any sees the period and counts, not the free text or tithes.
+        await expect(page.getByText("Restricted")).toHaveCount(5);
         await scan(page);
       });
     });

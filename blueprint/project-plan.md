@@ -12,7 +12,7 @@ Pastoral reporting across **24 churches** is collected piecemeal. AMGCReports gi
 |------|--------|
 | admin | Full access, including approve and late-filing for a previous month |
 | editor | `write_any` + `delete_any`; cannot approve (migration `20261014120000_revoke_editor_approve`) |
-| user | Plain account with `read_any` — **pending decision** (see Open decisions, P0) |
+| user | Plain account with `read_any`; sees every report's metadata and counts but not the free text or tithes (D-18) |
 
 Church workers submit weekly reports. Admins review and approve them.
 
@@ -68,7 +68,7 @@ None. Internal tool. `TODO (confirm)`
 
 ## Open decisions
 
-- **P0 — Finding #1:** a plain `user` can see all reports (`read_any`). Decide whether that stays.
+- None open. Finding #1 is resolved by D-18 (report field visibility).
 
 ## Existing docs
 

@@ -17,6 +17,7 @@ import {
   metricErrorKey,
   METRICS,
   TEXT_LIMITS,
+  RESTRICTED_METRIC,
   toInput,
   validate,
   WEEKS,
@@ -46,6 +47,7 @@ export function ReportForm({
   submitLabel,
   lockedPeriod,
   readOnly = false,
+  restricted = false,
   onSubmit,
   onCancel,
 }: {
@@ -55,6 +57,8 @@ export function ReportForm({
   lockedPeriod?: { month: string; year: number };
   // Shows the report without letting anything change: every field is disabled and there is no Save.
   readOnly?: boolean;
+  // The server withheld the free text and tithes_offering (D-18): show "Restricted" instead of empty fields.
+  restricted?: boolean;
   onSubmit: (input: ReportInput) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -240,7 +244,12 @@ export function ReportForm({
                           <span className="block text-sm font-normal text-destructive">{errors[`metrics.${m.key}`]}</span>
                         )}
                       </TableCell>
-                      {WEEKS.map((w) => (
+                      {restricted && m.key === RESTRICTED_METRIC ? (
+                        <TableCell colSpan={WEEKS.length} className="text-muted-foreground">
+                          Restricted
+                        </TableCell>
+                      ) : (
+                      WEEKS.map((w) => (
                         <TableCell key={w}>
                           <input
                             inputMode={m.key === "tithes_offering" ? "decimal" : "numeric"}
@@ -258,7 +267,8 @@ export function ReportForm({
                             <span id={`err-${m.key}-${w}`} className="mt-1 block text-xs text-destructive">{errors[`metrics.${m.key}.${w}`]}</span>
                           )}
                         </TableCell>
-                      ))}
+                      ))
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -271,7 +281,13 @@ export function ReportForm({
           <h2 id="section-details" className={headingClass}>
             Report Details
           </h2>
-          {longTexts.map(([name, label, placeholder]) => (
+          {longTexts.map(([name, label, placeholder]) =>
+            restricted ? (
+              <div key={name} className="flex flex-col gap-2">
+                <p className="text-sm font-medium">{label}</p>
+                <p className="text-sm text-muted-foreground">Restricted</p>
+              </div>
+            ) : (
             <div key={name} className="flex flex-col gap-2">
               <Label htmlFor={name}>{label}</Label>
               <Textarea
@@ -293,7 +309,8 @@ export function ReportForm({
                 {[...form[name]].length} / {TEXT_LIMITS[name]}
               </p>
             </div>
-          ))}
+            ),
+          )}
         </section>
       </fieldset>
 

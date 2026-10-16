@@ -138,6 +138,27 @@ describe("ReportForm", () => {
     expect(metric("Outreach", 1)).toBeDisabled();
   });
 
+  describe("restricted (D-18)", () => {
+    it("replaces the free text and tithes_offering with a Restricted note, and keeps the other metrics", () => {
+      setup({ readOnly: true, restricted: true });
+      for (const label of ["Names of New Believers", "Narrative Report", "Challenges", "Prayer Request"]) {
+        expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+        expect(screen.getByText(label)).toBeInTheDocument();
+      }
+      expect(screen.queryByLabelText("Tithes & Offering, week 1")).not.toBeInTheDocument();
+      expect(screen.getByText("Tithes & Offering")).toBeInTheDocument();
+      expect(screen.getAllByText("Restricted")).toHaveLength(5);
+      expect(metric("Outreach", 1)).toBeDisabled();
+    });
+
+    it("changes nothing when not restricted", () => {
+      setup({ readOnly: true });
+      expect(screen.getByLabelText("Narrative Report")).toBeInTheDocument();
+      expect(metric("Tithes & Offering", 1)).toBeInTheDocument();
+      expect(screen.queryByText("Restricted")).not.toBeInTheDocument();
+    });
+  });
+
   it("counts characters against each text limit", async () => {
     const { user } = setup();
     await user.type(screen.getByLabelText("Prayer Request"), "😀😀");
