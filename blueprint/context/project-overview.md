@@ -1,6 +1,6 @@
 # AMGCReports - Project Overview
 
-<!-- blueprint:source-hash 08f6cb661e0875d1b78310dcd9aaa271aae6e8dfd8436dcd44a4e9cdba1ac852 -->
+<!-- blueprint:source-hash 735d1b99b143b281ae3912bcff76010cbe749794de7d8e91ea59c7b9376c5c0a -->
 
 > Pastoral reports management for 24 churches: workers file weekly reports, admins review and approve.
 
@@ -41,8 +41,8 @@ Build order from `build-plan.md` (27 items). Shipped (1-15 and 27) are done.
 13. **CI** - Go lint/test/integration/build/gosec, frontend checks, e2e.
 14. **Railway deploy** - H-4 + API migrate verified in prod.
 15. **Finding #1 (D-18)** - hide free text and tithes from non-owners.
-16. **F0 domain setup** - `amgreports.com` is taken; pick another.
-17. **F14 prod smoke test** - blocked on 16.
+16. **F0 domain setup** - `amgcreports.com` chosen; deferred to the end (listed under Deferred in the plan).
+17. **F14 prod smoke test** - blocked on 16 (deferred).
 18. **Rotate Railway Postgres password.**
 19. **Seed idempotency.**
 20. **Admin Panel Phase A** (~28h).
@@ -105,7 +105,7 @@ shadcn over Radix, Tailwind 4, Sonner toasts. Skip link, focus management, annou
 
 - Railway: backend + Postgres. Docker compose for local/prod. Frontend: Vercel (`app.<domain>`). DNS on Cloudflare (per `AGENTS.md`).
 - Production does not auto-migrate; Railway Pre-deploy runs `/app/api migrate`.
-- Domain: open (feature 16).
+- Domain: `amgcreports.com` chosen, not set up; feature 16 deferred. App runs on the Railway URL meanwhile.
 
 > TODO: env var names, health path, and build commands are not in the plans.
 

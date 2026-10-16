@@ -26,8 +26,7 @@
 
 ## P1 — Launch
 
-- [ ] 16. F0: domain setup (`amgreports.com` is taken; pick another)
-- [ ] 17. F14: production smoke test (blocked on F0)
+- [ ] 17. F14: production smoke test (blocked on F0, which is deferred)
 - [ ] 18. Rotate the Railway Postgres password
 - [ ] 19. Seed idempotency
 
@@ -47,6 +46,7 @@
 
 ## Deferred
 
+- [ ] 16. F0: domain setup (`amgcreports.com` chosen; deferred to the end by the owner, 2026-10-16; not a blocker for the admin panel)
 - [ ] 26. D-F7: Cloudflare proxy and IP-limit handling
 
 ## Not planned
