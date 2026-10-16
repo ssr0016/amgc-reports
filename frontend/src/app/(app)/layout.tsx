@@ -43,6 +43,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 Users
               </Link>
             )}
+            <Link href="/account/password" className="hover:underline">
+              Account
+            </Link>
             <Avatar name={user?.name ?? ""} />
             <span title={user?.email}>
               {user?.name} · {user?.role || "no role"}

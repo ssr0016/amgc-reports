@@ -18,6 +18,12 @@ export async function logout(): Promise<void> {
   }
 }
 
+// The server renews this session's token and ends the others, so the CSRF token is refetched.
+export async function changePassword(current_password: string, new_password: string): Promise<void> {
+  await api("/auth/change-password", { method: "POST", body: { current_password, new_password } });
+  resetCsrf();
+}
+
 // Returns null when signed out (401). The 401 is the expected answer here, so it
 // does not fire the unauthorized hook.
 export async function getCurrentUser(): Promise<Me | null> {

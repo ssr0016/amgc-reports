@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetCsrf } from "./api";
-import { getCurrentUser, login, logout } from "./auth";
+import { changePassword, getCurrentUser, login, logout } from "./auth";
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
 const paths = (f: ReturnType<typeof vi.fn>) => f.mock.calls.map((c) => String(c[0]).replace(/^undefined/, ""));
@@ -42,5 +42,19 @@ describe("auth", () => {
     await expect(getCurrentUser()).rejects.toMatchObject({ status: 500 });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(200, { id: 3 })));
     await expect(getCurrentUser()).resolves.toEqual({ id: 3 });
+  });
+
+  it("changePassword posts both passwords and drops the CSRF token", async () => {
+    const f = vi
+      .fn()
+      .mockResolvedValueOnce(json(200, { csrf_token: "a" }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(json(200, { csrf_token: "b" }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", f);
+    await expect(changePassword("old", "new")).resolves.toBeUndefined();
+    expect(JSON.parse(f.mock.calls[1][1].body)).toEqual({ current_password: "old", new_password: "new" });
+    await changePassword("old", "new");
+    expect(paths(f)).toEqual(["/auth/csrf", "/auth/change-password", "/auth/csrf", "/auth/change-password"]);
   });
 });
