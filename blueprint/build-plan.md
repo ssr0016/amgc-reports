@@ -44,6 +44,7 @@
   - [x] 22a. User status (D-A10): `status` column (active, inactive, disciplinary, deceased), login check after the password, session revoke in the same transaction, `PUT /admin/users/:id/status`, status badge, filter and Edit dropdown, `CHANGE_USER_STATUS` audit with its migration, self and last-admin protection (~9-10h)
   - [ ] 22b. Soft delete and restore of users (D-A11): reason, confirmation dialog, Deleted filter, email stays reserved, audit with its migration (~6h)
   - [ ] 22c. Reports of deleted and deceased users: owner status in the reports API and the "Deleted user" and "Archived" badges (~4h)
+  - [ ] 22d. Password confirm field on every password form: `confirm_password` (required, must equal the new password, 422 on `confirm_password`) in `CreateUserRequest`, `ChangePasswordRequest` and the public `ResetPasswordRequest`; the matching field on the create-user, change-password and reset-token forms (~4h)
 
 > Phase contents are in `backend/docs/06-Implementation-Plan.md` (commit `a18b572`). `TODO (confirm)`: split them into tasks when you start Phase A.
 

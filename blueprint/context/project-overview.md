@@ -1,6 +1,6 @@
 # AMGCReports - Project Overview
 
-<!-- blueprint:source-hash 6e8357c0c57326961c4786e2a6363e869b8fe2304d6c708d754c7b5d0bca378c -->
+<!-- blueprint:source-hash 86e9edae46d530a516b2be7c00208910b348cbbbd4dc96b9e9c7cb2c0f7da0f9 -->
 
 > Pastoral reports management for 24 churches: workers file weekly reports, admins review and approve.
 
@@ -47,7 +47,7 @@ Build order from `build-plan.md` (27 items). Shipped (1-15 and 27) are done.
 19. **Seed idempotency.**
 20. **Admin Panel Phase A** (~28h, no schema change; tests/axe/docs spread over the sub-items), in order: 20a shell and tabs, 20b stats endpoint and cards, 20c Reports tab, 20d Users tab, 20e preview modal, 20f sidebar navigation and profile menu.
 21. **Admin Panel Phase B** (~21h).
-22. **Admin Panel Phase C** (~49h) - includes exports and user status, in order: 22a user status (D-A10: `status` active, inactive, disciplinary or deceased; login check after the password; session revoke in the same transaction; `PUT /admin/users/:id/status`; badge, filter and Edit dropdown; `CHANGE_USER_STATUS` audit and migration; self and last-admin protection), 22b soft delete and restore of users (D-A11: reason, confirmation dialog, Deleted filter, email stays reserved, audit and migration), 22c reports of deleted and deceased users (owner status in the reports API, "Deleted user" and "Archived" badges).
+22. **Admin Panel Phase C** (~49h) - includes exports and user status, in order: 22a user status (D-A10: `status` active, inactive, disciplinary or deceased; login check after the password; session revoke in the same transaction; `PUT /admin/users/:id/status`; badge, filter and Edit dropdown; `CHANGE_USER_STATUS` audit and migration; self and last-admin protection), 22b soft delete and restore of users (D-A11: reason, confirmation dialog, Deleted filter, email stays reserved, audit and migration), 22c reports of deleted and deceased users (owner status in the reports API, "Deleted user" and "Archived" badges), 22d password confirm field (`confirm_password` required and equal to the new password, 422 on `confirm_password`, in the create-user, change-password and public reset-token requests and forms).
 23. **E-1 email delivery.**
 24. **Forgot-password flow** - needs 23.
 25. **Reset-password UI** - needs 23.
@@ -112,6 +112,6 @@ shadcn over Radix, Tailwind 4, Sonner toasts. Skip link, focus management, annou
 ## Open questions
 
 - Excel audit actions are Reserved, Phase C; no download endpoint is confirmed shipped (`docs/DECISIONS.md`).
-- Phase B is unsplit (`backend/docs/08-Frontend-Plan.md` section 10). Phase A is split into 20a-20f and Phase C into 22a-22c (exports are not yet split).
+- Phase B is unsplit (`backend/docs/08-Frontend-Plan.md` section 10). Phase A is split into 20a-20f and Phase C into 22a-22d (exports are not yet split).
 - D-A10 and D-A11 are named by the build plan but not yet recorded in `docs/DECISIONS.md`; 22a records them with the D-A1 amendment.
 - Monetization "none" is `TODO (confirm)`: no decision yet.
