@@ -400,6 +400,12 @@ Handler (bind, validate, map errors, respond) then Service (rules, orchestration
 - Shared helper `deleteByID` for deletes (error when no rows affected).
 - `// #nosec G115 - limit validated` is used on `uint64` conversions of limit/offset.
 
+### 12.1 Filter Labels
+- Use "All months" for the month filter (descriptive, specific).
+- Use "All" for generic filters (role, status, etc.).
+- Use "Any" only when the filter is a true wildcard (rare).
+- Why: "Any" is ambiguous (any = random?). "All months" is clear.
+
 ---
 
 ## 13. Database and Migration Conventions

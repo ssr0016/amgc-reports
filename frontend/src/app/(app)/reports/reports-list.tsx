@@ -171,7 +171,7 @@ function ReportsList() {
             value={filters.month ?? ""}
             onChange={(e) => go({ month: e.target.value, year: filters.year!, ...text }, "push")}
           >
-            <option value="">Any</option>
+            <option value="">All months</option>
             {MONTHS.map((m) => (
               <option key={m} value={m}>
                 {m}

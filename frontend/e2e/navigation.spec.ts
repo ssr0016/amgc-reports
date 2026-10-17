@@ -22,6 +22,21 @@ test.describe("sidebar, as admin", () => {
     await expect(page.getByRole("link", { name: /^Edit E2E User/ })).toBeVisible();
   });
 
+  test("the admin tab survives a refresh, and Back leaves /admin instead of stepping between tabs", async ({ page }) => {
+    await page.goto("/reports");
+    await page.goto("/admin");
+    await page.getByRole("tab", { name: "Users" }).click();
+    await expect(page).toHaveURL(/\/admin\?tab=users$/);
+
+    await page.reload();
+    await expect(page.getByRole("tab", { name: "Users" })).toHaveAttribute("aria-selected", "true");
+
+    await page.getByRole("tab", { name: "Reports" }).click();
+    await expect(page).toHaveURL(/\/admin\?tab=reports$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/reports$/);
+  });
+
   test("the avatar menu opens and leads to the password page", async ({ page }) => {
     await page.goto("/reports");
     await page.getByRole("button", { name: `${ACCOUNTS.admin.name} · admin` }).click();

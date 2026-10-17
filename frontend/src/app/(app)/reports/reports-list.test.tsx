@@ -297,6 +297,15 @@ describe("reports list: filters and pagination", () => {
     expect(screen.getByLabelText("Worker")).toHaveValue("Ana");
   });
 
+  it("labels the no-month choice \"All months\", and it is selected for month=", async () => {
+    h.search = "month=&year=2026";
+    renderList("reports:read");
+    await screen.findByText("Worker 1");
+    expect(screen.getByRole("option", { name: "All months" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Any" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Month")).toHaveDisplayValue("All months");
+  });
+
   it("an out-of-range year falls back to the default", async () => {
     h.search = "year=1999";
     renderList("reports:read");

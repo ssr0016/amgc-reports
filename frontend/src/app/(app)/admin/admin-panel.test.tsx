@@ -1,16 +1,63 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { useSyncExternalStore } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminPanel } from "./admin-panel";
 
-const h = vi.hoisted(() => ({ isAdmin: true, tab: null as string | null }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(h.tab ? { tab: h.tab } : {}) }));
+// The mock router behaves like Next's: replace() changes the URL, and the components reading it re-render.
+const h = vi.hoisted(() => {
+  const subs = new Set<() => void>();
+  const state = {
+    isAdmin: true,
+    tab: null as string | null,
+    replace: (() => {}) as (url: string) => void,
+    subscribe: (fn: () => void) => (subs.add(fn), () => subs.delete(fn)),
+  };
+  state.replace = (url) => {
+    state.tab = new URL(url, "http://x").searchParams.get("tab");
+    subs.forEach((fn) => fn());
+  };
+  return state;
+});
+const replace = vi.fn(h.replace);
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace }),
+  useSearchParams: () => {
+    const tab = useSyncExternalStore(h.subscribe, () => h.tab);
+    return new URLSearchParams(tab ? { tab } : {});
+  },
+}));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ isAdmin: h.isAdmin }) }));
 vi.mock("./stats-cards", () => ({ StatsCards: () => <p>stats</p> }));
 vi.mock("./admin-reports", () => ({ AdminReports: () => <p>admin reports</p> }));
 vi.mock("./users/users-list", () => ({ UsersPanel: () => <p>users panel</p> }));
 
 describe("AdminPanel", () => {
+  beforeEach(() => {
+    h.tab = null;
+    replace.mockClear();
+  });
+
+  it("writes the tab to the URL with replace, so a refresh keeps it and Back leaves the page", async () => {
+    h.isAdmin = true;
+    const user = userEvent.setup();
+    render(<AdminPanel />);
+    await user.click(screen.getByRole("tab", { name: "Users" }));
+    expect(replace).toHaveBeenLastCalledWith("/admin?tab=users");
+    expect(screen.getByRole("tab", { name: "Users" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(screen.getByRole("tab", { name: "Reports" }));
+    expect(replace).toHaveBeenLastCalledWith("/admin?tab=reports");
+    expect(screen.getByRole("tab", { name: "Reports" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("follows the URL when it changes from outside", () => {
+    h.isAdmin = true;
+    h.tab = "users";
+    render(<AdminPanel />);
+    expect(screen.getByRole("tab", { name: "Users" })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("shows an admin the Reports and Users tabs, Reports first", () => {
     h.isAdmin = true;
     render(<AdminPanel />);
