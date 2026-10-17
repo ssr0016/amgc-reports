@@ -6,6 +6,7 @@ import { UserForm } from "@/components/user-form";
 import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { getUser, updateUser } from "@/lib/users";
+import { ResetPasswordSection } from "./reset-password-section";
 import { StatusSection } from "./status-section";
 
 export function EditUser() {
@@ -63,6 +64,7 @@ export function EditUser() {
           onCancel={() => router.push("/admin?tab=users")}
         />
         <StatusSection user={data} />
+        <ResetPasswordSection user={data} />
       </>
     );
   }

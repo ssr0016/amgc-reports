@@ -20,6 +20,9 @@ var (
 	ErrUserNotFound = errors.New("user not found")
 	// ErrCannotChangeOwnStatus: an admin never changes their own status (D-A10).
 	ErrCannotChangeOwnStatus = errors.New("cannot change your own status")
+	// ErrCannotResetOwnPassword: an admin changes their own password on the Change
+	// password page, which asks for the current one (D-A12).
+	ErrCannotResetOwnPassword = errors.New("cannot reset your own password")
 	// ErrLastActiveAdmin: the only active admin cannot be moved away from active.
 	ErrLastActiveAdmin = errors.New("at least one active admin is required")
 	// ErrInvalidUserStatus: the status is not one of model.UserStatuses.
@@ -203,6 +206,56 @@ func (s *UserService) setStatus(ctx context.Context, q repository.Querier, actor
 		return nil, err
 	}
 	return user, nil
+}
+
+// ResetPassword sets a new password for another user (D-A12). The password change, the
+// end of every session of that user, the lockout clear and the audit row are one
+// transaction. The admin never resets their own account, whatever the body says. The
+// 72-byte limit is checked first because bcrypt would otherwise cut the password there.
+// Any status and any role may be reset; the status is not changed. The audit details hold
+// only how many sessions ended, never the password or its hash.
+func (s *UserService) ResetPassword(ctx context.Context, actorID int64, ip string, id int64, newPassword string) error {
+	actor, err := s.actor(ctx, actorID)
+	if err != nil {
+		return err
+	}
+	if actorID == id {
+		return ErrCannotResetOwnPassword
+	}
+	if len(newPassword) > maxPasswordBytes {
+		return ErrPasswordTooLong
+	}
+	target, err := s.users.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+	if target == nil {
+		return ErrUserNotFound
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+		// An empty keep-token: an admin reset has no session to keep, so all of them end.
+		ended, err := s.users.UpdatePasswordKeepSession(ctx, q, id, string(hash), "")
+		if err != nil {
+			return err
+		}
+		if err := s.users.ClearLockout(ctx, q, id); err != nil {
+			return err
+		}
+		return s.audit.Insert(ctx, q, userAudit(actor, ip, model.AuditAdminResetPassword, target,
+			map[string]any{"sessions_ended": ended}))
+	})
+	switch {
+	case errors.Is(err, repository.ErrNotFound):
+		return ErrUserNotFound
+	case err != nil:
+		return fmt.Errorf("reset password: %w", err)
+	}
+	return nil
 }
 
 // actor loads the admin making the change, for the audit row. A session whose

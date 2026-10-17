@@ -19,19 +19,20 @@ var MetricKeys = []string{
 
 // Audit actions allowed by chk_audit_logs_action.
 const (
-	AuditCreateReport     = "CREATE_REPORT"
-	AuditUpdateReport     = "UPDATE_REPORT"
-	AuditDeleteReport     = "DELETE_REPORT"
-	AuditApproveReport    = "APPROVE_REPORT"
-	AuditUnapproveReport  = "UNAPPROVE_REPORT"
-	AuditDownloadSingle   = "DOWNLOAD_SINGLE_EXCEL"
-	AuditDownloadBulk     = "DOWNLOAD_BULK_EXCEL"
-	AuditCreateUser       = "CREATE_USER"
-	AuditUpdateUser       = "UPDATE_USER"
-	AuditChangePassword   = "CHANGE_PASSWORD"
-	AuditChangeUserStatus = "CHANGE_USER_STATUS"
-	AuditTargetTypeReport = "Report"
-	AuditTargetTypeUser   = "User"
+	AuditCreateReport       = "CREATE_REPORT"
+	AuditUpdateReport       = "UPDATE_REPORT"
+	AuditDeleteReport       = "DELETE_REPORT"
+	AuditApproveReport      = "APPROVE_REPORT"
+	AuditUnapproveReport    = "UNAPPROVE_REPORT"
+	AuditDownloadSingle     = "DOWNLOAD_SINGLE_EXCEL"
+	AuditDownloadBulk       = "DOWNLOAD_BULK_EXCEL"
+	AuditCreateUser         = "CREATE_USER"
+	AuditUpdateUser         = "UPDATE_USER"
+	AuditChangePassword     = "CHANGE_PASSWORD"
+	AuditChangeUserStatus   = "CHANGE_USER_STATUS"
+	AuditAdminResetPassword = "ADMIN_RESET_PASSWORD"
+	AuditTargetTypeReport   = "Report"
+	AuditTargetTypeUser     = "User"
 )
 
 var AuditActions = []string{
@@ -39,4 +40,5 @@ var AuditActions = []string{
 	AuditApproveReport, AuditUnapproveReport,
 	AuditDownloadSingle, AuditDownloadBulk,
 	AuditCreateUser, AuditUpdateUser, AuditChangePassword, AuditChangeUserStatus,
+	AuditAdminResetPassword,
 }

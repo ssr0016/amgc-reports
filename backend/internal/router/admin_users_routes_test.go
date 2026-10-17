@@ -37,7 +37,16 @@ func (s *okUserSvc) ChangeStatus(context.Context, int64, string, int64, string) 
 	return &model.User{ID: 1, Email: "pia@example.com", Name: "Pia", Status: model.UserStatusInactive}, nil
 }
 
+func (s *okUserSvc) ResetPassword(context.Context, int64, string, int64, string) error {
+	s.calls++
+	return nil
+}
+
 func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc) {
+	return adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: noLimit}, roleName, perms...)
+}
+
+func adminUsersServerWith(limits Limiters, roleName string, perms ...string) (*echo.Echo, *okUserSvc) {
 	sm := scs.New()
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
@@ -65,7 +74,7 @@ func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc)
 		handler.NewAdminUserHandler(users, nil, svc, sm),
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
 		handler.NewReportHandler(okReportSvc{}, sm), nil,
-		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},
+		limits,
 	)
 	return e, svc
 }
@@ -78,6 +87,8 @@ var adminUserRoutes = []struct {
 		`{"email":"pia@example.com","name":"Pia","password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK","confirm_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"}`, http.StatusCreated},
 	{"update", http.MethodPut, "/api/v1/admin/users/1", `{"name":"Pia"}`, http.StatusOK},
 	{"status", http.MethodPut, "/api/v1/admin/users/1/status", `{"status":"inactive"}`, http.StatusOK},
+	{"reset-password", http.MethodPost, "/api/v1/admin/users/1/reset-password",
+		`{"new_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK","confirm_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"}`, http.StatusNoContent},
 }
 
 func TestAdminUserRoutes_Access(t *testing.T) {
@@ -150,5 +161,22 @@ func TestAuthRegister_IsRemoved(t *testing.T) {
 		if svc.calls != 0 {
 			t.Errorf("user %q: register must not reach any service", user)
 		}
+	}
+}
+
+// Setting a password is a write: the route sits behind the same write limiter as
+// change-password, after the role and permission gates (so the limiter only sees admins).
+func TestResetPasswordRoute_IsRateLimited(t *testing.T) {
+	tooMany := func(echo.HandlerFunc) echo.HandlerFunc {
+		return func(echo.Context) error { return apperror.RateLimit("slow down") }
+	}
+	const body = `{"new_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK","confirm_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"}`
+	e, svc := adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: tooMany}, "admin", "users:write")
+
+	if got := reportRequestAs(e, http.MethodPost, "/api/v1/admin/users/1/reset-password", body, "1"); got != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429 from the write limiter", got)
+	}
+	if svc.calls != 0 {
+		t.Error("a limited request reached the service")
 	}
 }

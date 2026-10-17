@@ -430,6 +430,12 @@ func (r *UserRepo) RecordFailedLogin(ctx context.Context, userID int64, maxAttem
 
 // ResetLoginAttempts clears failed attempts and unlocks account.
 func (r *UserRepo) ResetLoginAttempts(ctx context.Context, userID int64) error {
+	return r.ClearLockout(ctx, r.db.Pool, userID)
+}
+
+// ClearLockout is ResetLoginAttempts on q: failed_login_attempts to 0 and locked_until to
+// NULL. A missing user is ErrNotFound.
+func (r *UserRepo) ClearLockout(ctx context.Context, q Querier, userID int64) error {
 	query, args, err := r.db.Builder.
 		Update("users").
 		Set("failed_login_attempts", 0).
@@ -440,7 +446,7 @@ func (r *UserRepo) ResetLoginAttempts(ctx context.Context, userID int64) error {
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	result, err := r.db.Pool.Exec(ctx, query, args...)
+	result, err := q.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("reset login attempts: %w", err)
 	}

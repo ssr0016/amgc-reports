@@ -108,6 +108,15 @@ type ChangeStatusRequest struct {
 	Status string `json:"status" validate:"required,oneof=active inactive disciplinary deceased"`
 }
 
+// AdminResetPasswordRequest is the body of POST /admin/users/:id/reset-password. There is
+// no current password: an admin does not know it. The rules are those of change-password
+// (22d): strong enough, at most 72 bytes (checked in the service, in bytes), and the
+// confirmation equal to the password.
+type AdminResetPasswordRequest struct {
+	NewPassword     string `json:"new_password" validate:"required,strongpass"`
+	ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=NewPassword"`
+}
+
 // ChangePasswordRequest is the body of POST /auth/change-password. The 72-byte
 // limit on the new password is checked in the service, because bcrypt counts bytes
 // and the validator counts characters.

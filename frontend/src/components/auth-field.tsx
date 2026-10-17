@@ -11,9 +11,10 @@ export function AuthField({
   error,
   hint,
   type,
+  defaultShown = false,
   ...props
-}: React.ComponentProps<"input"> & { name: string; label: string; error?: string; hint?: string }) {
-  const [shown, setShown] = useState(false);
+}: React.ComponentProps<"input"> & { name: string; label: string; error?: string; hint?: string; defaultShown?: boolean }) {
+  const [shown, setShown] = useState(defaultShown);
   const isPassword = type === "password";
   const note = error ?? hint;
   const input = (

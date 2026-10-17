@@ -21,6 +21,7 @@ vi.mock("@/lib/users", () => ({
   getUser: vi.fn(async () => ({ id: 7, name: "Ana Cruz", email: "ana@x.com", status: h.status, area_assignment: "", church_name: "" })),
   updateUser: vi.fn(),
   changeUserStatus: h.changeUserStatus,
+  resetUserPassword: vi.fn(),
 }));
 
 function renderEdit() {
@@ -108,5 +109,22 @@ describe("Edit user: status", () => {
     expect(select).toBeDisabled();
     expect(select).toHaveAccessibleDescription("You cannot change your own status.");
     expect(s.getByRole("button", { name: "Update status" })).toBeDisabled();
+  });
+});
+
+describe("Edit user: reset password", () => {
+  it("shows a Reset password section under Status, off on your own account", async () => {
+    renderEdit();
+    const reset = await screen.findByRole("group", { name: "Reset password" });
+    const status = screen.getByRole("group", { name: "Status" });
+    expect(status.compareDocumentPosition(reset) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(reset).getByRole("button", { name: "Reset password" })).toBeEnabled();
+  });
+
+  it("disables it on the signed-in admin's own page", async () => {
+    h.me = { user_id: 7 };
+    renderEdit();
+    const reset = await screen.findByRole("group", { name: "Reset password" });
+    expect(within(reset).getByRole("button", { name: "Reset password" })).toBeDisabled();
   });
 });

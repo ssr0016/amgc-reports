@@ -30,3 +30,11 @@
 **Why it matters:** Spec step 3 says `lib/auth.test.ts` and `lib/users.test.ts` assert `confirm_password` in the request body. `auth.test.ts` does; the `createUser` case still posts `{ email } as never` and checks only method and CSRF. `new-user.tsx` is the only place that maps `confirm_password`, and no unit test covers it, so dropping that line would pass Vitest, typecheck (the field is required on the generated type, but `as never` hides it in the test) and lint. The e2e spec would catch it, but it was not run here.
 **Suggested fix:** Assert the parsed body of the `createUser` POST contains `confirm_password`, or add a `new-user` test that checks the `createUser` argument.
 **Resolution:**
+
+### F-04 [P3] open - A login that verified the old password just before a reset can still start a session after the reset
+
+**File:** backend/internal/service/user_service.go:211-259, backend/internal/service/auth_service.go:96-134
+**Found:** 2026-10-17 by /audit independent (scope: current; lens: security)
+**Why it matters:** The reset revokes every session that exists when its transaction runs. `AuthService.Login` reads the hash, runs bcrypt (about 100 ms), and only then does the handler create the session. A login with the old password that passed the compare just before the reset commits can create a session just after the revoke, so "signs them out everywhere" is not strictly true for that window. The same applies to a failed-login record that lands after `ClearLockout`. Reaching it needs the old password and exact timing, which is the case an admin reset is meant to close (a leaked password), so the impact is low. `ChangePassword` has the same window today.
+**Suggested fix:** Optional: accept and note the residual window in D-A12 (as D-A10 may for F-02), or have session creation re-check that the password hash is unchanged. No current requirement is lost by only documenting it.
+**Resolution:**

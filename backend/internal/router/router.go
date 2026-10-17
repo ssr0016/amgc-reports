@@ -119,6 +119,8 @@ func Setup(
 	admin.POST("/users", adminUserHandler.CreateUser, perm("users:write"))
 	admin.PUT("/users/:id", adminUserHandler.UpdateUser, perm("users:write"))
 	admin.PUT("/users/:id/status", adminUserHandler.ChangeStatus, perm("users:write"))
+	// Sets another user's password (D-A12): a write, so it shares change-password's limiter.
+	admin.POST("/users/:id/reset-password", adminUserHandler.ResetPassword, perm("users:write"), limits.Write)
 
 	// Counts for the admin panel cards. The group already requires the admin role.
 	admin.GET("/stats", statsHandler.GetStats, limits.Read)

@@ -28,6 +28,7 @@ export type User = Always<Model<"UserResponse">, "id" | "email" | "name" | "role
 export type Role = Always<Model<"RoleResponse">, "id" | "name">;
 export type UserInput = Model<"CreateUserRequest">;
 export type UserUpdate = Model<"UpdateUserRequest">;
+export type ResetPasswordInput = Model<"AdminResetPasswordRequest">;
 
 // The generated list response is typed for reports only, so Page<T> stays generic.
 export type PageMeta = Required<Schemas["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"]>;

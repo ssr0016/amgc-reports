@@ -1,5 +1,15 @@
 basePath: /api/v1
 definitions:
+  github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest:
+    properties:
+      confirm_password:
+        type: string
+      new_password:
+        type: string
+    required:
+    - confirm_password
+    - new_password
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats:
     properties:
       admins_total:
@@ -853,6 +863,73 @@ paths:
       security:
       - CookieAuth: []
       summary: Update a user's name and profile
+      tags:
+      - admin/users
+  /admin/users/{id}/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: 'Admin only. Sets a new password for another user (they never see
+        the old one, and nobody can read it back). It ends all of the user''s sessions,
+        clears their login lockout and is audited as ADMIN_RESET_PASSWORD. The new
+        password follows the change-password rules: strong enough (422 on new_password),
+        at most 72 bytes, and confirm_password must equal it exactly (422 on confirm_password).
+        You cannot reset your own password (403): use change-password. Any status
+        and any role may be reset; the status does not change.'
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New password and its confirmation
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Reset a user's password
       tags:
       - admin/users
   /admin/users/{id}/role:

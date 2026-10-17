@@ -30,6 +30,7 @@ type MockUserRepo struct {
 	UpdatePasswordKeepSessionFunc func(ctx context.Context, q Querier, userID int64, hash, keepToken string) (int64, error)
 	RecordFailedLoginFunc         func(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
 	ResetLoginAttemptsFunc        func(ctx context.Context, userID int64) error
+	ClearLockoutFunc              func(ctx context.Context, q Querier, userID int64) error
 	UpdateStatusFunc              func(ctx context.Context, q Querier, id int64, status string) (*model.User, error)
 	RevokeSessionsFunc            func(ctx context.Context, q Querier, userID int64) (int64, error)
 	LockActiveAdminsFunc          func(ctx context.Context, q Querier) ([]int64, error)
@@ -268,6 +269,14 @@ func (m *MockUserRepo) ResetLoginAttempts(ctx context.Context, userID int64) err
 	user.FailedLoginAttempts = 0
 	user.LockedUntil = nil
 	return nil
+}
+
+// ClearLockout clears failed attempts and the lock (mock); q is ignored.
+func (m *MockUserRepo) ClearLockout(ctx context.Context, q Querier, userID int64) error {
+	if m.ClearLockoutFunc != nil {
+		return m.ClearLockoutFunc(ctx, q, userID)
+	}
+	return m.ResetLoginAttempts(ctx, userID)
 }
 
 // UpdateStatus sets a user's status (mock); q is ignored.

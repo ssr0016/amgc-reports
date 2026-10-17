@@ -34,8 +34,8 @@ func TestMonths(t *testing.T) {
 }
 
 func TestAuditActions(t *testing.T) {
-	if got := len(AuditActions); got != 11 {
-		t.Fatalf("len(AuditActions) = %d, want 11", got)
+	if got := len(AuditActions); got != 12 {
+		t.Fatalf("len(AuditActions) = %d, want 12", got)
 	}
 	seen := map[string]bool{}
 	for _, a := range AuditActions {
@@ -56,4 +56,13 @@ func TestMetricWeeks_NonNil(t *testing.T) {
 	if _, ok := got[2]; ok {
 		t.Error("absent week 2 must not appear (D-5: absent is not zero)")
 	}
+}
+
+func TestAuditActions_IncludeAdminResetPassword(t *testing.T) {
+	for _, a := range AuditActions {
+		if a == AuditAdminResetPassword {
+			return
+		}
+	}
+	t.Fatalf("%q is not in AuditActions", AuditAdminResetPassword)
 }

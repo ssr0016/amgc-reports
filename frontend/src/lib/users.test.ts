@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetCsrf } from "./api";
-import { changeUserStatus, createUser, listRoles, listUsers, updateUser } from "./users";
+import { changeUserStatus, createUser, listRoles, listUsers, resetUserPassword, updateUser } from "./users";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -55,5 +55,18 @@ describe("users", () => {
     await changeUserStatus(5, "inactive");
     expect(call(f, 1)[0]).toBe("/admin/users/5/status");
     expect(call(f, 1)[1]).toMatchObject({ method: "PUT", body: JSON.stringify({ status: "inactive" }) });
+  });
+
+  it("resetUserPassword POSTs both passwords to the user's reset path and answers nothing", async () => {
+    resetCsrf();
+    const f = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: "t" })))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", f);
+    await expect(resetUserPassword(5, "New-Passw0rd-x", "New-Passw0rd-x")).resolves.toBeUndefined();
+    expect(call(f, 1)[0]).toBe("/admin/users/5/reset-password");
+    expect(call(f, 1)[1]).toMatchObject({ method: "POST" });
+    expect(JSON.parse(call(f, 1)[1].body)).toEqual({ new_password: "New-Passw0rd-x", confirm_password: "New-Passw0rd-x" });
   });
 });

@@ -21,6 +21,7 @@ type UserAdminService interface {
 	Create(ctx context.Context, actorID int64, ip string, req model.CreateUserRequest) (*model.User, error)
 	Update(ctx context.Context, actorID int64, ip string, id int64, req model.UpdateUserRequest) (*model.User, error)
 	ChangeStatus(ctx context.Context, actorID int64, ip string, id int64, status string) (*model.User, error)
+	ResetPassword(ctx context.Context, actorID int64, ip string, id int64, newPassword string) error
 }
 
 var _ UserAdminService = (*service.UserService)(nil)
@@ -60,6 +61,8 @@ func userError(err error, msg string) error {
 		return apperror.Unauthorized("authentication required")
 	case errors.Is(err, service.ErrCannotChangeOwnStatus):
 		return apperror.Forbidden("You cannot change your own status.")
+	case errors.Is(err, service.ErrCannotResetOwnPassword):
+		return apperror.Forbidden("You cannot reset your own password. Use the Change Password page instead.")
 	case errors.Is(err, service.ErrLastActiveAdmin):
 		return apperror.Conflict("At least one active admin is required.")
 	case errors.Is(err, service.ErrInvalidUserStatus):
@@ -187,6 +190,48 @@ func (h *AdminUserHandler) ChangeStatus(c echo.Context) error {
 		return userError(err, "failed to change user status")
 	}
 	return c.JSON(http.StatusOK, user.ToResponse())
+}
+
+// ResetPassword godoc
+// @Summary      Reset a user's password
+// @Description  Admin only. Sets a new password for another user (they never see the old one, and nobody can read it back). It ends all of the user's sessions, clears their login lockout and is audited as ADMIN_RESET_PASSWORD. The new password follows the change-password rules: strong enough (422 on new_password), at most 72 bytes, and confirm_password must equal it exactly (422 on confirm_password). You cannot reset your own password (403): use change-password. Any status and any role may be reset; the status does not change.
+// @Tags         admin/users
+// @Accept       json
+// @Security     CookieAuth
+// @Param        id path int true "User ID"
+// @Param        body body model.AdminResetPasswordRequest true "New password and its confirmation"
+// @Success      204
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Failure      429 {object} map[string]string
+// @Router       /admin/users/{id}/reset-password [post]
+func (h *AdminUserHandler) ResetPassword(c echo.Context) error {
+	actor, err := h.actorID(c)
+	if err != nil {
+		return err
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return apperror.BadRequest("invalid user id")
+	}
+	var req model.AdminResetPasswordRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	err = h.svc.ResetPassword(c.Request().Context(), actor, c.RealIP(), id, req.NewPassword)
+	if errors.Is(err, service.ErrPasswordTooLong) {
+		return fieldError("new_password", "must be at most 72 bytes")
+	}
+	if err != nil {
+		return userError(err, "failed to reset password")
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 // GetUser godoc

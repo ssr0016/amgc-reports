@@ -23,6 +23,9 @@ type UserRepository interface {
 	UpdatePasswordKeepSession(ctx context.Context, q Querier, userID int64, hash, keepToken string) (int64, error)
 	RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
 	ResetLoginAttempts(ctx context.Context, userID int64) error
+	// ClearLockout zeroes the failed-login counter and the lock on q, so an admin reset can
+	// do it in the same transaction as the password change. A missing user is ErrNotFound.
+	ClearLockout(ctx context.Context, q Querier, userID int64) error
 	UpdateRole(ctx context.Context, userID, roleID int64) error
 	GetWithRole(ctx context.Context, id int64) (*model.User, error)
 	UpdateStatus(ctx context.Context, q Querier, id int64, status string) (*model.User, error)

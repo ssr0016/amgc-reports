@@ -79,17 +79,17 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 ## Audit actions
 
-11 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it.
+12 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it.
 
 | Group | Actions |
 |---|---|
 | Reports | `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT` |
-| Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS` |
+| Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS`, `ADMIN_RESET_PASSWORD` |
 | Reserved | `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL` (written only by a future server-side export, D-10). Reserved, Phase C; no endpoint is confirmed shipped |
 
 ## Migration history
 
-goose, in `backend/internal/database/migrations/`. 21 migrations.
+goose, in `backend/internal/database/migrations/`. 22 migrations.
 
 | Era | Migrations |
 |---|---|
@@ -100,7 +100,8 @@ goose, in `backend/internal/database/migrations/`. 21 migrations.
 | Reports, 2026-10-13 | `20261013140000_create_reports`, `…140100_create_report_metrics`, `…140200_create_audit_logs` |
 | Users and audit, 2026-10-14 | `20261014100000_add_user_profile_fields`, `…100100_extend_audit_actions_users`, `…110000_drop_user_worker`, `…120000_revoke_editor_approve` |
 | 2026-10-15 | `20261015100000_allow_change_password_audit_action` |
-| Latest, 2026-10-16 | `20261016120000_add_user_status` (`users.status`, `CHANGE_USER_STATUS`) |
+| 2026-10-16 | `20261016120000_add_user_status` (`users.status`, `CHANGE_USER_STATUS`) |
+| Latest, 2026-10-17 | `20261017120000_allow_admin_reset_password_audit_action` (`ADMIN_RESET_PASSWORD`) |
 
 ## CI
 

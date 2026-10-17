@@ -22,14 +22,15 @@ import (
 
 // fakeUserSvc returns err from every method and records what it was called with.
 type fakeUserSvc struct {
-	err       error
-	calls     int
-	gotActor  int64
-	gotIP     string
-	gotID     int64
-	gotCreate model.CreateUserRequest
-	gotUpdate model.UpdateUserRequest
-	gotStatus string
+	err         error
+	calls       int
+	gotActor    int64
+	gotIP       string
+	gotID       int64
+	gotCreate   model.CreateUserRequest
+	gotUpdate   model.UpdateUserRequest
+	gotStatus   string
+	gotPassword string
 }
 
 func (f *fakeUserSvc) Create(_ context.Context, actor int64, ip string, req model.CreateUserRequest) (*model.User, error) {
@@ -49,6 +50,12 @@ func (f *fakeUserSvc) ChangeStatus(_ context.Context, actor int64, ip string, id
 	f.calls++
 	f.gotActor, f.gotIP, f.gotID, f.gotStatus = actor, ip, id, status
 	return &model.User{ID: id, Email: "u@example.com", Name: "U", Status: status, PasswordHash: "secret-hash"}, f.err
+}
+
+func (f *fakeUserSvc) ResetPassword(_ context.Context, actor int64, ip string, id int64, password string) error {
+	f.calls++
+	f.gotActor, f.gotIP, f.gotID, f.gotPassword = actor, ip, id, password
+	return f.err
 }
 
 type userErrBody struct {
@@ -77,6 +84,7 @@ func serveUserAdmin(t *testing.T, svc UserAdminService, sessionUser int64, metho
 	e.POST("/admin/users", h.CreateUser)
 	e.PUT("/admin/users/:id", h.UpdateUser)
 	e.PUT("/admin/users/:id/status", h.ChangeStatus)
+	e.POST("/admin/users/:id/reset-password", h.ResetPassword)
 
 	req := httptest.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

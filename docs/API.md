@@ -153,6 +153,30 @@ PUT /admin/users/:id/status (admin role and `users:write`)
 
 `status` is `active`, `inactive`, `disciplinary` or `deceased`. Only an active account can sign in; moving a user away from active ends all of their sessions. Response (200): the user. 400 for a bad id, 403 when the target is your own account, 404 for an unknown user, 409 when it would leave no active admin, 422 for another `status` value. The same status as now is 200 and writes nothing. Audited as `CHANGE_USER_STATUS` (`from`, `to`, `sessions_revoked`).
 
+### Reset User Password
+
+POST /admin/users/:id/reset-password (admin role and `users:write`)
+
+    {
+      "new_password": "StrongPass123!",
+      "confirm_password": "StrongPass123!"
+    }
+
+Sets a new password for another user (D-A12). There is no current password: an admin does not know
+it, and nobody can read a password back. Response: **204**, no body. The rules are those of change-password:
+a weak or over-72-byte `new_password` is a 422 on `new_password`, and a missing or different
+`confirm_password` is a 422 on `confirm_password` ("is required" or "does not match", exact match).
+The reset ends **all** of the user's sessions and clears their login lockout, so a locked-out worker can
+sign in with the new password. It is audited as `ADMIN_RESET_PASSWORD` in the same transaction, with
+details `{"sessions_ended": N}` only (never the password). Any status and any role may be reset, and the
+status does not change.
+
+Errors: 400 for a non-numeric id or a broken body, 401 not signed in, 403 not an admin, no `users:write`,
+or **your own account** ("You cannot reset your own password. Use the Change Password page instead."),
+404 unknown user, 422 as above, 429 over the write limit. A body that fails validation answers 422 before
+the own-account 403. Requires a session and a CSRF token. The new password is shown to the admin only in
+the browser, once; giving it to the worker is up to the admin (e-mail delivery is a later feature).
+
 ### Admin Stats (admin role only)
 
 GET /admin/stats?month=September&year=2026

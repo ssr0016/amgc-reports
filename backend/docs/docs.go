@@ -672,6 +672,100 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/users/{id}/reset-password": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Admin only. Sets a new password for another user (they never see the old one, and nobody can read it back). It ends all of the user's sessions, clears their login lockout and is audited as ADMIN_RESET_PASSWORD. The new password follows the change-password rules: strong enough (422 on new_password), at most 72 bytes, and confirm_password must equal it exactly (422 on confirm_password). You cannot reset your own password (403): use change-password. Any status and any role may be reset; the status does not change.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/users"
+                ],
+                "summary": "Reset a user's password",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New password and its confirmation",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/admin/users/{id}/role": {
             "put": {
                 "security": [
@@ -1862,6 +1956,21 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "confirm_password",
+                "new_password"
+            ],
+            "properties": {
+                "confirm_password": {
+                    "type": "string"
+                },
+                "new_password": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats": {
             "type": "object",
             "properties": {

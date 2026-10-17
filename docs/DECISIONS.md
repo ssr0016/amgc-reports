@@ -22,6 +22,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A9 | Navigation is a left sidebar; the profile menu holds Change password | Decided 2026-10-16 | here |
 | D-A10 | User status (active, inactive, disciplinary, deceased) | Decided 2026-10-16; built in 22a | here |
 | D-A11 | Soft delete and restore of users | Decided 2026-10-16; built in 22b | here |
+| D-A12 | Admin reset password | Decided 2026-10-17; built in 22e | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -205,3 +206,17 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Reset-token form:** the page does not exist yet (build-plan 25), so 22d changed only that request and its docs. Item 25 must add the field when it builds the page.
 - **Deploy order:** the API now rejects those bodies without the field and the old frontend does not send it, so the create-user and change-password forms fail with a 422 until the new frontend is live. Deploy both together.
 - **Edit user** has no password field and is unchanged. The login form has one password and is unchanged.
+
+### D-A12 Admin reset password
+**Date:** 2026-10-17 · **Status:** Decided; built in 22e
+
+- **Decision:** an admin can set a new password for another user: `POST /admin/users/:id/reset-password` (admin role and `users:write`), body `new_password` and `confirm_password` under the D-A14 rules, answers 204. The Edit User page has a "Reset password" button that opens a dialog with the two fields, show/hide, "Generate random password" and "Copy password".
+- **Why:** there is no self-registration (D-A2), admins hand the credentials to church workers, and there is no e-mail recovery until E-1. A worker who forgot the password needs an admin.
+- **No "view password":** a password is stored as a bcrypt hash and cannot be read back. The admin sees the new password once, in their own browser, and gives it to the worker. E-mailing it or a reset link is E-1 (build-plan 23 to 25).
+- **What a reset does, in one transaction:** sets the hash, ends **all** of the user's sessions, clears their failed-login counter and lockout (so a locked-out worker can sign in with the new password), and writes the audit row.
+- **Audit:** `ADMIN_RESET_PASSWORD`, target the user's email, details `{"sessions_ended": N}` only; never the password, its hash or the confirmation. Added to `chk_audit_logs_action` by `20261017120000_allow_admin_reset_password_audit_action`, shipped in the same deploy as the code that writes it.
+- **Not your own account:** an admin resetting themselves is a 403, "You cannot reset your own password. Use the Change Password page instead.", because that page asks for the current password and this route does not. The check runs after body validation, so a self-reset with an invalid body is a 422 first.
+- **Who can be reset:** any status and any role, including another admin and an inactive, disciplinary or deceased account (D-A10: those can already reset by token but cannot sign in until Active). The reset does not change the status. It is audited.
+- **The password in the browser:** it lives only in the dialog's state. After a reset the dialog stays open and shows it once, with Copy; closing it, Escape or Cancel clears it. It is not cached, logged, put in a URL, or kept in a toast. The generator is client-side (Web Crypto, 20 characters, no look-alikes `0 O 1 l I`, at least one lower case, upper case and digit).
+- **Not built:** a "must change at next sign-in" flag (it needs a column), a bulk reset, a reset from the Users tab row, and a password history.
+- **Deploy order:** the migration only widens a CHECK and the old code never writes the action, so the order is safe. The new frontend calls a route the old API lacks, so the Reset password button gets a 404 until Railway finishes.

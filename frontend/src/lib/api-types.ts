@@ -674,6 +674,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a user's password
+         * @description Admin only. Sets a new password for another user (they never see the old one, and nobody can read it back). It ends all of the user's sessions, clears their login lockout and is audited as ADMIN_RESET_PASSWORD. The new password follows the change-password rules: strong enough (422 on new_password), at most 72 bytes, and confirm_password must equal it exactly (422 on confirm_password). You cannot reset your own password (403): use change-password. Any status and any role may be reset; the status does not change.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description New password and its confirmation */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{id}/role": {
         parameters: {
             query?: never;
@@ -2080,6 +2191,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest": {
+            confirm_password: string;
+            new_password: string;
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats": {
             admins_total?: number;
             month?: string;
