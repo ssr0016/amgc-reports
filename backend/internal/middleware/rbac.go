@@ -21,8 +21,9 @@ func RequireRole(userRepo repository.UserRepository, sm *scs.SessionManager, rol
 			if err != nil {
 				return apperror.Internal("failed to load user").WithError(err)
 			}
-			if user == nil {
-				return apperror.Unauthorized("user not found")
+			// A session that outlives the account's status (D-A10) stops working here.
+			if user == nil || !user.CanSignIn() {
+				return apperror.Unauthorized("authentication required")
 			}
 
 			if user.Role == nil {
@@ -53,8 +54,9 @@ func RequirePermission(roleRepo repository.RoleRepository, userRepo repository.U
 			if err != nil {
 				return apperror.Internal("failed to load user").WithError(err)
 			}
-			if user == nil {
-				return apperror.Unauthorized("user not found")
+			// A session that outlives the account's status (D-A10) stops working here.
+			if user == nil || !user.CanSignIn() {
+				return apperror.Unauthorized("authentication required")
 			}
 
 			if user.RoleID == 0 {

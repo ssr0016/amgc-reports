@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { UserStatusBadge } from "@/components/user-status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { listRoles, listUsers } from "@/lib/users";
+import { STATUS_LABEL, USER_STATUSES } from "@/lib/user-status";
 
 // The list endpoint has no pages, so it returns at most this many.
 const LIMIT = 100;
@@ -23,6 +25,8 @@ export function UsersPanel() {
   const [search, setSearch] = useState("");
   // shortcut: the role filter only narrows the loaded rows (at most LIMIT), upgrade to a server-side filter when users outgrow LIMIT.
   const [role, setRole] = useState("");
+  // Unlike the role, the status filter is asked of the server ("" means every status).
+  const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
 
   // The box waits 300 ms after the last key, so typing does not spend the read rate limit one request per letter.
@@ -32,8 +36,8 @@ export function UsersPanel() {
   }, [search]);
 
   const { data, error, isPending } = useQuery({
-    queryKey: ["users", email],
-    queryFn: () => listUsers(email),
+    queryKey: ["users", email, status],
+    queryFn: () => listUsers(email, status),
     enabled: isAdmin,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
@@ -68,6 +72,7 @@ export function UsersPanel() {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Area</TableHead>
               <TableHead>Church</TableHead>
               <TableHead>
@@ -91,6 +96,9 @@ export function UsersPanel() {
                 </TableCell>
                 <TableCell>{u.email}</TableCell>
                 <TableCell>{roleName.get(u.role_id) ?? `#${u.role_id}`}</TableCell>
+                <TableCell>
+                  <UserStatusBadge status={u.status} />
+                </TableCell>
                 <TableCell>{u.area_assignment || "—"}</TableCell>
                 <TableCell>{u.church_name || "—"}</TableCell>
                 <TableCell>
@@ -134,6 +142,17 @@ export function UsersPanel() {
                 {roles.data?.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex w-44 flex-col gap-2">
+              <Label htmlFor="status-filter">Status</Label>
+              <NativeSelect id="status-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="">All statuses</option>
+                {USER_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
                   </option>
                 ))}
               </NativeSelect>

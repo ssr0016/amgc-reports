@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { authFile, clientIp, earlierPeriod, expect, send, test } from "./support";
+import { API, authFile, clientIp, earlierPeriod, expect, send, test } from "./support";
 
 // WCAG 2.x A and AA plus axe's best practices. Axe cannot judge everything (focus
 // visibility, reading order, real screen reader output), so keyboard flows are
@@ -65,6 +65,13 @@ for (const scheme of ["light", "dark"] as const) {
         await scan(page);
         await panel.getByLabel("Role").selectOption({ label: "admin" });
         await expect(panel.getByText("You")).toBeVisible();
+        await scan(page);
+      });
+
+      test("edit user, with the Status section", async ({ page, request }) => {
+        const users = await (await request.get(`${API}/users?limit=100&email=e2e-user`)).json();
+        await page.goto(`/admin/users/${users[0].id}/edit`);
+        await expect(page.getByRole("group", { name: "Status" })).toBeVisible();
         await scan(page);
       });
 

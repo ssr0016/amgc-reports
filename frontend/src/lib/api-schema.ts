@@ -24,7 +24,7 @@ export type Report = Always<
 >;
 export type ReportMetadata = Always<Model<"ReportMetadata">, "id" | "completed">;
 
-export type User = Always<Model<"UserResponse">, "id" | "email" | "name" | "role_id" | "email_verified" | "created_at">;
+export type User = Always<Model<"UserResponse">, "id" | "email" | "name" | "role_id" | "email_verified" | "created_at" | "status">;
 export type Role = Always<Model<"RoleResponse">, "id" | "name">;
 export type UserInput = Model<"CreateUserRequest">;
 export type UserUpdate = Model<"UpdateUserRequest">;

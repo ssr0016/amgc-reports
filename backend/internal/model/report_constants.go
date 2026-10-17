@@ -29,6 +29,7 @@ const (
 	AuditCreateUser       = "CREATE_USER"
 	AuditUpdateUser       = "UPDATE_USER"
 	AuditChangePassword   = "CHANGE_PASSWORD"
+	AuditChangeUserStatus = "CHANGE_USER_STATUS"
 	AuditTargetTypeReport = "Report"
 	AuditTargetTypeUser   = "User"
 )
@@ -37,5 +38,5 @@ var AuditActions = []string{
 	AuditCreateReport, AuditUpdateReport, AuditDeleteReport,
 	AuditApproveReport, AuditUnapproveReport,
 	AuditDownloadSingle, AuditDownloadBulk,
-	AuditCreateUser, AuditUpdateUser, AuditChangePassword,
+	AuditCreateUser, AuditUpdateUser, AuditChangePassword, AuditChangeUserStatus,
 }

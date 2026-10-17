@@ -718,6 +718,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/users/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a user's status
+         * @description Admin only. Sets the status to active, inactive, disciplinary or deceased. Only an active account can sign in; moving a user away from active ends all of their sessions. You cannot change your own status, and the only active admin cannot be moved away from active. The same status as now answers 200 and changes and audits nothing.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description New status */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeStatusRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/change-password": {
         parameters: {
             query?: never;
@@ -1849,6 +1962,8 @@ export interface paths {
                     limit?: number;
                     /** @description Filter by email */
                     email?: string;
+                    /** @description Filter by status; all or empty means every status */
+                    status?: "all" | "active" | "inactive" | "disciplinary" | "deceased";
                 };
                 header?: never;
                 path?: never;
@@ -1867,6 +1982,17 @@ export interface paths {
                 };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1972,6 +2098,10 @@ export interface components {
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeRoleRequest": {
             role_id: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeStatusRequest": {
+            /** @enum {string} */
+            status: "active" | "inactive" | "disciplinary" | "deceased";
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.CreateReportRequest": {
             area_assignment?: string;
@@ -2096,6 +2226,7 @@ export interface components {
             id?: number;
             name?: string;
             role_id?: number;
+            status?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta": {
             limit?: number;

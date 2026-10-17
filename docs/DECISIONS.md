@@ -20,6 +20,8 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A1..D-A7 | Admin panel | Decided 2026-10-15 | here |
 | D-A8 | Approval lives in the admin panel | Decided 2026-10-16 | here |
 | D-A9 | Navigation is a left sidebar; the profile menu holds Change password | Decided 2026-10-16 | here |
+| D-A10 | User status (active, inactive, disciplinary, deceased) | Decided 2026-10-16; built in 22a | here |
+| D-A11 | Soft delete and restore of users | Decided 2026-10-16; built in 22b | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -67,7 +69,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 **Date:** 2026-10-15 · **Status:** Decided by the owner (all seven recommendations accepted). Supports 08 §10.
 
 #### D-A1 User status and delete
-- **Decided:** deactivate, not delete; Phase C, with F-3 and H-2.
+- **Decided (amended 2026-10-16):** deactivate (soft delete), not hard delete. The user row is kept and marked deleted. A hard delete is never done (`audit_logs.performed_by` is `ON DELETE SET NULL`). Built in 22a (the status, D-A10) and 22b (soft delete and restore, D-A11), both in Phase C. Session revocation uses the existing `sessions.revoked_at`; the last-admin protection (F-3) lands in 22a.
 - **Question:** the design has an Active or Inactive status and a Delete action. Users have neither a flag nor a delete endpoint.
 - **Recommendation:** deactivate (a flag, reversible, keeps audit history) instead of hard delete, in Phase C with F-3 and H-2. `audit_logs.performed_by` is `ON DELETE SET NULL`, so a hard delete would orphan the Logs tab. The alternative is to leave the Status column and Delete button out for now.
 
@@ -168,3 +170,26 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **One way to the users list:** the Users tab of `/admin` (D-19). `/admin/users` now redirects to `/admin?tab=users`, so old links and bookmarks work; `?tab=users` only picks the tab on arrival (tab state is otherwise in memory, 20a). `/admin/users/new` and `/admin/users/[id]/edit` stay, and the sidebar marks Admin on them. This reverses the earlier choice to keep both routes.
 - **Why:** one place for navigation that grows with Phase B, and a header that no longer wraps at 320 px for an admin.
 - **Consequence:** hiding Admin is a convenience; the pages and the API still enforce the role. Routes, titles and the API are unchanged. Frontend only: `sidebar.tsx`, `profile-menu.tsx`, `components/ui/dropdown-menu.tsx` and `layout.tsx` in `frontend/src/app/(app)/`.
+
+### D-A10 User status
+**Date:** 2026-10-16 · **Status:** Decided by the owner (admin panel feature 22a, Phase C)
+
+- **Decision:** every account has a status: `active`, `inactive`, `disciplinary` or `deceased` (`users.status`, `chk_users_status`, default `active`). Only an active account can sign in or keep a session. "Deleted" is not a status (D-A11).
+- **Login order:** email, lockout, password, **then** status. A wrong password on any account is the generic 401, so the status messages never reveal which emails exist. After a correct password: inactive "Your account is inactive. Contact your admin."; disciplinary "Your account is under review. Contact your admin."; deceased "This account is closed." (all 403). The locked message is now "Account locked. Try again later.". A refused login does not reset the failed-attempt counter and starts no session.
+- **Sessions:** moving a user away from active revokes their sessions in the same transaction as the change (`sessions.revoked_at`). `GetWithRole` returns the status, and `RequireRole`, `RequirePermission` and `/auth/me` answer 401 for a non-active user, as a net for a session the revoke missed. A value the code does not know is refused, never let through; an empty status (only a hand-built test value) counts as active.
+- **Protections:** an admin cannot change their own status (403), and the only active admin cannot be moved away from active (409). The active admins' rows are locked in id order before the check, so two admins cannot lock each other out at the same moment.
+- **API and audit:** `PUT /admin/users/:id/status` and `GET /users?status=`; `CHANGE_USER_STATUS` with `{from, to, sessions_revoked}`, written with the change. The same status as now is a quiet 200 that writes and audits nothing. No reason is asked for a status change (a reason belongs to deletion, D-A11).
+- **Known gaps:** `PUT /admin/users/:id/role` can still change the last admin to another role; fix separately (`/fix`). The Users card in the admin stats still counts every account. Password reset and email verification are unchanged: an inactive user can reset a password but still cannot sign in.
+- **Choices made without the owner:** no index on `status` (about 24 users); the status is changed in its own section of the Edit page with its own request, not inside the profile form.
+
+### D-A11 Soft delete and restore of users
+**Date:** 2026-10-16 · **Status:** Decided by the owner; built in 22b (the report badges in 22c)
+
+- **Decision:** deleting a user is a soft delete: `deleted_at`, `deleted_by` and an optional `deleted_reason` (an empty textarea by default). Nothing is hard-deleted. A confirmation dialog says: "This will soft-delete {name} ({email}). The user cannot sign in. Their reports stay, but are hidden from the active list. You can restore them later." Deleting and restoring are audited (`restored_by` is in the audit row).
+- **Restore:** an admin action, reversible. The user is listed again.
+- **Protections:** same as D-A10: not yourself, and never the last active admin.
+- **Login:** a soft-deleted user is the generic 401 "Invalid email or password." (no enumeration).
+- **Email:** soft-deleted users keep their email reserved. Recreate is via restore, not a new account.
+- **Users tab:** "All" (default) leaves out the soft-deleted; a "Deleted" filter shows them; the Delete action is for active rows and Restore for deleted ones.
+- **Reports:** a soft-deleted user's reports stay visible and are not hidden; the owner is marked with a "Deleted user" badge (22c). A future enhancement may hide them (requires a JOIN, conflicts with D-18). A deceased user's reports stay in the history, marked "Archived".
+

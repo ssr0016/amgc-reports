@@ -144,6 +144,70 @@ func TestAuthService_Login_LogsTrackingFailures(t *testing.T) {
 	}
 }
 
+// Login checks the status only after the password, so the three messages can never
+// be used to find out which emails have an account (D-A10).
+func TestAuthService_Login_RefusesANonActiveAccountAfterThePassword(t *testing.T) {
+	tests := []struct {
+		status string
+		want   error
+	}{
+		{model.UserStatusInactive, ErrAccountInactive},
+		{model.UserStatusDisciplinary, ErrAccountUnderReview},
+		{model.UserStatusDeceased, ErrAccountClosed},
+		{"retired", ErrAccountInactive}, // a value this code does not know is refused, never let through
+	}
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			repo := repository.NewMockUserRepo()
+			svc := NewAuthService(repo, nil, nil, nil, nil, discardLog)
+			u := seedUser(t, repo, "s@example.com", "S")
+			u.Status = tt.status
+			repo.ResetLoginAttemptsFunc = func(context.Context, int64) error {
+				t.Error("a refused login must not reset the failed-attempt counter")
+				return nil
+			}
+
+			_, err := svc.Login(context.Background(), "s@example.com", testPassword)
+
+			if !errors.Is(err, tt.want) {
+				t.Errorf("Login() error = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAuthService_Login_WrongPasswordOnANonActiveAccountIsGeneric(t *testing.T) {
+	repo := repository.NewMockUserRepo()
+	svc := NewAuthService(repo, nil, nil, nil, nil, discardLog)
+	u := seedUser(t, repo, "s@example.com", "S")
+	u.Status = model.UserStatusDeceased
+	recorded := false
+	repo.RecordFailedLoginFunc = func(context.Context, int64, int, time.Duration) error { recorded = true; return nil }
+
+	_, err := svc.Login(context.Background(), "s@example.com", "wrong-password")
+
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Errorf("Login() error = %v, want ErrInvalidCredentials (the status must not leak)", err)
+	}
+	if !recorded {
+		t.Error("the wrong attempt did not count toward lockout")
+	}
+}
+
+func TestAuthService_Me_NonActiveIsUnauthorized(t *testing.T) {
+	users := repository.NewMockUserRepo()
+	users.GetWithRoleFunc = func(context.Context, int64) (*model.User, error) {
+		return &model.User{ID: 1, Name: "Ed", Status: model.UserStatusInactive}, nil
+	}
+	svc := NewAuthService(users, stubRoles{}, nil, nil, nil, discardLog)
+
+	_, err := svc.Me(context.Background(), 1)
+
+	if !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("Me() error = %v, want ErrUnauthorized", err)
+	}
+}
+
 func TestAuthService_Me(t *testing.T) {
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {

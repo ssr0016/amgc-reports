@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -28,11 +29,20 @@ func NewUserHandler(repo repository.UserRepository) *UserHandler {
 // @Param        page query int false "Page number (default 1)"
 // @Param        limit query int false "Limit (default 20, max 100)"
 // @Param        email query string false "Filter by email"
+// @Param        status query string false "Filter by status; all or empty means every status" Enums(all, active, inactive, disciplinary, deceased)
 // @Success      200 {array} model.UserResponse
 // @Failure      401 {object} map[string]string
+// @Failure      422 {object} map[string]string
 // @Router       /users [get]
 func (h *UserHandler) ListUsers(c echo.Context) error {
 	emailFilter := c.QueryParam("email")
+	status := c.QueryParam("status")
+	if status == "all" {
+		status = ""
+	}
+	if status != "" && !slices.Contains(model.UserStatuses, status) {
+		return apperror.Validation("invalid status").WithDetails(map[string]string{"status": "invalid status"})
+	}
 	limit := 20
 	if l := c.QueryParam("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
@@ -40,7 +50,7 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 		}
 	}
 
-	users, err := h.repo.List(c.Request().Context(), emailFilter, limit)
+	users, err := h.repo.List(c.Request().Context(), emailFilter, status, limit)
 	if err != nil {
 		return apperror.Internal("failed to list users").WithError(err)
 	}

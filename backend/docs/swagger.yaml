@@ -41,6 +41,18 @@ definitions:
     required:
     - role_id
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeStatusRequest:
+    properties:
+      status:
+        enum:
+        - active
+        - inactive
+        - disciplinary
+        - deceased
+        type: string
+    required:
+    - status
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.CreateReportRequest:
     properties:
       area_assignment:
@@ -340,6 +352,8 @@ definitions:
         type: string
       role_id:
         type: integer
+      status:
+        type: string
     type: object
   github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta:
     properties:
@@ -850,6 +864,75 @@ paths:
       security:
       - CookieAuth: []
       summary: Change a user's role
+      tags:
+      - admin/users
+  /admin/users/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Admin only. Sets the status to active, inactive, disciplinary or
+        deceased. Only an active account can sign in; moving a user away from active
+        ends all of their sessions. You cannot change your own status, and the only
+        active admin cannot be moved away from active. The same status as now answers
+        200 and changes and audits nothing.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Change a user's status
       tags:
       - admin/users
   /auth/change-password:
@@ -1474,6 +1557,16 @@ paths:
         in: query
         name: email
         type: string
+      - description: Filter by status; all or empty means every status
+        enum:
+        - all
+        - active
+        - inactive
+        - disciplinary
+        - deceased
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -1485,6 +1578,12 @@ paths:
             type: array
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
           schema:
             additionalProperties:
               type: string

@@ -21,6 +21,9 @@ func NewAuthHandler(authService *service.AuthService, sm *scs.SessionManager) *A
 	return &AuthHandler{authService: authService, sm: sm}
 }
 
+// messageAccountLocked is shown on login and on change-password for a locked account.
+const messageAccountLocked = "Account locked. Try again later."
+
 // Login godoc
 // @Summary      Login user
 // @Description  Authenticates user and creates a session
@@ -47,7 +50,15 @@ func (h *AuthHandler) Login(c echo.Context) error {
 			return apperror.Unauthorized("invalid email or password")
 		}
 		if errors.Is(err, service.ErrAccountLocked) {
-			return apperror.Forbidden("account is locked, try again later")
+			return apperror.Forbidden(messageAccountLocked)
+		}
+		switch {
+		case errors.Is(err, service.ErrAccountInactive):
+			return apperror.Forbidden("Your account is inactive. Contact your admin.")
+		case errors.Is(err, service.ErrAccountUnderReview):
+			return apperror.Forbidden("Your account is under review. Contact your admin.")
+		case errors.Is(err, service.ErrAccountClosed):
+			return apperror.Forbidden("This account is closed.")
 		}
 		return apperror.Internal("login failed").WithError(err)
 	}
@@ -114,7 +125,7 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	case errors.Is(err, service.ErrPasswordTooLong):
 		return fieldError("new_password", "must be at most 72 bytes")
 	case errors.Is(err, service.ErrAccountLocked):
-		return apperror.Forbidden("account is locked, try again later")
+		return apperror.Forbidden(messageAccountLocked)
 	case errors.Is(err, service.ErrUnauthorized):
 		return apperror.Unauthorized("not authenticated")
 	case err != nil:

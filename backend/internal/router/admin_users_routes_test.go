@@ -32,6 +32,11 @@ func (s *okUserSvc) Update(context.Context, int64, string, int64, model.UpdateUs
 
 // adminUsersServer wires the real routes. A request is user 1 when it carries
 // X-Test-User; that user has the named role, and the role holds exactly perms.
+func (s *okUserSvc) ChangeStatus(context.Context, int64, string, int64, string) (*model.User, error) {
+	s.calls++
+	return &model.User{ID: 1, Email: "pia@example.com", Name: "Pia", Status: model.UserStatusInactive}, nil
+}
+
 func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc) {
 	sm := scs.New()
 	users := repository.NewMockUserRepo()
@@ -72,6 +77,7 @@ var adminUserRoutes = []struct {
 	{"create", http.MethodPost, "/api/v1/admin/users",
 		`{"email":"pia@example.com","name":"Pia","password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"}`, http.StatusCreated},
 	{"update", http.MethodPut, "/api/v1/admin/users/1", `{"name":"Pia"}`, http.StatusOK},
+	{"status", http.MethodPut, "/api/v1/admin/users/1/status", `{"status":"inactive"}`, http.StatusOK},
 }
 
 func TestAdminUserRoutes_Access(t *testing.T) {

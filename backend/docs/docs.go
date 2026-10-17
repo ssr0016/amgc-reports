@@ -717,6 +717,106 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/users/{id}/status": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Admin only. Sets the status to active, inactive, disciplinary or deceased. Only an active account can sign in; moving a user away from active ends all of their sessions. You cannot change your own status, and the only active admin cannot be moved away from active. The same status as now answers 200 and changes and audits nothing.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/users"
+                ],
+                "summary": "Change a user's status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New status",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/auth/change-password": {
             "post": {
                 "security": [
@@ -1662,6 +1762,19 @@ const docTemplate = `{
                         "description": "Filter by email",
                         "name": "email",
                         "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "all",
+                            "active",
+                            "inactive",
+                            "disciplinary",
+                            "deceased"
+                        ],
+                        "type": "string",
+                        "description": "Filter by status; all or empty means every status",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1676,6 +1789,15 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1800,6 +1922,23 @@ const docTemplate = `{
             "properties": {
                 "role_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.ChangeStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "inactive",
+                        "disciplinary",
+                        "deceased"
+                    ]
                 }
             }
         },
@@ -2228,6 +2367,9 @@ const docTemplate = `{
                 },
                 "role_id": {
                     "type": "integer"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },

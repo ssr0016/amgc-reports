@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createUser, listRoles, listUsers, updateUser } from "./users";
+import { resetCsrf } from "./api";
+import { changeUserStatus, createUser, listRoles, listUsers, updateUser } from "./users";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -21,6 +22,18 @@ describe("users", () => {
     expect(call(f)[0]).toBe("/users?limit=100&email=a%2Bb%40x.com");
   });
 
+  it("listUsers adds the status unless it is empty or all", async () => {
+    let f = stub([]);
+    await listUsers("", "inactive");
+    expect(call(f)[0]).toBe("/users?limit=100&status=inactive");
+    f = stub([]);
+    await listUsers("a@x.com", "all");
+    expect(call(f)[0]).toBe("/users?limit=100&email=a%40x.com");
+    f = stub([]);
+    await listUsers("", "");
+    expect(call(f)[0]).toBe("/users?limit=100");
+  });
+
   it("listRoles unwraps the { data } envelope", async () => {
     stub({ data: [{ id: 1, name: "admin" }] });
     expect(await listRoles()).toEqual([{ id: 1, name: "admin" }]);
@@ -34,5 +47,13 @@ describe("users", () => {
     expect(call(f, 1)[1]).toMatchObject({ method: "POST" });
     expect(call(f, 2)[0]).toBe("/admin/users/5");
     expect(call(f, 2)[1]).toMatchObject({ method: "PUT" });
+  });
+
+  it("changeUserStatus PUTs the status to the user's status path", async () => {
+    resetCsrf(); // the token is cached across tests; start from none
+    const f = stub({ csrf_token: "t" }, { id: 5, status: "inactive" });
+    await changeUserStatus(5, "inactive");
+    expect(call(f, 1)[0]).toBe("/admin/users/5/status");
+    expect(call(f, 1)[1]).toMatchObject({ method: "PUT", body: JSON.stringify({ status: "inactive" }) });
   });
 });

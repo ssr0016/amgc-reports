@@ -52,7 +52,9 @@ over-72-byte new password is a 422 on `new_password`. The audit row is `CHANGE_P
 
 ### List Users (paginated, admin role only)
 
-GET /users?page=1&limit=10&email=user
+GET /users?page=1&limit=10&email=user&status=inactive
+
+Optional `status`: `all` or empty for every account, otherwise `active`, `inactive`, `disciplinary` or `deceased` (anything else is 422 on `status`). Every user carries its `status`.
 
 Response (200):
 
@@ -139,6 +141,16 @@ PUT /admin/users/:id (admin role and `users:write`)
 Replaces the name and the two profile fields; text left out is cleared. The password and the
 role are not changed here (use Change User Role). Response (200): the user. 404 for an unknown
 user. Audited as `UPDATE_USER`.
+
+### Change User Status
+
+PUT /admin/users/:id/status (admin role and `users:write`)
+
+    {
+      "status": "inactive"
+    }
+
+`status` is `active`, `inactive`, `disciplinary` or `deceased`. Only an active account can sign in; moving a user away from active ends all of their sessions. Response (200): the user. 400 for a bad id, 403 when the target is your own account, 404 for an unknown user, 409 when it would leave no active admin, 422 for another `status` value. The same status as now is 200 and writes nothing. Audited as `CHANGE_USER_STATUS` (`from`, `to`, `sessions_revoked`).
 
 ### Admin Stats (admin role only)
 

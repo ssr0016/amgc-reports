@@ -24,10 +24,8 @@ export default function LoginPage() {
       await signIn(String(form.get("email")), String(form.get("password")));
       router.replace(safeNext(new URLSearchParams(location.search).get("next")));
     } catch (err) {
-      const formError = toFormError(err, {
-        401: "Invalid email or password.",
-        403: "This account is locked. Try again later.",
-      });
+      // A 403 is the server's own sentence: locked, inactive, under review or closed.
+      const formError = toFormError(err, { 401: "Invalid email or password." });
       setError(formError);
       setWait(formError.retryAfter ?? 0);
       setPending(false);

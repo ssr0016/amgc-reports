@@ -6,6 +6,7 @@ import { UserForm } from "@/components/user-form";
 import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { getUser, updateUser } from "@/lib/users";
+import { StatusSection } from "./status-section";
 
 export function EditUser() {
   const router = useRouter();
@@ -37,28 +38,31 @@ export function EditUser() {
     body = <p role="status" className="text-sm text-muted-foreground">Loading…</p>;
   } else {
     body = (
-      <UserForm
-        mode="edit"
-        initial={{
-          email: data.email,
-          name: data.name,
-          password: "",
-          role_id: "",
-          area_assignment: data.area_assignment ?? "",
-          church_name: data.church_name ?? "",
-        }}
-        submitLabel="Update User"
-        onSubmit={async (v) => {
-          await updateUser(userId, {
-            name: v.name.trim(),
-            area_assignment: v.area_assignment.trim(),
-            church_name: v.church_name.trim(),
-          });
-          await queryClient.invalidateQueries({ queryKey: ["users"] });
-          router.replace("/admin?tab=users");
-        }}
-        onCancel={() => router.push("/admin?tab=users")}
-      />
+      <>
+        <UserForm
+          mode="edit"
+          initial={{
+            email: data.email,
+            name: data.name,
+            password: "",
+            role_id: "",
+            area_assignment: data.area_assignment ?? "",
+            church_name: data.church_name ?? "",
+          }}
+          submitLabel="Update User"
+          onSubmit={async (v) => {
+            await updateUser(userId, {
+              name: v.name.trim(),
+              area_assignment: v.area_assignment.trim(),
+              church_name: v.church_name.trim(),
+            });
+            await queryClient.invalidateQueries({ queryKey: ["users"] });
+            router.replace("/admin?tab=users");
+          }}
+          onCancel={() => router.push("/admin?tab=users")}
+        />
+        <StatusSection user={data} />
+      </>
     );
   }
 

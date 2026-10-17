@@ -15,7 +15,8 @@ type UserRepository interface {
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*model.User, error)
 	Create(ctx context.Context, q Querier, n model.NewUser) (*model.User, error)
 	UpdateProfile(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error)
-	List(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
+	// List returns users newest first; an empty status means every status.
+	List(ctx context.Context, emailFilter, status string, limit int) ([]model.User, error)
 	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 	MarkEmailVerified(ctx context.Context, userID int64) error
 	UpdatePassword(ctx context.Context, userID int64, hash string) error
@@ -24,6 +25,9 @@ type UserRepository interface {
 	ResetLoginAttempts(ctx context.Context, userID int64) error
 	UpdateRole(ctx context.Context, userID, roleID int64) error
 	GetWithRole(ctx context.Context, id int64) (*model.User, error)
+	UpdateStatus(ctx context.Context, q Querier, id int64, status string) (*model.User, error)
+	RevokeSessions(ctx context.Context, q Querier, userID int64) (int64, error)
+	LockActiveAdmins(ctx context.Context, q Querier) ([]int64, error)
 }
 
 // RoleRepository defines the interface for role data access.

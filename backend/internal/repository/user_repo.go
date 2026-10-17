@@ -17,12 +17,12 @@ type UserRepo struct{ db *database.DB }
 
 func NewUserRepo(db *database.DB) *UserRepo { return &UserRepo{db: db} }
 
-const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at, area_assignment, church_name"
+const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at, area_assignment, church_name, status"
 
 // scanUser scans a single user from a row.
 func scanUser(row pgx.Row) (*model.User, error) {
 	var u model.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -128,7 +128,7 @@ func (r *UserRepo) UpdateProfile(ctx context.Context, q Querier, id int64, p mod
 	return u, nil
 }
 
-func (r *UserRepo) List(ctx context.Context, emailFilter string, limit int) ([]model.User, error) {
+func (r *UserRepo) List(ctx context.Context, emailFilter, status string, limit int) ([]model.User, error) {
 	// Validate limit to prevent overflow and DoS
 	if limit <= 0 {
 		limit = 20
@@ -146,6 +146,9 @@ func (r *UserRepo) List(ctx context.Context, emailFilter string, limit int) ([]m
 	if emailFilter != "" {
 		q = q.Where(sq.ILike{"email": "%" + emailFilter + "%"})
 	}
+	if status != "" {
+		q = q.Where(sq.Eq{"status": status})
+	}
 
 	query, args, err := q.ToSql()
 	if err != nil {
@@ -161,7 +164,7 @@ func (r *UserRepo) List(ctx context.Context, emailFilter string, limit int) ([]m
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status); err != nil {
 			return nil, fmt.Errorf("scan row: %w", err)
 		}
 		users = append(users, u)
@@ -202,7 +205,7 @@ func (r *UserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, erro
 	query, args, err := r.db.Builder.
 		Select(
 			"u.id", "u.email", "u.name", "u.password_hash", "u.role_id",
-			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name",
+			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status",
 			"r.id", "r.name", "r.description", "r.created_at", "r.updated_at",
 		).
 		From("users u").
@@ -220,7 +223,7 @@ func (r *UserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, erro
 
 	err = r.db.Pool.QueryRow(ctx, query, args...).Scan(
 		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID,
-		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName,
+		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status,
 		&rID, &rName, &rDesc, &rCreatedAt, &rUpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -299,7 +302,7 @@ func (r *UserRepo) ListWithPagination(ctx context.Context, emailFilter string, p
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
 		users = append(users, u)
@@ -445,4 +448,61 @@ func (r *UserRepo) ResetLoginAttempts(ctx context.Context, userID int64) error {
 		return fmt.Errorf("users: %w", ErrNotFound)
 	}
 	return nil
+}
+
+// UpdateStatus sets a user's status on q (a transaction, so the audit row and the
+// session revoke share it) and returns the updated user. A missing user is ErrNotFound.
+func (r *UserRepo) UpdateStatus(ctx context.Context, q Querier, id int64, status string) (*model.User, error) {
+	query, args, err := r.db.Builder.
+		Update("users").
+		Set("status", status).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": id}).
+		Suffix("RETURNING " + userColumns).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+	u, err := scanUser(q.QueryRow(ctx, query, args...))
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, fmt.Errorf("users: %w", ErrNotFound)
+	}
+	return u, nil
+}
+
+// RevokeSessions ends all of a user's live sessions on q and returns how many.
+// A tombstone, not a delete: see the session store.
+func (r *UserRepo) RevokeSessions(ctx context.Context, q Querier, userID int64) (int64, error) {
+	res, err := q.Exec(ctx,
+		`UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("revoke sessions: %w", err)
+	}
+	return res.RowsAffected(), nil
+}
+
+// LockActiveAdmins returns the ids of the active admins, in id order, and locks
+// their rows until the transaction on q ends. Taking the locks in a fixed order
+// means two admins changing each other's status at once cannot both pass the
+// last-admin check.
+func (r *UserRepo) LockActiveAdmins(ctx context.Context, q Querier) ([]int64, error) {
+	rows, err := q.Query(ctx,
+		`SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id
+		 WHERE r.name = 'admin' AND u.status = 'active' ORDER BY u.id FOR UPDATE OF u`)
+	if err != nil {
+		return nil, fmt.Errorf("lock active admins: %w", err)
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan admin id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }

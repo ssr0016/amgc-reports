@@ -97,7 +97,8 @@ func (tdb *TestDB) RunMigrations(t *testing.T) {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			area_assignment VARCHAR(150),
-			church_name VARCHAR(150)
+			church_name VARCHAR(150),
+			status TEXT NOT NULL DEFAULT 'active'
 		)`,
 		// Keep in step with migrations/20251012000002_add_user_link_to_sessions.sql:
 		// UserRepo.UpdatePassword revokes sessions through these columns.

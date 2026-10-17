@@ -20,6 +20,7 @@ import (
 type UserAdminService interface {
 	Create(ctx context.Context, actorID int64, ip string, req model.CreateUserRequest) (*model.User, error)
 	Update(ctx context.Context, actorID int64, ip string, id int64, req model.UpdateUserRequest) (*model.User, error)
+	ChangeStatus(ctx context.Context, actorID int64, ip string, id int64, status string) (*model.User, error)
 }
 
 var _ UserAdminService = (*service.UserService)(nil)
@@ -57,6 +58,12 @@ func userError(err error, msg string) error {
 		return apperror.NotFound("user not found")
 	case errors.Is(err, service.ErrUnauthorized):
 		return apperror.Unauthorized("authentication required")
+	case errors.Is(err, service.ErrCannotChangeOwnStatus):
+		return apperror.Forbidden("You cannot change your own status.")
+	case errors.Is(err, service.ErrLastActiveAdmin):
+		return apperror.Conflict("At least one active admin is required.")
+	case errors.Is(err, service.ErrInvalidUserStatus):
+		return apperror.Validation("invalid status").WithDetails(map[string]string{"status": "invalid status"})
 	}
 	return apperror.Internal(msg).WithError(err)
 }
@@ -138,6 +145,46 @@ func (h *AdminUserHandler) UpdateUser(c echo.Context) error {
 	user, err := h.svc.Update(c.Request().Context(), actor, c.RealIP(), id, req)
 	if err != nil {
 		return userError(err, "failed to update user")
+	}
+	return c.JSON(http.StatusOK, user.ToResponse())
+}
+
+// ChangeStatus godoc
+// @Summary      Change a user's status
+// @Description  Admin only. Sets the status to active, inactive, disciplinary or deceased. Only an active account can sign in; moving a user away from active ends all of their sessions. You cannot change your own status, and the only active admin cannot be moved away from active. The same status as now answers 200 and changes and audits nothing.
+// @Tags         admin/users
+// @Accept       json
+// @Produce      json
+// @Security     CookieAuth
+// @Param        id path int true "User ID"
+// @Param        body body model.ChangeStatusRequest true "New status"
+// @Success      200 {object} model.UserResponse
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Failure      409 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Router       /admin/users/{id}/status [put]
+func (h *AdminUserHandler) ChangeStatus(c echo.Context) error {
+	actor, err := h.actorID(c)
+	if err != nil {
+		return err
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return apperror.BadRequest("invalid user id")
+	}
+	var req model.ChangeStatusRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	user, err := h.svc.ChangeStatus(c.Request().Context(), actor, c.RealIP(), id, req.Status)
+	if err != nil {
+		return userError(err, "failed to change user status")
 	}
 	return c.JSON(http.StatusOK, user.ToResponse())
 }

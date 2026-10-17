@@ -33,6 +33,7 @@ Frontend API types are generated from `backend/docs/swagger.json` (`npm run gen:
 ## Auth
 
 - Server-side sessions in Postgres (`scs` + `pgxstore`); cookie `app_session`, `SameSite=Lax`, default lifetime 86400 s.
+- Only an `active` account (D-A10) can sign in or keep a session: login checks the status after the password, a status change revokes the user's sessions, and `RequireRole`, `RequirePermission` and `/auth/me` answer 401 for a non-active user.
 - CSRF: double-submit token. `GET /auth/csrf`, then `X-CSRF-Token` on POST/PUT/PATCH/DELETE.
 - Passwords: bcrypt cost 10; `strongpass` validator (entropy 60); 72-byte limit checked in services.
 - Lockout: 5 failed logins lock the account for 15 minutes.
@@ -78,17 +79,17 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 ## Audit actions
 
-10 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it.
+11 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it.
 
 | Group | Actions |
 |---|---|
 | Reports | `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT` |
-| Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD` |
+| Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS` |
 | Reserved | `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL` (written only by a future server-side export, D-10). Reserved, Phase C; no endpoint is confirmed shipped |
 
 ## Migration history
 
-goose, in `backend/internal/database/migrations/`. 20 migrations.
+goose, in `backend/internal/database/migrations/`. 21 migrations.
 
 | Era | Migrations |
 |---|---|
@@ -98,7 +99,8 @@ goose, in `backend/internal/database/migrations/`. 20 migrations.
 | DB roles, 2025-10 | `20251012000000_create_app_user_role`, `…01_create_migrate_user_role`, `…02_add_user_link_to_sessions` |
 | Reports, 2026-10-13 | `20261013140000_create_reports`, `…140100_create_report_metrics`, `…140200_create_audit_logs` |
 | Users and audit, 2026-10-14 | `20261014100000_add_user_profile_fields`, `…100100_extend_audit_actions_users`, `…110000_drop_user_worker`, `…120000_revoke_editor_approve` |
-| Latest, 2026-10-15 | `20261015100000_allow_change_password_audit_action` |
+| 2026-10-15 | `20261015100000_allow_change_password_audit_action` |
+| Latest, 2026-10-16 | `20261016120000_add_user_status` (`users.status`, `CHANGE_USER_STATUS`) |
 
 ## CI
 

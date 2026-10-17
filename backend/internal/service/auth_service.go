@@ -18,6 +18,11 @@ var (
 	ErrEmailTaken         = errors.New("email already taken")
 	ErrUnauthorized       = errors.New("unauthorized")
 	ErrAccountLocked      = errors.New("account is locked, try again later")
+	// The account is not active (D-A10). Only returned after the password was right,
+	// so they cannot be used to find out which emails have an account.
+	ErrAccountInactive    = errors.New("account is inactive")
+	ErrAccountUnderReview = errors.New("account is under review")
+	ErrAccountClosed      = errors.New("account is closed")
 	// ErrPasswordUnchanged: the new password equals the current one.
 	ErrPasswordUnchanged = errors.New("new password must differ from the current one")
 	// ErrPasswordTooLong: bcrypt reads 72 bytes and no more, so a longer password
@@ -66,7 +71,7 @@ func (s *AuthService) Me(ctx context.Context, userID int64) (*model.MeResponse, 
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	if user == nil {
+	if user == nil || !user.CanSignIn() {
 		return nil, ErrUnauthorized
 	}
 	me := &model.MeResponse{
@@ -111,6 +116,12 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 			s.log.Warn("failed to record failed login", "user_id", user.ID, "error", err)
 		}
 		return nil, ErrInvalidCredentials
+	}
+
+	// Only now, with the right password, is the status told. A refused login does
+	// not reset the failed-attempt counter and starts no session.
+	if !user.CanSignIn() {
+		return nil, statusError(user.Status)
 	}
 
 	// Successful login — reset failed attempts
@@ -185,4 +196,17 @@ func deref(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// statusError is the login refusal for a non-active status. A status this code
+// does not know is treated as inactive: it is refused, never let through.
+func statusError(status string) error {
+	switch status {
+	case model.UserStatusDisciplinary:
+		return ErrAccountUnderReview
+	case model.UserStatusDeceased:
+		return ErrAccountClosed
+	default:
+		return ErrAccountInactive
+	}
 }

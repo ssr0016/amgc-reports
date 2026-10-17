@@ -15,6 +15,9 @@ type User struct {
 	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
 
+	// Status is one of UserStatuses; only an active account can sign in (D-A10).
+	Status string `json:"status" db:"status"`
+
 	// Profile defaults for the report form; nil when the admin has not set them.
 	// A report's worker is the user's name, so there is no separate worker.
 	AreaAssignment *string `json:"area_assignment,omitempty" db:"area_assignment"`
@@ -32,6 +35,7 @@ type UserResponse struct {
 	EmailVerified   bool       `json:"email_verified"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
+	Status          string     `json:"status"`
 	AreaAssignment  string     `json:"area_assignment,omitempty"`
 	ChurchName      string     `json:"church_name,omitempty"`
 }
@@ -58,6 +62,7 @@ func (u *User) ToResponse() UserResponse {
 		EmailVerified:   u.EmailVerified,
 		EmailVerifiedAt: u.EmailVerifiedAt,
 		CreatedAt:       u.CreatedAt,
+		Status:          u.Status,
 		AreaAssignment:  deref(u.AreaAssignment),
 		ChurchName:      deref(u.ChurchName),
 	}
@@ -93,6 +98,12 @@ type UpdateUserRequest struct {
 	Name           string `json:"name" validate:"required,min=2,max=100"`
 	AreaAssignment string `json:"area_assignment" validate:"max=150"`
 	ChurchName     string `json:"church_name" validate:"max=150"`
+}
+
+// ChangeStatusRequest is the body of PUT /admin/users/:id/status. The list must
+// match UserStatuses (a test compares it with chk_users_status).
+type ChangeStatusRequest struct {
+	Status string `json:"status" validate:"required,oneof=active inactive disciplinary deceased"`
 }
 
 // ChangePasswordRequest is the body of POST /auth/change-password. The 72-byte

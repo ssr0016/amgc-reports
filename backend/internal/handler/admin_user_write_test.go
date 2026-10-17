@@ -29,6 +29,7 @@ type fakeUserSvc struct {
 	gotID     int64
 	gotCreate model.CreateUserRequest
 	gotUpdate model.UpdateUserRequest
+	gotStatus string
 }
 
 func (f *fakeUserSvc) Create(_ context.Context, actor int64, ip string, req model.CreateUserRequest) (*model.User, error) {
@@ -42,6 +43,12 @@ func (f *fakeUserSvc) Update(_ context.Context, actor int64, ip string, id int64
 	f.calls++
 	f.gotActor, f.gotIP, f.gotID, f.gotUpdate = actor, ip, id, req
 	return &model.User{ID: id, Email: "u@example.com", Name: req.Name, PasswordHash: "secret-hash"}, f.err
+}
+
+func (f *fakeUserSvc) ChangeStatus(_ context.Context, actor int64, ip string, id int64, status string) (*model.User, error) {
+	f.calls++
+	f.gotActor, f.gotIP, f.gotID, f.gotStatus = actor, ip, id, status
+	return &model.User{ID: id, Email: "u@example.com", Name: "U", Status: status, PasswordHash: "secret-hash"}, f.err
 }
 
 type userErrBody struct {
@@ -69,6 +76,7 @@ func serveUserAdmin(t *testing.T, svc UserAdminService, sessionUser int64, metho
 	})
 	e.POST("/admin/users", h.CreateUser)
 	e.PUT("/admin/users/:id", h.UpdateUser)
+	e.PUT("/admin/users/:id/status", h.ChangeStatus)
 
 	req := httptest.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

@@ -25,6 +25,7 @@ func TestModelConstants_MatchCheckConstraints(t *testing.T) {
 		{"chk_report_metrics_metric", model.MetricKeys},
 		{"chk_reports_month", model.Months},
 		{"chk_audit_logs_action", model.AuditActions},
+		{"chk_users_status", model.UserStatuses},
 	}
 	for _, tt := range tests {
 		t.Run(tt.constraint, func(t *testing.T) {

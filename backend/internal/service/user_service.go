@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"golang.org/x/crypto/bcrypt"
@@ -17,6 +18,12 @@ var (
 	ErrRoleNotFound = errors.New("role not found")
 	// ErrUserNotFound is returned when the user to update does not exist.
 	ErrUserNotFound = errors.New("user not found")
+	// ErrCannotChangeOwnStatus: an admin never changes their own status (D-A10).
+	ErrCannotChangeOwnStatus = errors.New("cannot change your own status")
+	// ErrLastActiveAdmin: the only active admin cannot be moved away from active.
+	ErrLastActiveAdmin = errors.New("at least one active admin is required")
+	// ErrInvalidUserStatus: the status is not one of model.UserStatuses.
+	ErrInvalidUserStatus = errors.New("invalid user status")
 )
 
 // UserService is how an admin creates and edits accounts. Each change and its
@@ -118,6 +125,82 @@ func (s *UserService) Update(ctx context.Context, actorID int64, ip string, id i
 		return nil, ErrUserNotFound
 	case err != nil:
 		return nil, fmt.Errorf("update user: %w", err)
+	}
+	return user, nil
+}
+
+// ChangeStatus sets a user's status (D-A10). The change, the end of the user's
+// sessions (for any status but active) and the audit row are one transaction. An
+// admin cannot change their own status, and the only active admin cannot be moved
+// away from active: the active admins' rows are locked in id order first, so two
+// admins changing each other's status at once cannot both pass that check. The
+// same status as now is a quiet success that writes and audits nothing.
+func (s *UserService) ChangeStatus(ctx context.Context, actorID int64, ip string, id int64, status string) (*model.User, error) {
+	if !slices.Contains(model.UserStatuses, status) {
+		return nil, ErrInvalidUserStatus
+	}
+	actor, err := s.actor(ctx, actorID)
+	if err != nil {
+		return nil, err
+	}
+	if actorID == id {
+		return nil, ErrCannotChangeOwnStatus
+	}
+
+	var user *model.User
+	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+		var err error
+		user, err = s.setStatus(ctx, q, actor, ip, id, status)
+		return err
+	})
+	switch {
+	case errors.Is(err, ErrLastActiveAdmin):
+		return nil, ErrLastActiveAdmin
+	case errors.Is(err, repository.ErrNotFound):
+		return nil, ErrUserNotFound
+	case err != nil:
+		return nil, fmt.Errorf("change user status: %w", err)
+	}
+	return user, nil
+}
+
+// setStatus is the body of ChangeStatus's transaction, on q.
+func (s *UserService) setStatus(ctx context.Context, q repository.Querier, actor *model.User, ip string, id int64, status string) (*model.User, error) {
+	admins, err := s.users.LockActiveAdmins(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	// Read outside the transaction (GetByID takes no Querier); only the audit's
+	// "from" and the unchanged shortcut depend on it, and the lock above guards the admins.
+	current, err := s.users.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if current == nil {
+		return nil, repository.ErrNotFound
+	}
+	if current.Status == status {
+		return current, nil
+	}
+	if status != model.UserStatusActive && len(admins) == 1 && admins[0] == id {
+		return nil, ErrLastActiveAdmin
+	}
+
+	from := current.Status
+	user, err := s.users.UpdateStatus(ctx, q, id, status)
+	if err != nil {
+		return nil, err
+	}
+	var revoked int64
+	if status != model.UserStatusActive {
+		if revoked, err = s.users.RevokeSessions(ctx, q, id); err != nil {
+			return nil, err
+		}
+	}
+	err = s.audit.Insert(ctx, q, userAudit(actor, ip, model.AuditChangeUserStatus, user,
+		map[string]any{"from": from, "to": status, "sessions_revoked": revoked}))
+	if err != nil {
+		return nil, err
 	}
 	return user, nil
 }
