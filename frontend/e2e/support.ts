@@ -25,7 +25,9 @@ export const authFile = (role: Role) => `e2e/.auth/${role}.json`;
 export function clientIp(seed: string): string {
   let h = 0;
   for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return `10.${(h >> 16) % 250}.${(h >> 8) % 250}.${(h % 250) + 1}`;
+  // Unsigned shifts: with `>>` a hash above 2^31 gave negative octets, which is not an address, so the
+  // server fell back to 127.0.0.1 and those tests shared one login bucket.
+  return `10.${(h >>> 16) % 250}.${(h >>> 8) % 250}.${(h % 250) + 1}`;
 }
 
 // The browser must not send X-Real-IP itself: a custom header on a cross-origin call
