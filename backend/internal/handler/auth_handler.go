@@ -89,7 +89,7 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 
 // ChangePassword godoc
 // @Summary      Change own password
-// @Description  Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sessions end; this one stays and its token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session.
+// @Description  Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sessions end; this one stays and its token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session. confirm_password is required and must equal new_password exactly (422 on confirm_password); that check runs first, so a typo does not count as a failed attempt.
 // @Tags         auth
 // @Accept       json
 // @Produce      json

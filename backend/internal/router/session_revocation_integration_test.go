@@ -84,7 +84,7 @@ func TestResetPassword_EndsExistingSession(t *testing.T) {
 	token, err := resets.Create(ctx, user.ID)
 	require.NoError(t, err)
 	reset := do(t, h, http.MethodPost, resetPasswordPath,
-		`{"token":"`+token.Token+`","new_password":"new-password-123456"}`)
+		`{"token":"`+token.Token+`","new_password":"new-password-123456","confirm_password":"new-password-123456"}`)
 	require.Equal(t, http.StatusOK, reset.Code, "reset: %s", reset.Body.String())
 
 	after := do(t, h, http.MethodGet, mePath, "", cookies...)
@@ -133,7 +133,7 @@ func TestChangePassword_KeepsThisDeviceAndEndsTheRest(t *testing.T) {
 	here, phone, bens := signIn("ana@example.com"), signIn("ana@example.com"), signIn("ben@example.com")
 
 	rec := do(t, h, http.MethodPost, "/api/v1/auth/change-password",
-		`{"current_password":"`+oldPassword+`","new_password":"`+newPassword+`"}`, here)
+		`{"current_password":"`+oldPassword+`","new_password":"`+newPassword+`","confirm_password":"`+newPassword+`"}`, here)
 	require.Equal(t, http.StatusNoContent, rec.Code, "change: %s", rec.Body.String())
 	require.NotEmpty(t, rec.Result().Cookies(), "no renewed session cookie")
 	renewed := rec.Result().Cookies()[0]

@@ -8,7 +8,7 @@ import { changePassword } from "@/lib/auth";
 import { toFormError, useCountdown, type FormError } from "@/lib/auth-form";
 import { useFocusFirstError } from "@/lib/form-focus";
 
-const LABELS = { current_password: "Current password", new_password: "New password" } as const;
+const LABELS = { current_password: "Current password", new_password: "New password", confirm_password: "Confirm password" } as const;
 
 export function ChangePassword() {
   const [error, setError] = useState<FormError | null>(null);
@@ -22,11 +22,14 @@ export function ChangePassword() {
     const data = new FormData(form);
     const current = String(data.get("current_password"));
     const next = String(data.get("new_password"));
+    const confirm = String(data.get("confirm_password"));
 
-    // Only "is it empty" is checked here; the server owns the password rules.
+    // Empty and "same twice" are checked here, so a typo spends no request; the server owns the password rules.
     const missing: Record<string, string> = {};
     if (!current) missing.current_password = "is required";
     if (!next) missing.new_password = "is required";
+    if (!confirm) missing.confirm_password = "is required";
+    else if (confirm !== next) missing.confirm_password = "does not match";
     if (Object.keys(missing).length > 0) {
       setError({ message: "", fields: missing });
       focusError();
@@ -36,7 +39,7 @@ export function ChangePassword() {
     setError(null);
     setPending(true);
     try {
-      await changePassword(current, next);
+      await changePassword(current, next, confirm);
       form.reset();
       toast.success("Password changed");
     } catch (err) {
@@ -71,6 +74,13 @@ export function ChangePassword() {
           type="password"
           autoComplete="new-password"
           error={field("new_password")}
+        />
+        <AuthField
+          name="confirm_password"
+          label={LABELS.confirm_password}
+          type="password"
+          autoComplete="new-password"
+          error={field("confirm_password")}
         />
         {error?.message && (
           <p role="alert" className="text-sm text-destructive">

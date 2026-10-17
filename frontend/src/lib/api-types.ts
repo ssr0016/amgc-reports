@@ -461,7 +461,7 @@ export interface paths {
         put?: never;
         /**
          * Create a user
-         * @description Admin only. Creates an account with an optional role (default: user) and the profile text that prefills the report form. This is the only way to create an account.
+         * @description Admin only. Creates an account with an optional role (default: user) and the profile text that prefills the report form. This is the only way to create an account. confirm_password is required and must equal password exactly (422 on confirm_password).
          */
         post: {
             parameters: {
@@ -842,7 +842,7 @@ export interface paths {
         put?: never;
         /**
          * Change own password
-         * @description Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sessions end; this one stays and its token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session.
+         * @description Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sessions end; this one stays and its token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session. confirm_password is required and must equal new_password exactly (422 on confirm_password); that check runs first, so a typo does not count as a failed attempt.
          */
         post: {
             parameters: {
@@ -1192,7 +1192,7 @@ export interface paths {
         put?: never;
         /**
          * Reset password with token
-         * @description Resets the user's password using a valid reset token. The new password follows the same rules as change-password: strong enough (422 on new_password) and at most 72 bytes.
+         * @description Resets the user's password using a valid reset token. The new password follows the same rules as change-password: strong enough (422 on new_password) and at most 72 bytes. confirm_password is required and must equal new_password exactly (422 on confirm_password), checked before the token.
          */
         post: {
             parameters: {
@@ -2093,6 +2093,11 @@ export interface components {
             permission_id: number;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ChangePasswordRequest": {
+            /**
+             * @description ConfirmPassword must equal NewPassword exactly. It is checked before any service
+             *     call, so a typo never counts as a failed current-password attempt.
+             */
+            confirm_password: string;
             current_password: string;
             new_password: string;
         };
@@ -2125,6 +2130,8 @@ export interface components {
         "github_com_ssr0016_pastoral-reports_backend_internal_model.CreateUserRequest": {
             area_assignment?: string;
             church_name?: string;
+            /** @description ConfirmPassword must equal Password exactly; it is checked and dropped, never stored. */
+            confirm_password: string;
             email: string;
             name: string;
             password: string;
@@ -2250,6 +2257,8 @@ export interface components {
             email: string;
         };
         "internal_handler.ResetPasswordRequest": {
+            /** @description ConfirmPassword must equal NewPassword exactly; checked before the token is looked up. */
+            confirm_password: string;
             new_password: string;
             token: string;
         };

@@ -45,6 +45,7 @@ export function EditUser() {
             email: data.email,
             name: data.name,
             password: "",
+            confirm_password: "",
             role_id: "",
             area_assignment: data.area_assignment ?? "",
             church_name: data.church_name ?? "",

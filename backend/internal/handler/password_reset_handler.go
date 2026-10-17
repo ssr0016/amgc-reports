@@ -25,6 +25,8 @@ type ForgotPasswordRequest struct {
 type ResetPasswordRequest struct {
 	Token       string `json:"token" validate:"required"`
 	NewPassword string `json:"new_password" validate:"required,strongpass"`
+	// ConfirmPassword must equal NewPassword exactly; checked before the token is looked up.
+	ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=NewPassword"`
 }
 
 // ForgotPassword godoc
@@ -57,7 +59,7 @@ func (h *PasswordResetHandler) ForgotPassword(c echo.Context) error {
 
 // ResetPassword godoc
 // @Summary      Reset password with token
-// @Description  Resets the user's password using a valid reset token. The new password follows the same rules as change-password: strong enough (422 on new_password) and at most 72 bytes.
+// @Description  Resets the user's password using a valid reset token. The new password follows the same rules as change-password: strong enough (422 on new_password) and at most 72 bytes. confirm_password is required and must equal new_password exactly (422 on confirm_password), checked before the token.
 // @Tags         auth
 // @Accept       json
 // @Produce      json

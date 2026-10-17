@@ -15,6 +15,7 @@ test.beforeAll(async ({ playwright }) => {
   const roles: { id: number; name: string }[] = (await (await admin.get(`${API}/admin/roles?limit=100`)).json()).data;
   const res = await send(admin, "POST", "/admin/users", {
     ...account,
+    confirm_password: account.password,
     role_id: roles.find((r) => r.name === "user")?.id,
     area_assignment: "",
     church_name: "",

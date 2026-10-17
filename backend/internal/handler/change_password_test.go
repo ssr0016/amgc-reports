@@ -113,8 +113,16 @@ func (f *cpFixture) signIn(t *testing.T) *http.Cookie {
 	return sessionCookie(t, f.do(http.MethodPost, "/test-login", "", nil))
 }
 
-func cpBody(current, next string) string {
-	b, _ := json.Marshal(map[string]string{"current_password": current, "new_password": next})
+// cpBody confirms the new password with the same value, as a form would.
+func cpBody(current, next string) string { return cpBodyConfirm(current, next, next) }
+
+// cpBodyConfirm is cpBody with an explicit confirmation ("" leaves the field out).
+func cpBodyConfirm(current, next, confirm string) string {
+	m := map[string]string{"current_password": current, "new_password": next}
+	if confirm != "" {
+		m["confirm_password"] = confirm
+	}
+	b, _ := json.Marshal(m)
 	return string(b)
 }
 
@@ -258,5 +266,31 @@ func TestChangePassword_ServerErrorIs500AndHidesTheCause(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), "deadline") {
 		t.Errorf("the response leaked the cause: %s", rec.Body.String())
+	}
+}
+
+func TestChangePassword_ConfirmMismatchIs422AndTouchesNothing(t *testing.T) {
+	tests := []struct{ name, confirm, want string }{
+		{"missing", "", "is required"},
+		{"different", cpNew + "x", "does not match"},
+		{"case-only difference", strings.ToUpper(cpNew), "does not match"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newCPFixture(t)
+			// A wrong current password would be a 422 on current_password and a lockout strike;
+			// the confirm check must answer first and spend no strike.
+			rec := f.do(http.MethodPost, "/auth/change-password", cpBodyConfirm("not-the-password", cpNew, tt.confirm), f.signIn(t))
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want 422; body %s", rec.Code, rec.Body.String())
+			}
+			d := details(t, rec)
+			if d["confirm_password"] != tt.want {
+				t.Errorf("details[confirm_password] = %q, want %q (all: %v)", d["confirm_password"], tt.want, d)
+			}
+			if _, ok := d["current_password"]; ok {
+				t.Errorf("current_password was checked before the confirmation: %v", d)
+			}
+		})
 	}
 }

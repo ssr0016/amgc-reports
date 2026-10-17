@@ -30,6 +30,7 @@ export function NewUser() {
             email: v.email.trim(),
             name: v.name.trim(),
             password: v.password,
+            confirm_password: v.confirm_password,
             role_id: v.role_id ? Number(v.role_id) : undefined,
             area_assignment: v.area_assignment.trim(),
             church_name: v.church_name.trim(),

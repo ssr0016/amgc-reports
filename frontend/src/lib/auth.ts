@@ -19,8 +19,8 @@ export async function logout(): Promise<void> {
 }
 
 // The server renews this session's token and ends the others, so the CSRF token is refetched.
-export async function changePassword(current_password: string, new_password: string): Promise<void> {
-  await api("/auth/change-password", { method: "POST", body: { current_password, new_password } });
+export async function changePassword(current_password: string, new_password: string, confirm_password: string): Promise<void> {
+  await api("/auth/change-password", { method: "POST", body: { current_password, new_password, confirm_password } });
   resetCsrf();
 }
 

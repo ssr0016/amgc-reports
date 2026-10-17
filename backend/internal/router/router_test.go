@@ -123,7 +123,7 @@ func TestResetPassword_PasswordRules(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			code, resp := postJSON(t, resetServer(), resetPasswordPath,
-				`{"token":"abc","new_password":"`+tt.password+`"}`)
+				`{"token":"abc","new_password":"`+tt.password+`","confirm_password":"`+tt.password+`"}`)
 			if code != tt.status {
 				t.Fatalf("status = %d, want %d (body: %+v)", code, tt.status, resp)
 			}
@@ -132,6 +132,35 @@ func TestResetPassword_PasswordRules(t *testing.T) {
 			}
 			if _, ok := resp.Details["token"]; ok {
 				t.Errorf("details has token, which was valid: %v", resp.Details)
+			}
+		})
+	}
+}
+
+// The confirmation is checked before the token is looked up.
+func TestResetPassword_ConfirmPassword(t *testing.T) {
+	tests := []struct {
+		name, confirm string
+		status        int
+		detail        string
+	}{
+		{"missing", "", http.StatusUnprocessableEntity, "is required"},
+		{"different", strongPassword + "x", http.StatusUnprocessableEntity, "does not match"},
+		{"case-only difference", strings.ToLower(strongPassword), http.StatusUnprocessableEntity, "does not match"},
+		{"same passes validation and fails on the token", strongPassword, http.StatusBadRequest, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := `{"token":"abc","new_password":"` + strongPassword + `"`
+			if tt.confirm != "" {
+				body += `,"confirm_password":"` + tt.confirm + `"`
+			}
+			code, resp := postJSON(t, resetServer(), resetPasswordPath, body+`}`)
+			if code != tt.status {
+				t.Fatalf("status = %d, want %d (body: %+v)", code, tt.status, resp)
+			}
+			if got := resp.Details["confirm_password"]; got != tt.detail {
+				t.Errorf("details[confirm_password] = %q, want %q", got, tt.detail)
 			}
 		})
 	}

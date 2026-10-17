@@ -27,6 +27,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | R-1 | Railway pre-deploy source of truth | Verified | here |
 | D-18 | Report field visibility | Decided | here |
 | D-19 | Role filter is client-side | Decided 2026-10-16 | here |
+| D-A14 | Every password form asks twice; the server enforces it | Decided 2026-10-17; built in 22d | here |
 
 ## Log
 
@@ -193,3 +194,14 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Users tab:** "All" (default) leaves out the soft-deleted; a "Deleted" filter shows them; the Delete action is for active rows and Restore for deleted ones.
 - **Reports:** a soft-deleted user's reports stay visible and are not hidden; the owner is marked with a "Deleted user" badge (22c). A future enhancement may hide them (requires a JOIN, conflicts with D-18). A deceased user's reports stay in the history, marked "Archived".
 
+
+### D-A14 Password confirmation
+**Date:** 2026-10-17 · **Status:** Decided; built in 22d
+
+- **Decision:** every form that sets a new password asks for it twice: create user (`/admin/users/new`), change password (`/account/password`), and the public reset-token request. The API requires `confirm_password` on `POST /admin/users`, `POST /auth/change-password` and `POST /auth/reset-password`, and it must equal `password` or `new_password` exactly (no trimming, no case folding). Missing is a 422 "is required" and different is a 422 "does not match", both on `confirm_password`.
+- **Why:** an admin gives credentials to church workers by hand (D-A2: no self-registration), and a typo in a password nobody has typed twice locks the worker out. The server enforces it too so no other caller can skip it.
+- **Order of checks:** validation runs before any service call, so a mismatch never costs a bcrypt hash, never counts as a wrong current password toward the lockout, and never looks up a reset token.
+- **Not stored:** `confirm_password` is read and dropped; it is not logged, audited or echoed in an error.
+- **Reset-token form:** the page does not exist yet (build-plan 25), so 22d changed only that request and its docs. Item 25 must add the field when it builds the page.
+- **Deploy order:** the API now rejects those bodies without the field and the old frontend does not send it, so the create-user and change-password forms fail with a 422 until the new frontend is live. Deploy both together.
+- **Edit user** has no password field and is unchanged. The login form has one password and is unchanged.

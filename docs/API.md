@@ -41,12 +41,12 @@ Response (200):
 ### 5. Change Own Password
 ```
 POST /auth/change-password
-{"current_password": "...", "new_password": "..."}
+{"current_password": "...", "new_password": "...", "confirm_password": "..."}
 ```
 Requires a session and a CSRF token. Answers 204. The user's other sessions end; the current one stays
 and its token is renewed. A wrong current password is a 422 on `current_password` (and counts toward the
 login lockout: 5 wrong attempts lock the account for 15 minutes, then 403). A weak, unchanged or
-over-72-byte new password is a 422 on `new_password`. The audit row is `CHANGE_PASSWORD`.
+over-72-byte new password is a 422 on `new_password`. A missing `confirm_password` is a 422 "is required" and one that differs from `new_password` (exact match, no trimming) is a 422 "does not match", both on `confirm_password`; this is checked first, so it never counts toward the lockout. The audit row is `CHANGE_PASSWORD`.
 
 ## Users
 
@@ -117,12 +117,13 @@ POST /admin/users (admin role and `users:write`; this is the only way to create 
       "email": "pastor@example.com",
       "name": "Pia",
       "password": "StrongPass123!",
+      "confirm_password": "StrongPass123!",
       "role_id": 2,
       "area_assignment": "Metro Manila",
       "church_name": "AMGC Church"
     }
 
-`email`, `name` and `password` are required. `role_id` is optional and defaults to the `user`
+`email`, `name`, `password` and `confirm_password` are required; `confirm_password` must equal `password` exactly (422 on `confirm_password`). `role_id` is optional and defaults to the `user`
 role. The two profile fields, `area_assignment` and `church_name`, are optional (150 characters each) and prefill the report form; a report's worker defaults to the user's `name`.
 Response (201): the user, without the password. 409 if the email is taken, 422 for invalid
 fields or an unknown `role_id`. The account and its audit row (`CREATE_USER`) are written in
@@ -397,7 +398,8 @@ POST /api/v1/auth/reset-password
 Request:
   {
     "token": "reset-token-from-email",
-    "new_password": "NewStrongPass123x"
+    "new_password": "NewStrongPass123x",
+    "confirm_password": "NewStrongPass123x"
   }
 
 Response (200):
@@ -406,6 +408,7 @@ Response (200):
 Errors:
 - 400 - invalid or expired token
 - 400 - token already used
+- 422 - weak or over-72-byte `new_password`; `confirm_password` missing ("is required") or different from `new_password` ("does not match"), checked before the token
 
 ## Account Lockout
 
@@ -435,7 +438,7 @@ Full example with email verify + password reset:
 
 1. An admin creates the account
    POST /api/v1/admin/users
-   Body: {"email":"user@example.com","name":"User","password":"StrongPass123"}
+   Body: {"email":"user@example.com","name":"User","password":"StrongPass123","confirm_password":"StrongPass123"}
 
 2. Email verification is not enforced at login, and an admin-created account gets no token
    (email delivery arrives with E-1). The verify endpoint still accepts existing tokens.
@@ -453,7 +456,7 @@ Full example with email verify + password reset:
 
 6. Reset password (get token from logs/email)
    POST /api/v1/auth/reset-password
-   Body: {"token":"XXX","new_password":"NewStrongPass123x"}
+   Body: {"token":"XXX","new_password":"NewStrongPass123x","confirm_password":"NewStrongPass123x"}
 
 ## Pagination
 

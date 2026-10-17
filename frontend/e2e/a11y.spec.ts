@@ -88,6 +88,25 @@ for (const scheme of ["light", "dark"] as const) {
         await scan(page);
       });
 
+      test("change password and new user, with a confirmation error", async ({ page }) => {
+        await page.goto("/account/password");
+        await page.getByLabel("Current password").fill("anything");
+        await page.getByLabel("New password").fill("E2eConfirm!78901");
+        await page.getByLabel("Confirm password").fill("E2eConfirm!78902");
+        await page.getByRole("button", { name: "Change password" }).click();
+        await expect(page.getByText("Confirm password does not match")).toBeVisible();
+        await scan(page);
+
+        await page.goto("/admin/users/new");
+        await page.getByLabel("Email").fill("e2e-a11y-confirm@example.com");
+        await page.getByLabel("Name", { exact: true }).fill("E2E A11y");
+        await page.getByLabel("Password", { exact: true }).fill("E2eConfirm!78901");
+        await page.getByLabel("Confirm password").fill("E2eConfirm!78902");
+        await page.getByRole("button", { name: "Create User" }).click();
+        await expect(page.getByText("Confirm password does not match")).toBeVisible();
+        await scan(page);
+      });
+
       test("users list and new user", async ({ page }) => {
         await page.goto("/admin/users"); // redirects to the Users tab of /admin
         await expect(page.getByRole("link", { name: /^Edit E2E User/ })).toBeVisible();

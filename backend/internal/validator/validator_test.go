@@ -94,6 +94,10 @@ func TestValidate_MessagePerTag(t *testing.T) {
 	type other struct {
 		V string `json:"v" validate:"oneof=a b"`
 	}
+	type pair struct {
+		P string `json:"p"`
+		V string `json:"v" validate:"eqfield=P"`
+	}
 
 	tests := []struct {
 		name string
@@ -107,6 +111,7 @@ func TestValidate_MessagePerTag(t *testing.T) {
 		{"min numeric", &numMin{V: 1}, "must be at least 5"},
 		{"max numeric", &numMax{V: 9}, "must be at most 5"},
 		{"strongpass", &strong{V: "aaaa"}, "is too weak; use a longer, more varied password"},
+		{"eqfield", &pair{P: "a", V: "b"}, "does not match"},
 		{"unmapped tag", &other{V: "z"}, "invalid"},
 	}
 	for _, tt := range tests {

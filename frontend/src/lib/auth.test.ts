@@ -52,9 +52,9 @@ describe("auth", () => {
       .mockResolvedValueOnce(json(200, { csrf_token: "b" }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", f);
-    await expect(changePassword("old", "new")).resolves.toBeUndefined();
-    expect(JSON.parse(f.mock.calls[1][1].body)).toEqual({ current_password: "old", new_password: "new" });
-    await changePassword("old", "new");
+    await expect(changePassword("old", "new", "new")).resolves.toBeUndefined();
+    expect(JSON.parse(f.mock.calls[1][1].body)).toEqual({ current_password: "old", new_password: "new", confirm_password: "new" });
+    await changePassword("old", "new", "new");
     expect(paths(f)).toEqual(["/auth/csrf", "/auth/change-password", "/auth/csrf", "/auth/change-password"]);
   });
 });

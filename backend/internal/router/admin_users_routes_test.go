@@ -75,7 +75,7 @@ var adminUserRoutes = []struct {
 	ok                       int
 }{
 	{"create", http.MethodPost, "/api/v1/admin/users",
-		`{"email":"pia@example.com","name":"Pia","password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"}`, http.StatusCreated},
+		`{"email":"pia@example.com","name":"Pia","password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK","confirm_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"}`, http.StatusCreated},
 	{"update", http.MethodPut, "/api/v1/admin/users/1", `{"name":"Pia"}`, http.StatusOK},
 	{"status", http.MethodPut, "/api/v1/admin/users/1/status", `{"status":"inactive"}`, http.StatusOK},
 }

@@ -14,6 +14,7 @@ export type UserFormValues = {
   email: string;
   name: string;
   password: string;
+  confirm_password: string;
   role_id: string;
   area_assignment: string;
   church_name: string;
@@ -23,6 +24,7 @@ export const emptyUser: UserFormValues = {
   email: "",
   name: "",
   password: "",
+  confirm_password: "",
   role_id: "",
   area_assignment: "",
   church_name: "",
@@ -77,6 +79,14 @@ export function UserForm({
     e.preventDefault();
     setErrors({});
     setGeneral("");
+    // Same-twice is checked here so a typo spends no request; the server checks it too.
+    // An empty confirmation never gets here: the input is required, so the browser stops it first.
+    if (create && form.confirm_password !== form.password) {
+      setErrors({ confirm_password: "Confirm password does not match" });
+      setGeneral("Fix the highlighted fields and try again.");
+      focusError();
+      return;
+    }
     setPending(true);
     try {
       await onSubmit(form);
@@ -90,7 +100,8 @@ export function UserForm({
       }
       const failure = toFormError(err);
       setWait(failure.retryAfter ?? 0);
-      setErrors(failure.fields);
+      const { confirm_password: confirmError, ...rest } = failure.fields;
+      setErrors(confirmError ? { ...rest, confirm_password: `Confirm password ${confirmError}` } : rest);
       setGeneral(failure.message || "Fix the highlighted fields and try again.");
       focusError();
     }
@@ -133,6 +144,18 @@ export function UserForm({
           onChange={(e) => setField("password", e.target.value)}
           error={errors.password}
           hint="Use a long, random password (at least 60 bits of entropy)."
+        />
+      )}
+      {create && (
+        <AuthField
+          name="confirm_password"
+          label="Confirm password"
+          type="password"
+          autoComplete="new-password"
+          required
+          value={form.confirm_password}
+          onChange={(e) => setField("confirm_password", e.target.value)}
+          error={errors.confirm_password}
         />
       )}
       {create && roles.length > 0 && (

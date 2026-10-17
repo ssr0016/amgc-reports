@@ -70,7 +70,7 @@ func changePasswordServer(t *testing.T, write func(*scs.SessionManager) echo.Mid
 
 // changePassword sends routeNewPassword as the new password: no test here varies it.
 func changePassword(e *echo.Echo, current, user string) int {
-	body := `{"current_password":"` + current + `","new_password":"` + routeNewPassword + `"}`
+	body := `{"current_password":"` + current + `","new_password":"` + routeNewPassword + `","confirm_password":"` + routeNewPassword + `"}`
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/change-password", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	if user != "" {

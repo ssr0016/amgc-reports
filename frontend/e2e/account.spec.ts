@@ -13,6 +13,7 @@ test.beforeAll(async ({ playwright }) => {
   const roles: { id: number; name: string }[] = (await (await admin.get(`${API}/admin/roles?limit=100`)).json()).data;
   const res = await send(admin, "POST", "/admin/users", {
     ...account,
+    confirm_password: account.password,
     role_id: roles.find((r) => r.name === "user")?.id,
     area_assignment: "",
     church_name: "",
@@ -39,6 +40,7 @@ test("a wrong current password is shown on that field and keeps you signed in", 
   await expect(page).toHaveURL(/\/account\/password$/);
   await page.getByLabel("Current password").fill("not-the-password");
   await page.getByLabel("New password").fill(next);
+  await page.getByLabel("Confirm password").fill(next);
   await page.getByRole("button", { name: "Change password" }).click();
   await expect(page.getByText("Current password is incorrect")).toBeVisible();
   await expect(page.getByLabel("Current password")).toBeFocused();
@@ -51,9 +53,11 @@ test("changing the password keeps this session and the new password signs in", a
   await page.goto("/account/password");
   await page.getByLabel("Current password").fill(account.password);
   await page.getByLabel("New password").fill(next);
+  await page.getByLabel("Confirm password").fill(next);
   await page.getByRole("button", { name: "Change password" }).click();
   await expect(page.getByText("Password changed")).toBeVisible();
   await expect(page.getByLabel("Current password")).toHaveValue("");
+  await expect(page.getByLabel("Confirm password")).toHaveValue("");
 
   await page.goto("/reports");
   await expect(page.getByText(`${account.name} · user`)).toBeVisible();

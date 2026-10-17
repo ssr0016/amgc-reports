@@ -23,7 +23,7 @@ setup("create accounts and save one session per role", async ({ playwright }) =>
     expect(roleId, `seeded role ${rest.role}`).toBeDefined();
     const res = await admin.ctx.post(`${API}/admin/users`, {
       data: {
-        email, name, password, role_id: roleId,
+        email, name, password, confirm_password: password, role_id: roleId,
         area_assignment: "area_assignment" in rest ? rest.area_assignment : "",
         church_name: "church_name" in rest ? rest.church_name : "",
       },

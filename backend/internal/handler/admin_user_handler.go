@@ -78,7 +78,7 @@ func (h *AdminUserHandler) actorID(c echo.Context) (int64, error) {
 
 // CreateUser godoc
 // @Summary      Create a user
-// @Description  Admin only. Creates an account with an optional role (default: user) and the profile text that prefills the report form. This is the only way to create an account.
+// @Description  Admin only. Creates an account with an optional role (default: user) and the profile text that prefills the report form. This is the only way to create an account. confirm_password is required and must equal password exactly (422 on confirm_password).
 // @Tags         admin/users
 // @Accept       json
 // @Produce      json

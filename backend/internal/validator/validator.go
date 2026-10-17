@@ -64,6 +64,8 @@ func message(fe validator.FieldError) string {
 		return "is required"
 	case "email":
 		return "must be a valid email address"
+	case "eqfield":
+		return "does not match"
 	case "strongpass":
 		return "is too weak; use a longer, more varied password"
 	case "decimal12_2":

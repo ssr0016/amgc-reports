@@ -84,12 +84,14 @@ type MeResponse struct {
 // CreateUserRequest is the body of POST /admin/users. A missing role_id means
 // the default role. Profile text may be empty.
 type CreateUserRequest struct {
-	Email          string `json:"email" validate:"required,email"`
-	Name           string `json:"name" validate:"required,min=2,max=100"`
-	Password       string `json:"password" validate:"required,strongpass"`
-	RoleID         *int64 `json:"role_id" validate:"omitempty,gt=0"`
-	AreaAssignment string `json:"area_assignment" validate:"max=150"`
-	ChurchName     string `json:"church_name" validate:"max=150"`
+	Email    string `json:"email" validate:"required,email"`
+	Name     string `json:"name" validate:"required,min=2,max=100"`
+	Password string `json:"password" validate:"required,strongpass"`
+	// ConfirmPassword must equal Password exactly; it is checked and dropped, never stored.
+	ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=Password"`
+	RoleID          *int64 `json:"role_id" validate:"omitempty,gt=0"`
+	AreaAssignment  string `json:"area_assignment" validate:"max=150"`
+	ChurchName      string `json:"church_name" validate:"max=150"`
 }
 
 // UpdateUserRequest is the body of PUT /admin/users/:id. It replaces the name
@@ -112,6 +114,9 @@ type ChangeStatusRequest struct {
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" validate:"required"`
 	NewPassword     string `json:"new_password" validate:"required,strongpass"`
+	// ConfirmPassword must equal NewPassword exactly. It is checked before any service
+	// call, so a typo never counts as a failed current-password attempt.
+	ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=NewPassword"`
 }
 
 type LoginRequest struct {

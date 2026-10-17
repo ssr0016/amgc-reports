@@ -93,8 +93,15 @@ func serveUserAdmin(t *testing.T, svc UserAdminService, sessionUser int64, metho
 
 const strongPassword = "X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"
 
-func createBody(extra string) string {
-	return `{"email":"pia@example.com","name":"Pia","password":"` + strongPassword + `","area_assignment":"Metro","church_name":"AMGC 1"` + extra + `}`
+func createBody(extra string) string { return createBodyConfirm(strongPassword, extra) }
+
+// createBodyConfirm is createBody with an explicit confirmation ("" leaves the field out).
+func createBodyConfirm(confirm, extra string) string {
+	c := ""
+	if confirm != "" {
+		c = `"confirm_password":"` + confirm + `",`
+	}
+	return `{"email":"pia@example.com","name":"Pia","password":"` + strongPassword + `",` + c + `"area_assignment":"Metro","church_name":"AMGC 1"` + extra + `}`
 }
 
 func TestAdminUserHandler_CreateUser(t *testing.T) {
@@ -140,10 +147,35 @@ func TestAdminUserHandler_CreateUser(t *testing.T) {
 		})
 	}
 
+	confirm := []struct{ name, body, want string }{
+		{"missing confirm_password", createBodyConfirm("", ""), "is required"},
+		{"different confirm_password", createBodyConfirm(strongPassword+"x", ""), "does not match"},
+		{"case-only difference", createBodyConfirm(strings.ToLower(strongPassword), ""), "does not match"},
+		{"trailing space", createBodyConfirm(strongPassword+" ", ""), "does not match"},
+	}
+	for _, tt := range confirm {
+		t.Run("422 "+tt.name, func(t *testing.T) {
+			svc := &fakeUserSvc{}
+			rec, eb := serveUserAdmin(t, svc, 99, http.MethodPost, "/admin/users", tt.body)
+			assert.Equal(t, http.StatusUnprocessableEntity, rec.Code, rec.Body.String())
+			assert.Equal(t, tt.want, eb.Details["confirm_password"])
+			assert.Zero(t, svc.calls, "a mismatch must not reach the service")
+			assert.NotContains(t, rec.Body.String(), strongPassword)
+		})
+	}
+
+	t.Run("a weak password and a mismatch are both reported", func(t *testing.T) {
+		rec, eb := serveUserAdmin(t, &fakeUserSvc{}, 99, http.MethodPost, "/admin/users",
+			`{"email":"a@example.com","name":"Pia","password":"password","confirm_password":"other"}`)
+		require.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+		assert.Contains(t, eb.Details, "password")
+		assert.Equal(t, "does not match", eb.Details["confirm_password"])
+	})
+
 	t.Run("422 for an empty body names every required field", func(t *testing.T) {
 		rec, eb := serveUserAdmin(t, &fakeUserSvc{}, 99, http.MethodPost, "/admin/users", `{}`)
 		require.Equal(t, http.StatusUnprocessableEntity, rec.Code)
-		for _, field := range []string{"email", "name", "password"} {
+		for _, field := range []string{"email", "name", "password", "confirm_password"} {
 			assert.Equal(t, "is required", eb.Details[field], field)
 		}
 	})

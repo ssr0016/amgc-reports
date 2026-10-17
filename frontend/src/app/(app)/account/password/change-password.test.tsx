@@ -11,23 +11,58 @@ vi.mock("@/lib/auth", () => ({ changePassword: h.changePassword }));
 
 beforeEach(() => vi.resetAllMocks());
 
-async function fill(current = "Old!Passw0rd", next = "New!Passw0rd#1") {
+async function fill(current = "Old!Passw0rd", next = "New!Passw0rd#1", confirm = next) {
   const user = userEvent.setup();
   render(<ChangePassword />);
   if (current) await user.type(screen.getByLabelText("Current password"), current);
   if (next) await user.type(screen.getByLabelText("New password"), next);
+  if (confirm) await user.type(screen.getByLabelText("Confirm password"), confirm);
   return user;
 }
 const submit = () => screen.getByRole("button", { name: /Change password|Changing/ });
 
 describe("ChangePassword", () => {
-  it("asks for both passwords before calling the API", async () => {
+  it("asks for all three passwords before calling the API", async () => {
     const user = await fill("", "");
     await user.click(submit());
     expect(h.changePassword).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Current password")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("New password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Current password")).toHaveFocus();
+  });
+
+  it("puts Confirm password right after New password", async () => {
+    await fill();
+    const labels = screen.getAllByLabelText(/password$/i).filter((el) => el.tagName === "INPUT").map((el) => el.id);
+    expect(labels).toEqual(["current_password", "new_password", "confirm_password"]);
+  });
+
+  it("an empty confirmation is required, gets focus and sends nothing", async () => {
+    const user = await fill("Old!Passw0rd", "New!Passw0rd#1", "");
+    await user.click(submit());
+    expect(h.changePassword).not.toHaveBeenCalled();
+    expect(await screen.findByText("Confirm password is required")).toBeInTheDocument();
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Confirm password")).toHaveFocus();
+  });
+
+  it("a different confirmation says so, gets focus and sends no request", async () => {
+    const user = await fill("Old!Passw0rd", "New!Passw0rd#1", "New!Passw0rd#2");
+    await user.click(submit());
+    expect(h.changePassword).not.toHaveBeenCalled();
+    const msg = await screen.findByText("Confirm password does not match");
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute("aria-describedby", msg.id);
+    expect(screen.getByLabelText("Confirm password")).toHaveFocus();
+    expect(screen.getByLabelText("New password")).toHaveValue("New!Passw0rd#1");
+  });
+
+  it("a server 422 on confirm_password shows on that field the same way", async () => {
+    h.changePassword.mockRejectedValue(new ApiError(422, "VALIDATION_ERROR", "validation failed", { confirm_password: "does not match" }));
+    const user = await fill();
+    await user.click(submit());
+    expect(await screen.findByText("Confirm password does not match")).toBeInTheDocument();
+    expect(screen.getByLabelText("Confirm password")).toHaveFocus();
   });
 
   it("sends both passwords, confirms with a toast and clears the form", async () => {
@@ -35,9 +70,10 @@ describe("ChangePassword", () => {
     const user = await fill();
     await user.click(submit());
     await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Password changed"));
-    expect(h.changePassword).toHaveBeenCalledWith("Old!Passw0rd", "New!Passw0rd#1");
+    expect(h.changePassword).toHaveBeenCalledWith("Old!Passw0rd", "New!Passw0rd#1", "New!Passw0rd#1");
     expect(screen.getByLabelText("Current password")).toHaveValue("");
     expect(screen.getByLabelText("New password")).toHaveValue("");
+    expect(screen.getByLabelText("Confirm password")).toHaveValue("");
   });
 
   it("shows a 422 on the field it names and keeps what was typed", async () => {
