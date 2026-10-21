@@ -304,8 +304,8 @@ func TestLoad_TrustedProxyCIDRs(t *testing.T) {
 		want        []string
 		wantDefault bool
 	}{
-		{"unset uses the Railway default", "", []string{"100.64.0.0/10"}, true},
-		{"blank entries use the default", " , ", []string{"100.64.0.0/10"}, true},
+		{"unset uses the default", "", []string{"0.0.0.0/0"}, true},
+		{"blank entries use the default", " , ", []string{"0.0.0.0/0"}, true},
 		{"single range", "10.0.0.0/8", []string{"10.0.0.0/8"}, false},
 		{"several ranges with spaces", "10.0.0.0/8, fd00::/8", []string{"10.0.0.0/8", "fd00::/8"}, false},
 		{"host bits are masked", "100.64.3.4/10", []string{"100.64.0.0/10"}, false},

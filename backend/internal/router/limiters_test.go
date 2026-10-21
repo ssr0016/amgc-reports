@@ -66,7 +66,7 @@ func TestGlobalLimit_EachIPHasItsOwnBucket(t *testing.T) {
 	}
 }
 
-// Railway's healthcheck and Prometheus must never see a 429, however many
+// The platform healthcheck and Prometheus must never see a 429, however many
 // requests arrive from one address.
 func TestGlobalLimit_SystemRoutesAreNotLimited(t *testing.T) {
 	e := globalServer(1)

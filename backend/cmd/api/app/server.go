@@ -69,8 +69,8 @@ func run() error {
 	)
 
 	if cfg.Proxy.UsedDefault {
-		log.Warn("TRUSTED_PROXY_CIDRS not set, using Railway default " + config.DefaultTrustedProxyCIDR +
-			". Set this if deploying elsewhere.")
+		log.Warn("TRUSTED_PROXY_CIDRS not set, using default " + config.DefaultTrustedProxyCIDR +
+			". Set it to the proxy range in front of the service.")
 	}
 
 	ctx := context.Background()

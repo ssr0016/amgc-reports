@@ -149,7 +149,7 @@ func TestSystemRoutes_MetricsHalfSetCredentialsIsNotRegistered(t *testing.T) {
 	}
 }
 
-// Railway's healthcheck and load balancers must keep working.
+// The platform healthcheck and load balancers must keep working.
 func TestSystemRoutes_HealthAndLiveAlwaysPublic(t *testing.T) {
 	e := systemEcho(config.StageProd, config.ObservabilityConfig{})
 

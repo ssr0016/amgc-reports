@@ -5,9 +5,11 @@ import (
 	"net"
 )
 
-// DefaultTrustedProxyCIDR is the range Railway's edge proxies connect from.
-// Production logs showed every peer_ip inside 100.64.0.0/10 (CGNAT).
-const DefaultTrustedProxyCIDR = "100.64.0.0/10"
+// DefaultTrustedProxyCIDR trusts X-Real-IP from every IPv4 peer.
+// shortcut: Render's edge range is not pinned yet, so a client that reaches the
+// service directly can set its own X-Real-IP (per-IP rate limits, audit IPs);
+// narrow it to Render's proxy range once that is verified.
+const DefaultTrustedProxyCIDR = "0.0.0.0/0"
 
 // ProxyConfig describes which connecting peers may speak for a client.
 type ProxyConfig struct {
