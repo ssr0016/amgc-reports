@@ -10,9 +10,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/config"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	"github.com/ssr0016/pastoral-reports/backend/pkg/metrics"
@@ -102,4 +104,41 @@ func TestNewEcho_CORSExposesRetryAfter(t *testing.T) {
 
 func newJSONLogger(buf *bytes.Buffer) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(buf, nil))
+}
+
+// Each server failure must reach Sentry exactly once: a panic (which Recover
+// hands to the error handler) and a returned 5xx once each, a 4xx not at all.
+func TestMiddlewareChain_ReportsServerErrorsOnce(t *testing.T) {
+	transport := &sentry.MockTransport{}
+	client, err := sentry.NewClient(sentry.ClientOptions{Transport: transport})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sentry.CurrentHub().BindClient(client)
+	t.Cleanup(func() { sentry.CurrentHub().BindClient(nil) })
+
+	e := newEcho(&config.Config{}, slog.New(slog.DiscardHandler))
+	e.GET("/panic", func(echo.Context) error { panic("boom") })
+	e.GET("/fail", func(echo.Context) error { return apperror.Internal("db down") })
+	e.GET("/bad", func(echo.Context) error { return apperror.BadRequest("bad input") })
+
+	for _, tc := range []struct {
+		path       string
+		wantStatus int
+		wantEvents int
+	}{
+		{"/panic", http.StatusInternalServerError, 1},
+		{"/fail", http.StatusInternalServerError, 1},
+		{"/bad", http.StatusBadRequest, 0},
+	} {
+		before := len(transport.Events())
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, tc.path, nil))
+		if rec.Code != tc.wantStatus {
+			t.Errorf("%s: status = %d, want %d", tc.path, rec.Code, tc.wantStatus)
+		}
+		if got := len(transport.Events()) - before; got != tc.wantEvents {
+			t.Errorf("%s: events = %d, want %d", tc.path, got, tc.wantEvents)
+		}
+	}
 }

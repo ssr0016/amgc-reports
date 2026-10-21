@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -23,7 +24,13 @@ func newEcho(cfg *config.Config, log *slog.Logger) *echo.Echo {
 	e := echo.New()
 	e.IPExtractor = ourmiddleware.TrustedProxyExtractor(cfg.Proxy.TrustedCIDRs)
 	e.Validator = validator.New()
-	e.HTTPErrorHandler = apperror.ErrorHandler
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		// Recover routes panics here too, so each 5xx is reported once; the captured stack still holds the panic site.
+		if hub := sentryecho.GetHubFromContext(c); hub != nil && apperror.StatusOf(err) >= http.StatusInternalServerError {
+			hub.CaptureException(err)
+		}
+		apperror.ErrorHandler(err, c)
+	}
 	e.HideBanner = true
 	e.HidePort = true
 
@@ -33,6 +40,8 @@ func newEcho(cfg *config.Config, log *slog.Logger) *echo.Echo {
 	e.Use(ourmiddleware.PrometheusMiddleware())
 	e.Use(ourmiddleware.BodyLimit())
 	e.Use(ourmiddleware.CSRFProtection())
+	// Before Recover, so it never sees a panic: it only adds the request's hub and transaction.
+	e.Use(sentryecho.New(sentryecho.Options{}))
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     cfg.CORS.AllowedOrigins,
