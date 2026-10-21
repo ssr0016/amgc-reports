@@ -372,3 +372,27 @@ func TestReportService_FieldVisibility(t *testing.T) {
 		full_(t, got)
 	})
 }
+
+// Restricted readers see only the deceased status (for the Archived badge), never
+// inactive or disciplinary; full readers see the raw status.
+func TestActor_RedactOwnerStatus(t *testing.T) {
+	deleted := time.Now()
+	for _, status := range []string{"active", "inactive", "disciplinary", "deceased"} {
+		t.Run(status, func(t *testing.T) {
+			reader := &actor{user: &user.User{ID: carol}, perms: map[string]bool{"reports:read_any": true}}
+			resp := report.ReportResponse{CreatedBy: alice, OwnerStatus: status, OwnerDeletedAt: &deleted}
+			reader.redact(&resp)
+			want := ""
+			if status == "deceased" {
+				want = "deceased"
+			}
+			assert.Equal(t, want, resp.OwnerStatus)
+			assert.Equal(t, &deleted, resp.OwnerDeletedAt, "the Deleted user badge stays")
+
+			admin := &actor{user: &user.User{ID: bob}, perms: map[string]bool{"reports:write_any": true}}
+			resp = report.ReportResponse{CreatedBy: alice, OwnerStatus: status}
+			admin.redact(&resp)
+			assert.Equal(t, status, resp.OwnerStatus)
+		})
+	}
+}

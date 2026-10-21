@@ -91,7 +91,8 @@ func (a *actor) canSee(rep *report.Report, anyPerm string) bool {
 }
 
 // redact removes what D-18 keeps from readers who neither own the report nor
-// hold write_any or delete_any: the free text and the tithes_offering metric.
+// hold write_any or delete_any: the free text, the tithes_offering metric and any
+// owner status but deceased (the only one the Archived badge needs).
 // The frontend repeats this rule in edit-report.tsx; keep the two in sync.
 func (a *actor) redact(resp *report.ReportResponse) {
 	if resp.CreatedBy == a.user.ID || a.perms["reports:write_any"] || a.perms["reports:delete_any"] {
@@ -99,6 +100,9 @@ func (a *actor) redact(resp *report.ReportResponse) {
 	}
 	resp.Names, resp.NarrativeReport, resp.Challenges, resp.PrayerRequest = "", "", "", ""
 	delete(resp.Metrics, "tithes_offering")
+	if resp.OwnerStatus != "deceased" {
+		resp.OwnerStatus = ""
+	}
 }
 
 func (a *actor) auditEntry(ip, action string, rep *report.Report) audit.Log {
