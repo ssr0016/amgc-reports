@@ -7,7 +7,7 @@ Pastoral reports management for 24 churches. Church workers file monthly reports
 - **Backend:** Go 1.26, Echo, pgx, goose migrations, swaggo, golangci-lint v2.
 - **Frontend:** Next.js 16.4, React 19, TypeScript, Tailwind 4, shadcn/Radix, TanStack Query.
 - **Tests:** Go unit and testcontainers integration tests; Vitest; Playwright (with axe).
-- **CI:** `.github/workflows/ci.yml`. **Hosting:** Railway (API, Postgres), Vercel (frontend), Cloudflare (DNS).
+- **CI:** `.github/workflows/ci.yml`. **Hosting:** Render (API), Neon (Postgres), Vercel (frontend), Cloudflare (DNS).
 
 ## Commands
 
@@ -35,7 +35,7 @@ Frontend (`cd frontend`):
 
 ## Conventions
 
-- Backend layering is handler → service → repository; simple CRUD may skip the service. See `backend/docs/ARCHITECTURE.md`. Style and naming: `backend/docs/04-Content-Guidelines.md`.
+- Backend code is grouped by domain: `internal/<domain>/` holds the contracts and models, `<domain>impl/` the service and stores, `rest/` the Echo handlers; simple CRUD may skip the service. See `backend/CONTRIBUTING.md`. Style and naming: `backend/docs/04-Content-Guidelines.md`.
 - Errors go through `apperror`. Audit rows are written in the same transaction as the change.
 - Migrations are goose files named `YYYYMMDDHHMMSS_description.sql`. Permissions and role grants are seed data in `seed.go`, not migrations.
 - After any swagger change, run `make swagger` then `npm run gen:api`; CI fails on drift in `frontend/src/lib/api-types.ts`.
@@ -45,7 +45,7 @@ Frontend (`cd frontend`):
 
 - Never commit `.env` files or secrets.
 - A new audit action needs a migration (CHECK constraint) shipped in the same deploy as the code that writes it.
-- Production does not auto-migrate on startup; Railway's Pre-deploy Command `/app/api migrate` does. Railway "Wait for CI" is disabled, so a push to `main` deploys immediately.
+- Production does not auto-migrate on startup; run `/app/api migrate` as a separate step (Render Pre-Deploy Command or by hand: verify in the Render dashboard). Whether a push to `main` deploys immediately or waits for CI: verify in the Render dashboard.
 - Do not commit or push unless asked.
 
 ## Pointers

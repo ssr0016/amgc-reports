@@ -30,6 +30,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-19 | Role filter is client-side | Decided 2026-10-16 | here |
 | D-A14 | Every password form asks twice; the server enforces it | Decided 2026-10-17; built in 22d | here |
 | D-AR1 | Architecture alignment with the company codebase, and JWT auth | Decided 2026-10-21; phases 0 to 3 built | here |
+| H-1 | Hosting moves from Railway to Render and Neon | Decided 2026-10-21 | here |
 
 ## Log
 
@@ -255,3 +256,11 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Refresh vs revoke race (fixed after review):** `rotate` used to lock the token row and insert the new token while a password change or status change revoked "all live tokens" in a separate statement; the revocation waited on the old row, then missed the new one, so a stolen refresh token used at that instant survived the reset. Lock order is now users, then refresh_tokens, everywhere: `rotate` takes `FOR SHARE` on the owner's users row (`UserRepo.LockUser`) before locking the token, and `RevokeSessions` updates users first (in its own transaction when the caller has none), as `UpdatePassword` and `UpdatePasswordKeepSession` already did. Two refreshes still share the lock and meet on the token row. Proved by `TestRefresh_RevocationDuringRotationEndsTheNewToken`, which fails without the lock.
 - **Accepted:** logout and theft revocation do not reach an access token already issued (up to 10 min); password change, admin reset and status change do, through `tokens_valid_after`.
 
+
+### H-1 Hosting moves from Railway to Render and Neon
+**Date:** 2026-10-21 · **Status:** Decided
+
+- **Decision:** the Go API runs on Render (Docker web service, root directory `backend`) and the database on Neon (PostgreSQL). The frontend stays on Vercel and DNS on Cloudflare. Supersedes the backend half of D-F6 and R-1; the Railway integration and `backend/railway.json` are removed.
+- **Trusted proxies:** `TRUSTED_PROXY_CIDRS` defaults to `0.0.0.0/0` for now, because Render's proxy range is not verified. Trade-off: a client that can set `X-Real-IP` chooses its own address, so per-IP rate limits and audit IPs are weaker until the range is narrowed.
+- **Not yet recorded:** how production migrations run (Pre-Deploy Command or by hand), auto-deploy and Wait-for-CI, and the health check path. Verify them in the Render dashboard and add a dated note here.
+- Older entries and history that mention Railway are left as written.

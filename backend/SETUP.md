@@ -143,18 +143,21 @@ server with host `pg`, port `5432`, and the `DB_USER` / `DB_PASSWORD` /
 
 > Production email delivery is tracked as E-1 in docs/06-Implementation-Plan.md.
 
-## Deploying to Railway
+## Deploying to Render
 
-The repository root holds `backend/` (Go) and `frontend/` (Next.js), so Railway
-cannot detect the Go app from the root (Railpack fails with "failed to prepare
-the build"). Deploy `backend/` as its own service, built from its `Dockerfile`.
+The repository root holds `backend/` (Go) and `frontend/` (Next.js). Deploy
+`backend/` as its own Render web service, built from its `Dockerfile`. The
+database is Neon (PostgreSQL); the frontend is on Vercel.
 
 ### 1. Service settings (dashboard, one time)
 
 - **Root Directory**: `backend`. The Dockerfile copies `go.mod` and `go.sum`,
   so the build context must be `backend/`.
-- **Pre-deploy Command** (Deploy tab): `/app/api migrate`. See
-  [Railway Config-as-code deprecation](#railway-config-as-code-deprecation).
+- **Health Check Path**: `/health` (verify in the Render dashboard).
+- **Pre-Deploy Command**: `/app/api migrate`, if the plan supports one (verify
+  in the Render dashboard). See [Migrations](#3-migrations).
+- **Auto-Deploy** on push to `main`, and whether it waits for CI: verify in the
+  Render dashboard.
 
 There is no start command to set: the image runs `/app/api`.
 
@@ -162,40 +165,38 @@ There is no start command to set: the image runs `/app/api`.
 
 | Variable | Value | Notes |
 |---|---|---|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Required. Reference the Railway Postgres service. Switches to the `app_user` URL in the [rollout](#app_user-rollout-runbook). |
-| `MIGRATE_DATABASE_URL` | `migrate_user` URL (private host) | Optional. See [below](#migrate_database_url). Required once `DATABASE_URL` is `app_user`. |
+| `DATABASE_URL` | Neon connection string | Required. Use the direct endpoint (no `-pooler` in the host) with `sslmode=require`; see `.env.example`. Switches to the `app_user` URL in the [rollout](#app_user-rollout-runbook). |
+| `MIGRATE_DATABASE_URL` | owner-role URL | Optional. See [below](#migrate_database_url). Required once `DATABASE_URL` is `app_user`. |
 | `APP_ENV` | `production` | Exactly this value: the session cookie is `Secure` only for `production`. |
 | `LOG_FORMAT` | `json` | |
 | `CORS_ALLOWED_ORIGINS` | frontend origin(s), comma-separated | Defaults to `http://localhost:3000`. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | initial admin | Set both or neither. Password at least 12 characters. |
 | `APP_URL` | the public URL | Only used in startup log lines. |
-| `TRUSTED_PROXY_CIDRS` | leave unset on Railway | Comma-separated CIDRs of the proxies whose `X-Real-IP` is believed. Defaults to `100.64.0.0/10` (Railway's edge range). Set it when deploying elsewhere; if it is wrong, every user shares one rate-limit bucket and the app logs a warning after 100 requests. |
-| `SWAGGER_ENABLED` | leave unset on Railway | `/swagger/*` is off in production unless this is `true`. **`SWAGGER_ENABLED=true` in production exposes the Swagger UI publicly (no auth). Use only for temporary/internal access.** Must be `true` or `false`; anything else stops the server at startup. |
+| `TRUSTED_PROXY_CIDRS` | Render's proxy range, once verified | Comma-separated CIDRs of the proxies whose `X-Real-IP` is believed. Defaults to `0.0.0.0/0` (every IPv4 peer) until Render's range is verified: with that default a client can set its own `X-Real-IP`, which weakens per-IP rate limits and audit IPs. If the range is too narrow, every user shares one rate-limit bucket and the app logs a warning after 100 requests. |
+| `SWAGGER_ENABLED` | leave unset | `/swagger/*` is off in production unless this is `true`. **`SWAGGER_ENABLED=true` in production exposes the Swagger UI publicly (no auth). Use only for temporary/internal access.** Must be `true` or `false`; anything else stops the server at startup. |
 | `METRICS_USER`, `METRICS_PASSWORD` | optional | Basic Auth for `/metrics`. Set both or neither; password at least 12 characters. Without them `/metrics` is not served in production. `/health`, `/ready` and `/live` stay public. |
+| `DB_MAX_CONNS`, `DB_MIN_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME` | optional | Pool bounds; see `.env.example`. Budget `DB_MAX_CONNS` across running instances against Neon's connection limit. |
 
-`PORT` is injected by Railway and read as a fallback when `APP_PORT` is unset.
-Do not set `APP_PORT` on Railway.
+`PORT` is injected by Render and read as a fallback when `APP_PORT` is unset.
+Do not set `APP_PORT` on Render. The Docker `HEALTHCHECK` follows the same
+variables.
 
 ### 3. Migrations
 
 With `APP_ENV=production` the server does **not** run migrations on startup.
-Instead the service's Pre-deploy Command, `/app/api migrate`, runs between
-the build and the deploy, in a separate container with the service's variables
-and private network. It applies the embedded goose migrations using
-`MIGRATE_DATABASE_URL` (falling back to the internal `DATABASE_URL`), so no
-public database URL is needed.
+Run `/app/api migrate` as a separate step before the new version serves
+traffic: as the service's Pre-Deploy Command where the plan allows it, or by
+hand otherwise. Which one production uses: verify in the Render dashboard.
+It applies the embedded goose migrations using `MIGRATE_DATABASE_URL`
+(falling back to `DATABASE_URL`).
 
-- If it exits non-zero, the deploy does not proceed and the previous version
-  keeps running. It is not retried.
-- Railway enforces its own pre-deploy timeout; the 300 seconds in `railway.json`
-  (`preDeployTimeoutSeconds`) is not read.
+- If it exits non-zero, do not deploy the new version.
 - Its log lines carry `phase=migrate`, and each applied migration is logged.
   "no migrations to run" means the database was already up to date.
 - `api migrate` runs only migrations; it never starts the server. Any other
   argument is a usage error (exit 2), so a typo cannot start the server.
 
-Run it by hand only to bootstrap or recover, using the same command locally
-against a database you can reach:
+Run it by hand to bootstrap or recover, against a database you can reach:
 
     DATABASE_URL='<url>' go run ./cmd/api migrate
 
@@ -204,14 +205,15 @@ are set.
 
 ### 4. After the first deploy
 
-- `curl https://<your-service>.up.railway.app/health`
+- `curl https://<your-service>.onrender.com/health`
 - Check the logs for the `peer_ip` and `remote_ip` fields. `peer_ip` is the
   proxy and should sit inside `TRUSTED_PROXY_CIDRS`; `remote_ip` is the client.
   If the app logs "No request from a trusted proxy in the first 100 requests",
   the range is wrong and every user shares one rate-limit bucket.
-- Confirm the proxy overwrites `X-Real-IP` (a client must not be able to choose
-  its address): `curl -s -H 'X-Real-IP: 1.2.3.4' 'https://<your-service>.up.railway.app/health?marker=x'`.
-  The logged `remote_ip` must be your own address, not `1.2.3.4`.
+- Check whether the proxy overwrites `X-Real-IP` (a client must not be able to
+  choose its address): `curl -s -H 'X-Real-IP: 1.2.3.4' 'https://<your-service>.onrender.com/health?marker=x'`.
+  The logged `remote_ip` must be your own address, not `1.2.3.4`. Use the
+  logged `peer_ip` values to narrow `TRUSTED_PROXY_CIDRS`.
 
 ### MIGRATE_DATABASE_URL
 
@@ -231,6 +233,10 @@ roles, change server settings (`ALTER SYSTEM`) or run programs
 
 #### migrate_user rollout runbook
 
+> On Neon the `migrate_user` role is currently disabled (the migrate_user
+> integration tests are skipped for this reason), so this runbook does not apply
+> as written; verify the roles and privileges in Neon before using it.
+
 The role is `NOLOGIN` until you enable it, so nothing changes on deploy.
 
 1. Deploy a release containing the migration. `MIGRATE_DATABASE_URL` is still
@@ -244,7 +250,7 @@ The role is `NOLOGIN` until you enable it, so nothing changes on deploy.
 3. Enable login. In the console type `\password migrate_user`, then
    `ALTER ROLE migrate_user LOGIN;`. Store the password in your password manager.
 4. Set `MIGRATE_DATABASE_URL` to
-   `postgresql://migrate_user:<password>@postgres.railway.internal:5432/railway`.
+   `postgresql://migrate_user:<password>@<host>/<database>?sslmode=require`.
 5. Redeploy. With nothing pending, the pre-deploy command should log
    `applying migrations role=migrate_user` and `migrations complete`.
 
@@ -261,7 +267,7 @@ Migration `20251012000000_create_app_user_role.sql` creates `app_user` as
 `NOLOGIN`, so nothing uses it until you enable it. To switch the running
 service to it:
 
-1. In the Railway Postgres console: `ALTER ROLE app_user LOGIN PASSWORD '<random>';`
+1. In the Postgres console (Neon SQL Editor): `ALTER ROLE app_user LOGIN PASSWORD '<random>';`
 2. Set `MIGRATE_DATABASE_URL` on the service to the Postgres owner URL (or to
    `migrate_user` once the [migrate_user rollout](#migrate_user-rollout-runbook)
    is done).
@@ -281,18 +287,6 @@ one variable and no data changes.
 **DELETE limitation:** `app_user` has the `DELETE` privilege, so this is not
 protection against data loss. The goal is to block DDL and escalation (`DROP`,
 `ALTER`, `CREATE`, `TRUNCATE`, `COPY ... TO PROGRAM`, `CREATE ROLE`).
-
-### Railway Config-as-code deprecation
-
-The pre-deploy command is set in the Railway UI (Deploy → Pre-deploy
-Command), not in `railway.json`, because Railway has deprecated
-Config-as-code. Existing config files keep working until 2026-12-01, but a
-service that has not used one can no longer opt in; here the config path was
-never set, so Railway does not read `backend/railway.json`. The file stays in
-the repo for reference and for a future move to Infrastructure as Code. Treat
-the dashboard as the source of truth; changing `railway.json` has no effect.
-
-Verified in the dashboard (2026-10-16): Pre-deploy Command `/app/api migrate`, timeout 300 s, no custom start command (the Dockerfile sets it), Teardown disabled, and **Wait for CI disabled**, so a push to `main` deploys immediately without waiting for the CI workflow.
 
 ## Access URLs
 

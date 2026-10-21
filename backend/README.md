@@ -263,13 +263,12 @@ PgAdmin: http://localhost:5051 (admin@example.com / admin)
 
 ## Deployment
 
-Deployed on Railway with:
-- Auto-deploy from GitHub
-- Postgres database
-- SSL/TLS
-- Custom domain ready
+The API is deployed on Render as a Docker web service (root directory
+`backend`); the database is Neon (PostgreSQL) and the frontend is on Vercel.
+Auto-deploy, the health check path and how production migrations run: verify
+in the Render dashboard.
 
-See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for the deployment layout and [SETUP.md](SETUP.md) for the Railway runbook.
+See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for the deployment layout and [SETUP.md](SETUP.md) for the Render runbook.
 
 ## Documentation
 

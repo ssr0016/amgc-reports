@@ -11,8 +11,8 @@ Three tiers:
 | Tier | Tech | Where |
 |---|---|---|
 | Frontend | Next.js 16, React 19, TanStack Query | Vercel, `app.<domain>` (D-F6) |
-| API | Go 1.26, Echo, pgx | Railway, `api.<domain>` |
-| Database | PostgreSQL | Railway |
+| API | Go 1.26, Echo, pgx | Render, `api.<domain>` |
+| Database | PostgreSQL | Neon |
 
 The browser calls the API directly (client-side fetching). DNS is held by Cloudflare (DNS only; the proxy is deferred, D-F7).
 Frontend API types are generated from `backend/docs/swagger.json` (`npm run gen:api`); CI fails if they drift.
@@ -21,11 +21,10 @@ Frontend API types are generated from `backend/docs/swagger.json` (`npm run gen:
 
 ## Deployment
 
-- **Railway** builds `backend/` from its Dockerfile. Root Directory is `backend`. Health check: `/health`.
-- **Migrations in production** are not run on startup. The service's **Pre-deploy Command** `/app/api migrate` runs between build and deploy, with a 300 s timeout.
-  - **Verified in the Railway dashboard (2026-10-16):** the command is set in the UI (pastoral-reports → Settings → Deploy). `backend/railway.json` only mirrors it; Railway does not read that file.
-  - Custom Start Command: empty (the Dockerfile sets it). Teardown: disabled.
-  - **Wait for CI: disabled.** A push to `main` deploys immediately, without waiting for the CI workflow.
+- **Render** builds `backend/` from its Dockerfile. Root Directory is `backend`. Health check: `/health` (verify in the Render dashboard).
+- **Migrations in production** are not run on startup. `/app/api migrate` runs as a separate step, as the Pre-Deploy Command or by hand (verify in the Render dashboard).
+  - Auto-deploy on push to `main`, and whether it waits for CI: verify in the Render dashboard.
+  - `TRUSTED_PROXY_CIDRS` defaults to `0.0.0.0/0` until Render's proxy range is verified (H-1).
 - Runbook and environment variables: [backend/SETUP.md](../backend/SETUP.md).
 - **Vercel** hosts the frontend (D-F6). TODO (confirm): current Vercel deployment state; F14 is the production smoke test.
 - Local and dev run migrations at startup; production does not.
@@ -107,7 +106,7 @@ goose, in `backend/internal/database/migrations/`. 22 migrations.
 
 ## CI
 
-`.github/workflows/ci.yml`: Go lint, tests, integration tests (testcontainers), build, gosec; frontend lint, `gen:api` drift check, typecheck, build; Playwright e2e. Because Wait for CI is disabled on Railway, a red CI does not block a deploy.
+`.github/workflows/ci.yml`: Go lint, tests, integration tests (testcontainers), build, gosec; frontend lint, `gen:api` drift check, typecheck, build; Playwright e2e. Whether a red CI blocks a deploy depends on Render's auto-deploy setting (verify in the Render dashboard).
 
 ## Reference material
 
