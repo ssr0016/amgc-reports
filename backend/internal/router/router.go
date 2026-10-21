@@ -129,6 +129,8 @@ func Setup(
 	admin.POST("/users", adminUserHandler.CreateUser, perm("users:write"))
 	admin.PUT("/users/:id", adminUserHandler.UpdateUser, perm("users:write"))
 	admin.PUT("/users/:id/status", adminUserHandler.ChangeStatus, perm("users:write"))
+	admin.DELETE("/users/:id", adminUserHandler.DeleteUser, perm("users:write"))
+	admin.POST("/users/:id/restore", adminUserHandler.RestoreUser, perm("users:write"))
 	// Sets another user's password (D-A12): a write, so it shares change-password's limiter.
 	admin.POST("/users/:id/reset-password", adminUserHandler.ResetPassword, perm("users:write"), limits.Write)
 

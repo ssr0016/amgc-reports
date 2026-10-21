@@ -36,6 +36,8 @@ type MockStore struct {
 	RevokeSessionsFunc            func(ctx context.Context, userID int64) (int64, error)
 	LockActiveAdminsFunc          func(ctx context.Context) ([]int64, error)
 	LockUserFunc                  func(ctx context.Context, userID int64) error
+	SoftDeleteFunc                func(ctx context.Context, id, deletedBy int64, reason string) (*user.User, error)
+	RestoreFunc                   func(ctx context.Context, id int64) (*user.User, error)
 }
 
 // NewMockStore creates a new mock repository.
@@ -321,4 +323,37 @@ func (m *MockStore) LockActiveAdmins(ctx context.Context) ([]int64, error) {
 		return m.LockActiveAdminsFunc(ctx)
 	}
 	return nil, nil
+}
+
+// SoftDelete marks a user deleted (mock).
+func (m *MockStore) SoftDelete(ctx context.Context, id, deletedBy int64, reason string) (*user.User, error) {
+	if m.SoftDeleteFunc != nil {
+		return m.SoftDeleteFunc(ctx, id, deletedBy, reason)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	usr, ok := m.users[id]
+	if !ok {
+		return nil, fmt.Errorf("users: %w", database.ErrNotFound)
+	}
+	now := time.Now()
+	usr.DeletedAt, usr.DeletedBy, usr.DeletedReason = &now, &deletedBy, nullable(reason)
+	return usr, nil
+}
+
+// Restore clears a user's deleted mark (mock).
+func (m *MockStore) Restore(ctx context.Context, id int64) (*user.User, error) {
+	if m.RestoreFunc != nil {
+		return m.RestoreFunc(ctx, id)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	usr, ok := m.users[id]
+	if !ok {
+		return nil, fmt.Errorf("users: %w", database.ErrNotFound)
+	}
+	usr.DeletedAt, usr.DeletedBy, usr.DeletedReason = nil, nil, nil
+	return usr, nil
 }

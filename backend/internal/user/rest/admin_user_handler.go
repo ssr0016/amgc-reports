@@ -51,6 +51,10 @@ func userError(err error, msg string) error {
 		return apperror.Forbidden("You cannot reset your own password. Use the Change Password page instead.")
 	case errors.Is(err, user.ErrLastActiveAdmin):
 		return apperror.Conflict("At least one active admin is required.")
+	case errors.Is(err, user.ErrCannotDeleteSelf):
+		return apperror.Forbidden("You cannot delete your own account.")
+	case errors.Is(err, user.ErrEmailBelongsToDeletedUser):
+		return apperror.Conflict("This email belongs to a deleted user. Restore them instead.")
 	case errors.Is(err, user.ErrInvalidUserStatus):
 		return apperror.Validation("invalid status").WithDetails(map[string]string{"status": "invalid status"})
 	}
@@ -174,6 +178,75 @@ func (h *AdminUserHandler) ChangeStatus(c echo.Context) error {
 	usr, err := h.svc.ChangeStatus(c.Request().Context(), actor, c.RealIP(), id, req.Status)
 	if err != nil {
 		return userError(err, "failed to change user status")
+	}
+	return c.JSON(http.StatusOK, usr.ToResponse())
+}
+
+// DeleteUser godoc
+// @Summary      Soft-delete a user
+// @Description  Admin only. Marks the account deleted with an optional reason (at most 500 characters, trimmed). A deleted user cannot sign in, gets the same answer as an unknown email, and all of their sessions end. Their email stays reserved and their status does not change. You cannot delete your own account, and the only active admin cannot be deleted. An already-deleted user answers 200 and changes and audits nothing. The body may be empty.
+// @Tags         admin/users
+// @Accept       json
+// @Produce      json
+// @Security     CookieAuth
+// @Param        id path int true "User ID"
+// @Param        body body user.DeleteUserRequest false "Optional reason"
+// @Success      200 {object} user.UserResponse
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Failure      409 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Router       /admin/users/{id} [delete]
+func (h *AdminUserHandler) DeleteUser(c echo.Context) error {
+	actor, err := h.actorID(c)
+	if err != nil {
+		return err
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return apperror.BadRequest("invalid user id")
+	}
+	var req user.DeleteUserRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	usr, err := h.svc.Delete(c.Request().Context(), actor, c.RealIP(), id, req.Reason)
+	if err != nil {
+		return userError(err, "failed to delete user")
+	}
+	return c.JSON(http.StatusOK, usr.ToResponse())
+}
+
+// RestoreUser godoc
+// @Summary      Restore a deleted user
+// @Description  Admin only. Clears the deleted mark, so the user can sign in again if their status is active; the status does not change. The audit row keeps who deleted them, when and why. A user who is not deleted answers 200 and changes and audits nothing.
+// @Tags         admin/users
+// @Produce      json
+// @Security     CookieAuth
+// @Param        id path int true "User ID"
+// @Success      200 {object} user.UserResponse
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /admin/users/{id}/restore [post]
+func (h *AdminUserHandler) RestoreUser(c echo.Context) error {
+	actor, err := h.actorID(c)
+	if err != nil {
+		return err
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return apperror.BadRequest("invalid user id")
+	}
+	usr, err := h.svc.Restore(c.Request().Context(), actor, c.RealIP(), id)
+	if err != nil {
+		return userError(err, "failed to restore user")
 	}
 	return c.JSON(http.StatusOK, usr.ToResponse())
 }

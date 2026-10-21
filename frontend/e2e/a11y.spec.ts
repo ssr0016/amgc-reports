@@ -61,10 +61,10 @@ for (const scheme of ["light", "dark"] as const) {
         await page.goto("/admin");
         await page.getByRole("tab", { name: "Users" }).click();
         const panel = page.getByRole("tabpanel", { name: "Users" });
-        await expect(panel.getByText("You")).toBeVisible(); // the signed-in admin's own row
+        await expect(panel.getByText("You", { exact: true })).toBeVisible(); // the signed-in admin's own row
         await scan(page);
         await panel.getByLabel("Role").selectOption({ label: "admin" });
-        await expect(panel.getByText("You")).toBeVisible();
+        await expect(panel.getByText("You", { exact: true })).toBeVisible();
         await scan(page);
       });
 

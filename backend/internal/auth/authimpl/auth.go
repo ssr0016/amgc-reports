@@ -107,7 +107,9 @@ func (s *service) Login(ctx context.Context, email, password string) (*user.User
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	if usr == nil {
+	// A deleted user looks exactly like an unknown email (D-A11): no lockout
+	// message, no failed attempt recorded.
+	if usr == nil || usr.DeletedAt != nil {
 		return nil, auth.ErrInvalidCredentials
 	}
 

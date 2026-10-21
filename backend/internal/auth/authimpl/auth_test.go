@@ -195,6 +195,28 @@ func TestAuthService_Login_WrongPasswordOnANonActiveAccountIsGeneric(t *testing.
 	}
 }
 
+// A deleted user looks exactly like an unknown email (D-A11), even with the right
+// password and a lock in place: no lockout message, no failed attempt recorded.
+func TestAuthService_Login_DeletedUserIsAnUnknownEmail(t *testing.T) {
+	repo := userimpl.NewMockStore()
+	svc := newService(repo, nil, nil, nil, nil, discardLog)
+	u := seedUser(t, repo, "d@example.com", "D")
+	now := time.Now()
+	u.DeletedAt = &now
+	locked := now.Add(time.Hour)
+	u.LockedUntil = &locked
+	repo.RecordFailedLoginFunc = func(context.Context, int64, int, time.Duration) error {
+		t.Error("a deleted user's login must not record a failed attempt")
+		return nil
+	}
+
+	for _, pw := range []string{testPassword, "wrong-password"} {
+		if _, err := svc.Login(context.Background(), "d@example.com", pw); !errors.Is(err, auth.ErrInvalidCredentials) {
+			t.Errorf("Login(%q) error = %v, want auth.ErrInvalidCredentials", pw, err)
+		}
+	}
+}
+
 func TestAuthService_Me_NonActiveIsUnauthorized(t *testing.T) {
 	users := userimpl.NewMockStore()
 	users.GetWithRoleFunc = func(context.Context, int64) (*user.User, error) {

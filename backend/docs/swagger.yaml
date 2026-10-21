@@ -158,6 +158,12 @@ definitions:
     - name
     - password
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.DeleteUserRequest:
+    properties:
+      reason:
+        maxLength: 500
+        type: string
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest:
     properties:
       email:
@@ -360,6 +366,8 @@ definitions:
       church_name:
         type: string
       created_at:
+        type: string
+      deleted_at:
         type: string
       email:
         type: string
@@ -787,6 +795,74 @@ paths:
       tags:
       - admin/users
   /admin/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Admin only. Marks the account deleted with an optional reason (at
+        most 500 characters, trimmed). A deleted user cannot sign in, gets the same
+        answer as an unknown email, and all of their sessions end. Their email stays
+        reserved and their status does not change. You cannot delete your own account,
+        and the only active admin cannot be deleted. An already-deleted user answers
+        200 and changes and audits nothing. The body may be empty.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Optional reason
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.DeleteUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Soft-delete a user
+      tags:
+      - admin/users
     get:
       parameters:
       - description: User ID
@@ -930,6 +1006,54 @@ paths:
       security:
       - CookieAuth: []
       summary: Reset a user's password
+      tags:
+      - admin/users
+  /admin/users/{id}/restore:
+    post:
+      description: Admin only. Clears the deleted mark, so the user can sign in again
+        if their status is active; the status does not change. The audit row keeps
+        who deleted them, when and why. A user who is not deleted answers 200 and
+        changes and audits nothing.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Restore a deleted user
       tags:
       - admin/users
   /admin/users/{id}/role:
@@ -1680,13 +1804,15 @@ paths:
         in: query
         name: email
         type: string
-      - description: Filter by status; all or empty means every status
+      - description: Filter by status; all or empty means every status. deleted returns
+          only deleted users; every other value leaves them out
         enum:
         - all
         - active
         - inactive
         - disciplinary
         - deceased
+        - deleted
         in: query
         name: status
         type: string

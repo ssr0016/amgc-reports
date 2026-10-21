@@ -668,7 +668,104 @@ export interface paths {
             };
         };
         post?: never;
-        delete?: never;
+        /**
+         * Soft-delete a user
+         * @description Admin only. Marks the account deleted with an optional reason (at most 500 characters, trimmed). A deleted user cannot sign in, gets the same answer as an unknown email, and all of their sessions end. Their email stays reserved and their status does not change. You cannot delete your own account, and the only active admin cannot be deleted. An already-deleted user answers 200 and changes and audits nothing. The body may be empty.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Optional reason */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.DeleteUserRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -773,6 +870,92 @@ export interface paths {
                     };
                     content: {
                         "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a deleted user
+         * @description Admin only. Clears the deleted mark, so the user can sign in again if their status is active; the status does not change. The audit row keeps who deleted them, when and why. A user who is not deleted answers 200 and changes and audits nothing.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
                             [key: string]: string;
                         };
                     };
@@ -2132,8 +2315,8 @@ export interface paths {
                     limit?: number;
                     /** @description Filter by email */
                     email?: string;
-                    /** @description Filter by status; all or empty means every status */
-                    status?: "all" | "active" | "inactive" | "disciplinary" | "deceased";
+                    /** @description Filter by status; all or empty means every status. deleted returns only deleted users; every other value leaves them out */
+                    status?: "all" | "active" | "inactive" | "disciplinary" | "deceased" | "deleted";
                 };
                 header?: never;
                 path?: never;
@@ -2311,6 +2494,9 @@ export interface components {
             password: string;
             role_id?: number;
         };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.DeleteUserRequest": {
+            reason?: string;
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest": {
             email: string;
             password: string;
@@ -2401,6 +2587,7 @@ export interface components {
             area_assignment?: string;
             church_name?: string;
             created_at?: string;
+            deleted_at?: string;
             email?: string;
             email_verified?: boolean;
             email_verified_at?: string;

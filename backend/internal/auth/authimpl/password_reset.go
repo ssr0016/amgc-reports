@@ -37,7 +37,8 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 	if err != nil {
 		return fmt.Errorf("get user: %w", err)
 	}
-	if user == nil {
+	// A deleted user is handled like an unknown account (D-A11).
+	if user == nil || user.DeletedAt != nil {
 		s.log.Info("password reset requested for unknown account")
 		return nil
 	}

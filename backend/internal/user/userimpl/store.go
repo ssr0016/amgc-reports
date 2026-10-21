@@ -19,12 +19,12 @@ type store struct{ db *database.DB }
 // NewStore returns the user.Store over db.
 func NewStore(db *database.DB) user.Store { return &store{db: db} }
 
-const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at, area_assignment, church_name, status"
+const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at, area_assignment, church_name, status, deleted_at, deleted_by, deleted_reason"
 
 // scanUser scans a single user from a row.
 func scanUser(row pgx.Row) (*user.User, error) {
 	var u user.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -148,8 +148,14 @@ func (r *store) List(ctx context.Context, emailFilter, status string, limit int)
 	if emailFilter != "" {
 		q = q.Where(sq.ILike{"email": "%" + emailFilter + "%"})
 	}
-	if status != "" {
-		q = q.Where(sq.Eq{"status": status})
+	// "deleted" is a list filter, not a status (D-A11): every other value hides deleted users.
+	switch {
+	case status == "deleted":
+		q = q.Where(sq.NotEq{"deleted_at": nil})
+	case status != "":
+		q = q.Where(sq.Eq{"status": status, "deleted_at": nil})
+	default:
+		q = q.Where(sq.Eq{"deleted_at": nil})
 	}
 
 	query, args, err := q.ToSql()
@@ -166,7 +172,7 @@ func (r *store) List(ctx context.Context, emailFilter, status string, limit int)
 	var users []user.User
 	for rows.Next() {
 		var u user.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason); err != nil {
 			return nil, fmt.Errorf("scan row: %w", err)
 		}
 		users = append(users, u)
@@ -207,7 +213,7 @@ func (r *store) GetWithRole(ctx context.Context, id int64) (*user.User, error) {
 	query, args, err := r.db.Builder.
 		Select(
 			"u.id", "u.email", "u.name", "u.password_hash", "u.role_id",
-			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status", "u.tokens_valid_after",
+			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status", "u.tokens_valid_after", "u.deleted_at",
 			"r.id", "r.name", "r.description", "r.created_at", "r.updated_at",
 		).
 		From("users u").
@@ -225,7 +231,7 @@ func (r *store) GetWithRole(ctx context.Context, id int64) (*user.User, error) {
 
 	err = r.db.Querier(ctx).QueryRow(ctx, query, args...).Scan(
 		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID,
-		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.TokensValidAfter,
+		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.TokensValidAfter, &u.DeletedAt,
 		&rID, &rName, &rDesc, &rCreatedAt, &rUpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -304,7 +310,7 @@ func (r *store) ListWithPagination(ctx context.Context, emailFilter string, page
 	var users []user.User
 	for rows.Next() {
 		var u user.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
 		users = append(users, u)
@@ -487,6 +493,41 @@ func (r *store) UpdateStatus(ctx context.Context, id int64, status string) (*use
 	return u, nil
 }
 
+// SoftDelete marks a user deleted (D-A11) in the transaction in ctx and returns the
+// updated user. The status is not touched. A missing user is database.ErrNotFound.
+func (r *store) SoftDelete(ctx context.Context, id, deletedBy int64, reason string) (*user.User, error) {
+	return r.setDeleted(ctx, id, sq.Expr("NOW()"), &deletedBy, nullable(reason))
+}
+
+// Restore clears a user's deleted mark (D-A11); the history stays in the audit rows.
+// A missing user is database.ErrNotFound.
+func (r *store) Restore(ctx context.Context, id int64) (*user.User, error) {
+	return r.setDeleted(ctx, id, nil, nil, nil)
+}
+
+func (r *store) setDeleted(ctx context.Context, id int64, at any, by *int64, reason *string) (*user.User, error) {
+	query, args, err := r.db.Builder.
+		Update("users").
+		Set("deleted_at", at).
+		Set("deleted_by", by).
+		Set("deleted_reason", reason).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": id}).
+		Suffix("RETURNING " + userColumns).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+	u, err := scanUser(r.db.Querier(ctx).QueryRow(ctx, query, args...))
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, fmt.Errorf("users: %w", database.ErrNotFound)
+	}
+	return u, nil
+}
+
 // RevokeSessions ends all of a user's sign-ins (refresh tokens and, through
 // tokens_valid_after, access tokens) and returns how many refresh tokens it revoked.
 func (r *store) RevokeSessions(ctx context.Context, userID int64) (int64, error) {
@@ -537,7 +578,7 @@ func (r *store) LockUser(ctx context.Context, userID int64) error {
 func (r *store) LockActiveAdmins(ctx context.Context) ([]int64, error) {
 	rows, err := r.db.Querier(ctx).Query(ctx,
 		`SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id
-		 WHERE r.name = 'admin' AND u.status = 'active' ORDER BY u.id FOR UPDATE OF u`)
+		 WHERE r.name = 'admin' AND u.status = 'active' AND u.deleted_at IS NULL ORDER BY u.id FOR UPDATE OF u`)
 	if err != nil {
 		return nil, fmt.Errorf("lock active admins: %w", err)
 	}

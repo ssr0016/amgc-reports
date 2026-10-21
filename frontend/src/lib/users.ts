@@ -4,7 +4,7 @@ import type { Page, ResetPasswordInput, Role, User, UserInput, UserUpdate } from
 export type { Role, User, UserInput, UserUpdate };
 
 // A bare array capped at 100: the endpoint has no page or total.
-// status is one of the four, or empty / "all" for everyone; the server filters (the role filter does not).
+// status is one of the four, "deleted", or empty / "all" for everyone not deleted; the server filters (the role filter does not).
 export function listUsers(email = "", status = ""): Promise<User[]> {
   const qs = new URLSearchParams({ limit: "100" });
   if (email) qs.set("email", email);
@@ -30,6 +30,12 @@ export const resetUserPassword = (id: number, new_password: string, confirm_pass
     method: "POST",
     body: { new_password, confirm_password } satisfies ResetPasswordInput,
   });
+
+// Soft delete (D-A11): the user cannot sign in and their sessions end. The reason is optional.
+export const deleteUser = (id: number, reason: string) =>
+  api<User>(`/admin/users/${id}`, { method: "DELETE", body: { reason } });
+
+export const restoreUser = (id: number) => api<User>(`/admin/users/${id}/restore`, { method: "POST" });
 
 // The handler answers { data, meta }; the Swagger type says a bare array, which is wrong.
 export async function listRoles(): Promise<Role[]> {

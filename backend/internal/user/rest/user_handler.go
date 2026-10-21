@@ -28,7 +28,7 @@ func NewUserHandler(repo user.Store) *UserHandler {
 // @Param        page query int false "Page number (default 1)"
 // @Param        limit query int false "Limit (default 20, max 100)"
 // @Param        email query string false "Filter by email"
-// @Param        status query string false "Filter by status; all or empty means every status" Enums(all, active, inactive, disciplinary, deceased)
+// @Param        status query string false "Filter by status; all or empty means every status. deleted returns only deleted users; every other value leaves them out" Enums(all, active, inactive, disciplinary, deceased, deleted)
 // @Success      200 {array} user.UserResponse
 // @Failure      401 {object} map[string]string
 // @Failure      422 {object} map[string]string
@@ -39,7 +39,7 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 	if status == "all" {
 		status = ""
 	}
-	if status != "" && !slices.Contains(user.UserStatuses, status) {
+	if status != "" && status != "deleted" && !slices.Contains(user.UserStatuses, status) {
 		return apperror.Validation("invalid status").WithDetails(map[string]string{"status": "invalid status"})
 	}
 	limit := 20
