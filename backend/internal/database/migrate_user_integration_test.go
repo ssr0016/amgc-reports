@@ -20,6 +20,7 @@ import (
 // the migrations that predate the Reports tables; migrate_user applies the rest,
 // as `api migrate` does in production.
 func TestMigrateUser_OwnsSchemaObjects(t *testing.T) {
+	testutil.SkipMigrateUser(t)
 	tdb := testutil.SetupPostgres(t)
 	migrateUpTo(t, tdb, lastPreReportsVersion)
 	require.NoError(t, database.RunMigrations(tdb.RolePool(t, "migrate_user")))
@@ -45,6 +46,7 @@ func TestMigrateUser_OwnsSchemaObjects(t *testing.T) {
 }
 
 func TestMigrateUser_CanAlterExistingTable(t *testing.T) {
+	testutil.SkipMigrateUser(t)
 	tdb := testutil.SetupPostgres(t)
 	tdb.MigrateWithGoose(t)
 	mig := tdb.RolePool(t, "migrate_user")
@@ -58,6 +60,7 @@ func TestMigrateUser_CanAlterExistingTable(t *testing.T) {
 // grant: the earlier default privileges were set for the role that ran that
 // migration, not for migrate_user. Migration state stays off limits.
 func TestMigrateUser_NewTablesAreUsableByAppUser(t *testing.T) {
+	testutil.SkipMigrateUser(t)
 	tdb := testutil.SetupPostgres(t)
 	tdb.MigrateWithGoose(t)
 	ctx := context.Background()
@@ -82,6 +85,7 @@ func TestMigrateUser_NewTablesAreUsableByAppUser(t *testing.T) {
 // migrate_user owns the tables, so it can still drop them. What it must not be
 // is a superuser: no role creation, no server configuration, no program exec.
 func TestMigrateUser_CannotEscalate(t *testing.T) {
+	testutil.SkipMigrateUser(t)
 	tdb := testutil.SetupPostgres(t)
 	tdb.MigrateWithGoose(t)
 	ctx := context.Background()

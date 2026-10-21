@@ -246,3 +246,11 @@ func (tdb *TestDB) RemoveRole(t *testing.T, name string) {
 		_, _ = tdb.Pool.Exec(ctx, `INSERT INTO roles (name, description) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING`, name, description)
 	})
 }
+
+// SkipMigrateUser skips a test that needs the migrate_user role. Migration
+// 20251012000001 no longer creates it (Neon blocks ALTER DEFAULT PRIVILEGES), so
+// every such test skips. Delete this helper and its calls if the role comes back.
+func SkipMigrateUser(t *testing.T) {
+	t.Helper()
+	t.Skip("Skipped on Neon: migrate_user role is disabled")
+}

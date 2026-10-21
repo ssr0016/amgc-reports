@@ -102,6 +102,7 @@ func TestAppUser_MigrationAdoptsExistingRole(t *testing.T) {
 
 // Roles are cluster-scoped; rolling back must not drop one production uses.
 func TestAppUser_DownMigrationKeepsRole_AndUpAgainSucceeds(t *testing.T) {
+	testutil.SkipMigrateUser(t)
 	tdb := testutil.SetupPostgres(t)
 	tdb.MigrateWithGoose(t)
 

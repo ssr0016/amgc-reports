@@ -454,6 +454,7 @@ func TestReportsTables_AppUserDML(t *testing.T) {
 
 // This is the production path: `api migrate` connects as migrate_user.
 func TestReportsMigrations_AsMigrateUser(t *testing.T) {
+	testutil.SkipMigrateUser(t)
 	tdb := testutil.SetupPostgres(t)
 	ctx := context.Background()
 	migrateUpTo(t, tdb, lastPreReportsVersion)

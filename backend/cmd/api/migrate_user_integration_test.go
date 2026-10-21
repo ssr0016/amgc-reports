@@ -16,6 +16,7 @@ import (
 // command as migrate_user. With nothing pending, the run must succeed and
 // leave the applied versions as they were.
 func TestMigrateUser_CanRunMigrateCommand(t *testing.T) {
+	testutil.SkipMigrateUser(t)
 	tdb := testutil.SetupPostgres(t)
 	tdb.MigrateWithGoose(t)
 	before := appliedVersions(t, tdb)
@@ -36,6 +37,7 @@ func TestMigrateUser_CanRunMigrateCommand(t *testing.T) {
 
 // The role is logged so a deploy shows which credentials ran the migrations.
 func TestCurrentRole_ReportsConnectedRole(t *testing.T) {
+	testutil.SkipMigrateUser(t)
 	tdb := testutil.SetupPostgres(t)
 	tdb.MigrateWithGoose(t)
 
