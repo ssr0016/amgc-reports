@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useState } from "react";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
+import { ReportOwnerBadges } from "@/components/report-owner-badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -146,7 +147,12 @@ export function AdminReports() {
               <TableBody>
                 {data.data.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell>{r.worker || "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{r.worker || "—"}</span>
+                        <ReportOwnerBadges report={r} />
+                      </div>
+                    </TableCell>
                     <TableCell>{r.month}</TableCell>
                     <TableCell>{r.year}</TableCell>
                     <TableCell>{r.area_assignment || "—"}</TableCell>

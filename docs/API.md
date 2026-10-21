@@ -207,6 +207,9 @@ Counts for the admin panel cards. `month` (English name, case-insensitive) and `
 
 All Reports endpoints need a session cookie, and POST/PUT/PATCH/DELETE also need the CSRF token (see CSRF Protection). Each route needs one permission. A role may also hold an `_any` permission, which widens the scope from the caller's own reports to all reports.
 
+Every full report response (list, get, create and update) includes `owner_status`, the owner's current account status, and `owner_deleted_at` (RFC 3339, omitted when the owner is not deleted). These are read-only metadata from the account, not snapshots from report creation. Deleted and deceased owners' reports remain visible within the existing permission scope. The frontend labels them "Deleted user" and "Archived" respectively; both labels can appear together. Report approval is independent, and the approve/unapprove response still contains only report approval metadata. The report's own soft deletion still hides that report.
+
+
 | Method | Path | Permission | `_any` widening |
 |---|---|---|---|
 | GET | /reports | `reports:read` | `reports:read_any` lists everyone's reports |

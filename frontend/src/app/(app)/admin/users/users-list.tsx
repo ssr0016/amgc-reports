@@ -51,6 +51,7 @@ export function UsersPanel() {
       toast.success(`${u.name} restored`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["users"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
         queryClient.invalidateQueries({ queryKey: ["user", u.id] }),
       ]);
     } catch (err) {
@@ -249,6 +250,7 @@ function DeleteUserDialog({ user, onClose }: { user: User | null; onClose: () =>
       close();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["users"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
         queryClient.invalidateQueries({ queryKey: ["user", user.id] }),
       ]);
     } catch (err) {

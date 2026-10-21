@@ -30,6 +30,10 @@ type Report struct {
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 
+	// Owner state is loaded from users, independently of the report's deletion state.
+	OwnerStatus    string     `json:"-"`
+	OwnerDeletedAt *time.Time `json:"-"`
+
 	// Metrics is loaded on demand (not a column): metric key -> week_no -> value.
 	Metrics map[string]map[int]pgtype.Numeric `json:"-"`
 }
@@ -100,6 +104,8 @@ type UpdateReportRequest CreateReportRequest // @name github_com_ssr0016_pastora
 
 // ReportResponse is the API representation (bare object, per D-9).
 type ReportResponse struct {
+	OwnerStatus     string                 `json:"owner_status"`
+	OwnerDeletedAt  *time.Time             `json:"owner_deleted_at,omitempty"`
 	ID              int64                  `json:"id"`
 	CreatedBy       int64                  `json:"created_by"`
 	Month           string                 `json:"month"`
@@ -155,6 +161,8 @@ func (r *Report) ToResponse() ReportResponse {
 	}
 
 	return ReportResponse{
+		OwnerStatus:     r.OwnerStatus,
+		OwnerDeletedAt:  r.OwnerDeletedAt,
 		ID:              r.ID,
 		CreatedBy:       r.CreatedBy,
 		Month:           r.Month,

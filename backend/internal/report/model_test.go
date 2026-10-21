@@ -176,3 +176,19 @@ func TestCreateReportRequest_MonthTagMatchesMonths(t *testing.T) {
 
 	assert.Equal(t, report.Months, strings.Fields(m[1]))
 }
+
+func TestReport_ToResponse_OwnerState(t *testing.T) {
+	deleted := time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
+	r := report.Report{OwnerStatus: "deceased", OwnerDeletedAt: &deleted}
+	resp := r.ToResponse()
+	assert.Equal(t, "deceased", resp.OwnerStatus)
+	assert.Equal(t, &deleted, resp.OwnerDeletedAt)
+	raw, err := json.Marshal(resp)
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), `"owner_status":"deceased"`)
+	assert.Contains(t, string(raw), `"owner_deleted_at":"2026-10-21T09:00:00Z"`)
+	r.OwnerDeletedAt = nil
+	raw, err = json.Marshal(r.ToResponse())
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), `"owner_deleted_at"`)
+}

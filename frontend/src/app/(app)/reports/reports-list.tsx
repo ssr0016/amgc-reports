@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
+import { ReportOwnerBadges } from "@/components/report-owner-badges";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -248,7 +249,12 @@ function ReportsList() {
               <TableBody>
                 {data.data.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell>{r.worker || "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{r.worker || "—"}</span>
+                        <ReportOwnerBadges report={r} />
+                      </div>
+                    </TableCell>
                     <TableCell>{r.month}</TableCell>
                     <TableCell>{r.year}</TableCell>
                     <TableCell>{r.area_assignment || "—"}</TableCell>

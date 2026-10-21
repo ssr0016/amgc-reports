@@ -2522,6 +2522,12 @@ const docTemplate = `{
                 "narrative_report": {
                     "type": "string"
                 },
+                "owner_deleted_at": {
+                    "type": "string"
+                },
+                "owner_status": {
+                    "type": "string"
+                },
                 "prayer_request": {
                     "type": "string"
                 },

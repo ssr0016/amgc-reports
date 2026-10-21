@@ -2546,6 +2546,8 @@ export interface components {
             month?: string;
             names?: string;
             narrative_report?: string;
+            owner_deleted_at?: string;
+            owner_status?: string;
             prayer_request?: string;
             updated_at?: string;
             worker?: string;

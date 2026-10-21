@@ -20,7 +20,7 @@ export type MetricWeeks = Model<"MetricWeeks">;
 export type ReportInput = Model<"CreateReportRequest">;
 export type Report = Always<
   Model<"ReportResponse">,
-  "id" | "created_by" | "month" | "year" | "metrics" | "completed" | "created_at" | "updated_at"
+  "id" | "created_by" | "month" | "year" | "metrics" | "completed" | "created_at" | "updated_at" | "owner_status"
 >;
 export type ReportMetadata = Always<Model<"ReportMetadata">, "id" | "completed">;
 

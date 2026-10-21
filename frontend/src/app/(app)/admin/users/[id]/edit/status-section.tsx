@@ -42,6 +42,7 @@ export function StatusSection({
       toast.success(`${user.name} is now ${statusLabel(selected)}`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["users"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
         queryClient.invalidateQueries({ queryKey: ["user", user.id] }),
       ]);
     } catch (err) {

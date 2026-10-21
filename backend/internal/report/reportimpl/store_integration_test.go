@@ -195,3 +195,81 @@ func TestReportRepo_ConcurrentCreateSamePeriod(t *testing.T) {
 	assert.Equal(t, 1, reports)
 	assert.Equal(t, 1, metrics, "losers insert no metrics")
 }
+
+// Owner state is current metadata, not a snapshot at report creation.
+func TestReportRepo_OwnerState(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
+	repo := NewStore(db)
+	users := userimpl.NewStore(db)
+	ctx := context.Background()
+	owner, err := users.CreateWithPassword(ctx, "owner-state@example.com", "Owner", "hash")
+	require.NoError(t, err)
+	actor, err := users.CreateWithPassword(ctx, "actor-state@example.com", "Actor", "hash")
+	require.NoError(t, err)
+	req := report.CreateReportRequest{Month: "January", Worker: "Historical worker", Metrics: map[string]report.MetricWeeks{"outreach": {Week1: num("3")}}}
+	created, err := repo.Create(ctx, owner.ID, 2026, req)
+	require.NoError(t, err)
+	assert.Equal(t, "active", created.OwnerStatus)
+	assert.Nil(t, created.OwnerDeletedAt)
+	_, err = repo.Create(ctx, owner.ID, 2026, report.CreateReportRequest{Month: "February"})
+	require.NoError(t, err)
+
+	for _, tt := range []struct {
+		name, status string
+		deleted      bool
+	}{
+		{"active", "active", false},
+		{"inactive", "inactive", false},
+		{"disciplinary", "disciplinary", false},
+		{"deleted", "active", true},
+		{"deceased and deleted", "deceased", true},
+		{"restored deceased", "deceased", false},
+		{"reactivated", "active", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tdb.Pool.Exec(ctx, "UPDATE users SET status=$1 WHERE id=$2", tt.status, owner.ID)
+			require.NoError(t, err)
+			if tt.deleted {
+				_, err = users.SoftDelete(ctx, owner.ID, actor.ID, "private reason")
+			} else {
+				_, err = users.Restore(ctx, owner.ID)
+			}
+			require.NoError(t, err)
+			got, err := repo.Get(ctx, created.ID)
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.status, got.OwnerStatus)
+			assert.Equal(t, tt.deleted, got.OwnerDeletedAt != nil)
+			assert.Equal(t, "Historical worker", *got.Worker)
+			assert.Contains(t, got.Metrics, "outreach")
+			for page := 1; page <= 2; page++ {
+				rows, total, err := repo.List(ctx, report.ListReportsParams{CreatedBy: owner.ID}, pagination.Params{Page: page, Limit: 1})
+				require.NoError(t, err)
+				assert.EqualValues(t, 2, total)
+				require.Len(t, rows, 1)
+				assert.Equal(t, tt.status, rows[0].OwnerStatus)
+				assert.Equal(t, tt.deleted, rows[0].OwnerDeletedAt != nil)
+			}
+			updated, err := repo.Update(ctx, created.ID, 2026, report.UpdateReportRequest(req))
+			require.NoError(t, err)
+			assert.Equal(t, tt.status, updated.OwnerStatus)
+			assert.Equal(t, tt.deleted, updated.OwnerDeletedAt != nil)
+			// Every full response, including a write, carries current owner state.
+			newReport, err := repo.Create(ctx, owner.ID, 2027, req)
+			require.NoError(t, err)
+			assert.Equal(t, tt.status, newReport.OwnerStatus)
+			assert.Equal(t, tt.deleted, newReport.OwnerDeletedAt != nil)
+			require.NoError(t, repo.SoftDelete(ctx, newReport.ID))
+		})
+	}
+	require.NoError(t, repo.SoftDelete(ctx, created.ID))
+	got, err := repo.Get(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got)
+	rows, total, err := repo.List(ctx, report.ListReportsParams{CreatedBy: owner.ID}, pagination.Params{Page: 1, Limit: 10})
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, total)
+	require.Len(t, rows, 1)
+}

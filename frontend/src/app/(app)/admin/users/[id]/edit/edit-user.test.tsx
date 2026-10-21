@@ -25,11 +25,14 @@ vi.mock("@/lib/users", () => ({
 }));
 
 function renderEdit() {
-  return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const invalidate = vi.spyOn(client, "invalidateQueries");
+  const view = render(
+    <QueryClientProvider client={client}>
       <EditUser />
     </QueryClientProvider>,
   );
+  return { ...view, invalidate };
 }
 const section = async () => within(await screen.findByRole("group", { name: "Status" }));
 
@@ -67,7 +70,7 @@ describe("Edit user: status", () => {
   });
 
   it("confirming calls the API once and announces the result", async () => {
-    renderEdit();
+    const { invalidate } = renderEdit();
     const s = await section();
     fireEvent.change(s.getByLabelText("Status"), { target: { value: "inactive" } });
     fireEvent.click(s.getByRole("button", { name: "Update status" }));
@@ -76,22 +79,24 @@ describe("Edit user: status", () => {
     await waitFor(() => expect(h.changeUserStatus).toHaveBeenCalledTimes(1));
     expect(h.changeUserStatus).toHaveBeenCalledWith(7, "inactive");
     await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Ana Cruz is now Inactive"));
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reports"] }));
   });
 
   it("moving back to Active needs no confirmation", async () => {
     h.status = "deceased";
-    renderEdit();
+    const { invalidate } = renderEdit();
     const s = await section();
     fireEvent.change(s.getByLabelText("Status"), { target: { value: "active" } });
     fireEvent.click(s.getByRole("button", { name: "Update status" }));
 
     await waitFor(() => expect(h.changeUserStatus).toHaveBeenCalledWith(7, "active"));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reports"] }));
   });
 
   it("shows the server's message in an alert and keeps the choice", async () => {
     h.changeUserStatus.mockRejectedValueOnce(new ApiError(409, "CONFLICT", "At least one active admin is required."));
-    renderEdit();
+    const { invalidate } = renderEdit();
     const s = await section();
     fireEvent.change(s.getByLabelText("Status"), { target: { value: "disciplinary" } });
     fireEvent.click(s.getByRole("button", { name: "Update status" }));
@@ -99,6 +104,7 @@ describe("Edit user: status", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("At least one active admin is required.");
     expect((s.getByLabelText("Status") as HTMLSelectElement).value).toBe("disciplinary");
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["reports"] });
   });
 
   it("on your own account the select is disabled with a note", async () => {

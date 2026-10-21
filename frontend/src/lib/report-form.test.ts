@@ -91,6 +91,7 @@ describe("toInput", () => {
 
 describe("fromReport", () => {
   const report = {
+    owner_status: "active",
     id: 1, created_by: 1, month: "March", year: 2026, completed: false, created_at: "", updated_at: "",
     worker: "Ana", metrics: { outreach: { week1: 2, week3: 0 } },
   } as Report;

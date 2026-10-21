@@ -23,7 +23,11 @@ vi.mock("@/lib/users", () => ({
 
 const deleted = { id: 3, name: "Cy Lim", email: "cy@x.com", role_id: 1, status: "active", deleted_at: "2026-10-21T00:00:00Z" };
 
-const wrap = (ui: React.ReactNode) => render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
+const wrap = (ui: React.ReactNode) => {
+  const client = new QueryClient();
+  const invalidate = vi.spyOn(client, "invalidateQueries");
+  return { ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>), invalidate };
+};
 
 describe("users list", () => {
   it("each Edit link names its user", async () => {
@@ -128,7 +132,7 @@ describe("users list", () => {
 
   it("Delete confirms with the D-A11 text, sends the reason, then closes and toasts", async () => {
     vi.mocked(deleteUser).mockResolvedValueOnce({} as never);
-    wrap(<UsersPanel />);
+    const { invalidate } = wrap(<UsersPanel />);
     fireEvent.click(await screen.findByRole("button", { name: "Delete Ben Reyes" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("Delete Ben Reyes?")).toBeInTheDocument();
@@ -143,24 +147,27 @@ describe("users list", () => {
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     expect(vi.mocked(deleteUser)).toHaveBeenCalledWith(2, "Left the church");
     expect(toast.success).toHaveBeenCalledWith("Ben Reyes deleted");
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reports"] }));
   });
 
   it("a 409 stays in the dialog as an alert", async () => {
     vi.mocked(deleteUser).mockRejectedValueOnce(new ApiError(409, "CONFLICT", "At least one active admin is required."));
-    wrap(<UsersPanel />);
+    const { invalidate } = wrap(<UsersPanel />);
     fireEvent.click(await screen.findByRole("button", { name: "Delete Ben Reyes" }));
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete user" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("At least one active admin is required.");
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["reports"] });
   });
 
   it("Restore calls the API and toasts", async () => {
     vi.mocked(listUsers).mockResolvedValueOnce([deleted] as never);
     vi.mocked(restoreUser).mockResolvedValueOnce({} as never);
-    wrap(<UsersPanel />);
+    const { invalidate } = wrap(<UsersPanel />);
     fireEvent.click(await screen.findByRole("button", { name: "Restore Cy Lim" }));
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Cy Lim restored"));
     expect(vi.mocked(restoreUser)).toHaveBeenCalledWith(3);
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reports"] }));
   });
 });

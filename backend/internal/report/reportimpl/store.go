@@ -15,10 +15,9 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
-// store reads and writes reports and their metrics. Writes take a Querier
-// so the service can run them, and the audit insert, in one WithTx. Every query
-// excludes soft-deleted rows. A write that would duplicate (created_by, month,
-// year) returns an error wrapping database.ErrUniqueViolation.
+// store reads and writes reports and their metrics through the context's transaction.
+// Queries exclude soft-deleted reports; deleted owners never hide their reports.
+// A write that duplicates (created_by, month, year) wraps database.ErrUniqueViolation.
 type store struct{ db *database.DB }
 
 // NewStore returns the report.Store over db.
@@ -46,11 +45,15 @@ func nullable(s string) *string {
 	return &s
 }
 
-func scanReport(row pgx.Row) (*report.Report, error) {
+func scanReport(row pgx.Row, withOwner bool) (*report.Report, error) {
 	var r report.Report
-	err := row.Scan(&r.ID, &r.CreatedBy, &r.Month, &r.Year, &r.Worker, &r.AreaAssignment,
+	dest := []any{&r.ID, &r.CreatedBy, &r.Month, &r.Year, &r.Worker, &r.AreaAssignment,
 		&r.ChurchName, &r.Names, &r.NarrativeReport, &r.Challenges, &r.PrayerRequest,
-		&r.Completed, &r.CompletedAt, &r.CompletedBy, &r.DeletedAt, &r.CreatedAt, &r.UpdatedAt)
+		&r.Completed, &r.CompletedAt, &r.CompletedBy, &r.DeletedAt, &r.CreatedAt, &r.UpdatedAt}
+	if withOwner {
+		dest = append(dest, &r.OwnerStatus, &r.OwnerDeletedAt)
+	}
+	err := row.Scan(dest...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -77,17 +80,14 @@ func (r *store) Create(ctx context.Context, userID int64, year int, req report.C
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...))
+	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...), false)
 	if err != nil {
 		return nil, err
 	}
 	if err := r.insertMetrics(ctx, rep.ID, req.Metrics); err != nil {
 		return nil, err
 	}
-	if err := r.loadMetrics(ctx, []*report.Report{rep}); err != nil {
-		return nil, err
-	}
-	return rep, nil
+	return r.Get(ctx, rep.ID)
 }
 
 // insertMetrics writes every supplied (metric, week) in one multi-row insert.
@@ -156,14 +156,15 @@ func (r *store) loadMetrics(ctx context.Context, reports []*report.Report) error
 // Get returns the report with metrics, or nil, nil when it is missing or soft-deleted.
 func (r *store) Get(ctx context.Context, id int64) (*report.Report, error) {
 	query, args, err := r.db.Builder.
-		Select(reportColumns).
-		From("reports").
-		Where(sq.Eq{"id": id, "deleted_at": nil}).
+		Select(reportColumnsWithAlias("r"), "u.status", "u.deleted_at").
+		From("reports r").
+		Join("users u ON u.id = r.created_by").
+		Where(sq.Eq{"r.id": id, "r.deleted_at": nil}).
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...))
+	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...), true)
 	if err != nil || rep == nil {
 		return nil, err
 	}
@@ -206,8 +207,9 @@ func (r *store) List(ctx context.Context, p report.ListReportsParams, pg paginat
 	}
 
 	listQ, listArgs, err := r.db.Builder.
-		Select(reportColumnsWithAlias("r")).
+		Select(reportColumnsWithAlias("r"), "u.status", "u.deleted_at").
 		From("reports r").
+		Join("users u ON u.id = r.created_by").
 		Where(where).
 		OrderBy("r.year DESC", "r.created_at DESC", "r.id DESC").
 		Limit(uint64(pg.Limit)).     // #nosec G115 - limit validated
@@ -223,7 +225,7 @@ func (r *store) List(ctx context.Context, p report.ListReportsParams, pg paginat
 	defer rows.Close()
 	reports := []*report.Report{}
 	for rows.Next() {
-		rep, err := scanReport(rows)
+		rep, err := scanReport(rows, true)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -257,7 +259,7 @@ func (r *store) Update(ctx context.Context, id int64, year int, req report.Updat
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...))
+	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...), false)
 	if err != nil {
 		return nil, err
 	}
@@ -275,10 +277,7 @@ func (r *store) Update(ctx context.Context, id int64, year int, req report.Updat
 	if err := r.insertMetrics(ctx, id, req.Metrics); err != nil {
 		return nil, err
 	}
-	if err := r.loadMetrics(ctx, []*report.Report{rep}); err != nil {
-		return nil, err
-	}
-	return rep, nil
+	return r.Get(ctx, rep.ID)
 }
 
 // SoftDelete marks the report deleted. Returns database.ErrNotFound when it is missing
@@ -319,7 +318,7 @@ func (r *store) ToggleComplete(ctx context.Context, id, approverID int64) (*repo
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...))
+	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...), false)
 	if err != nil {
 		return nil, err
 	}

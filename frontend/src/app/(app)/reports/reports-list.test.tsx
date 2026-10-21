@@ -31,7 +31,7 @@ vi.mock("@/lib/reports", async (orig) => ({
 
 const report = (id: number, by: number, extra: Partial<Report> = {}): Report =>
   ({
-    id, created_by: by, month: "April", year: 2026, metrics: {}, completed: false,
+    id, owner_status: "active", created_by: by, month: "April", year: 2026, metrics: {}, completed: false,
     created_at: "", updated_at: "", worker: `Worker ${id}`, ...extra,
   }) as Report;
 
@@ -362,5 +362,24 @@ describe("reports list: filters and pagination", () => {
     await screen.findByText("Page 3 of 3 (41 reports)");
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Previous" })).toBeEnabled();
+  });
+});
+
+describe("report owner badges", () => {
+  it.each([
+    ["active", undefined, false, false],
+    ["inactive", undefined, false, false],
+    ["disciplinary", undefined, false, false],
+    ["active", "2026-10-21T09:00:00Z", true, false],
+    ["deceased", undefined, false, true],
+    ["deceased", "2026-10-21T09:00:00Z", true, true],
+  ])("owner %s deleted %s keeps the report visible", async (owner_status, owner_deleted_at, deleted, archived) => {
+    h.listReports.mockResolvedValue(page([report(1, 2, { owner_status, owner_deleted_at })]));
+    renderList("reports:read");
+    await screen.findByText("Worker 1");
+    const workerRow = within(row("Worker 1"));
+    expect(workerRow.queryByText("Deleted user") !== null).toBe(deleted);
+    expect(workerRow.queryByText("Archived") !== null).toBe(archived);
+    expect(workerRow.getByText("Pending")).toBeInTheDocument();
   });
 });

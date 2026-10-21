@@ -24,7 +24,7 @@ vi.mock("@/lib/reports", async (orig) => ({
 
 const report = (id: number, extra: Partial<Report> = {}): Report =>
   ({
-    id, created_by: 1, month: "September", year: 2026, metrics: {}, completed: false, created_at: "", updated_at: "",
+    id, owner_status: "active", created_by: 1, month: "September", year: 2026, metrics: {}, completed: false, created_at: "", updated_at: "",
     worker: `Worker ${id}`, area_assignment: `Area ${id}`, church_name: `Church ${id}`, ...extra,
   }) as Report;
 
@@ -384,5 +384,24 @@ describe("admin reports: approve", () => {
     await screen.findByText("Worker 1");
     await user.click(approve("Worker 1"));
     await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Could not update the report. Try again."));
+  });
+});
+
+describe("report owner badges", () => {
+  it.each([
+    ["active", undefined, false, false],
+    ["inactive", undefined, false, false],
+    ["disciplinary", undefined, false, false],
+    ["active", "2026-10-21T09:00:00Z", true, false],
+    ["deceased", undefined, false, true],
+    ["deceased", "2026-10-21T09:00:00Z", true, true],
+  ])("owner %s deleted %s keeps the report visible", async (owner_status, owner_deleted_at, deleted, archived) => {
+    h.listReports.mockResolvedValue(page([report(1, { owner_status, owner_deleted_at })]));
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    const workerRow = within(row("Worker 1"));
+    expect(workerRow.queryByText("Deleted user") !== null).toBe(deleted);
+    expect(workerRow.queryByText("Archived") !== null).toBe(archived);
+    expect(workerRow.getByText("Pending")).toBeInTheDocument();
   });
 });
