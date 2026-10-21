@@ -39,8 +39,8 @@ func main() {
 			}
 			return 1
 		},
-		BeforeSend:            stripQuery,
-		BeforeSendTransaction: stripQuery,
+		BeforeSend:            scrubRequest,
+		BeforeSendTransaction: scrubRequest,
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "sentry init: %v\n", err)
 	}
@@ -50,11 +50,13 @@ func main() {
 	os.Exit(code)
 }
 
-// stripQuery keeps query strings out of Sentry: the email verification link
-// carries its token there.
-func stripQuery(event *sentry.Event, _ *sentry.EventHint) *sentry.Event {
+// scrubRequest keeps request secrets out of Sentry. The SDK copies the body
+// (passwords on login and password changes) whatever SendDefaultPII says, and
+// the email verification link carries its token in the query string.
+func scrubRequest(event *sentry.Event, _ *sentry.EventHint) *sentry.Event {
 	if event.Request != nil {
 		event.Request.QueryString = ""
+		event.Request.Data = ""
 	}
 	return event
 }
