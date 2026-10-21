@@ -80,3 +80,13 @@ Source: https://github.com/jgravelle/jOutputMunch
 - Do not disable chrome-devtools-mcp.
 - Stop the dev server in a separate step before building.
 - Show the full diff before committing.
+
+### Obsidian vault upkeep
+
+When a feature is finished or a session ends, update the Obsidian vault through the `obsidian` MCP without asking first. Do all three:
+
+1. **Master Dashboard:** `Projects/AmgReports Master Dashboard.md`: update the feature's status and links.
+2. **Session Log:** add or update `Daily/AmgReports-Session-Summary-YYYY-MM-DD.md` (YAML frontmatter, `[[wikilinks]]` to the feature notes).
+3. **Decision log:** record any new decision in the feature note and link it from the dashboard. The repo's `docs/DECISIONS.md` stays the source of truth.
+
+Use `[[wikilinks]]` and YAML frontmatter, prefer `obsidian_append` to existing notes, and link feature notes back to the dashboard and the session summary. Vault notes never hold secrets, passwords or `.env` values. This rule does not allow commits or pushes.
