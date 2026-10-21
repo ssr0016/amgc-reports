@@ -134,6 +134,10 @@ func Setup(
 	// Sets another user's password (D-A12): a write, so it shares change-password's limiter.
 	admin.POST("/users/:id/reset-password", adminUserHandler.ResetPassword, perm("users:write"), limits.Write)
 
+	// Excel downloads (D-A6). POST so the CSRF check covers the audit row they write.
+	admin.POST("/reports/excel", reportHandler.ExportReports, perm("reports:read_any"), limits.Write)
+	admin.POST("/reports/:id/excel", reportHandler.ExportReport, perm("reports:read_any"), limits.Write)
+
 	// Counts for the admin panel cards. The group already requires the admin role.
 	admin.GET("/stats", statsHandler.GetStats, limits.Read)
 

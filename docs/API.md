@@ -203,6 +203,23 @@ Counts for the admin panel cards. `month` (English name, case-insensitive) and `
 
 `users_total` and `admins_total` count every account whatever the month. Errors: 400 for a year that is not a positive number, 401 without a session, 403 for any role but admin, 422 when only one of month and year is sent or the month is not a month name.
 
+### Export Reports to Excel (admin role only)
+
+POST /admin/reports/:id/excel
+POST /admin/reports/excel
+
+Both need the admin role, `reports:read_any` and the CSRF header (POST, because each download writes an audit row). The workbook uses the legacy "Church Growth Program Report" sheet layout (D-A6): one sheet per report with Month of, Worker, Area of Assignment, Church, the Week 1-5 metric grid with an `AVERAGE` column, Names, Narrative Report, Challenges and Prayer Request. Blank weeks stay blank; 0 is written as 0.
+
+The first returns one report. The second takes a body and returns every report of that month (not soft-deleted, including those whose owner is deleted or deceased), one sheet each, ordered by church name:
+
+
+{"month":"September","year":2026}
+
+
+Response (200): the `.xlsx` bytes with `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment` (an ASCII `filename` and a UTF-8 `filename*`) and `Cache-Control: no-store`. Names: `<Church or "Report id"> <Month> <Year>.xlsx` and `Church Growth Program Report <Month> <Year>.xlsx`.
+
+Each successful download writes one `DOWNLOAD_SINGLE_EXCEL` or `DOWNLOAD_BULK_EXCEL` audit row with `details` `{month, year, count}`; a failed one writes none. Errors: 400 for a non-numeric id, 401 without a session, 403 for a non-admin or without `reports:read_any`, 404 for a missing or deleted report or "No reports for that month.", 422 for a missing or invalid month or year (2000-2100) or more than 100 reports in the month. Both share the per-user write limit.
+
 ## Reports
 
 All Reports endpoints need a session cookie, and POST/PUT/PATCH/DELETE also need the CSRF token (see CSRF Protection). Each route needs one permission. A role may also hold an `_any` permission, which widens the scope from the caller's own reports to all reports.

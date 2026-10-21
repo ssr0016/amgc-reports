@@ -83,7 +83,7 @@ func TestMiddlewareChain_OversizeBodyIsCounted(t *testing.T) {
 
 // The frontend is cross-origin, and a browser hides every response header that
 // is not exposed: without this, scripts cannot read Retry-After on a 429.
-func TestNewEcho_CORSExposesRetryAfter(t *testing.T) {
+func TestNewEcho_CORSExposesRetryAfterAndContentDisposition(t *testing.T) {
 	const origin = "http://localhost:3000"
 	cfg := &config.Config{}
 	cfg.CORS.AllowedOrigins = []string{origin}
@@ -97,8 +97,8 @@ func TestNewEcho_CORSExposesRetryAfter(t *testing.T) {
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	if got := rec.Header().Get(echo.HeaderAccessControlExposeHeaders); got != "Retry-After" {
-		t.Errorf("Access-Control-Expose-Headers = %q, want %q", got, "Retry-After")
+	if got, want := rec.Header().Get(echo.HeaderAccessControlExposeHeaders), "Retry-After,Content-Disposition"; got != want {
+		t.Errorf("Access-Control-Expose-Headers = %q, want %q", got, want)
 	}
 }
 

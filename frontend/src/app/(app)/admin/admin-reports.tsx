@@ -10,9 +10,18 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ApiError } from "@/lib/api";
+import { ApiError, saveFile } from "@/lib/api";
 import { retryText } from "@/lib/auth-form";
-import { defaultPeriod, FIRST_YEAR, listReports, MONTHS, toggleComplete, type Report } from "@/lib/reports";
+import {
+  defaultPeriod,
+  exportReport,
+  exportReports,
+  FIRST_YEAR,
+  listReports,
+  MONTHS,
+  toggleComplete,
+  type Report,
+} from "@/lib/reports";
 import { useSession } from "@/lib/session";
 
 // Which report a row control is for, so a screen reader user can tell the rows apart.
@@ -66,6 +75,24 @@ export function AdminReports() {
     }
   }
 
+  // Excel downloads in flight: "bulk" or a row's id. Each button waits for its own file.
+  const [downloading, setDownloading] = useState<Set<string>>(new Set());
+
+  async function download(key: string, run: () => ReturnType<typeof exportReport>) {
+    setDownloading((s) => new Set(s).add(key));
+    try {
+      saveFile(await run());
+    } catch (err) {
+      toast.error(err instanceof ApiError ? retryText(err) : "Could not download the file. Try again.");
+    } finally {
+      setDownloading((s) => {
+        const n = new Set(s);
+        n.delete(key);
+        return n;
+      });
+    }
+  }
+
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
 
@@ -111,9 +138,15 @@ export function AdminReports() {
             ))}
           </NativeSelect>
         </div>
-        {/* A placeholder: the export is Phase C (D-A6), so there is no endpoint to call yet. */}
-        <Button type="button" variant="outline" className="ml-auto" disabled title="Excel export is not available yet">
-          Download Bulk
+        <Button
+          type="button"
+          variant="outline"
+          className="ml-auto"
+          disabled={downloading.has("bulk") || !data?.data.length}
+          aria-busy={downloading.has("bulk")}
+          onClick={() => download("bulk", () => exportReports(period.month, period.year))}
+        >
+          {downloading.has("bulk") ? "Downloading…" : "Download Bulk"}
         </Button>
       </form>
 
@@ -174,9 +207,14 @@ export function AdminReports() {
                       </Can>
                     </TableCell>
                     <TableCell>
-                      {/* A placeholder: the export is Phase C (D-A6). A disabled button, not a link, because there is no URL. */}
-                      <Button size="sm" variant="outline" disabled title="Excel export is not available yet">
-                        Excel <span className="sr-only">{rowName(r)}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={downloading.has(String(r.id))}
+                        aria-busy={downloading.has(String(r.id))}
+                        onClick={() => download(String(r.id), () => exportReport(r.id))}
+                      >
+                        {downloading.has(String(r.id)) ? "Downloading…" : "Excel"} <span className="sr-only">{rowName(r)}</span>
                       </Button>
                     </TableCell>
                   </TableRow>

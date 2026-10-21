@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, downloadFile } from "./api";
 import type { MetricWeeks, Page, Report, ReportInput, ReportMetadata } from "./api-schema";
 
 export type { MetricWeeks, Page, Report, ReportInput, ReportMetadata };
@@ -36,6 +36,11 @@ export const deleteReport = (id: number) => api<void>(`/reports/${id}`, { method
 // Toggles between approved and not approved.
 export const toggleComplete = (id: number) =>
   api<ReportMetadata>(`/reports/${id}/complete`, { method: "PATCH" });
+
+// Excel exports (D-A6), admin only. The server writes the audit row for each download.
+export const exportReport = (id: number) => downloadFile(`/admin/reports/${id}/excel`);
+
+export const exportReports = (month: string, year: number) => downloadFile("/admin/reports/excel", { month, year });
 
 export const MONTHS = [
   "January",

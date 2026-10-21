@@ -1,10 +1,13 @@
 package reportimpl
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
@@ -305,4 +308,79 @@ func (s *service) ToggleComplete(ctx context.Context, userID int64, ip string, i
 func respond(r *report.Report) *report.ReportResponse {
 	resp := r.ToResponse()
 	return &resp
+}
+
+// ExportOne builds one report's workbook. The workbook is complete before the
+// audit row is written, so a failed build never leaves an audit row (D-10).
+func (s *service) ExportOne(ctx context.Context, userID int64, ip string, id int64) (*report.Export, error) {
+	a, err := s.actor(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	rep, err := s.load(ctx, a, id, "reports:read_any")
+	if err != nil {
+		return nil, err
+	}
+	data, err := workbookBytes([]*report.Report{rep})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.audit.Insert(ctx, a.auditEntry(ip, audit.ActionDownloadSingle, rep)); err != nil {
+		return nil, fmt.Errorf("insert audit: %w", err)
+	}
+	label := strings.TrimSpace(deref(rep.ChurchName))
+	if label == "" {
+		label = "Report " + strconv.FormatInt(rep.ID, 10)
+	}
+	return &report.Export{Filename: exportFilename(label, rep.Month, int(rep.Year)), Data: data}, nil
+}
+
+// ExportMonth builds one workbook with a sheet per report of the month, ordered
+// by church name (case-insensitive), then id. Without reports:read_any it holds
+// only the caller's own reports, as List does.
+func (s *service) ExportMonth(ctx context.Context, userID int64, ip string, req report.ExportReportsRequest) (*report.Export, error) {
+	a, err := s.actor(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	p := report.ListReportsParams{Month: req.Month, Year: req.Year}
+	if !a.perms["reports:read_any"] {
+		p.CreatedBy = userID
+	}
+	reps, total, err := s.reports.List(ctx, p, pagination.Params{Page: 1, Limit: report.MaxExportReports})
+	if err != nil {
+		return nil, fmt.Errorf("list reports: %w", err)
+	}
+	switch {
+	case total == 0:
+		return nil, report.ErrNoReports
+	case total > report.MaxExportReports:
+		return nil, report.ErrTooManyReports
+	}
+	slices.SortFunc(reps, func(x, y *report.Report) int {
+		return cmp.Or(cmp.Compare(strings.ToLower(deref(x.ChurchName)), strings.ToLower(deref(y.ChurchName))), cmp.Compare(x.ID, y.ID))
+	})
+	data, err := workbookBytes(reps)
+	if err != nil {
+		return nil, err
+	}
+	e := a.auditEntry(ip, audit.ActionDownloadBulk, &report.Report{Month: req.Month, Year: int16(req.Year)}) // #nosec G115 - year validated 2000..2100
+	e.TargetID, e.Details["count"] = nil, len(reps)
+	if err := s.audit.Insert(ctx, e); err != nil {
+		return nil, fmt.Errorf("insert audit: %w", err)
+	}
+	return &report.Export{Filename: exportFilename("Church Growth Program Report", req.Month, req.Year), Data: data}, nil
+}
+
+func workbookBytes(reps []*report.Report) ([]byte, error) {
+	f, err := buildWorkbook(reps)
+	if err != nil {
+		return nil, fmt.Errorf("build workbook: %w", err)
+	}
+	defer func() { _ = f.Close() }() // only removes temp files; the bytes are already in buf
+	buf, err := f.WriteToBuffer()
+	if err != nil {
+		return nil, fmt.Errorf("write workbook: %w", err)
+	}
+	return buf.Bytes(), nil
 }

@@ -99,28 +99,60 @@ function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
-export async function api<T>(
-  path: string,
-  { method = "GET", body, silent401 = false }: { method?: string; body?: unknown; silent401?: boolean } = {},
-): Promise<T> {
+// Sends the request, refreshing the session once on a 401, and throws an ApiError for any non-2xx answer.
+async function call(path: string, method: string, body: unknown, silent401: boolean): Promise<Response> {
   let res = await send(path, method, body);
   // The access token lives 10 minutes. On a 401, refresh once and replay the request once.
   if (res.status === 401 && !NO_REFRESH.has(path) && (await refreshSession())) {
     res = await send(path, method, body);
   }
+  if (res.ok) return res;
 
-  if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    if (res.status === 401 && !silent401 && path !== "/auth/login") onUnauthorized?.();
-    const retry = Number(res.headers.get("Retry-After"));
-    throw new ApiError(
-      res.status,
-      data?.error ?? "ERROR",
-      data?.message ?? "Something went wrong. Please try again.",
-      data?.details,
-      retry > 0 ? retry : undefined,
-    );
+  if (res.status === 401 && !silent401 && path !== "/auth/login") onUnauthorized?.();
+  const retry = Number(res.headers.get("Retry-After"));
+  throw new ApiError(
+    res.status,
+    data?.error ?? "ERROR",
+    data?.message ?? "Something went wrong. Please try again.",
+    data?.details,
+    retry > 0 ? retry : undefined,
+  );
+}
+
+export async function api<T>(
+  path: string,
+  { method = "GET", body, silent401 = false }: { method?: string; body?: unknown; silent401?: boolean } = {},
+): Promise<T> {
+  const res = await call(path, method, body, silent401);
+  if (res.status === 204) return undefined as T;
+  return (await res.json().catch(() => null)) as T;
+}
+
+// A POST that answers with a file (the Excel exports). The name comes from Content-Disposition, preferring the UTF-8 filename*.
+export async function downloadFile(path: string, body?: unknown): Promise<{ blob: Blob; filename: string }> {
+  const res = await call(path, "POST", body, false);
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+  const plain = /filename="([^"]+)"/i.exec(disposition)?.[1];
+  let filename = plain ?? "download";
+  if (utf8) {
+    try {
+      filename = decodeURIComponent(utf8);
+    } catch {
+      // a malformed escape: keep the ASCII fallback
+    }
   }
-  return data as T;
+  return { blob: await res.blob(), filename };
+}
+
+// Hands a downloaded file to the browser as a normal download.
+export function saveFile({ blob, filename }: { blob: Blob; filename: string }) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  // Some browsers start the download after click() returns, so revoke the URL a little later.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

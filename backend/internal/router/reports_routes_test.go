@@ -57,6 +57,12 @@ func (okReportSvc) Delete(context.Context, int64, string, int64) error { return 
 func (okReportSvc) ToggleComplete(context.Context, int64, string, int64) (*report.ReportMetadata, error) {
 	return &report.ReportMetadata{}, nil
 }
+func (okReportSvc) ExportOne(context.Context, int64, string, int64) (*report.Export, error) {
+	return &report.Export{Filename: "r.xlsx"}, nil
+}
+func (okReportSvc) ExportMonth(context.Context, int64, string, report.ExportReportsRequest) (*report.Export, error) {
+	return &report.Export{Filename: "r.xlsx"}, nil
+}
 
 // reportsServer wires the real routes. A request is logged in as user 1 when it
 // carries the X-Test-User header; that user's role holds exactly perms.

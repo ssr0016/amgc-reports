@@ -164,6 +164,31 @@ definitions:
         maxLength: 500
         type: string
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.ExportReportsRequest:
+    properties:
+      month:
+        enum:
+        - January
+        - February
+        - March
+        - April
+        - May
+        - June
+        - July
+        - August
+        - September
+        - October
+        - November
+        - December
+        type: string
+      year:
+        maximum: 2100
+        minimum: 2000
+        type: integer
+    required:
+    - month
+    - year
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.LoginRequest:
     properties:
       email:
@@ -541,6 +566,107 @@ paths:
       summary: Get permission by ID
       tags:
       - admin/permissions
+  /admin/reports/{id}/excel:
+    post:
+      description: Admin only. Returns the report in the legacy Church Growth Program
+        Report layout (D-A6) and writes a DOWNLOAD_SINGLE_EXCEL audit row.
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Download one report as Excel
+      tags:
+      - admin
+  /admin/reports/excel:
+    post:
+      consumes:
+      - application/json
+      description: Admin only. One sheet per report of the month (at most 100), in
+        the legacy layout (D-A6). Writes a DOWNLOAD_BULK_EXCEL audit row.
+      parameters:
+      - description: Month and year
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ExportReportsRequest'
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Download a month of reports as Excel
+      tags:
+      - admin
   /admin/roles:
     get:
       produces:

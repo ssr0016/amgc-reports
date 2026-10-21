@@ -2,8 +2,11 @@ package rest
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -30,6 +33,10 @@ func reportError(err error, msg string) error {
 		return apperror.NotFound("report not found")
 	case errors.Is(err, report.ErrReportExists):
 		return apperror.Conflict(report.ErrReportExists.Error())
+	case errors.Is(err, report.ErrNoReports):
+		return apperror.NotFound("No reports for that month.")
+	case errors.Is(err, report.ErrTooManyReports):
+		return apperror.Validation("A bulk export holds at most 100 reports.")
 	case errors.Is(err, report.ErrPeriodNotAllowed):
 		msg := "Reports can only be created for the previous month."
 		return apperror.Validation(msg).WithDetails(map[string]string{"month": msg})
@@ -260,4 +267,84 @@ func (h *ReportHandler) ToggleComplete(c echo.Context) error {
 		return reportError(err, "failed to update report status")
 	}
 	return c.JSON(http.StatusOK, meta)
+}
+
+const xlsxMIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+// sendExport writes the workbook as an attachment. filename* carries the UTF-8
+// name (RFC 5987); filename is an ASCII fallback for older clients.
+func sendExport(c echo.Context, x *report.Export) error {
+	fallback := strings.Map(func(r rune) rune {
+		if r > 0x7e || r == '"' || r == ';' {
+			return '_'
+		}
+		return r
+	}, x.Filename)
+	h := c.Response().Header()
+	h.Set(echo.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, fallback, url.PathEscape(x.Filename)))
+	h.Set("Cache-Control", "no-store")
+	return c.Blob(http.StatusOK, xlsxMIME, x.Data)
+}
+
+// ExportReport godoc
+// @Summary      Download one report as Excel
+// @Description  Admin only. Returns the report in the legacy Church Growth Program Report layout (D-A6) and writes a DOWNLOAD_SINGLE_EXCEL audit row.
+// @Tags         admin
+// @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Security     CookieAuth
+// @Param        id path int true "Report ID"
+// @Success      200 {file} file
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /admin/reports/{id}/excel [post]
+func (h *ReportHandler) ExportReport(c echo.Context) error {
+	uid, err := h.userID(c)
+	if err != nil {
+		return err
+	}
+	id, err := reportID(c)
+	if err != nil {
+		return err
+	}
+	x, err := h.svc.ExportOne(c.Request().Context(), uid, c.RealIP(), id)
+	if err != nil {
+		return reportError(err, "failed to export report")
+	}
+	return sendExport(c, x)
+}
+
+// ExportReports godoc
+// @Summary      Download a month of reports as Excel
+// @Description  Admin only. One sheet per report of the month (at most 100), in the legacy layout (D-A6). Writes a DOWNLOAD_BULK_EXCEL audit row.
+// @Tags         admin
+// @Accept       json
+// @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Security     CookieAuth
+// @Param        body body report.ExportReportsRequest true "Month and year"
+// @Success      200 {file} file
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Router       /admin/reports/excel [post]
+func (h *ReportHandler) ExportReports(c echo.Context) error {
+	uid, err := h.userID(c)
+	if err != nil {
+		return err
+	}
+	var req report.ExportReportsRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	x, err := h.svc.ExportMonth(c.Request().Context(), uid, c.RealIP(), req)
+	if err != nil {
+		return reportError(err, "failed to export reports")
+	}
+	return sendExport(c, x)
 }

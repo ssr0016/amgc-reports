@@ -1,14 +1,17 @@
 package reportimpl
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xuri/excelize/v2"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
@@ -395,4 +398,116 @@ func TestActor_RedactOwnerStatus(t *testing.T) {
 			assert.Equal(t, status, resp.OwnerStatus)
 		})
 	}
+}
+
+func TestReportService_ExportOne(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	r := req("April")
+	r.ChurchName = "Gospel Bearer"
+	rep, err := f.svc.Create(ctx, alice, "", r)
+	require.NoError(t, err)
+	before := len(f.audit.Entries())
+
+	t.Run("read_any exports any report and writes one audit row", func(t *testing.T) {
+		x, err := f.svc.ExportOne(ctx, bob, "10.0.0.2", rep.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "Gospel Bearer April 2026.xlsx", x.Filename)
+		assert.NotEmpty(t, x.Data)
+		entries := f.audit.Entries()
+		require.Len(t, entries, before+1)
+		e := entries[len(entries)-1]
+		assert.Equal(t, audit.ActionDownloadSingle, e.Action)
+		assert.Equal(t, strconv.FormatInt(rep.ID, 10), *e.TargetID)
+		assert.Equal(t, map[string]any{"month": "April", "year": 2026, "count": 1}, e.Details)
+	})
+
+	t.Run("without read_any another user's report is not found and not audited", func(t *testing.T) {
+		n := len(f.audit.Entries())
+		other, err := f.svc.Create(ctx, bob, "", req("January"))
+		require.NoError(t, err)
+		_, err = f.svc.ExportOne(ctx, alice, "", other.ID)
+		require.ErrorIs(t, err, report.ErrReportNotFound)
+		assert.Len(t, f.audit.Entries(), n+1) // only bob's create
+	})
+
+	t.Run("audit failure fails the export", func(t *testing.T) {
+		boom := errors.New("boom")
+		f.audit.InsertFunc = func(context.Context, audit.Log) error { return boom }
+		defer func() { f.audit.InsertFunc = nil }()
+		_, err := f.svc.ExportOne(ctx, bob, "", rep.ID)
+		require.ErrorIs(t, err, boom)
+	})
+
+	t.Run("no church name falls back to the report id", func(t *testing.T) {
+		plain, err := f.svc.Create(ctx, bob, "", req("February"))
+		require.NoError(t, err)
+		x, err := f.svc.ExportOne(ctx, bob, "", plain.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "Report "+strconv.FormatInt(plain.ID, 10)+" February 2026.xlsx", x.Filename)
+	})
+}
+
+func TestReportService_ExportMonth(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	may := report.ExportReportsRequest{Month: "May", Year: 2026}
+	for _, c := range []struct {
+		user   int64
+		church string
+	}{{alice, "zion"}, {bob, "Bethel"}, {dave, "bethel"}} {
+		r := req("May")
+		y := 2026
+		r.Year, r.ChurchName = &y, c.church
+		_, err := f.reports.Create(ctx, c.user, 2026, r)
+		require.NoError(t, err)
+	}
+
+	t.Run("one sheet per report, by church then id, one audit row", func(t *testing.T) {
+		x, err := f.svc.ExportMonth(ctx, bob, "10.0.0.3", may)
+		require.NoError(t, err)
+		assert.Equal(t, "Church Growth Program Report May 2026.xlsx", x.Filename)
+		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
+		require.NoError(t, err)
+		defer func() { _ = wb.Close() }()
+		assert.Equal(t, []string{"Bethel", "bethel (2)", "zion"}, wb.GetSheetList())
+
+		entries := f.audit.Entries()
+		require.Len(t, entries, 1)
+		e := entries[0]
+		assert.Equal(t, audit.ActionDownloadBulk, e.Action)
+		assert.Nil(t, e.TargetID)
+		assert.Equal(t, map[string]any{"month": "May", "year": 2026, "count": 3}, e.Details)
+	})
+
+	t.Run("without read_any only the caller's reports", func(t *testing.T) {
+		x, err := f.svc.ExportMonth(ctx, alice, "", may)
+		require.NoError(t, err)
+		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
+		require.NoError(t, err)
+		defer func() { _ = wb.Close() }()
+		assert.Equal(t, []string{"zion"}, wb.GetSheetList())
+	})
+
+	t.Run("empty month is ErrNoReports and not audited", func(t *testing.T) {
+		n := len(f.audit.Entries())
+		_, err := f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "June", Year: 2026})
+		require.ErrorIs(t, err, report.ErrNoReports)
+		assert.Len(t, f.audit.Entries(), n)
+	})
+
+	t.Run("more than the cap is ErrTooManyReports and not audited", func(t *testing.T) {
+		for u := int64(100); u < 100+report.MaxExportReports; u++ {
+			_, err := f.reports.Create(ctx, u, 2025, req("March"))
+			require.NoError(t, err)
+		}
+		n := len(f.audit.Entries())
+		_, err := f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "March", Year: 2025})
+		require.NoError(t, err, "exactly the cap is allowed")
+		_, err = f.reports.Create(ctx, 999, 2025, req("March"))
+		require.NoError(t, err)
+		_, err = f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "March", Year: 2025})
+		require.ErrorIs(t, err, report.ErrTooManyReports)
+		assert.Len(t, f.audit.Entries(), n+1)
+	})
 }

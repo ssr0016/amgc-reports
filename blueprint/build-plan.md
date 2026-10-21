@@ -40,7 +40,7 @@
   - [ ] 20e. Preview modal: metadata, the two metric tables, Avg per D-A5 (~4h)
   - [x] 20f. Sidebar navigation and profile menu: left sidebar on every signed-in page (Reports for everyone; Admin for admins only, the Users list is the Admin Users tab; Tracker and Logs hidden until Phase B); top bar with only the app name, the avatar with name and Sign out; "Change password" moves into the avatar menu; the sidebar collapses behind a "Menu" button below `md` (768 px)
 - [ ] 21. Phase B (~21h)
-- [ ] 22. Phase C (~49h), including exports and user status
+- [x] 22. Phase C (~49h), including exports and user status
   - [x] 22a. User status (D-A10): `status` column (active, inactive, disciplinary, deceased), login check after the password, session revoke in the same transaction, `PUT /admin/users/:id/status`, status badge, filter and Edit dropdown, `CHANGE_USER_STATUS` audit with its migration, self and last-admin protection (~9-10h)
   - [x] 22b. Soft delete and restore of users (D-A11): reason, confirmation dialog, Deleted filter, email stays reserved, audit with its migration (~6h)
   - [x] 22c. Reports of deleted and deceased users: owner status in the reports API and the "Deleted user" and "Archived" badges (~4h)

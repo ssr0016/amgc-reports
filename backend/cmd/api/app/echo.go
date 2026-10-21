@@ -49,8 +49,8 @@ func newEcho(cfg *config.Config, log *slog.Logger) *echo.Echo {
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, echo.HeaderXCSRFToken},
 		// Browsers hide non-safelisted response headers from scripts, so the
-		// frontend could not read the wait time on a 429.
-		ExposeHeaders: []string{echo.HeaderRetryAfter},
+		// frontend could not read the wait time on a 429 or an export's filename.
+		ExposeHeaders: []string{echo.HeaderRetryAfter, echo.HeaderContentDisposition},
 	}))
 	return e
 }

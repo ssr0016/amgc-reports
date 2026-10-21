@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, resetCsrf, setOnUnauthorized } from "./api";
+import { api, ApiError, downloadFile, resetCsrf, setOnUnauthorized } from "./api";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers });
@@ -258,5 +258,40 @@ describe("api", () => {
   it("fails when the CSRF token cannot be fetched", async () => {
     stubFetch(() => json(500, {}));
     await expect(api("/reports", { method: "POST", body: {} })).rejects.toMatchObject({ status: 500, code: "CSRF" });
+  });
+});
+
+describe("downloadFile", () => {
+  const xlsx = (disposition: string) =>
+    new Response("PK", { status: 200, headers: { "Content-Disposition": disposition } });
+
+  it("POSTs with the CSRF token and returns the blob and the UTF-8 filename", async () => {
+    const f = stubFetch(
+      () => json(200, { csrf_token: "t" }),
+      () => xlsx(`attachment; filename="Caf_ May 2026.xlsx"; filename*=UTF-8''Caf%C3%A9%20May%202026.xlsx`),
+    );
+    const got = await downloadFile("/admin/reports/excel", { month: "May", year: 2026 });
+    expect(got.filename).toBe("Café May 2026.xlsx");
+    expect(await got.blob.text()).toBe("PK");
+    expect(f.mock.calls[1][1]).toMatchObject({ method: "POST", body: '{"month":"May","year":2026}' });
+    expect(headersOf(f.mock.calls[1])["X-CSRF-Token"]).toBe("t");
+  });
+
+  it("falls back to the ASCII name, then to a generic one", async () => {
+    stubFetch(
+      () => json(200, { csrf_token: "t" }),
+      () => xlsx(`attachment; filename="Report 4 May 2026.xlsx"; filename*=UTF-8''%E0%A4%A`),
+      () => xlsx(""),
+    );
+    expect((await downloadFile("/admin/reports/4/excel")).filename).toBe("Report 4 May 2026.xlsx");
+    expect((await downloadFile("/admin/reports/4/excel")).filename).toBe("download");
+  });
+
+  it("throws the server's error", async () => {
+    stubFetch(
+      () => json(200, { csrf_token: "t" }),
+      () => json(404, { error: "NOT_FOUND", message: "No reports for that month." }),
+    );
+    await expect(downloadFile("/admin/reports/excel", {})).rejects.toMatchObject({ status: 404, message: "No reports for that month." });
   });
 });

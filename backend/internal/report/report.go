@@ -20,7 +20,14 @@ var (
 	// ErrPeriodNotAllowed is returned when a caller without reports:write_any
 	// files a report for any month but the previous one. The handler maps it to 422.
 	ErrPeriodNotAllowed = errors.New("reports can only be created for the previous month")
+	// ErrNoReports is returned by a bulk export of a month with no reports (404).
+	ErrNoReports = errors.New("no reports for that month")
+	// ErrTooManyReports is returned when a bulk export would exceed MaxExportReports (422).
+	ErrTooManyReports = errors.New("a bulk export holds at most 100 reports")
 )
+
+// MaxExportReports caps the reports in one bulk Excel export (D-A6).
+const MaxExportReports = 100
 
 // Service holds the report business rules: year default, ownership scope
 // (D-1), and one transaction per mutation covering report, metrics and audit
@@ -32,6 +39,9 @@ type Service interface {
 	Update(ctx context.Context, userID int64, ip string, id int64, req UpdateReportRequest) (*ReportResponse, error)
 	Delete(ctx context.Context, userID int64, ip string, id int64) error
 	ToggleComplete(ctx context.Context, userID int64, ip string, id int64) (*ReportMetadata, error)
+	// ExportOne and ExportMonth build the Excel download and write its audit row (D-A6, D-10).
+	ExportOne(ctx context.Context, userID int64, ip string, id int64) (*Export, error)
+	ExportMonth(ctx context.Context, userID int64, ip string, req ExportReportsRequest) (*Export, error)
 }
 
 // Store defines the interface for report data access. Get returns

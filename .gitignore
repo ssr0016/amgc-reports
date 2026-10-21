@@ -9,3 +9,6 @@ db-config.json
 logs/
 company-architecture-reference.md
 company-architecture-reference.md.save
+
+# Legacy report workbooks hold real worker data; the repo is public.
+blueprint/reference/*.xlsx

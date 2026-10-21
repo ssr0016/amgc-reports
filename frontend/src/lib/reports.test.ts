@@ -4,6 +4,8 @@ import {
   createReport,
   defaultPeriod,
   deleteReport,
+  exportReport,
+  exportReports,
   getReport,
   listReports,
   toggleComplete,
@@ -66,5 +68,18 @@ describe("reports API", () => {
     vi.stubGlobal("fetch", f);
     await expect(deleteReport(9)).resolves.toBeUndefined();
     expect(at(f, 1).join(" ")).toBe("/reports/9 DELETE");
+  });
+
+  it("exportReport and exportReports POST to the admin export routes", async () => {
+    const f = vi.fn();
+    f.mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: "t" })));
+    f.mockResolvedValueOnce(new Response("PK", { headers: { "Content-Disposition": 'attachment; filename="a.xlsx"' } }));
+    f.mockResolvedValueOnce(new Response("PK", { headers: { "Content-Disposition": 'attachment; filename="b.xlsx"' } }));
+    vi.stubGlobal("fetch", f);
+    expect((await exportReport(7)).filename).toBe("a.xlsx");
+    expect((await exportReports("May", 2026)).filename).toBe("b.xlsx");
+    expect(at(f, 1)).toEqual(["/admin/reports/7/excel", "POST"]);
+    expect(at(f, 2)).toEqual(["/admin/reports/excel", "POST"]);
+    expect((f.mock.calls[2][1] as RequestInit).body).toBe('{"month":"May","year":2026}');
   });
 });

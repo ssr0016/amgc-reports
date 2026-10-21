@@ -134,6 +134,18 @@ type ReportMetadata struct {
 	CompletedBy *int64     `json:"completed_by,omitempty"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata
 
+// ExportReportsRequest is the body of POST /admin/reports/excel: one month.
+type ExportReportsRequest struct {
+	Month string `json:"month" validate:"required,oneof=January February March April May June July August September October November December"`
+	Year  int    `json:"year" validate:"required,gte=2000,lte=2100"`
+} // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ExportReportsRequest
+
+// Export is a generated .xlsx file and its download name.
+type Export struct {
+	Filename string
+	Data     []byte
+}
+
 // ListReportsParams are the list filters (page and limit come from pkg/pagination).
 type ListReportsParams struct {
 	Month  string // optional

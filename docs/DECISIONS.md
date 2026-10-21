@@ -98,7 +98,9 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Recommendation:** average of the weeks that have a value; show a dash when none. D-5 says a blank means not reported and 0 means reported zero, so counting blanks as 0 would invent data.
 
 #### D-A6 Excel export
-- **Decided:** `excelize`, approved as a new dependency. The owner still has to provide the legacy template; until then the layout is not defined and Phase C item 10 is blocked.
+- **Decided:** `excelize`, approved as a new dependency. The owner provided the legacy template ("Church Growth Program Report September 2026.xlsx", kept out of Git because it holds real reports) on 2026-10-21; feature 22 builds the export from it.
+- **Layout (decided by the owner, 2026-10-21):** one sheet per report in the template's church-sheet layout (title rows, Month of/Worker/Area/Church, Week 1-5 and an `AVERAGE` formula column). `leadership` goes on "Leadership Conference" (row 21); "Leadership Training" (row 22) stays blank because there is no separate value. `baptism` goes on the template's blank row 19, labelled "Baptism". "Person Led To Christ" holds `person_evangelized`, with `names` below it. The template's "Report Dashboard" and "SUMMARY" sheets are left out.
+- **Access and limits (decided by the owner, 2026-10-21):** admins only, single (`POST /admin/reports/:id/excel`) and bulk (`POST /admin/reports/excel`, one month). Bulk is capped at 100 reports per file (422 above). Each download writes one `DOWNLOAD_SINGLE_EXCEL` or `DOWNLOAD_BULK_EXCEL` audit row server-side (D-10).
 - **Question:** which library, and what layout? The repo has no template and the legacy workbook was not provided.
 - **Recommendation:** `excelize` (needs owner approval as a new dependency), with the legacy template as the layout. Without the template the layout would be invented.
 
@@ -146,7 +148,6 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 ### Unconfirmed items
 **Date:** 2026-10-16 · **Status:** Open
 
-- **Excel audit actions:** `DOWNLOAD_SINGLE_EXCEL` and `DOWNLOAD_BULK_EXCEL` are in the audit enum but no download endpoint is confirmed. Recorded as Reserved, Phase C (see [ARCHITECTURE.md](ARCHITECTURE.md)).
 - **Monetization:** none planned. TODO (confirm): no decision yet.
 
 ### D-A8 Approval lives in the admin panel
@@ -154,7 +155,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 
 - **Decision:** Approve and Unapprove are in the Reports tab of `/admin` only. `/reports` no longer has them: it shows each report's status read-only and keeps Edit, View and Delete.
 - **Admin Reports tab:** one month at a time. Month and Year dropdowns only (no "Any", no text filters), starting on the previous month in Asia/Manila (D-A7) and able to go back to any year from 2026. Columns: Worker, Month, Year, Area of Assignment, Church, Status, Action, Download. The header reads "N total reports".
-- **Excel (Phase C, D-A6, D-10):** a "Download Bulk" button and a per-row "Excel" control are disabled placeholders; there is no endpoint and no request. The stats cards stay on the previous month and do not follow the dropdowns.
+- **Excel (Phase C, D-A6, D-10):** "Download Bulk" exports the selected month and the per-row "Excel" control exports one report (built in feature 22). The stats cards stay on the previous month and do not follow the dropdowns.
 - **Why:** approval is an admin task and the admin panel is where an admin reviews who has reported; the list is for the people who write and edit reports.
 - **Consequence:** the approve endpoint (`PATCH /reports/:id/complete`) is unchanged; the API and its permission (`reports:approve`, admin only) are as before. An approved report is undone from the same tab.
 

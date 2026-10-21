@@ -10,6 +10,9 @@ const h = vi.hoisted(() => ({
   perms: [] as string[],
   listReports: vi.fn(),
   toggleComplete: vi.fn(),
+  exportReport: vi.fn(),
+  exportReports: vi.fn(),
+  saveFile: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
@@ -20,7 +23,10 @@ vi.mock("@/lib/reports", async (orig) => ({
   ...(await orig<typeof import("@/lib/reports")>()),
   listReports: h.listReports,
   toggleComplete: h.toggleComplete,
+  exportReport: h.exportReport,
+  exportReports: h.exportReports,
 }));
+vi.mock("@/lib/api", async (orig) => ({ ...(await orig<typeof import("@/lib/api")>()), saveFile: h.saveFile }));
 
 const report = (id: number, extra: Partial<Report> = {}): Report =>
   ({
@@ -78,13 +84,12 @@ describe("admin reports: table", () => {
     expect(within(row("Worker 2")).getByText("Pending")).toBeInTheDocument();
   });
 
-  it("has an Excel control that does nothing yet, named for its row", async () => {
+  it("has an Excel control named for its row", async () => {
     renderReports("reports:read");
     await screen.findByText("Worker 1");
     const excel = within(row("Worker 1")).getByRole("button", { name: /^Excel / });
-    expect(excel).toBeDisabled();
+    expect(excel).toBeEnabled();
     expect(excel).toHaveAccessibleName("Excel September 2026, Worker 1");
-    expect(excel).toHaveAttribute("title");
   });
 
   it("offers no Edit, View or Delete", async () => {
@@ -202,20 +207,13 @@ describe("admin reports: filters", () => {
   });
 });
 
-// A placeholder for Phase C: the export has no endpoint yet, so the button sends nothing.
 describe("admin reports: Download Bulk", () => {
-  it("is a disabled button in the filter row, and clicking it sends nothing", async () => {
-    const { user } = renderReports("reports:read");
+  it("is a button in the filter row", async () => {
+    renderReports("reports:read");
     await screen.findByText("Worker 1");
     const bulk = screen.getByRole("button", { name: "Download Bulk" });
-    expect(bulk).toBeDisabled();
-    expect(bulk).toHaveAttribute("title");
+    expect(bulk).toBeEnabled();
     expect(bulk.closest("form")).toContainElement(screen.getByLabelText("Month"));
-
-    h.listReports.mockClear();
-    await user.click(bulk);
-    expect(h.listReports).not.toHaveBeenCalled();
-    expect(h.toggleComplete).not.toHaveBeenCalled();
   });
 
   // jsdom has no layout, so the right side is checked as the DOM order (last in the row) and the class that pushes it there.
@@ -230,11 +228,67 @@ describe("admin reports: Download Bulk", () => {
     expect(screen.getByLabelText("Year").compareDocumentPosition(bulk) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("is there even when the period has no reports", async () => {
+  it("is disabled when the period has no reports", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderReports("reports:read");
     await screen.findByText("No reports match these filters.");
     expect(screen.getByRole("button", { name: "Download Bulk" })).toBeDisabled();
+  });
+});
+
+describe("admin reports: Excel downloads", () => {
+  const file = { blob: new Blob(["PK"]), filename: "Church Growth Program Report May 2025.xlsx" };
+
+  it("Download Bulk exports the selected month and year, busy until the file arrives", async () => {
+    let resolve!: (v: typeof file) => void;
+    h.exportReports.mockReturnValue(new Promise((r) => (resolve = r)));
+    const { user } = renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    await user.selectOptions(screen.getByLabelText("Month"), "May");
+    await user.selectOptions(screen.getByLabelText("Year"), "2026");
+    await user.click(screen.getByRole("button", { name: "Download Bulk" }));
+
+    expect(h.exportReports).toHaveBeenCalledWith("May", 2026);
+    const busy = screen.getByRole("button", { name: "Downloading…" });
+    expect(busy).toBeDisabled();
+    expect(busy).toHaveAttribute("aria-busy", "true");
+
+    resolve(file);
+    await waitFor(() => expect(h.saveFile).toHaveBeenCalledWith(file));
+    expect(screen.getByRole("button", { name: "Download Bulk" })).toBeEnabled();
+    expect(h.toast.error).not.toHaveBeenCalled();
+  });
+
+  it("a row's Excel button exports that report, and only that row is busy", async () => {
+    let resolve!: (v: typeof file) => void;
+    h.exportReport.mockReturnValue(new Promise((r) => (resolve = r)));
+    const { user } = renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Excel / }));
+
+    expect(h.exportReport).toHaveBeenCalledWith(1);
+    const busy = within(row("Worker 1")).getByRole("button", { name: "Downloading… September 2026, Worker 1" });
+    expect(busy).toBeDisabled();
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    expect(within(row("Worker 2")).getByRole("button", { name: /^Excel / })).toBeEnabled();
+
+    resolve(file);
+    await waitFor(() => expect(h.saveFile).toHaveBeenCalledWith(file));
+    expect(within(row("Worker 1")).getByRole("button", { name: /^Excel / })).toBeEnabled();
+  });
+
+  it("shows the server's message when a download fails", async () => {
+    h.exportReports.mockRejectedValue(new ApiError(404, "NOT_FOUND", "No reports for that month."));
+    h.exportReport.mockRejectedValue(new Error("boom"));
+    const { user } = renderReports("reports:read");
+    await screen.findByText("Worker 1");
+
+    await user.click(screen.getByRole("button", { name: "Download Bulk" }));
+    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("No reports for that month."));
+    await user.click(within(row("Worker 2")).getByRole("button", { name: /^Excel / }));
+    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Could not download the file. Try again."));
+    expect(h.saveFile).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Download Bulk" })).toBeEnabled();
   });
 });
 

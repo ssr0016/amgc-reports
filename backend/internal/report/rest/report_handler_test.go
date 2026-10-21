@@ -22,14 +22,15 @@ import (
 
 // fakeReportSvc returns err from every method, and records what it was called with.
 type fakeReportSvc struct {
-	err      error
-	gotUser  int64
-	gotIP    string
-	gotID    int64
-	gotList  report.ListReportsParams
-	gotPage  pagination.Params
-	listData []report.ReportResponse
-	total    int64
+	err       error
+	gotUser   int64
+	gotIP     string
+	gotID     int64
+	gotList   report.ListReportsParams
+	gotPage   pagination.Params
+	listData  []report.ReportResponse
+	gotExport report.ExportReportsRequest
+	total     int64
 }
 
 func (f *fakeReportSvc) Create(_ context.Context, uid int64, ip string, _ report.CreateReportRequest) (*report.ReportResponse, error) {
@@ -62,6 +63,16 @@ func (f *fakeReportSvc) ToggleComplete(_ context.Context, uid int64, _ string, i
 	return &report.ReportMetadata{ID: id, Completed: true}, f.err
 }
 
+func (f *fakeReportSvc) ExportOne(_ context.Context, uid int64, ip string, id int64) (*report.Export, error) {
+	f.gotUser, f.gotIP, f.gotID = uid, ip, id
+	return &report.Export{Filename: "Café May 2026.xlsx", Data: []byte("PK")}, f.err
+}
+
+func (f *fakeReportSvc) ExportMonth(_ context.Context, uid int64, _ string, req report.ExportReportsRequest) (*report.Export, error) {
+	f.gotUser, f.gotExport = uid, req
+	return &report.Export{Filename: "Church Growth Program Report May 2026.xlsx", Data: []byte("PK")}, f.err
+}
+
 // serveReport routes one request through the handler with an optional session user.
 func serveReport(t *testing.T, svc report.Service, userID int64, method, target, body string) (*httptest.ResponseRecorder, errorBody) {
 	t.Helper()
@@ -84,6 +95,8 @@ func serveReport(t *testing.T, svc report.Service, userID int64, method, target,
 	e.PUT("/reports/:id", h.UpdateReport)
 	e.DELETE("/reports/:id", h.SoftDeleteReport)
 	e.PATCH("/reports/:id/complete", h.ToggleComplete)
+	e.POST("/admin/reports/excel", h.ExportReports)
+	e.POST("/admin/reports/:id/excel", h.ExportReport)
 
 	req := httptest.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -109,6 +122,8 @@ func TestReportHandler_ErrorMapping(t *testing.T) {
 		{"update", http.MethodPut, "/reports/7", validBody},
 		{"delete", http.MethodDelete, "/reports/7", ""},
 		{"toggle", http.MethodPatch, "/reports/7/complete", ""},
+		{"export one", http.MethodPost, "/admin/reports/7/excel", ""},
+		{"export month", http.MethodPost, "/admin/reports/excel", `{"month":"May","year":2026}`},
 	}
 	errs := []struct {
 		name   string
@@ -244,6 +259,77 @@ func TestReportHandler_BadInput(t *testing.T) {
 
 // errorBody is the JSON error body apperror writes.
 type errorBody struct {
-	Error   string `json:"error"`
-	Message string `json:"message"`
+	Error   string            `json:"error"`
+	Message string            `json:"message"`
+	Details map[string]string `json:"details"`
+}
+
+func TestReportHandler_ExportReport(t *testing.T) {
+	f := &fakeReportSvc{}
+	rec, _ := serveReport(t, f, 5, http.MethodPost, "/admin/reports/7/excel", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	for header, want := range map[string]string{
+		echo.HeaderContentType:        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		echo.HeaderContentDisposition: `attachment; filename="Caf_ May 2026.xlsx"; filename*=UTF-8''Caf%C3%A9%20May%202026.xlsx`,
+		"Cache-Control":               "no-store",
+	} {
+		if got := rec.Header().Get(header); got != want {
+			t.Errorf("%s = %q, want %q", header, got, want)
+		}
+	}
+	if rec.Body.String() != "PK" || f.gotUser != 5 || f.gotID != 7 {
+		t.Errorf("body %q, user %d, id %d", rec.Body.String(), f.gotUser, f.gotID)
+	}
+
+	if rec, body := serveReport(t, f, 5, http.MethodPost, "/admin/reports/abc/excel", ""); rec.Code != 400 || body.Error != "BAD_REQUEST" {
+		t.Errorf("bad id: got %d %q, want 400 BAD_REQUEST", rec.Code, body.Error)
+	}
+	if rec, _ := serveReport(t, f, 0, http.MethodPost, "/admin/reports/7/excel", ""); rec.Code != 401 {
+		t.Errorf("no session: got %d, want 401", rec.Code)
+	}
+}
+
+func TestReportHandler_ExportReports(t *testing.T) {
+	const may = `{"month":"May","year":2026}`
+	f := &fakeReportSvc{}
+	rec, _ := serveReport(t, f, 5, http.MethodPost, "/admin/reports/excel", may)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if want := (report.ExportReportsRequest{Month: "May", Year: 2026}); f.gotExport != want {
+		t.Errorf("request = %+v, want %+v", f.gotExport, want)
+	}
+	if got := rec.Header().Get(echo.HeaderContentDisposition); !strings.Contains(got, `filename="Church Growth Program Report May 2026.xlsx"`) {
+		t.Errorf("Content-Disposition = %q", got)
+	}
+
+	for _, tc := range []struct{ name, body, field string }{
+		{"missing month", `{"year":2026}`, "month"},
+		{"bad month", `{"month":"may","year":2026}`, "month"},
+		{"missing year", `{"month":"May"}`, "year"},
+		{"year too low", `{"month":"May","year":1999}`, "year"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec, body := serveReport(t, &fakeReportSvc{}, 5, http.MethodPost, "/admin/reports/excel", tc.body)
+			if _, ok := body.Details[tc.field]; rec.Code != 422 || !ok {
+				t.Errorf("got %d %v, want 422 on %s", rec.Code, body.Details, tc.field)
+			}
+		})
+	}
+
+	for _, tc := range []struct {
+		err    error
+		status int
+		msg    string
+	}{
+		{report.ErrNoReports, 404, "No reports for that month."},
+		{report.ErrTooManyReports, 422, "A bulk export holds at most 100 reports."},
+	} {
+		rec, body := serveReport(t, &fakeReportSvc{err: tc.err}, 5, http.MethodPost, "/admin/reports/excel", may)
+		if rec.Code != tc.status || body.Message != tc.msg {
+			t.Errorf("%v: got %d %q, want %d %q", tc.err, rec.Code, body.Message, tc.status, tc.msg)
+		}
+	}
 }
