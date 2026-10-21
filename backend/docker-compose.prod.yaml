@@ -17,6 +17,7 @@ services:
       APP_URL: ${APP_URL:-http://localhost:8080}
       DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@pg:5432/${DB_NAME}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (openssl rand -hex 32)}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?set TRUSTED_PROXY_CIDRS to the proxy range in front of the app}
       JWT_ISSUER: ${JWT_ISSUER:-amgreports}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-amgreports-web}
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-10m}

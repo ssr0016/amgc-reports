@@ -24,7 +24,7 @@ Frontend API types are generated from `backend/docs/swagger.json` (`npm run gen:
 - **Render** builds `backend/` from its Dockerfile. Root Directory is `backend`. Health check: `/health` (verify in the Render dashboard).
 - **Migrations in production** are not run on startup. `/app/api migrate` runs as a separate step, as the Pre-Deploy Command or by hand (verify in the Render dashboard).
   - Auto-deploy on push to `main`, and whether it waits for CI: verify in the Render dashboard.
-  - `TRUSTED_PROXY_CIDRS` defaults to `0.0.0.0/0` until Render's proxy range is verified (H-1).
+  - `TRUSTED_PROXY_CIDRS` is required in production (`100.64.0.0/10` on Render); the server refuses to start without it or with a `/0` range (H-1).
 - Runbook and environment variables: [backend/SETUP.md](../backend/SETUP.md).
 - **Vercel** hosts the frontend (D-F6). TODO (confirm): current Vercel deployment state; F14 is the production smoke test.
 - Local and dev run migrations at startup; production does not.

@@ -345,7 +345,7 @@ func TestLoad_TrustedProxyCIDRs(t *testing.T) {
 }
 
 func TestLoad_TrustedProxyCIDRsRejectsInvalidEntries(t *testing.T) {
-	for _, env := range []string{"not-a-cidr", "10.0.0.0/8,300.1.1.1/8", "10.0.0.1", "10.0.0.0/33"} {
+	for _, env := range []string{"not-a-cidr", "10.0.0.0/8,300.1.1.1/8", "10.0.0.1", "10.0.0.0/33", "fd00::/129", "fd00::", "10.0.0.0/8/1", "10.0.0.0/-1"} {
 		t.Run(env, func(t *testing.T) {
 			cleanupEnv()
 			defer cleanupEnv()
@@ -581,6 +581,50 @@ func TestLoad_DatabasePoolRejectsBadValues(t *testing.T) {
 			defer func() { _ = os.Unsetenv(env[0]) }()
 			if _, err := Load(); err == nil {
 				t.Fatalf("Load() with %s=%s succeeded, want an error", env[0], env[1])
+			}
+		})
+	}
+}
+
+func TestValidateProxy(t *testing.T) {
+	tests := []struct {
+		name    string
+		stage   Stage
+		env     string // TRUSTED_PROXY_CIDRS; "" leaves it unset
+		wantErr bool
+	}{
+		{"production with a range", StageProd, "100.64.0.0/10", false},
+		{"production with several ranges", StageProd, "100.64.0.0/10, fd00::/8", false},
+		{"production unset", StageProd, "", true},
+		{"production blank entries", StageProd, " , ", true},
+		{"production trusts every IPv4 peer", StageProd, "0.0.0.0/0", true},
+		{"production trusts every IPv6 peer", StageProd, "::/0", true},
+		{"production /0 hidden among ranges", StageProd, "100.64.0.0/10,0.0.0.0/0", true},
+		{"production /0 written with host bits", StageProd, "10.1.2.3/0", true},
+		{"local unset keeps the default", StageLocal, "", false},
+		{"dev /0 allowed", StageDev, "0.0.0.0/0", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanupEnv()
+			defer cleanupEnv()
+			if tt.env != "" {
+				_ = os.Setenv("TRUSTED_PROXY_CIDRS", tt.env)
+			}
+			cfg := &Config{Stage: tt.stage}
+			if err := cfg.proxyConfig(); err != nil {
+				t.Fatalf("proxyConfig() = %v", err)
+			}
+
+			err := cfg.ValidateProxy()
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "TRUSTED_PROXY_CIDRS") {
+					t.Fatalf("ValidateProxy() = %v, want an error naming TRUSTED_PROXY_CIDRS", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ValidateProxy() = %v, want nil", err)
 			}
 		})
 	}

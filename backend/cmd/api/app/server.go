@@ -51,6 +51,9 @@ func run() error {
 		return err
 	}
 
+	if err := cfg.ValidateProxy(); err != nil {
+		return fmt.Errorf("config validation: %w", err)
+	}
 	if err := cfg.ValidateAuth(); err != nil {
 		return fmt.Errorf("config validation: %w", err)
 	}
