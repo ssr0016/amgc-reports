@@ -114,10 +114,14 @@ describe("api", () => {
   });
 
   describe("401 handling", () => {
-    it("calls the unauthorized hook", async () => {
+    it("calls the unauthorized hook when the refresh fails too", async () => {
       const hook = vi.fn();
       setOnUnauthorized(hook);
-      stubFetch(() => json(401, { error: "UNAUTHORIZED", message: "no session" }));
+      stubFetch(
+        () => json(401, { error: "UNAUTHORIZED", message: "no session" }),
+        () => json(200, { csrf_token: "t" }),
+        () => json(401, { error: "UNAUTHORIZED", message: "refresh token expired" }),
+      );
       await expect(api("/reports")).rejects.toMatchObject({ status: 401 });
       expect(hook).toHaveBeenCalledOnce();
     });
@@ -125,14 +129,129 @@ describe("api", () => {
     it("stays quiet for silent401 and for a failed login", async () => {
       const hook = vi.fn();
       setOnUnauthorized(hook);
-      stubFetch(() => json(401, { message: "x" }));
-      await expect(api("/auth/me", { silent401: true })).rejects.toBeInstanceOf(ApiError);
       stubFetch(
+        () => json(401, { message: "x" }),
+        () => json(200, { csrf_token: "t" }),
+        () => json(401, { message: "x" }),
+      );
+      await expect(api("/auth/me", { silent401: true })).rejects.toBeInstanceOf(ApiError);
+      resetCsrf(); // the refresh above fetched one
+      const f = stubFetch(
         () => json(200, { csrf_token: "t" }),
         () => json(401, { message: "invalid credentials" }),
       );
       await expect(api("/auth/login", { method: "POST", body: {} })).rejects.toBeInstanceOf(ApiError);
       expect(hook).not.toHaveBeenCalled();
+      expect(f.mock.calls.map(pathOf), "a failed login must not try to refresh").toEqual(["/auth/csrf", "/auth/login"]);
+    });
+  });
+
+  describe("refresh on 401", () => {
+    it("refreshes once and replays the request", async () => {
+      const hook = vi.fn();
+      setOnUnauthorized(hook);
+      const f = stubFetch(
+        () => json(401, { message: "expired" }),
+        () => json(200, { csrf_token: "t" }),
+        () => new Response(null, { status: 204 }), // /auth/refresh
+        () => json(200, { ok: 1 }),
+      );
+      expect(await api("/reports")).toEqual({ ok: 1 });
+      expect(f.mock.calls.map(pathOf)).toEqual(["/reports", "/auth/csrf", "/auth/refresh", "/reports"]);
+      expect(f.mock.calls[2][1]).toMatchObject({ method: "POST" });
+      expect(headersOf(f.mock.calls[2])["X-CSRF-Token"]).toBe("t");
+      expect(hook).not.toHaveBeenCalled();
+    });
+
+    it("replays a write with its body", async () => {
+      const f = stubFetch(
+        () => json(200, { csrf_token: "t" }),
+        () => json(401, {}),
+        () => new Response(null, { status: 204 }),
+        () => json(201, { id: 5 }),
+      );
+      expect(await api("/reports", { method: "POST", body: { month: "May" } })).toEqual({ id: 5 });
+      expect(f.mock.calls.map(pathOf)).toEqual(["/auth/csrf", "/reports", "/auth/refresh", "/reports"]);
+      expect(f.mock.calls[3][1]).toMatchObject({ body: '{"month":"May"}' });
+    });
+
+    it("replays only once: a second 401 signs out", async () => {
+      const hook = vi.fn();
+      setOnUnauthorized(hook);
+      const f = stubFetch(
+        () => json(401, {}),
+        () => json(200, { csrf_token: "t" }),
+        () => new Response(null, { status: 204 }),
+        () => json(401, {}),
+      );
+      await expect(api("/reports")).rejects.toMatchObject({ status: 401 });
+      expect(f).toHaveBeenCalledTimes(4);
+      expect(hook).toHaveBeenCalledOnce();
+    });
+
+    it("concurrent 401s share one refresh (single flight)", async () => {
+      const hook = vi.fn();
+      setOnUnauthorized(hook);
+      let refreshed = false;
+      let refreshCalls = 0;
+      const fetchMock = vi.fn(async (url: string) => {
+        const path = String(url).replace(/^undefined/, "");
+        if (path === "/auth/csrf") return json(200, { csrf_token: "t" });
+        if (path === "/auth/refresh") {
+          refreshCalls++;
+          await new Promise((r) => setTimeout(r, 10)); // slow enough for the others to pile up
+          refreshed = true;
+          return new Response(null, { status: 204 });
+        }
+        return refreshed ? json(200, { path }) : json(401, {});
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const results = await Promise.all([api("/reports"), api("/users"), api("/stats")]);
+
+      expect(results).toEqual([{ path: "/reports" }, { path: "/users" }, { path: "/stats" }]);
+      expect(refreshCalls).toBe(1);
+      expect(hook).not.toHaveBeenCalled();
+    });
+
+    it("a later 401 starts a new refresh", async () => {
+      const f = stubFetch(
+        () => json(401, {}),
+        () => json(200, { csrf_token: "t" }),
+        () => new Response(null, { status: 204 }),
+        () => json(200, { n: 1 }),
+        () => json(401, {}),
+        () => new Response(null, { status: 204 }),
+        () => json(200, { n: 2 }),
+      );
+      expect(await api("/a")).toEqual({ n: 1 });
+      expect(await api("/b")).toEqual({ n: 2 });
+      expect(f.mock.calls.map(pathOf).filter((p) => p === "/auth/refresh")).toHaveLength(2);
+    });
+
+    it("does not refresh for logout or for the refresh call itself", async () => {
+      const hook = vi.fn();
+      setOnUnauthorized(hook);
+      const f = stubFetch(
+        () => json(200, { csrf_token: "t" }),
+        () => json(401, {}),
+      );
+      await expect(api("/auth/refresh", { method: "POST" })).rejects.toMatchObject({ status: 401 });
+      expect(f.mock.calls.map(pathOf)).toEqual(["/auth/csrf", "/auth/refresh"]);
+      expect(hook).toHaveBeenCalledOnce();
+    });
+
+    it("a network error during the refresh leaves the 401 to decide", async () => {
+      const hook = vi.fn();
+      setOnUnauthorized(hook);
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(json(401, {}))
+        .mockResolvedValueOnce(json(200, { csrf_token: "t" }))
+        .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(api("/reports")).rejects.toMatchObject({ status: 401 });
+      expect(hook).toHaveBeenCalledOnce();
     });
   });
 

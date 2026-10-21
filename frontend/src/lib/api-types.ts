@@ -953,7 +953,7 @@ export interface paths {
         put?: never;
         /**
          * Change own password
-         * @description Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sessions end; this one stays and its token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session. confirm_password is required and must equal new_password exactly (422 on confirm_password); that check runs first, so a typo does not count as a failed attempt.
+         * @description Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sign-ins end; this one stays and its access token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session. confirm_password is required and must equal new_password exactly (422 on confirm_password); that check runs first, so a typo does not count as a failed attempt.
          */
         post: {
             parameters: {
@@ -1146,7 +1146,7 @@ export interface paths {
         put?: never;
         /**
          * Login user
-         * @description Authenticates user and creates a session
+         * @description Authenticates the user and sets the access_token and refresh_token cookies (HttpOnly)
          */
         post: {
             parameters: {
@@ -1212,7 +1212,7 @@ export interface paths {
         put?: never;
         /**
          * Logout user
-         * @description Destroys the current session
+         * @description Ends the sign-in the refresh_token cookie belongs to and clears both cookies. It needs no valid access token, so it works after that has expired.
          */
         post: {
             parameters: {
@@ -1286,6 +1286,65 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh the sign-in
+         * @description Trades the refresh_token cookie for a new access token and a new refresh token, both set as cookies. The old refresh token stops working. Answers 401 and clears the cookies when the refresh token is unknown, expired, idle too long, revoked, or its account may no longer sign in. A token that was rotated within the last 10 seconds (a second tab) is a 401 that leaves the cookies alone.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;

@@ -58,12 +58,13 @@ async function fetchCsrf(): Promise<string> {
   return csrfToken!;
 }
 
-export async function api<T>(
-  path: string,
-  { method = "GET", body, silent401 = false }: { method?: string; body?: unknown; silent401?: boolean } = {},
-): Promise<T> {
+// Routes that must never trigger a refresh: they are how a session starts or ends, or the refresh itself.
+const NO_REFRESH = new Set(["/auth/login", "/auth/refresh", "/auth/logout"]);
+
+// One request, with the CSRF token a write needs. A stale token is fetched again once (frontend plan section 5).
+async function send(path: string, method: string, body: unknown): Promise<Response> {
   const write = method !== "GET";
-  const send = async () => {
+  const attempt = async () => {
     const headers: Record<string, string> = {};
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (write) headers["X-CSRF-Token"] = csrfToken ?? (await fetchCsrf());
@@ -74,11 +75,38 @@ export async function api<T>(
     });
   };
 
-  let res = await send();
-  // Stale CSRF token: refetch once and retry (frontend plan section 5).
+  const res = await attempt();
   if (write && res.status === 403 && (await res.clone().text()).includes("CSRF")) {
     resetCsrf();
-    res = await send();
+    return attempt();
+  }
+  return res;
+}
+
+// Single flight: every request that gets a 401 while a refresh is running waits for that one refresh
+// instead of starting its own. The refresh token rotates, so a second concurrent call would be refused.
+let refreshing: Promise<boolean> | null = null;
+
+function refreshSession(): Promise<boolean> {
+  refreshing ??= send("/auth/refresh", "POST", undefined)
+    .then(
+      (res) => res.ok,
+      () => false, // a network error is not a reason to sign the user out here; the 401 below decides
+    )
+    .finally(() => {
+      refreshing = null;
+    });
+  return refreshing;
+}
+
+export async function api<T>(
+  path: string,
+  { method = "GET", body, silent401 = false }: { method?: string; body?: unknown; silent401?: boolean } = {},
+): Promise<T> {
+  let res = await send(path, method, body);
+  // The access token lives 10 minutes. On a 401, refresh once and replay the request once.
+  if (res.status === 401 && !NO_REFRESH.has(path) && (await refreshSession())) {
+    res = await send(path, method, body);
   }
 
   if (res.status === 204) return undefined as T;

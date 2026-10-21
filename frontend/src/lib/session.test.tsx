@@ -7,6 +7,12 @@ import { SessionProvider, useSession } from "./session";
 const me = (role: string, permissions: string[]) => ({ id: 1, name: "Ana", role, permissions });
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
 
+// A refresh that finds no sign-in; every test that can see a 401 gets it.
+const NO_SESSION = {
+  "/auth/csrf": () => json(200, { csrf_token: "t" }),
+  "/auth/refresh": () => json(401, {}),
+};
+
 // Answers by path so the order of calls does not matter.
 function stubApi(routes: Record<string, () => Response>) {
   const f = vi.fn(async (url: string) => {
@@ -37,7 +43,7 @@ describe("SessionProvider", () => {
   });
 
   it("is unauthenticated on 401 and on any other failure", async () => {
-    stubApi({ "/auth/me": () => json(401, {}) });
+    stubApi({ ...NO_SESSION, "/auth/me": () => json(401, {}) });
     const a = renderHook(() => useSession(), { wrapper });
     await waitFor(() => expect(a.result.current.status).toBe("unauthenticated"));
 
@@ -55,6 +61,7 @@ describe("SessionProvider", () => {
   it("signIn loads the user and signOut clears it, even if logout fails", async () => {
     let signedIn = false;
     stubApi({
+      ...NO_SESSION,
       "/auth/me": () => (signedIn ? json(200, me("user", ["reports:read"])) : json(401, {})),
       "/auth/csrf": () => json(200, { csrf_token: "t" }),
       "/auth/login": () => {
@@ -77,6 +84,7 @@ describe("SessionProvider", () => {
 
   it("a 401 mid-session signs the user out", async () => {
     stubApi({
+      ...NO_SESSION,
       "/auth/me": () => json(200, me("user", [])),
       "/reports": () => json(401, {}),
     });
