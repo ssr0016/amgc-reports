@@ -1,6 +1,9 @@
 package user
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestUserStatuses_AreTheFourOwnerValues(t *testing.T) {
 	want := []string{"active", "inactive", "disciplinary", "deceased"}
@@ -34,5 +37,13 @@ func TestUser_CanSignIn(t *testing.T) {
 				t.Errorf("CanSignIn(%q) = %v, want %v", tt.status, got, tt.want)
 			}
 		})
+	}
+}
+
+// A deleted account never signs in, even while its status is active (D-A11).
+func TestUser_CanSignIn_Deleted(t *testing.T) {
+	now := time.Now()
+	if (&User{Status: UserStatusActive, DeletedAt: &now}).CanSignIn() {
+		t.Error("CanSignIn() = true for a deleted active user, want false")
 	}
 }

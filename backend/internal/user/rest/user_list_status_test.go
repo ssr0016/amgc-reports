@@ -40,6 +40,8 @@ func TestUserHandler_ListUsers_StatusFilter(t *testing.T) {
 		{"?status=all", ""},
 		{"?status=inactive", "inactive"},
 		{"?status=disciplinary", "disciplinary"},
+		// "deleted" is a list filter, not a status (D-A11); the store turns it into deleted_at IS NOT NULL.
+		{"?status=deleted", "deleted"},
 	} {
 		calls = 0
 		rec := serveListUsers(t, repo, tt.query)
@@ -57,8 +59,10 @@ func TestUserHandler_ListUsers_UnknownStatusIs422(t *testing.T) {
 		return nil, nil
 	}
 
-	rec := serveListUsers(t, repo, "?status=retired")
+	for _, q := range []string{"?status=retired", "?status=bogus"} {
+		rec := serveListUsers(t, repo, q)
 
-	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
-	assert.Contains(t, rec.Body.String(), `"status"`)
+		assert.Equal(t, http.StatusUnprocessableEntity, rec.Code, q)
+		assert.Contains(t, rec.Body.String(), `"status"`, q)
+	}
 }

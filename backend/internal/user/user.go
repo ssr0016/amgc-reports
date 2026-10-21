@@ -25,6 +25,11 @@ var (
 	ErrLastActiveAdmin = errors.New("at least one active admin is required")
 	// ErrInvalidUserStatus: the status is not one of UserStatuses.
 	ErrInvalidUserStatus = errors.New("invalid user status")
+	// ErrCannotDeleteSelf: an admin never deletes their own account (D-A11).
+	ErrCannotDeleteSelf = errors.New("cannot delete your own account")
+	// ErrEmailBelongsToDeletedUser: the email is reserved by a deleted account, which
+	// can be restored instead (D-A11).
+	ErrEmailBelongsToDeletedUser = errors.New("email belongs to a deleted user")
 )
 
 // Service is how an admin creates and edits accounts. Each change and its
@@ -34,6 +39,8 @@ type Service interface {
 	Update(ctx context.Context, actorID int64, ip string, id int64, req UpdateUserRequest) (*User, error)
 	ChangeStatus(ctx context.Context, actorID int64, ip string, id int64, status string) (*User, error)
 	ResetPassword(ctx context.Context, actorID int64, ip string, id int64, newPassword string) error
+	Delete(ctx context.Context, actorID int64, ip string, id int64, reason string) (*User, error)
+	Restore(ctx context.Context, actorID int64, ip string, id int64) (*User, error)
 }
 
 // Store defines the interface for user data access.
@@ -43,7 +50,8 @@ type Store interface {
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*User, error)
 	Create(ctx context.Context, n NewUser) (*User, error)
 	UpdateProfile(ctx context.Context, id int64, p UserProfile) (*User, error)
-	// List returns users newest first; an empty status means every status.
+	// List returns users newest first; an empty status means every status. Deleted
+	// users are left out unless status is "deleted", which returns only them.
 	List(ctx context.Context, emailFilter, status string, limit int) ([]User, error)
 	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]User, int64, error)
 	MarkEmailVerified(ctx context.Context, userID int64) error
@@ -60,4 +68,8 @@ type Store interface {
 	RevokeSessions(ctx context.Context, userID int64) (int64, error)
 	LockActiveAdmins(ctx context.Context) ([]int64, error)
 	LockUser(ctx context.Context, userID int64) error
+	// SoftDelete marks the user deleted by deletedBy (an empty reason is stored as NULL);
+	// Restore clears that mark. A missing user is ErrNotFound.
+	SoftDelete(ctx context.Context, id, deletedBy int64, reason string) (*User, error)
+	Restore(ctx context.Context, id int64) (*User, error)
 }

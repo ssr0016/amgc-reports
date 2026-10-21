@@ -3,8 +3,8 @@ package audit
 import "testing"
 
 func TestActions(t *testing.T) {
-	if got := len(Actions); got != 12 {
-		t.Fatalf("len(Actions) = %d, want 12", got)
+	if got := len(Actions); got != 14 {
+		t.Fatalf("len(Actions) = %d, want 14", got)
 	}
 	seen := map[string]bool{}
 	for _, a := range Actions {

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -31,6 +32,7 @@ type fakeUserSvc struct {
 	gotUpdate   user.UpdateUserRequest
 	gotStatus   string
 	gotPassword string
+	gotReason   string
 }
 
 func (f *fakeUserSvc) Create(_ context.Context, actor int64, ip string, req user.CreateUserRequest) (*user.User, error) {
@@ -58,6 +60,19 @@ func (f *fakeUserSvc) ResetPassword(_ context.Context, actor int64, ip string, i
 	return f.err
 }
 
+func (f *fakeUserSvc) Delete(_ context.Context, actor int64, ip string, id int64, reason string) (*user.User, error) {
+	f.calls++
+	f.gotActor, f.gotIP, f.gotID, f.gotReason = actor, ip, id, reason
+	now := time.Now()
+	return &user.User{ID: id, Email: "u@example.com", Name: "U", DeletedAt: &now, PasswordHash: "secret-hash"}, f.err
+}
+
+func (f *fakeUserSvc) Restore(_ context.Context, actor int64, ip string, id int64) (*user.User, error) {
+	f.calls++
+	f.gotActor, f.gotIP, f.gotID = actor, ip, id
+	return &user.User{ID: id, Email: "u@example.com", Name: "U", PasswordHash: "secret-hash"}, f.err
+}
+
 type userErrBody struct {
 	Error   string            `json:"error"`
 	Message string            `json:"message"`
@@ -83,6 +98,8 @@ func serveUserAdmin(t *testing.T, svc user.Service, sessionUser int64, method, t
 	e.PUT("/admin/users/:id", h.UpdateUser)
 	e.PUT("/admin/users/:id/status", h.ChangeStatus)
 	e.POST("/admin/users/:id/reset-password", h.ResetPassword)
+	e.DELETE("/admin/users/:id", h.DeleteUser)
+	e.POST("/admin/users/:id/restore", h.RestoreUser)
 
 	req := httptest.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

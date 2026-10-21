@@ -196,6 +196,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Email:** soft-deleted users keep their email reserved. Recreate is via restore, not a new account.
 - **Users tab:** "All" (default) leaves out the soft-deleted; a "Deleted" filter shows them; the Delete action is for active rows and Restore for deleted ones.
 - **Reports:** a soft-deleted user's reports stay visible and are not hidden; the owner is marked with a "Deleted user" badge (22c). A future enhancement may hide them (requires a JOIN, conflicts with D-18). A deceased user's reports stay in the history, marked "Archived".
+- **Choices made without the owner:** "Deleted" is a list filter (`GET /users?status=deleted`), not a status; deleting a deleted user or restoring one that is not deleted is a quiet 200 that writes and audits nothing; the reason is at most 500 characters; restore keeps the user's status and asks for no confirmation; creating a user with a deleted user's email is a 409 "This email belongs to a deleted user. Restore them instead."; forgot-password ignores a deleted user like an unknown email; edit, status, role and reset-password still work on a deleted user (harmless, since they cannot sign in until restored).
 
 
 ### D-A14 Password confirmation

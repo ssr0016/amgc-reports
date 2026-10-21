@@ -62,3 +62,31 @@ func TestPasswordResetService_ResetPassword_ClaimFailureStaysAnError(t *testing.
 		t.Errorf("ResetPassword() error = %v, want a non-token error", err)
 	}
 }
+
+// createCountingResetRepo counts the tokens it is asked to create.
+type createCountingResetRepo struct {
+	stubPasswordResetRepo
+	created int
+}
+
+func (r *createCountingResetRepo) Create(context.Context, int64) (*auth.PasswordReset, error) {
+	r.created++
+	return &auth.PasswordReset{ExpiresAt: time.Now().Add(time.Hour)}, nil
+}
+
+// A deleted user is handled like an unknown account (D-A11): no token, no error.
+func TestPasswordResetService_RequestReset_DeletedUserGetsNoToken(t *testing.T) {
+	users := userimpl.NewMockStore()
+	u, _ := users.CreateWithPassword(context.Background(), "d@example.com", "D", "hash")
+	now := time.Now()
+	u.DeletedAt = &now
+	resets := &createCountingResetRepo{}
+	svc := NewPasswordResetService(users, resets, discardLog)
+
+	if err := svc.RequestReset(context.Background(), "d@example.com"); err != nil {
+		t.Fatalf("RequestReset() error = %v, want nil", err)
+	}
+	if resets.created != 0 {
+		t.Errorf("created %d reset tokens for a deleted user, want 0", resets.created)
+	}
+}

@@ -34,6 +34,12 @@ type User struct {
 	AreaAssignment *string `json:"area_assignment,omitempty" db:"area_assignment"`
 	ChurchName     *string `json:"church_name,omitempty" db:"church_name"`
 
+	// DeletedAt is set while the account is soft-deleted (D-A11); nil means not deleted.
+	DeletedAt *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
+	// Who deleted the account and why; only the RESTORE_USER audit row reads them.
+	DeletedBy     *int64  `json:"-" db:"deleted_by"`
+	DeletedReason *string `json:"-" db:"deleted_reason"`
+
 	// Role is populated on demand (not always loaded)
 	Role *accesscontrol.Role `json:"role,omitempty"`
 }
@@ -49,6 +55,7 @@ type UserResponse struct {
 	Status          string     `json:"status"`
 	AreaAssignment  string     `json:"area_assignment,omitempty"`
 	ChurchName      string     `json:"church_name,omitempty"`
+	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse
 
 // NewUser is what the repository needs to insert an account. A zero RoleID
@@ -76,6 +83,7 @@ func (u *User) ToResponse() UserResponse {
 		Status:          u.Status,
 		AreaAssignment:  deref(u.AreaAssignment),
 		ChurchName:      deref(u.ChurchName),
+		DeletedAt:       u.DeletedAt,
 	}
 }
 
@@ -114,6 +122,12 @@ type AdminResetPasswordRequest struct {
 	NewPassword     string `json:"new_password" validate:"required,strongpass"`
 	ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=NewPassword"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest
+
+// DeleteUserRequest is the optional body of DELETE /admin/users/:id. The reason is
+// trimmed by the service; empty is stored as NULL.
+type DeleteUserRequest struct {
+	Reason string `json:"reason" validate:"max=500"`
+} // @name github_com_ssr0016_pastoral-reports_backend_internal_model.DeleteUserRequest
 
 func deref(s *string) string {
 	if s == nil {

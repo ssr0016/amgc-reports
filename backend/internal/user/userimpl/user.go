@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -61,6 +62,9 @@ func (s *service) Create(ctx context.Context, actorID int64, ip string, req user
 		return nil, fmt.Errorf("check email: %w", err)
 	}
 	if existing != nil {
+		if existing.DeletedAt != nil {
+			return nil, user.ErrEmailBelongsToDeletedUser
+		}
 		return nil, user.ErrEmailTaken
 	}
 
@@ -243,6 +247,119 @@ func (s *service) ResetPassword(ctx context.Context, actorID int64, ip string, i
 		return fmt.Errorf("reset password: %w", err)
 	}
 	return nil
+}
+
+// Delete soft-deletes a user (D-A11): the mark, the end of the user's sessions and the
+// audit row are one transaction. An admin cannot delete their own account, and the only
+// active admin cannot be deleted: the active admins' rows are locked in id order first,
+// as in ChangeStatus. The status is not changed. An already-deleted user is a quiet
+// success that writes and audits nothing.
+func (s *service) Delete(ctx context.Context, actorID int64, ip string, id int64, reason string) (*user.User, error) {
+	actor, err := s.actor(ctx, actorID)
+	if err != nil {
+		return nil, err
+	}
+	if actorID == id {
+		return nil, user.ErrCannotDeleteSelf
+	}
+	reason = strings.TrimSpace(reason)
+
+	var usr *user.User
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
+		var err error
+		usr, err = s.softDelete(ctx, actor, ip, id, reason)
+		return err
+	})
+	switch {
+	case errors.Is(err, user.ErrLastActiveAdmin):
+		return nil, user.ErrLastActiveAdmin
+	case errors.Is(err, database.ErrNotFound):
+		return nil, user.ErrUserNotFound
+	case err != nil:
+		return nil, fmt.Errorf("delete user: %w", err)
+	}
+	return usr, nil
+}
+
+// softDelete is the body of Delete's transaction; ctx carries it.
+func (s *service) softDelete(ctx context.Context, actor *user.User, ip string, id int64, reason string) (*user.User, error) {
+	admins, err := s.users.LockActiveAdmins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	current, err := s.users.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if current == nil {
+		return nil, database.ErrNotFound
+	}
+	if current.DeletedAt != nil {
+		return current, nil
+	}
+	if len(admins) == 1 && admins[0] == id {
+		return nil, user.ErrLastActiveAdmin
+	}
+
+	usr, err := s.users.SoftDelete(ctx, id, actor.ID, reason)
+	if err != nil {
+		return nil, err
+	}
+	revoked, err := s.users.RevokeSessions(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	var auditReason any // JSON null when no reason was given
+	if reason != "" {
+		auditReason = reason
+	}
+	err = s.audit.Insert(ctx, user.AuditLog(actor, ip, audit.ActionDeleteUser, usr,
+		map[string]any{"reason": auditReason, "sessions_revoked": revoked}))
+	if err != nil {
+		return nil, err
+	}
+	return usr, nil
+}
+
+// Restore clears a user's deleted mark (D-A11). The change and the audit row, which
+// keeps who deleted them, when and why, are one transaction; the restorer is the audit
+// row's performer. The status is not changed. A user who is not deleted is a quiet
+// success that writes and audits nothing.
+func (s *service) Restore(ctx context.Context, actorID int64, ip string, id int64) (*user.User, error) {
+	actor, err := s.actor(ctx, actorID)
+	if err != nil {
+		return nil, err
+	}
+
+	var usr *user.User
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
+		current, err := s.users.GetByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		if current == nil {
+			return database.ErrNotFound
+		}
+		if current.DeletedAt == nil {
+			usr = current
+			return nil
+		}
+		// Copied before the store call: the mock store returns the same row it changes.
+		details := map[string]any{
+			"deleted_at": current.DeletedAt, "deleted_by": current.DeletedBy, "deleted_reason": current.DeletedReason,
+		}
+		if usr, err = s.users.Restore(ctx, id); err != nil {
+			return err
+		}
+		return s.audit.Insert(ctx, user.AuditLog(actor, ip, audit.ActionRestoreUser, usr, details))
+	})
+	switch {
+	case errors.Is(err, database.ErrNotFound):
+		return nil, user.ErrUserNotFound
+	case err != nil:
+		return nil, fmt.Errorf("restore user: %w", err)
+	}
+	return usr, nil
 }
 
 // actor loads the admin making the change, for the audit row. A session whose

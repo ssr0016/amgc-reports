@@ -1,8 +1,18 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,9 +21,10 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { UserStatusBadge } from "@/components/user-status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { listRoles, listUsers } from "@/lib/users";
+import { deleteUser, listRoles, listUsers, restoreUser, type User } from "@/lib/users";
 import { STATUS_LABEL, USER_STATUSES } from "@/lib/user-status";
 
 // The list endpoint has no pages, so it returns at most this many.
@@ -25,9 +36,29 @@ export function UsersPanel() {
   const [search, setSearch] = useState("");
   // shortcut: the role filter only narrows the loaded rows (at most LIMIT), upgrade to a server-side filter when users outgrow LIMIT.
   const [role, setRole] = useState("");
-  // Unlike the role, the status filter is asked of the server ("" means every status).
+  // Unlike the role, the status filter is asked of the server ("" means every status, deleted users left out).
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
+  const [deleting, setDeleting] = useState<User | null>(null);
+  const [restoring, setRestoring] = useState<number | null>(null);
+  const queryClient = useQueryClient();
+
+  // Restore is reversible, so it does not ask first.
+  async function restore(u: User) {
+    setRestoring(u.id);
+    try {
+      await restoreUser(u.id);
+      toast.success(`${u.name} restored`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["users"] }),
+        queryClient.invalidateQueries({ queryKey: ["user", u.id] }),
+      ]);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not restore the user. Try again.");
+    } finally {
+      setRestoring(null);
+    }
+  }
 
   // The box waits 300 ms after the last key, so typing does not spend the read rate limit one request per letter.
   useEffect(() => {
@@ -98,21 +129,47 @@ export function UsersPanel() {
                 <TableCell>{roleName.get(u.role_id) ?? `#${u.role_id}`}</TableCell>
                 <TableCell>
                   <UserStatusBadge status={u.status} />
+                  {u.deleted_at && (
+                    <Badge variant="destructive" className="ml-2">
+                      Deleted
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>{u.area_assignment || "—"}</TableCell>
                 <TableCell>{u.church_name || "—"}</TableCell>
                 <TableCell>
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/admin/users/${u.id}/edit`}>
-                      Edit{" "}
-                      <span className="sr-only">{u.name}</span>
-                    </Link>
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/admin/users/${u.id}/edit`}>
+                        Edit{" "}
+                        <span className="sr-only">{u.name}</span>
+                      </Link>
+                    </Button>
+                    {u.deleted_at ? (
+                      <Button variant="outline" size="sm" disabled={restoring === u.id} onClick={() => restore(u)}>
+                        Restore <span className="sr-only">{u.name}</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={u.id === user?.user_id}
+                        aria-describedby={u.id === user?.user_id ? "delete-self-note" : undefined}
+                        onClick={() => setDeleting(u)}
+                      >
+                        Delete <span className="sr-only">{u.name}</span>
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        <p id="delete-self-note" className="sr-only">
+          You cannot delete your own account.
+        </p>
+        <DeleteUserDialog user={deleting} onClose={() => setDeleting(null)} />
         {data.length >= LIMIT && (
           <p className="text-sm text-muted-foreground">Showing the first {LIMIT}. Search by email to narrow it.</p>
         )}
@@ -155,6 +212,7 @@ export function UsersPanel() {
                     {STATUS_LABEL[s]}
                   </option>
                 ))}
+                <option value="deleted">Deleted</option>
               </NativeSelect>
             </div>
           </div>
@@ -165,5 +223,73 @@ export function UsersPanel() {
       )}
       {body}
     </div>
+  );
+}
+
+// Asks first (D-A11). A plain Button, not AlertDialogAction: that one closes on click, and a failed delete must be shown.
+function DeleteUserDialog({ user, onClose }: { user: User | null; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [reason, setReason] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  function close() {
+    setReason("");
+    setError("");
+    onClose();
+  }
+
+  async function confirm() {
+    if (!user) return;
+    setPending(true);
+    setError("");
+    try {
+      await deleteUser(user.id, reason);
+      toast.success(`${user.name} deleted`);
+      close();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["users"] }),
+        queryClient.invalidateQueries({ queryKey: ["user", user.id] }),
+      ]);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not delete the user. Try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <AlertDialog open={user !== null} onOpenChange={(open) => !open && !pending && close()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {user?.name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will soft-delete {user?.name} ({user?.email}). The user cannot sign in. The user is hidden from the
+            active list, but their reports stay. You can restore them later.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="delete-reason">Reason (optional)</Label>
+          <Textarea
+            id="delete-reason"
+            maxLength={500}
+            value={reason}
+            disabled={pending}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <Button onClick={confirm} disabled={pending}>
+            {pending ? "Deleting…" : "Delete user"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

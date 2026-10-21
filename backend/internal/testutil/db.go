@@ -99,7 +99,11 @@ func (tdb *TestDB) RunMigrations(t *testing.T) {
 			area_assignment VARCHAR(150),
 			church_name VARCHAR(150),
 			status TEXT NOT NULL DEFAULT 'active',
-			tokens_valid_after TIMESTAMPTZ NOT NULL DEFAULT 'epoch'
+			tokens_valid_after TIMESTAMPTZ NOT NULL DEFAULT 'epoch',
+			-- Keep in step with migrations/20261021120000_add_user_soft_delete.sql.
+			deleted_at TIMESTAMPTZ,
+			deleted_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+			deleted_reason TEXT CHECK (char_length(deleted_reason) <= 500)
 		)`,
 		// Keep in step with migrations/20251012000002_add_user_link_to_sessions.sql:
 		// user.Store.UpdatePassword revokes sessions through these columns.

@@ -18,6 +18,8 @@ const (
 	ActionChangePassword     = "CHANGE_PASSWORD"
 	ActionChangeUserStatus   = "CHANGE_USER_STATUS"
 	ActionAdminResetPassword = "ADMIN_RESET_PASSWORD"
+	ActionDeleteUser         = "DELETE_USER"
+	ActionRestoreUser        = "RESTORE_USER"
 )
 
 // Target types of the row's subject.
@@ -32,7 +34,7 @@ var Actions = []string{
 	ActionApproveReport, ActionUnapproveReport,
 	ActionDownloadSingle, ActionDownloadBulk,
 	ActionCreateUser, ActionUpdateUser, ActionChangePassword, ActionChangeUserStatus,
-	ActionAdminResetPassword,
+	ActionAdminResetPassword, ActionDeleteUser, ActionRestoreUser,
 }
 
 // Log is one audit row; it maps to the audit_logs table.

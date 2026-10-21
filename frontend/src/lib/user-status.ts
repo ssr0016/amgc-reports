@@ -1,5 +1,5 @@
 // The four account statuses (D-A10), in the order the filter and the Edit page list them.
-// The server owns the rules; this is only the wording. "Deleted" is not a status (22b).
+// The server owns the rules; this is only the wording. "Deleted" is not a status: the Deleted filter is a separate server query (status=deleted).
 export const USER_STATUSES = [
   "active",
   "inactive",
