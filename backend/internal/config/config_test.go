@@ -534,3 +534,54 @@ func TestLoad_ReportsWriteLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestLoad_DatabasePoolDefaultsAndOverrides(t *testing.T) {
+	_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+	_ = os.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+	defer cleanupEnv()
+	defer func() {
+		for _, k := range []string{"DB_MAX_CONNS", "DB_MIN_CONNS", "DB_CONN_MAX_LIFETIME", "DB_CONN_MAX_IDLE_TIME"} {
+			_ = os.Unsetenv(k)
+		}
+	}()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := cfg.Database
+	if d.MaxConns != 20 || d.MinConns != 0 || d.ConnMaxLifetime != time.Hour || d.ConnMaxIdleTime != 30*time.Minute {
+		t.Errorf("defaults = %d/%d/%v/%v, want 20/0/1h/30m", d.MaxConns, d.MinConns, d.ConnMaxLifetime, d.ConnMaxIdleTime)
+	}
+
+	_ = os.Setenv("DB_MAX_CONNS", "8")
+	_ = os.Setenv("DB_MIN_CONNS", "2")
+	_ = os.Setenv("DB_CONN_MAX_IDLE_TIME", "300")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Database.MaxConns != 8 || cfg.Database.MinConns != 2 || cfg.Database.ConnMaxIdleTime != 5*time.Minute {
+		t.Errorf("overrides = %+v", cfg.Database)
+	}
+}
+
+func TestLoad_DatabasePoolRejectsBadValues(t *testing.T) {
+	for name, env := range map[string][2]string{
+		"zero max":          {"DB_MAX_CONNS", "0"},
+		"text max":          {"DB_MAX_CONNS", "lots"},
+		"min above max":     {"DB_MIN_CONNS", "99"},
+		"negative min text": {"DB_MIN_CONNS", "-1"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+			_ = os.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+			_ = os.Setenv(env[0], env[1])
+			defer cleanupEnv()
+			defer func() { _ = os.Unsetenv(env[0]) }()
+			if _, err := Load(); err == nil {
+				t.Fatalf("Load() with %s=%s succeeded, want an error", env[0], env[1])
+			}
+		})
+	}
+}

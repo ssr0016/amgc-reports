@@ -2,21 +2,11 @@ package config
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 )
-
-const (
-	minAdminPasswordLen   = 12
-	minMetricsPasswordLen = 12
-)
-
-// DefaultTrustedProxyCIDR is the range Railway's edge proxies connect from.
-// Production logs showed every peer_ip inside 100.64.0.0/10 (CGNAT).
-const DefaultTrustedProxyCIDR = "100.64.0.0/10"
 
 // Config holds all application configuration.
 type Config struct {
@@ -33,159 +23,33 @@ type Config struct {
 	Observability ObservabilityConfig
 }
 
-// ObservabilityConfig controls what the server exposes about itself.
-type ObservabilityConfig struct {
-	// SwaggerEnabled is whether /swagger/* is registered.
-	SwaggerEnabled bool
-	// MetricsUser and MetricsPassword are the Basic Auth credentials of
-	// /metrics. When both are empty /metrics is open outside production and
-	// not registered in production.
-	MetricsUser     string
-	MetricsPassword string
-}
-
-// ReportsConfig holds the rate limit shared by the reports write routes
-// (POST, PUT, DELETE, PATCH). Reads are not limited. Per session user.
-type ReportsConfig struct {
-	WriteRatePerMinute int
-	WriteBurst         int
-}
-
-// ProxyConfig describes which connecting peers may speak for a client.
-type ProxyConfig struct {
-	// TrustedCIDRs are the only peers whose X-Real-IP is believed. Loopback,
-	// link-local and private ranges are not trusted unless listed here.
-	TrustedCIDRs []*net.IPNet
-	// UsedDefault is true when TRUSTED_PROXY_CIDRS was not set.
-	UsedDefault bool
-}
-
-// AdminConfig holds the initial admin user credentials (optional).
-type AdminConfig struct {
-	Email    string
-	Name     string
-	Password string
-}
-
-// AppConfig holds general app settings.
-type AppConfig struct {
-	Env  string
-	Port string
-	URL  string
-}
-
-// DatabaseConfig holds DB connection settings.
-type DatabaseConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	Name     string
-	URL      string
-	// MigrateURL is what `api migrate` connects with. It is the owner role's
-	// DSN when MIGRATE_DATABASE_URL is set, so the server can run as a
-	// least-privilege role; otherwise it is URL.
-	MigrateURL string
-}
-
-// minJWTSecretLen is the shortest HS256 secret accepted: 32 bytes, the size of the hash.
-const minJWTSecretLen = 32
-
-// AuthConfig holds the JWT sign-in settings (D-AR1).
-type AuthConfig struct {
-	JWTSecret   string
-	JWTIssuer   string
-	JWTAudience string
-	// AccessTTL is the life of an access token; RefreshTTL is the absolute life of
-	// a sign-in, and RefreshIdleTTL how long it may go without a refresh.
-	AccessTTL      time.Duration
-	RefreshTTL     time.Duration
-	RefreshIdleTTL time.Duration
-	// CookieDomain is empty (host-only cookies) until D-F1 sets .amgreports.com.
-	CookieDomain string
-}
-
-// LoggingConfig holds logging settings.
-type LoggingConfig struct {
-	Level  string
-	Format string
-}
-
-// CORSConfig holds CORS settings.
-type CORSConfig struct {
-	AllowedOrigins []string
-}
-
 // Load reads configuration from environment variables.
 func Load() (*Config, error) {
-	cfg := &Config{
-		// Port: PORT is injected by platforms such as Railway; APP_PORT wins.
-		App: AppConfig{
-			Env:  getEnv("APP_ENV", "local"),
-			Port: getEnv("APP_PORT", getEnv("PORT", "8080")),
-			URL:  getEnv("APP_URL", "http://localhost:8080"),
-		},
-		Database: DatabaseConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "5432"),
-			User:     getEnv("DB_USER", "postgres"),
-			Password: getEnv("DB_PASSWORD", ""),
-			Name:     getEnv("DB_NAME", "app_db"),
-			URL:      getEnv("DATABASE_URL", ""),
-		},
-		Auth: AuthConfig{
-			JWTSecret:      os.Getenv("JWT_SECRET"),
-			JWTIssuer:      getEnv("JWT_ISSUER", "amgreports"),
-			JWTAudience:    getEnv("JWT_AUDIENCE", "amgreports-web"),
-			AccessTTL:      getEnvDuration("JWT_ACCESS_TTL", 10*time.Minute),
-			RefreshTTL:     getEnvDuration("REFRESH_TTL", 24*time.Hour),
-			RefreshIdleTTL: getEnvDuration("REFRESH_IDLE_TTL", 30*time.Minute),
-			CookieDomain:   strings.TrimSpace(os.Getenv("COOKIE_DOMAIN")),
-		},
-		Logging: LoggingConfig{
-			Level:  getEnv("LOG_LEVEL", "info"),
-			Format: getEnv("LOG_FORMAT", "text"),
-		},
-		CORS: CORSConfig{
-			AllowedOrigins: getEnvSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
-		},
-	}
+	cfg := &Config{}
+	cfg.appConfig()
+	cfg.databaseConfig()
+	cfg.authConfig()
+	cfg.loggingConfig()
+	cfg.corsConfig()
 
-	trusted, usedDefault, err := trustedProxyCIDRs()
-	if err != nil {
+	if err := cfg.proxyConfig(); err != nil {
 		return nil, fmt.Errorf("config validation: %w", err)
 	}
-	cfg.Proxy = ProxyConfig{TrustedCIDRs: trusted, UsedDefault: usedDefault}
 
-	writeRate, err := getEnvInt("REPORTS_WRITE_RATE_LIMIT", 60)
-	if err != nil {
+	if err := cfg.reportsConfig(); err != nil {
 		return nil, fmt.Errorf("config validation: %w", err)
 	}
-	writeBurst, err := getEnvInt("REPORTS_WRITE_BURST", 10)
-	if err != nil {
+
+	cfg.adminConfig()
+
+	if err := cfg.databasePoolConfig(); err != nil {
 		return nil, fmt.Errorf("config validation: %w", err)
 	}
-	cfg.Reports = ReportsConfig{WriteRatePerMinute: writeRate, WriteBurst: writeBurst}
-
-	cfg.Admin = AdminConfig{
-		Email:    strings.TrimSpace(os.Getenv("ADMIN_EMAIL")),
-		Name:     getEnv("ADMIN_NAME", "Admin"),
-		Password: os.Getenv("ADMIN_PASSWORD"),
-	}
-
-	cfg.Database.MigrateURL = getEnv("MIGRATE_DATABASE_URL", cfg.Database.URL)
 
 	cfg.Stage = stageFromEnv(cfg.App.Env)
 
-	// Swagger is on outside production and off in production unless asked for.
-	swagger, err := getEnvBool("SWAGGER_ENABLED", !cfg.IsProduction())
-	if err != nil {
+	if err := cfg.observabilityConfig(); err != nil {
 		return nil, fmt.Errorf("config validation: %w", err)
-	}
-	cfg.Observability = ObservabilityConfig{
-		SwaggerEnabled:  swagger,
-		MetricsUser:     strings.TrimSpace(os.Getenv("METRICS_USER")),
-		MetricsPassword: os.Getenv("METRICS_PASSWORD"),
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -203,6 +67,12 @@ func (c *Config) Validate() error {
 	if c.App.Port == "" {
 		return fmt.Errorf("APP_PORT is required")
 	}
+	if c.Database.MaxConns < 1 {
+		return fmt.Errorf("DB_MAX_CONNS must be at least 1")
+	}
+	if c.Database.MinConns < 0 || c.Database.MinConns > c.Database.MaxConns {
+		return fmt.Errorf("DB_MIN_CONNS must be between 0 and DB_MAX_CONNS")
+	}
 	if len(c.CORS.AllowedOrigins) == 0 {
 		return fmt.Errorf("CORS_ALLOWED_ORIGINS is required")
 	}
@@ -219,55 +89,6 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("METRICS_PASSWORD must be at least %d characters", minMetricsPasswordLen)
 	}
 	return nil
-}
-
-// ValidateAuth checks the JWT settings. The server calls it at startup and fails
-// closed: a missing or short secret would let anyone sign a token. It is not part
-// of Validate because `api migrate`, which runs before the new secret may exist,
-// does not sign anything.
-func (c *Config) ValidateAuth() error {
-	if len(c.Auth.JWTSecret) < minJWTSecretLen {
-		return fmt.Errorf("JWT_SECRET is required and must be at least %d bytes", minJWTSecretLen)
-	}
-	if c.Auth.AccessTTL <= 0 || c.Auth.RefreshTTL <= 0 || c.Auth.RefreshIdleTTL <= 0 {
-		return fmt.Errorf("JWT_ACCESS_TTL, REFRESH_TTL and REFRESH_IDLE_TTL must be positive")
-	}
-	return nil
-}
-
-// IsProduction returns true if running in production.
-func (c *Config) IsProduction() bool {
-	return c.Stage == StageProd
-}
-
-// IsDevelopment returns true if running in development.
-func (c *Config) IsDevelopment() bool {
-	return c.Stage == StageLocal || c.Stage == StageDev
-}
-
-// IsDebug returns true if debug mode is enabled.
-func (c *Config) IsDebug() bool {
-	return c.Stage != StageProd
-}
-
-// trustedProxyCIDRs reads TRUSTED_PROXY_CIDRS, a comma-separated list of CIDR
-// ranges. It falls back to DefaultTrustedProxyCIDR and reports that it did.
-func trustedProxyCIDRs() ([]*net.IPNet, bool, error) {
-	raw := getEnvSlice("TRUSTED_PROXY_CIDRS", nil)
-	usedDefault := len(raw) == 0
-	if usedDefault {
-		raw = []string{DefaultTrustedProxyCIDR}
-	}
-
-	ranges := make([]*net.IPNet, 0, len(raw))
-	for _, s := range raw {
-		_, n, err := net.ParseCIDR(s)
-		if err != nil {
-			return nil, false, fmt.Errorf("TRUSTED_PROXY_CIDRS: invalid CIDR %q: %w", s, err)
-		}
-		ranges = append(ranges, n)
-	}
-	return ranges, usedDefault, nil
 }
 
 // ============================================================

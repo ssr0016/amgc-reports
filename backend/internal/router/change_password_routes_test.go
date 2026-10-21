@@ -13,14 +13,17 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth/authimpl"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
 	"github.com/ssr0016/pastoral-reports/backend/internal/config"
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	reportrest "github.com/ssr0016/pastoral-reports/backend/internal/report/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/request"
-	"github.com/ssr0016/pastoral-reports/backend/internal/service"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
 
@@ -29,7 +32,7 @@ const (
 	routeNewPassword = "New-Passw0rd-Xv91-mT"
 )
 
-// changePasswordServer wires the real routes with the real AuthService over mocks.
+// changePasswordServer wires the real routes with the real auth service over mocks.
 // A request is logged in as user 1 when it carries X-Test-User.
 func changePasswordServer(t *testing.T, write func() echo.MiddlewareFunc) *echo.Echo {
 	t.Helper()
@@ -37,20 +40,19 @@ func changePasswordServer(t *testing.T, write func() echo.MiddlewareFunc) *echo.
 	if err != nil {
 		t.Fatal(err)
 	}
-	users := repository.NewMockUserRepo()
+	users := userimpl.NewMockStore()
 	if _, err := users.CreateWithPassword(context.Background(), "ana@example.com", "Ana", string(hash)); err != nil {
 		t.Fatal(err)
 	}
-	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
+	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
 		u, err := users.GetByID(context.Background(), id)
 		if u != nil {
-			u.Role = &model.Role{Name: "user"}
+			u.Role = &accesscontrol.Role{Name: "user"}
 		}
 		return u, err
 	}
-	svc := service.NewAuthService(users, nil, nil, repository.NewMockAuditRepo(), runTx{}, slog.New(slog.DiscardHandler)).
-		WithTokens(token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute}),
-			repository.NewMockRefreshRepo(), service.TokenSettings{})
+	svc := authimpl.NewService(users, nil, nil, auditimpl.NewMockStore(), runTx{}, slog.New(slog.DiscardHandler), token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute}),
+		authimpl.NewMockRefreshStore(), authimpl.TokenSettings{})
 
 	e := echo.New()
 	e.Validator = validator.New()
@@ -63,9 +65,9 @@ func changePasswordServer(t *testing.T, write func() echo.MiddlewareFunc) *echo.
 			return next(c)
 		}
 	})
-	Setup(e, noAuthn, users, permRoles{}, handler.NewAuthHandler(svc, handler.NewCookies(config.AuthConfig{}, false)), nil, nil, nil, nil,
-		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}), nil,
+	Setup(e, noAuthn, users, permRoles{}, authrest.NewAuthHandler(svc, authrest.NewCookies(config.AuthConfig{}, false)), nil, nil, nil, nil,
+		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
+		reportrest.NewReportHandler(okReportSvc{}), nil,
 		Limiters{Global: noLimit, Read: noLimit, Write: write()},
 	)
 	return e

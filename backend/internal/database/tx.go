@@ -18,6 +18,15 @@ type Querier interface {
 
 var _ Querier = pgx.Tx(nil)
 
+// TxRunner runs fn in one transaction and passes it a ctx that carries it;
+// store calls made with that ctx join it. Services depend on it instead of
+// the database, so tests can substitute a fake. *DB satisfies it.
+type TxRunner interface {
+	InTransaction(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+var _ TxRunner = (*DB)(nil)
+
 // Beginner opens a transaction. *pgxpool.Pool satisfies it.
 type Beginner interface {
 	Begin(ctx context.Context) (pgx.Tx, error)

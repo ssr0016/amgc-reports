@@ -171,7 +171,7 @@ Limits: default page 1, default limit 20, max limit 100.
 
 ### Integration Tests (Real DB)
 
-    go test -tags=integration ./internal/repository/ -v
+    go test -tags=integration ./internal/... -v
 
 Uses testcontainers (Docker required).
 
@@ -209,19 +209,20 @@ Metrics: http_requests_total, http_request_duration_seconds, http_requests_in_fl
 ## Project Structure
 
     backend/
-    ├── cmd/api/main.go
+    ├── cmd/api/
+    │   ├── main.go       Entry point + Swagger header
+    │   └── app/          CLI dispatch, wiring, server lifecycle, migrate command
     ├── internal/
+    │   ├── <domain>/     auth, user, accesscontrol, report, stats, audit:
+    │   │                   <domain>.go (Service/Store contracts, errors), model.go,
+    │   │                   <domain>impl/ (service + SQL stores + mocks), rest/ (Echo handlers)
     │   ├── apperror/     Error handling
-    │   ├── config/       Config loader
-    │   ├── database/     DB + migrations + seed
-    │   ├── handler/      HTTP handlers
+    │   ├── config/       Config loader, one config_<concern>.go per group
+    │   ├── database/     DB, transactions, shared DB errors, migrations, seed
     │   ├── logger/       slog wrapper
     │   ├── middleware/   Auth, CSRF, RBAC, metrics
-    │   ├── model/        Domain models
-    │   ├── repository/   Data access
-    │   ├── router/       Routes
-    │   ├── service/      Business logic
-    │   ├── session/      Session config
+    │   ├── request/      Caller identity in context
+    │   ├── router/       Route table + health handlers
     │   ├── testutil/     Test helpers
     │   └── validator/    Custom validation
     ├── pkg/

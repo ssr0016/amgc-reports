@@ -10,11 +10,12 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 	"github.com/ssr0016/pastoral-reports/backend/internal/request"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 )
 
 func testTokens(ttl time.Duration) *token.Manager {
@@ -83,9 +84,9 @@ func TestAuthenticate(t *testing.T) {
 // A token signed before users.tokens_valid_after is refused by the gates that load
 // the user (RequireRole, RequirePermission), whatever else is right with it.
 func TestRBAC_RefusesATokenSignedBeforeTokensValidAfter(t *testing.T) {
-	gates := map[string]func(repository.UserRepository) echo.MiddlewareFunc{
-		"RequireRole": func(u repository.UserRepository) echo.MiddlewareFunc { return RequireRole(u, "admin") },
-		"RequirePermission": func(u repository.UserRepository) echo.MiddlewareFunc {
+	gates := map[string]func(user.Store) echo.MiddlewareFunc{
+		"RequireRole": func(u user.Store) echo.MiddlewareFunc { return RequireRole(u, "admin") },
+		"RequirePermission": func(u user.Store) echo.MiddlewareFunc {
 			return RequirePermission(allowAll{}, u, "reports:read")
 		},
 	}
@@ -102,9 +103,9 @@ func TestRBAC_RefusesATokenSignedBeforeTokensValidAfter(t *testing.T) {
 	for name, gate := range gates {
 		for _, tt := range tests {
 			t.Run(name+"/"+tt.name, func(t *testing.T) {
-				users := repository.NewMockUserRepo()
-				users.GetWithRoleFunc = func(context.Context, int64) (*model.User, error) {
-					return &model.User{ID: 1, RoleID: 9, Role: &model.Role{Name: "admin"}, TokensValidAfter: tt.validAfter}, nil
+				users := userimpl.NewMockStore()
+				users.GetWithRoleFunc = func(context.Context, int64) (*user.User, error) {
+					return &user.User{ID: 1, RoleID: 9, Role: &accesscontrol.Role{Name: "admin"}, TokensValidAfter: tt.validAfter}, nil
 				}
 				e := echo.New()
 				e.HTTPErrorHandler = apperror.ErrorHandler

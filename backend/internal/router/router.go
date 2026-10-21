@@ -6,9 +6,14 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
+	acrest "github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol/rest"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	reportrest "github.com/ssr0016/pastoral-reports/backend/internal/report/rest"
+	statsrest "github.com/ssr0016/pastoral-reports/backend/internal/stats/rest"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	userrest "github.com/ssr0016/pastoral-reports/backend/internal/user/rest"
 )
 
 // Limiters are the rate limiters Setup mounts. Global covers every /api/v1
@@ -22,17 +27,17 @@ type Limiters struct {
 func Setup(
 	e *echo.Echo,
 	authenticate echo.MiddlewareFunc,
-	userRepo repository.UserRepository,
-	roleRepo repository.RoleRepository,
-	authHandler *handler.AuthHandler,
-	userHandler *handler.UserHandler,
-	roleHandler *handler.RoleHandler,
-	permissionHandler *handler.PermissionHandler,
-	adminUserHandler *handler.AdminUserHandler,
-	verificationHandler *handler.VerificationHandler,
-	passwordResetHandler *handler.PasswordResetHandler,
-	reportHandler *handler.ReportHandler,
-	statsHandler *handler.StatsHandler,
+	userRepo user.Store,
+	roleRepo accesscontrol.RoleStore,
+	authHandler *authrest.AuthHandler,
+	userHandler *userrest.UserHandler,
+	roleHandler *acrest.RoleHandler,
+	permissionHandler *acrest.PermissionHandler,
+	adminUserHandler *userrest.AdminUserHandler,
+	verificationHandler *authrest.VerificationHandler,
+	passwordResetHandler *authrest.PasswordResetHandler,
+	reportHandler *reportrest.ReportHandler,
+	statsHandler *statsrest.StatsHandler,
 	limits Limiters,
 ) {
 	// authenticate only runs in the groups that need a user, so public routes never read a token.
@@ -45,7 +50,7 @@ func Setup(
 	// ============================================================
 	auth := api.Group("/auth")
 	authLimit := ourmiddleware.RateLimit(rate.Limit(5.0/60.0), 3)
-	auth.GET("/csrf", handler.CSRFToken)
+	auth.GET("/csrf", authrest.CSRFToken)
 	auth.POST("/login", authHandler.Login, authLimit)
 	// Refresh and logout read only the refresh cookie, so they stay open: they must
 	// work after the access token has expired. CSRF protection still applies.

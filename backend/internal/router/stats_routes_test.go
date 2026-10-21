@@ -8,27 +8,30 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/request"
+	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
+	statsrest "github.com/ssr0016/pastoral-reports/backend/internal/stats/rest"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 )
 
 // okStatsSvc answers every call and counts them: a call proves a request got past the gates.
 type okStatsSvc struct{ calls int }
 
-func (s *okStatsSvc) Get(context.Context, *string, *int) (model.AdminStats, error) {
+func (s *okStatsSvc) Get(context.Context, stats.GetStatsQuery) (stats.AdminStats, error) {
 	s.calls++
-	return model.AdminStats{Month: "September", Year: 2026}, nil
+	return stats.AdminStats{Month: "September", Year: 2026}, nil
 }
 
 // statsServer wires the real routes. A request is user 1 when it carries
 // X-Test-User; that user has the named role.
 func statsServer(roleName string) (*echo.Echo, *okStatsSvc) {
-	users := repository.NewMockUserRepo()
-	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
-		return &model.User{ID: id, RoleID: 9, Role: &model.Role{Name: roleName}}, nil
+	users := userimpl.NewMockStore()
+	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
+		return &user.User{ID: id, RoleID: 9, Role: &accesscontrol.Role{Name: roleName}}, nil
 	}
 	svc := &okStatsSvc{}
 	e := echo.New()
@@ -42,9 +45,9 @@ func statsServer(roleName string) (*echo.Echo, *okStatsSvc) {
 		}
 	})
 	Setup(e, noAuthn, users, permRoles{},
-		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
-		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		nil, handler.NewStatsHandler(svc),
+		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
+		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
+		nil, statsrest.NewStatsHandler(svc),
 		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},
 	)
 	return e, svc

@@ -11,7 +11,7 @@ import (
 	echomw "github.com/labstack/echo/v4/middleware"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
@@ -25,10 +25,10 @@ func TestBodyLimit_AppliesToAllBindRoutes(t *testing.T) {
 	e.Use(ourmiddleware.BodyLimit())
 	e.Use(echomw.Recover())
 	Setup(e, noAuthn, nil, nil,
-		handler.NewAuthHandler(nil, nil),
+		authrest.NewAuthHandler(nil, nil),
 		nil, nil, nil, nil,
-		handler.NewVerificationHandler(nil),
-		handler.NewPasswordResetHandler(nil),
+		authrest.NewVerificationHandler(nil),
+		authrest.NewPasswordResetHandler(nil),
 		nil, nil, noLimits,
 	)
 

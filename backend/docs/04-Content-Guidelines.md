@@ -364,40 +364,42 @@ Used by: `GET /admin/roles`, `GET /admin/permissions`. Not used by `GET /users` 
 ## 12. Code Structure and Naming Conventions
 
 ### 12.1 Layering
-Handler (bind, validate, map errors, respond) then Service (rules, orchestration; used for auth, verification, password reset) then Repository (SQL via Squirrel) then Model. Simple CRUD handlers call repositories directly (`CONTRIBUTING.md`, `docs/ARCHITECTURE.md`).
+Code is grouped by domain (`auth`, `user`, `accesscontrol`, `report`, `stats`, `audit`). Within one: handler in `<domain>/rest` (bind, validate, map errors, respond) then Service in `<domain>impl` (rules, orchestration) then Store in `<domain>impl` (SQL via Squirrel). Contracts, errors and models live in the parent `<domain>` package. Simple CRUD handlers call stores directly (`accesscontrol`; `CONTRIBUTING.md`, `docs/ARCHITECTURE.md`).
 
 ### 12.2 Files and Packages
 
 | Kind | Pattern | Examples |
 |---|---|---|
-| Handlers | `<resource>_handler.go` | `role_handler.go`, `admin_user_handler.go` |
-| Services | `<name>_service.go` | `auth_service.go` |
-| Repositories | `<name>_repo.go`, shared in `interfaces.go`, `helpers.go`, mock in `mock_repo.go` | `user_repo.go` |
+| Contracts | `<domain>/<domain>.go`: `Service`, `Store` interfaces and `Err...` sentinels | `report/report.go`, `accesscontrol/accesscontrol.go` |
+| Models | `<domain>/model.go` | `user/model.go` |
+| Handlers | `<domain>/rest/<resource>_handler.go` | `accesscontrol/rest/role_handler.go`, `user/rest/admin_user_handler.go` |
+| Services | `<domain>impl/<domain>.go` (more files when a domain has several) | `reportimpl/report.go`, `authimpl/verification.go` |
+| Stores | `<domain>impl/store.go` or `<name>_store.go`; mocks in `mock.go` | `userimpl/store.go`, `acimpl/role_store.go` |
 | Middleware | one concern per file | `rbac.go`, `ratelimit.go` |
-| Tests | `<file>_test.go`, integration `<file>_integration_test.go` with build tag | `auth_service_test.go` |
-| Packages | Short lowercase singular names under `internal/` | `handler`, `service`, `repository`, `model` |
+| Tests | `<file>_test.go`, integration `<file>_integration_test.go` with build tag | `authimpl/auth_test.go` |
+| Packages | Domain name, `<domain>impl`, `rest`; import `rest` packages with an alias | `reportrest`, `acrest` |
 
 ### 12.3 Types and Functions
 
 | Element | Convention | Example |
 |---|---|---|
 | Handler type | `<Resource>Handler` with unexported dependencies | `RoleHandler{roleRepo, permissionRepo}` |
-| Constructor | `New<Type>(deps...) *<Type>` | `NewRoleHandler` |
-| Repository interface | `<Name>Repository` in `repository/interfaces.go` | `UserRepository` |
-| Repository implementation | `<Name>Repo` struct, compile-time assertion `var _ UserRepository = (*UserRepo)(nil)` | `UserRepo` |
-| Mocks | `Mock<Name>Repo` with overridable `...Func` fields | `MockUserRepo` |
-| Context | First parameter `ctx context.Context` for all service and repository methods | all |
+| Constructor | Handlers: `New<Type>(deps...) *<Type>`; services and stores: `NewService` / `New<Name>Store` returning the interface | `NewRoleHandler`, `reportimpl.NewService` |
+| Store interface | `Store` (or `<Name>Store`) in the parent package | `user.Store`, `accesscontrol.RoleStore` |
+| Implementations | unexported `service` / `store` structs | `userimpl.store` |
+| Mocks | `Mock<Name>Store` with overridable `...Func` fields | `userimpl.MockStore` |
+| Context | First parameter `ctx context.Context` for all service and store methods; no Echo types below `rest` | all |
 | Entity conversion | `func (x *Entity) ToResponse() EntityResponse` | `User.ToResponse` |
 | Constants | Error codes as typed `Code` constants; lifetimes as exported constants (`TokenLifetime`, `PasswordResetLifetime`) | `apperror`, repositories |
 | Import grouping | stdlib, third-party, then module imports, blank-line separated (goimports) | all files |
 | Doc comments | Swagger `// Name godoc` blocks on handlers; short doc comments on exported types and functions | handlers, models |
-| Section separators | `// ====...` banner comments in `router.go`, `seed.go`, `apperror.go`, `model/role.go` | |
+| Section separators | `// ====...` banner comments in `router.go`, `seed.go`, `apperror.go`, `accesscontrol/model.go` | |
 
 ### 12.4 Repository Query Pattern
 - SQL built with `r.db.Builder` (Squirrel, `$n` placeholders); column lists kept in constants (`roleColumns`, `passwordResetColumns`).
 - Errors wrapped as `fmt.Errorf("build query: %w", err)`, `fmt.Errorf("query roles: %w", err)`, `fmt.Errorf("scan role: %w", err)`.
 - Rows loops: `defer rows.Close()`, `rows.Next()/Scan`, return `rows.Err()`.
-- Shared helper `deleteByID` for deletes (error when no rows affected).
+- Shared helper `deleteByID` (in `acimpl`) for deletes (error when no rows affected).
 - `// #nosec G115 - limit validated` is used on `uint64` conversions of limit/offset.
 
 ### 12.1 Filter Labels

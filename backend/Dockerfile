@@ -37,6 +37,6 @@ USER app
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget --quiet --tries=1 -O /dev/null http://localhost:8080/health || exit 1
+    CMD wget --quiet --tries=1 -O /dev/null "http://localhost:${APP_PORT:-${PORT:-8080}}/health" || exit 1
 
 CMD ["/app/api"]

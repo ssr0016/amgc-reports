@@ -2,9 +2,8 @@
 package pagination
 
 import (
+	"net/url"
 	"strconv"
-
-	"github.com/labstack/echo/v4"
 )
 
 const (
@@ -52,10 +51,10 @@ func NewMeta(p Params, total int64) Meta {
 	}
 }
 
-// FromContext parses pagination params from Echo context.
-func FromContext(c echo.Context) Params {
-	page := parseInt(c.QueryParam("page"), DefaultPage)
-	limit := parseInt(c.QueryParam("limit"), DefaultLimit)
+// FromQuery parses pagination params from the query string.
+func FromQuery(q url.Values) Params {
+	page := parseInt(q.Get("page"), DefaultPage)
+	limit := parseInt(q.Get("limit"), DefaultLimit)
 
 	if page < 1 {
 		page = DefaultPage

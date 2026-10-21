@@ -11,7 +11,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 )
 
@@ -23,8 +23,8 @@ func globalServer(burst int) *echo.Echo {
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	e.GET("/health", func(c echo.Context) error { return c.String(http.StatusOK, "ok") })
 	Setup(e, noAuthn, nil, nil,
-		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
-		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
+		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
+		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		nil, nil, Limiters{Global: ourmiddleware.RateLimit(rate.Limit(0.0001), burst), Read: noLimit, Write: noLimit},
 	)
 	return e

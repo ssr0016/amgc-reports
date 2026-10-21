@@ -8,11 +8,14 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
+	reportrest "github.com/ssr0016/pastoral-reports/backend/internal/report/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/request"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	userrest "github.com/ssr0016/pastoral-reports/backend/internal/user/rest"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
 
@@ -20,21 +23,21 @@ import (
 // request got past the gates.
 type okUserSvc struct{ calls int }
 
-func (s *okUserSvc) Create(context.Context, int64, string, model.CreateUserRequest) (*model.User, error) {
+func (s *okUserSvc) Create(context.Context, int64, string, user.CreateUserRequest) (*user.User, error) {
 	s.calls++
-	return &model.User{ID: 5, Email: "pia@example.com", Name: "Pia"}, nil
+	return &user.User{ID: 5, Email: "pia@example.com", Name: "Pia"}, nil
 }
 
-func (s *okUserSvc) Update(context.Context, int64, string, int64, model.UpdateUserRequest) (*model.User, error) {
+func (s *okUserSvc) Update(context.Context, int64, string, int64, user.UpdateUserRequest) (*user.User, error) {
 	s.calls++
-	return &model.User{ID: 1, Email: "pia@example.com", Name: "Pia"}, nil
+	return &user.User{ID: 1, Email: "pia@example.com", Name: "Pia"}, nil
 }
 
 // adminUsersServer wires the real routes. A request is user 1 when it carries
 // X-Test-User; that user has the named role, and the role holds exactly perms.
-func (s *okUserSvc) ChangeStatus(context.Context, int64, string, int64, string) (*model.User, error) {
+func (s *okUserSvc) ChangeStatus(context.Context, int64, string, int64, string) (*user.User, error) {
 	s.calls++
-	return &model.User{ID: 1, Email: "pia@example.com", Name: "Pia", Status: model.UserStatusInactive}, nil
+	return &user.User{ID: 1, Email: "pia@example.com", Name: "Pia", Status: user.UserStatusInactive}, nil
 }
 
 func (s *okUserSvc) ResetPassword(context.Context, int64, string, int64, string) error {
@@ -47,12 +50,12 @@ func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc)
 }
 
 func adminUsersServerWith(limits Limiters, roleName string, perms ...string) (*echo.Echo, *okUserSvc) {
-	users := repository.NewMockUserRepo()
-	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
-		return &model.User{ID: id, RoleID: 9, Role: &model.Role{Name: roleName}}, nil
+	users := userimpl.NewMockStore()
+	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
+		return &user.User{ID: id, RoleID: 9, Role: &accesscontrol.Role{Name: roleName}}, nil
 	}
-	users.GetByIDFunc = func(_ context.Context, id int64) (*model.User, error) {
-		return &model.User{ID: id, Email: "pia@example.com", Name: "Pia"}, nil
+	users.GetByIDFunc = func(_ context.Context, id int64) (*user.User, error) {
+		return &user.User{ID: id, Email: "pia@example.com", Name: "Pia"}, nil
 	}
 	svc := &okUserSvc{}
 
@@ -68,10 +71,10 @@ func adminUsersServerWith(limits Limiters, roleName string, perms ...string) (*e
 		}
 	})
 	Setup(e, noAuthn, users, permRoles{perms: perms},
-		handler.NewAuthHandler(nil, nil), handler.NewUserHandler(users), nil, nil,
-		handler.NewAdminUserHandler(users, nil, svc),
-		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}), nil,
+		authrest.NewAuthHandler(nil, nil), userrest.NewUserHandler(users), nil, nil,
+		userrest.NewAdminUserHandler(users, nil, svc),
+		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
+		reportrest.NewReportHandler(okReportSvc{}), nil,
 		limits,
 	)
 	return e, svc
