@@ -20,7 +20,7 @@ Go backend for the Pastoral Reports app, built with **Echo**, **Squirrel**, **pg
 - Standardized errors - Custom apperror package
 
 ### Authentication (Complete Flow)
-- Session-based auth - alexedwards/scs + Postgres store
+- JWT auth - short access token and rotating refresh token in HttpOnly cookies (golang-jwt/jwt)
 - CSRF protection - Double-submit cookie pattern
 - Rate limiting - Per-IP rate limiter
 - Password strength - 60-bit entropy minimum
@@ -117,7 +117,7 @@ Expected output:
 
 1. Register - POST /api/v1/auth/register
 2. Verify email - GET /api/v1/auth/verify-email?token=XXX
-3. Login - POST /api/v1/auth/login (sets app_session cookie)
+3. Login - POST /api/v1/auth/login (sets the access_token and refresh_token cookies)
 4. Access protected routes - with session cookie
 5. Forgot password - POST /api/v1/auth/forgot-password
 6. Reset password - POST /api/v1/auth/reset-password

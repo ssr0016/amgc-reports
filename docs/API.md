@@ -18,7 +18,15 @@ POST /auth/login
       "password": "StrongPass123!"
     }
 
-Response (200): the user. Sets app_session cookie.
+Response (200): the user. Sets the `access_token` and `refresh_token` cookies (HttpOnly); neither is in the body.
+
+### POST /auth/refresh
+
+No body; reads the `refresh_token` cookie and needs the CSRF header. Response (204): sets a new access token and a new refresh token. The old refresh token stops working. 401 (and both cookies cleared) when the token is unknown, expired, idle longer than 30 min, already used, revoked, or its account is not active. The one exception: a token rotated within the last 10 s (a second tab) also gets a 401 but the cookies are left as they are. Clients call it once on a 401, then replay the request.
+
+### POST /auth/logout
+
+Needs no valid access token. Ends the sign-in named by the `refresh_token` cookie, clears both cookies, answers 200.
 
 ### 3. Authenticated Requests
 

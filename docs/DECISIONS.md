@@ -29,6 +29,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-18 | Report field visibility | Decided | here |
 | D-19 | Role filter is client-side | Decided 2026-10-16 | here |
 | D-A14 | Every password form asks twice; the server enforces it | Decided 2026-10-17; built in 22d | here |
+| D-AR1 | Architecture alignment with the company codebase, and JWT auth | Decided 2026-10-21; phases 0 to 3 built | here |
 
 ## Log
 
@@ -220,3 +221,34 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **The password in the browser:** it lives only in the dialog's state. After a reset the dialog stays open and shows it once, with Copy; closing it, Escape or Cancel clears it. It is not cached, logged, put in a URL, or kept in a toast. The generator is client-side (Web Crypto, 20 characters, no look-alikes `0 O 1 l I`, at least one lower case, upper case and digit).
 - **Not built:** a "must change at next sign-in" flag (it needs a column), a bulk reset, a reset from the Users tab row, and a password history.
 - **Deploy order:** the migration only widens a CHECK and the old code never writes the action, so the order is safe. The new frontend calls a route the old API lacks, so the Reset password button gets a 404 until Railway finishes.
+
+### D-AR1 Architecture alignment with the company codebase, and JWT auth
+**Date:** 2026-10-21 · **Status:** Decided; phases 0 to 3 built (JWT cutover and frontend refresh), not deployed
+**Spec:** `blueprint/context/current-feature.md`
+
+- **Decision:** adopt the parts of the company identity-service pattern that fit this stack (Echo, pgx, squirrel, goose), and replace scs sessions with JWT access tokens plus revocable refresh tokens. Not adopted: sqlx, `?` rebinding, a read/write pool split, the wrapped count query, a custom migrator, `/api/bo|aff|mem` paths.
+- **Why:** match the company's layout and auth model without a rewrite of what already works. Sessions gave instant revocation (D-A10, F-1, D-A12); the JWT design keeps that through refresh-token revocation and `users.tokens_valid_after`.
+
+| ID | Decision |
+|---|---|
+| D1 | Tokens travel in **HttpOnly cookies** (access `access_token`, refresh `refresh_token` on path `/api/v1/auth`). The CSRF double-submit stays, and D-F1 (cookie readable by Server Components and `proxy.ts`) stays valid. |
+| D2 | Real JWT, not just the middleware shape. |
+| D3 | Add `users.tokens_valid_after`: a token whose `iat` is older is refused, so a password change or admin reset kills access tokens at once. |
+| D4 | New dependency `github.com/golang-jwt/jwt/v5`. |
+| D5 | Access token 10 min, refresh token 24 h absolute, 30 min idle (the same as today's sessions). |
+| D6 | Keep wire names (swagger schema names, JSON shapes). Rename Go types internally only. |
+| D7 | Keep one central route table in `router.Setup`; no per-handler `Register`. |
+| D8 | The folder restructure to `<domain>/{model,<x>impl,rest}` is **deferred**. Revisit after phase 3. |
+| D9 | When the restructure happens, handlers live in a package named `rest` (not `http`). |
+| D10 | Refresh-token reuse is logged with `slog` only. No audit action, so no CHECK-constraint migration. |
+| D11 | The owner announces the cutover window. Every signed-in user is signed out at the JWT deploy. |
+
+- **Phase 0 (built):** `internal/request` carries the caller (`WithUser`, `UserFrom`). `middleware.Authenticate(sm)` is the only code that reads the session; it runs in the groups that need a user, so public routes never touch it. `RequireAuth`, `RequireRole`, `RequirePermission`, `RateLimitByUser` and the report and admin-user handlers no longer take the session manager. Login, logout and change-password still do, until phase 2. No status code or response changed.
+- **Phase 1 (built):** the transaction is carried in the context. `database.DB.InTransaction(ctx, fn)` opens it and passes `fn` a ctx that carries it; `database.DB.Querier(ctx)` returns that transaction or the pool. Repositories lost their `Querier` parameter, so a store call joins the transaction by using the ctx it was given. A nested `InTransaction` joins the outer one and commits nothing; commit and rollback happen once, at the outermost call. `repository.TxRunner` is now `InTransaction`, `repository.WithTx`, `Beginner` and `TxManager` are gone, and `ReportService` no longer takes a pool.
+- **Behaviour note:** repository reads that used to run on the pool inside a service transaction (for example `GetByID` in `setStatus`) now run inside it. That is stricter and safe, and it removes a read that could see state the transaction was about to change. Code in a transaction must use the ctx its closure receives; the outer ctx runs outside it.
+- **Not built yet:** phase 2 (JWT, refresh tokens, `/auth/refresh`, frontend refresh on 401, dropping the `sessions` table in a later migration), the `escapeLike` fix in `UserRepo.ListWithPagination`, and pool settings from env.
+- **Deploy order for phase 2:** set `JWT_SECRET` and the other new variables in Railway **before** pushing; a push to `main` deploys at once.
+- **Phase 2 and 3 (built):** `internal/auth/token` (HS256 pinned, iss/aud/exp checked, plus an integer `iatm` claim so `tokens_valid_after` compares exactly), `refresh_tokens` and `users.tokens_valid_after` (migration `20261021100000`), `POST /auth/refresh`, public `POST /auth/logout`, cookies in `handler/cookies.go`. Revocation checks live in `RequireRole`, `RequirePermission`, `Me` and `ChangePassword`. The frontend `api()` refreshes once on a 401 (single flight) and replays the request.
+- **Deviations from the spec:** (1) `JWT_SECRET` is checked by `Config.ValidateAuth()` at server start, not in `Load()`, so `api migrate` (the Railway pre-deploy) works before the variable exists. (2) Logout is public and reads the refresh cookie, so it works after the access token expires. (3) The `session` package and scs are removed now; the `sessions` table stays until a later migration. (4) The handlers are still in `internal/handler`; the `rest` rename (D9) waits for the deferred restructure (D8).
+- **Two tabs:** both may send the same refresh token within moments. The second is refused with a 401 but the cookies are left alone (`service.ErrRefreshReplayed`; the jar is shared and already holds the first tab's new tokens), and the sign-in survives. A rotated token seen again after 10 s is theft: the family is revoked and the cookies are cleared. Known limit: that second tab's frontend still signs out locally until it reloads, because its refresh call failed.
+- **Deploy:** set `JWT_SECRET` (>= 32 bytes) in Railway before pushing; everyone is signed out at cutover (D11).
