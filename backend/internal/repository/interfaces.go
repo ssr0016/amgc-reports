@@ -13,24 +13,38 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id int64) (*model.User, error)
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*model.User, error)
-	Create(ctx context.Context, q Querier, n model.NewUser) (*model.User, error)
-	UpdateProfile(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error)
+	Create(ctx context.Context, n model.NewUser) (*model.User, error)
+	UpdateProfile(ctx context.Context, id int64, p model.UserProfile) (*model.User, error)
 	// List returns users newest first; an empty status means every status.
 	List(ctx context.Context, emailFilter, status string, limit int) ([]model.User, error)
 	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 	MarkEmailVerified(ctx context.Context, userID int64) error
 	UpdatePassword(ctx context.Context, userID int64, hash string) error
-	UpdatePasswordKeepSession(ctx context.Context, q Querier, userID int64, hash, keepToken string) (int64, error)
+	UpdatePasswordKeepSession(ctx context.Context, userID int64, hash, keepFamily string) (int64, error)
 	RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
 	ResetLoginAttempts(ctx context.Context, userID int64) error
 	// ClearLockout zeroes the failed-login counter and the lock on q, so an admin reset can
 	// do it in the same transaction as the password change. A missing user is ErrNotFound.
-	ClearLockout(ctx context.Context, q Querier, userID int64) error
+	ClearLockout(ctx context.Context, userID int64) error
 	UpdateRole(ctx context.Context, userID, roleID int64) error
 	GetWithRole(ctx context.Context, id int64) (*model.User, error)
-	UpdateStatus(ctx context.Context, q Querier, id int64, status string) (*model.User, error)
-	RevokeSessions(ctx context.Context, q Querier, userID int64) (int64, error)
-	LockActiveAdmins(ctx context.Context, q Querier) ([]int64, error)
+	UpdateStatus(ctx context.Context, id int64, status string) (*model.User, error)
+	RevokeSessions(ctx context.Context, userID int64) (int64, error)
+	LockActiveAdmins(ctx context.Context) ([]int64, error)
+}
+
+// RefreshTokenRepository defines the interface for refresh-token access. Tokens
+// are found by the hash of the token (token.Hash), never by the token.
+type RefreshTokenRepository interface {
+	Create(ctx context.Context, t model.NewRefreshToken) (int64, error)
+	// GetForUpdate returns the token and locks its row until the transaction in ctx
+	// ends, so two refreshes of one token run one after the other. (nil, nil) when
+	// there is no such token.
+	GetForUpdate(ctx context.Context, hash string) (*model.RefreshToken, error)
+	// MarkReplaced revokes a token that has just been rotated and links its successor.
+	MarkReplaced(ctx context.Context, id, replacedBy int64, at time.Time) error
+	// RevokeFamily ends a sign-in: every live token of the family.
+	RevokeFamily(ctx context.Context, familyID string, at time.Time) error
 }
 
 // RoleRepository defines the interface for role data access.
@@ -79,12 +93,12 @@ type PasswordResetRepository interface {
 // ToggleComplete return an error wrapping ErrNotFound instead. year is
 // resolved by the service (the request may omit it).
 type ReportRepository interface {
-	Create(ctx context.Context, q Querier, userID int64, year int, req model.CreateReportRequest) (*model.Report, error)
-	Get(ctx context.Context, q Querier, id int64) (*model.Report, error)
+	Create(ctx context.Context, userID int64, year int, req model.CreateReportRequest) (*model.Report, error)
+	Get(ctx context.Context, id int64) (*model.Report, error)
 	List(ctx context.Context, p model.ListReportsParams, pg pagination.Params) ([]*model.Report, int64, error)
-	Update(ctx context.Context, q Querier, id int64, year int, req model.UpdateReportRequest) (*model.Report, error)
-	SoftDelete(ctx context.Context, q Querier, id int64) error
-	ToggleComplete(ctx context.Context, q Querier, id, approverID int64) (*model.Report, error)
+	Update(ctx context.Context, id int64, year int, req model.UpdateReportRequest) (*model.Report, error)
+	SoftDelete(ctx context.Context, id int64) error
+	ToggleComplete(ctx context.Context, id, approverID int64) (*model.Report, error)
 }
 
 // StatsRepository defines read-only counts for the admin dashboard.
@@ -95,12 +109,13 @@ type StatsRepository interface {
 // AuditRepository defines the interface for writing audit rows. Pass the
 // transaction of the change being audited.
 type AuditRepository interface {
-	Insert(ctx context.Context, q Querier, e model.AuditLog) error
+	Insert(ctx context.Context, e model.AuditLog) error
 }
 
 // Compile-time checks: implementations must satisfy interfaces.
 var (
 	_ UserRepository          = (*UserRepo)(nil)
+	_ RefreshTokenRepository  = (*RefreshTokenRepo)(nil)
 	_ RoleRepository          = (*RoleRepo)(nil)
 	_ PermissionRepository    = (*PermissionRepo)(nil)
 	_ VerificationRepository  = (*VerificationRepo)(nil)

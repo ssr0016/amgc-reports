@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // Account statuses (decision D-A10), as stored in users.status (chk_users_status).
 const (
 	UserStatusActive       = "active"
@@ -17,4 +19,10 @@ var UserStatuses = []string{UserStatusActive, UserStatusInactive, UserStatusDisc
 // hand-built value (a test fixture). Any other value is refused, never let through.
 func (u *User) CanSignIn() bool {
 	return u.Status == "" || u.Status == UserStatusActive
+}
+
+// AccessRevoked reports whether an access token signed at iat was invalidated by
+// a later password change, reset or status change (D3).
+func (u *User) AccessRevoked(iat time.Time) bool {
+	return !iat.IsZero() && iat.Before(u.TokensValidAfter.Truncate(time.Millisecond))
 }

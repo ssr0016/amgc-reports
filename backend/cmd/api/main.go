@@ -2,7 +2,7 @@ package main
 
 // @title           Pastoral Reports API
 // @version         1.0
-// @description     Pastoral Reports backend API: session auth and RBAC
+// @description     Pastoral Reports backend API: JWT cookie auth and RBAC
 
 // @license.name  MIT
 // @license.url   https://opensource.org/licenses/MIT
@@ -11,7 +11,7 @@ package main
 
 // @securityDefinitions.apikey CookieAuth
 // @in cookie
-// @name app_session
+// @name access_token
 
 import (
 	"context"
@@ -34,6 +34,7 @@ import (
 	"golang.org/x/time/rate"
 
 	_ "github.com/ssr0016/pastoral-reports/backend/docs"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
 	"github.com/ssr0016/pastoral-reports/backend/internal/config"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
@@ -42,7 +43,6 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 	"github.com/ssr0016/pastoral-reports/backend/internal/router"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
-	"github.com/ssr0016/pastoral-reports/backend/internal/session"
 )
 
 // Per-process request limits for /api/v1. Reports writes are configured in
@@ -155,6 +155,10 @@ func run() error {
 		return err
 	}
 
+	if err := cfg.ValidateAuth(); err != nil {
+		return fmt.Errorf("config validation: %w", err)
+	}
+
 	log := logger.New(logger.Config{
 		Level:  cfg.Logging.Level,
 		Format: cfg.Logging.Format,
@@ -194,7 +198,12 @@ func run() error {
 		return err
 	}
 
-	sm := session.New(db.Pool)
+	tokens := token.New(token.Config{
+		Secret:    []byte(cfg.Auth.JWTSecret),
+		Issuer:    cfg.Auth.JWTIssuer,
+		Audience:  cfg.Auth.JWTAudience,
+		AccessTTL: cfg.Auth.AccessTTL,
+	})
 
 	// Repositories
 	userRepo := repository.NewUserRepo(db)
@@ -204,26 +213,28 @@ func run() error {
 	passwordResetRepo := repository.NewPasswordResetRepo(db)
 	reportRepo := repository.NewReportRepo(db)
 	auditRepo := repository.NewAuditRepo(db)
-
-	txManager := repository.NewTxManager(db.Pool)
+	refreshRepo := repository.NewRefreshTokenRepo(db)
 
 	// Services
 	verificationService := service.NewVerificationService(userRepo, verificationRepo, log)
-	authService := service.NewAuthService(userRepo, roleRepo, verificationService, auditRepo, txManager, log)
+	authService := service.NewAuthService(userRepo, roleRepo, verificationService, auditRepo, db, log).
+		WithTokens(tokens, refreshRepo, service.TokenSettings{
+			RefreshTTL: cfg.Auth.RefreshTTL, RefreshIdleTTL: cfg.Auth.RefreshIdleTTL,
+		})
 	passwordResetService := service.NewPasswordResetService(userRepo, passwordResetRepo, log)
-	reportService := service.NewReportService(reportRepo, auditRepo, txManager, db.Pool, userRepo, roleRepo)
+	reportService := service.NewReportService(reportRepo, auditRepo, db, userRepo, roleRepo)
 	statsService := service.NewStatsService(repository.NewStatsRepo(db))
-	userService := service.NewUserService(userRepo, roleRepo, auditRepo, txManager)
+	userService := service.NewUserService(userRepo, roleRepo, auditRepo, db)
 
 	// Handlers
-	authHandler := handler.NewAuthHandler(authService, sm)
+	authHandler := handler.NewAuthHandler(authService, handler.NewCookies(cfg.Auth, cfg.IsProduction()))
 	userHandler := handler.NewUserHandler(userRepo)
 	roleHandler := handler.NewRoleHandler(roleRepo, permissionRepo)
 	permissionHandler := handler.NewPermissionHandler(permissionRepo)
-	adminUserHandler := handler.NewAdminUserHandler(userRepo, roleRepo, userService, sm)
+	adminUserHandler := handler.NewAdminUserHandler(userRepo, roleRepo, userService)
 	verificationHandler := handler.NewVerificationHandler(verificationService)
 	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
-	reportHandler := handler.NewReportHandler(reportService, sm)
+	reportHandler := handler.NewReportHandler(reportService)
 	statsHandler := handler.NewStatsHandler(statsService)
 	healthHandler := handler.NewHealthHandler(db.Pool)
 
@@ -234,7 +245,7 @@ func run() error {
 	// API routes
 	router.Setup(
 		e,
-		sm,
+		ourmiddleware.Authenticate(tokens),
 		userRepo,
 		roleRepo,
 		authHandler,
@@ -248,14 +259,12 @@ func run() error {
 		statsHandler,
 		router.Limiters{
 			Global: ourmiddleware.RateLimit(rate.Limit(globalRatePerMinute/60.0), globalBurst),
-			Read:   ourmiddleware.RateLimitByUser(sm, rate.Limit(readRatePerMinute/60.0), readBurst),
-			Write:  ourmiddleware.RateLimitByUser(sm, rate.Limit(float64(cfg.Reports.WriteRatePerMinute)/60), cfg.Reports.WriteBurst),
+			Read:   ourmiddleware.RateLimitByUser(rate.Limit(readRatePerMinute/60.0), readBurst),
+			Write:  ourmiddleware.RateLimitByUser(rate.Limit(float64(cfg.Reports.WriteRatePerMinute)/60), cfg.Reports.WriteBurst),
 		},
 	)
 
-	scsHandler := sm.LoadAndSave(e)
-
-	server := newHTTPServer(cfg, scsHandler)
+	server := newHTTPServer(cfg, e)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

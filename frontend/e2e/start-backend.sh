@@ -26,6 +26,12 @@ export CORS_ALLOWED_ORIGINS=http://localhost:3001
 # Lets each test present its own client address (X-Real-IP), so the 5 per minute
 # login limit and the per-IP global limit apply per test, not to the whole run.
 export TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
+# A fixed secret is fine here: the database is thrown away on every run.
+export JWT_SECRET=e2e-only-secret-e2e-only-secret-0123456789
+# The specs share saved sign-ins (e2e/.auth) and call the API directly, without the
+# browser's refresh logic, and a refresh token is single use. A long access token keeps
+# those sign-ins valid for the whole run; session-refresh.spec.ts covers the refresh itself.
+export JWT_ACCESS_TTL=2h
 export ADMIN_EMAIL=e2e-admin@example.com ADMIN_NAME=E2E\ Admin ADMIN_PASSWORD=E2eAdmin!2345
 export LOG_LEVEL=warn
 exec go run ./cmd/api

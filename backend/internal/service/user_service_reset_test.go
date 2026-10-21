@@ -20,17 +20,17 @@ const resetPassword = "N3w-Passw0rd-Xv91-mT"
 func TestUserService_ResetPassword(t *testing.T) {
 	ctx := context.Background()
 	newUser := func(f userFixture) *model.User {
-		u, err := f.users.Create(ctx, nil, model.NewUser{Email: "u@example.com", Name: "U", PasswordHash: "keep"})
+		u, err := f.users.Create(ctx, model.NewUser{Email: "u@example.com", Name: "U", PasswordHash: "keep"})
 		require.NoError(t, err)
 		return u
 	}
 	// nothingWritten fails the test if the password, the sessions or the lockout are touched.
 	nothingWritten := func(t *testing.T, f userFixture) {
-		f.users.UpdatePasswordKeepSessionFunc = func(context.Context, repository.Querier, int64, string, string) (int64, error) {
+		f.users.UpdatePasswordKeepSessionFunc = func(context.Context, int64, string, string) (int64, error) {
 			t.Error("the password was written")
 			return 0, nil
 		}
-		f.users.ClearLockoutFunc = func(context.Context, repository.Querier, int64) error {
+		f.users.ClearLockoutFunc = func(context.Context, int64) error {
 			t.Error("the lockout was cleared")
 			return nil
 		}
@@ -41,11 +41,11 @@ func TestUserService_ResetPassword(t *testing.T) {
 		u := newUser(f)
 		var gotHash, gotKeep string
 		var gotID, clearedID int64
-		f.users.UpdatePasswordKeepSessionFunc = func(_ context.Context, _ repository.Querier, id int64, hash, keep string) (int64, error) {
+		f.users.UpdatePasswordKeepSessionFunc = func(_ context.Context, id int64, hash, keep string) (int64, error) {
 			gotID, gotHash, gotKeep = id, hash, keep
 			return 2, nil
 		}
-		f.users.ClearLockoutFunc = func(_ context.Context, _ repository.Querier, id int64) error {
+		f.users.ClearLockoutFunc = func(_ context.Context, id int64) error {
 			clearedID = id
 			return nil
 		}
@@ -133,7 +133,7 @@ func TestUserService_ResetPassword(t *testing.T) {
 	t.Run("a user deleted between the read and the write is not found", func(t *testing.T) {
 		f := newUserFixture()
 		u := newUser(f)
-		f.users.UpdatePasswordKeepSessionFunc = func(context.Context, repository.Querier, int64, string, string) (int64, error) {
+		f.users.UpdatePasswordKeepSessionFunc = func(context.Context, int64, string, string) (int64, error) {
 			return 0, fmt.Errorf("users: %w", repository.ErrNotFound)
 		}
 
@@ -146,7 +146,7 @@ func TestUserService_ResetPassword(t *testing.T) {
 	t.Run("a failed lockout clear fails the reset and writes no audit row", func(t *testing.T) {
 		f := newUserFixture()
 		u := newUser(f)
-		f.users.ClearLockoutFunc = func(context.Context, repository.Querier, int64) error { return errors.New("boom") }
+		f.users.ClearLockoutFunc = func(context.Context, int64) error { return errors.New("boom") }
 
 		err := f.svc.ResetPassword(ctx, adminID, "", u.ID, resetPassword)
 
@@ -161,7 +161,7 @@ func TestUserService_ResetPassword(t *testing.T) {
 			f := newUserFixture()
 			u := newUser(f)
 			u.Status = status
-			f.users.UpdateStatusFunc = func(context.Context, repository.Querier, int64, string) (*model.User, error) {
+			f.users.UpdateStatusFunc = func(context.Context, int64, string) (*model.User, error) {
 				t.Error("a reset changed the status")
 				return nil, nil
 			}

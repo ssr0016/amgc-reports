@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
+	"github.com/ssr0016/pastoral-reports/backend/internal/config"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
@@ -35,12 +36,13 @@ func serveLogin(t *testing.T, status string, lockedUntil *time.Time, password st
 	}
 	u.Status, u.LockedUntil = status, lockedUntil
 
-	sm := scs.New()
-	h := NewAuthHandler(service.NewAuthService(users, nil, nil, nil, nil, nil), sm)
+	svc := service.NewAuthService(users, nil, nil, nil, nil, nil).
+		WithTokens(token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute}),
+			repository.NewMockRefreshRepo(), service.TokenSettings{RefreshTTL: time.Hour})
+	h := NewAuthHandler(svc, NewCookies(config.AuthConfig{}, false))
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.POST("/auth/login", h.Login)
 
 	body := `{"email":"s@example.com","password":"` + password + `"}`
@@ -78,5 +80,40 @@ func TestAuthHandler_Login_StatusMessages(t *testing.T) {
 				t.Errorf("body = %s, want it to contain %q", rec.Body.String(), tt.message)
 			}
 		})
+	}
+}
+
+// A successful login sets both cookies, HttpOnly, with the refresh token confined to the auth routes.
+func TestAuthHandler_Login_SetsTheAuthCookies(t *testing.T) {
+	rec := serveLogin(t, model.UserStatusActive, nil, loginPassword)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d (%s)", rec.Code, rec.Body.String())
+	}
+	byName := map[string]*http.Cookie{}
+	for _, c := range rec.Result().Cookies() {
+		byName[c.Name] = c
+	}
+	access, refresh := byName["access_token"], byName["refresh_token"]
+	if access == nil || refresh == nil {
+		t.Fatalf("cookies = %v, want access_token and refresh_token", rec.Result().Cookies())
+	}
+	for _, c := range []*http.Cookie{access, refresh} {
+		if !c.HttpOnly || c.SameSite != http.SameSiteLaxMode || c.Value == "" {
+			t.Errorf("%s: HttpOnly=%v SameSite=%v empty=%v", c.Name, c.HttpOnly, c.SameSite, c.Value == "")
+		}
+	}
+	if access.Path != "/" || refresh.Path != "/api/v1/auth" {
+		t.Errorf("paths = %q and %q", access.Path, refresh.Path)
+	}
+	if strings.Contains(rec.Body.String(), refresh.Value) || strings.Contains(rec.Body.String(), access.Value) {
+		t.Error("a token was echoed in the response body")
+	}
+}
+
+// A refused login sets no cookie.
+func TestAuthHandler_Login_RefusedSetsNoCookie(t *testing.T) {
+	rec := serveLogin(t, model.UserStatusInactive, nil, loginPassword)
+	if got := rec.Result().Cookies(); len(got) != 0 {
+		t.Errorf("cookies = %v, want none", got)
 	}
 }

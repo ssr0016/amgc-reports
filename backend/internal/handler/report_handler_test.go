@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
@@ -66,17 +66,15 @@ func (f *fakeReportSvc) ToggleComplete(_ context.Context, uid int64, _ string, i
 // serveReport routes one request through the handler with an optional session user.
 func serveReport(t *testing.T, svc ReportServiceInterface, userID int64, method, target, body string) (*httptest.ResponseRecorder, errorBody) {
 	t.Helper()
-	sm := scs.New()
-	h := NewReportHandler(svc, sm)
+	h := NewReportHandler(svc)
 
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if userID != 0 {
-				sm.Put(c.Request().Context(), "user_id", userID)
+				c.SetRequest(c.Request().WithContext(request.WithUser(c.Request().Context(), request.User{ID: userID})))
 			}
 			return next(c)
 		}

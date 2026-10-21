@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
@@ -23,7 +22,7 @@ func globalServer(burst int) *echo.Echo {
 	e := echo.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	e.GET("/health", func(c echo.Context) error { return c.String(http.StatusOK, "ok") })
-	Setup(e, nil, nil, nil,
+	Setup(e, noAuthn, nil, nil,
 		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
 		nil, nil, Limiters{Global: ourmiddleware.RateLimit(rate.Limit(0.0001), burst), Read: noLimit, Write: noLimit},
@@ -79,8 +78,8 @@ func TestGlobalLimit_SystemRoutesAreNotLimited(t *testing.T) {
 }
 
 func readLimitServer(burst int, perms ...string) *echo.Echo {
-	return reportsServerWith(func(sm *scs.SessionManager) Limiters {
-		return Limiters{Global: noLimit, Read: ourmiddleware.RateLimitByUser(sm, rate.Limit(0.0001), burst), Write: noLimit}
+	return reportsServerWith(func() Limiters {
+		return Limiters{Global: noLimit, Read: ourmiddleware.RateLimitByUser(rate.Limit(0.0001), burst), Write: noLimit}
 	}, perms...)
 }
 

@@ -8,15 +8,18 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
+	"github.com/ssr0016/pastoral-reports/backend/internal/config"
 	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
@@ -28,9 +31,8 @@ const (
 
 // changePasswordServer wires the real routes with the real AuthService over mocks.
 // A request is logged in as user 1 when it carries X-Test-User.
-func changePasswordServer(t *testing.T, write func(*scs.SessionManager) echo.MiddlewareFunc) *echo.Echo {
+func changePasswordServer(t *testing.T, write func() echo.MiddlewareFunc) *echo.Echo {
 	t.Helper()
-	sm := scs.New()
 	hash, err := bcrypt.GenerateFromPassword([]byte(routeOldPassword), bcrypt.MinCost)
 	if err != nil {
 		t.Fatal(err)
@@ -46,24 +48,25 @@ func changePasswordServer(t *testing.T, write func(*scs.SessionManager) echo.Mid
 		}
 		return u, err
 	}
-	svc := service.NewAuthService(users, nil, nil, repository.NewMockAuditRepo(), runTx{}, slog.New(slog.DiscardHandler))
+	svc := service.NewAuthService(users, nil, nil, repository.NewMockAuditRepo(), runTx{}, slog.New(slog.DiscardHandler)).
+		WithTokens(token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute}),
+			repository.NewMockRefreshRepo(), service.TokenSettings{})
 
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if id, err := strconv.ParseInt(c.Request().Header.Get("X-Test-User"), 10, 64); err == nil {
-				sm.Put(c.Request().Context(), "user_id", id)
+				c.SetRequest(c.Request().WithContext(request.WithUser(c.Request().Context(), request.User{ID: id})))
 			}
 			return next(c)
 		}
 	})
-	Setup(e, sm, users, permRoles{}, handler.NewAuthHandler(svc, sm), nil, nil, nil, nil,
+	Setup(e, noAuthn, users, permRoles{}, handler.NewAuthHandler(svc, handler.NewCookies(config.AuthConfig{}, false)), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}, sm), nil,
-		Limiters{Global: noLimit, Read: noLimit, Write: write(sm)},
+		handler.NewReportHandler(okReportSvc{}), nil,
+		Limiters{Global: noLimit, Read: noLimit, Write: write()},
 	)
 	return e
 }
@@ -82,7 +85,7 @@ func changePassword(e *echo.Echo, current, user string) int {
 }
 
 func TestChangePasswordRoute_NeedsASession(t *testing.T) {
-	e := changePasswordServer(t, func(*scs.SessionManager) echo.MiddlewareFunc { return noLimit })
+	e := changePasswordServer(t, func() echo.MiddlewareFunc { return noLimit })
 	if got := changePassword(e, routeOldPassword, ""); got != http.StatusUnauthorized {
 		t.Errorf("signed out: status = %d, want 401", got)
 	}

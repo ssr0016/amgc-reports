@@ -1,4 +1,4 @@
-package repository
+package database
 
 import (
 	"context"
@@ -36,7 +36,7 @@ func (b *fakeBeginner) Begin(context.Context) (pgx.Tx, error) {
 	return b.tx, nil
 }
 
-func TestWithTx(t *testing.T) {
+func TestInTransaction(t *testing.T) {
 	errBoom := errors.New("boom")
 	errBegin := errors.New("no connection")
 	errCommit := errors.New("commit failed")
@@ -45,27 +45,27 @@ func TestWithTx(t *testing.T) {
 		name          string
 		beginErr      error
 		commitErr     error
-		fn            func(Querier) error
+		fn            func(context.Context) error
 		wantErr       error
 		wantCommits   int
 		wantRollbacks int
 	}{
 		{
 			name:          "nil return commits",
-			fn:            func(Querier) error { return nil },
+			fn:            func(context.Context) error { return nil },
 			wantCommits:   1,
 			wantRollbacks: 1, // deferred; a no-op on a real committed tx
 		},
 		{
 			name:          "error rolls back and is returned",
-			fn:            func(Querier) error { return errBoom },
+			fn:            func(context.Context) error { return errBoom },
 			wantErr:       errBoom,
 			wantRollbacks: 1,
 		},
 		{
 			name:          "commit failure is wrapped",
 			commitErr:     errCommit,
-			fn:            func(Querier) error { return nil },
+			fn:            func(context.Context) error { return nil },
 			wantErr:       errCommit,
 			wantCommits:   1,
 			wantRollbacks: 1, // the deferred rollback is a no-op on a real tx
@@ -73,7 +73,7 @@ func TestWithTx(t *testing.T) {
 		{
 			name:     "begin failure never calls fn",
 			beginErr: errBegin,
-			fn:       func(Querier) error { t.Fatal("fn must not run"); return nil },
+			fn:       func(context.Context) error { t.Fatal("fn must not run"); return nil },
 			wantErr:  errBegin,
 		},
 	}
@@ -81,7 +81,7 @@ func TestWithTx(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tx := &fakeTx{commitErr: tt.commitErr}
-			err := WithTx(context.Background(), &fakeBeginner{tx: tx, beginErr: tt.beginErr}, tt.fn)
+			err := inTransaction(context.Background(), &fakeBeginner{tx: tx, beginErr: tt.beginErr}, tt.fn)
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)
@@ -94,11 +94,11 @@ func TestWithTx(t *testing.T) {
 	}
 }
 
-func TestWithTx_PanicRollsBackAndRepanics(t *testing.T) {
+func TestInTransaction_PanicRollsBackAndRepanics(t *testing.T) {
 	tx := &fakeTx{}
 
 	require.PanicsWithValue(t, "kaboom", func() {
-		_ = WithTx(context.Background(), &fakeBeginner{tx: tx}, func(Querier) error {
+		_ = inTransaction(context.Background(), &fakeBeginner{tx: tx}, func(context.Context) error {
 			panic("kaboom")
 		})
 	})

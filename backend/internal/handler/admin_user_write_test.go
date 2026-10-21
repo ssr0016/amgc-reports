@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
@@ -66,17 +66,15 @@ type userErrBody struct {
 
 func serveUserAdmin(t *testing.T, svc UserAdminService, sessionUser int64, method, target, body string) (*httptest.ResponseRecorder, userErrBody) {
 	t.Helper()
-	sm := scs.New()
-	h := NewAdminUserHandler(nil, nil, svc, sm)
+	h := NewAdminUserHandler(nil, nil, svc)
 
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if sessionUser != 0 {
-				sm.Put(c.Request().Context(), "user_id", sessionUser)
+				c.SetRequest(c.Request().WithContext(request.WithUser(c.Request().Context(), request.User{ID: sessionUser})))
 			}
 			return next(c)
 		}

@@ -1,28 +1,29 @@
 package middleware
 
 import (
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 )
 
 // RequireRole returns a middleware that requires the user to have one of the specified roles.
-func RequireRole(userRepo repository.UserRepository, sm *scs.SessionManager, roles ...string) echo.MiddlewareFunc {
+func RequireRole(userRepo repository.UserRepository, roles ...string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			userID := sm.GetInt64(c.Request().Context(), "user_id")
-			if userID == 0 {
+			caller, ok := request.UserFrom(c.Request().Context())
+			if !ok {
 				return apperror.Unauthorized("authentication required")
 			}
 
-			user, err := userRepo.GetWithRole(c.Request().Context(), userID)
+			user, err := userRepo.GetWithRole(c.Request().Context(), caller.ID)
 			if err != nil {
 				return apperror.Internal("failed to load user").WithError(err)
 			}
-			// A session that outlives the account's status (D-A10) stops working here.
-			if user == nil || !user.CanSignIn() {
+			// A token that outlives the account's status (D-A10), or that was signed before a
+			// password change or reset (tokens_valid_after), stops working here.
+			if user == nil || !user.CanSignIn() || user.AccessRevoked(caller.IssuedAt) {
 				return apperror.Unauthorized("authentication required")
 			}
 
@@ -42,20 +43,21 @@ func RequireRole(userRepo repository.UserRepository, sm *scs.SessionManager, rol
 }
 
 // RequirePermission returns a middleware that requires the user to have all specified permissions.
-func RequirePermission(roleRepo repository.RoleRepository, userRepo repository.UserRepository, sm *scs.SessionManager, perms ...string) echo.MiddlewareFunc {
+func RequirePermission(roleRepo repository.RoleRepository, userRepo repository.UserRepository, perms ...string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			userID := sm.GetInt64(c.Request().Context(), "user_id")
-			if userID == 0 {
+			caller, ok := request.UserFrom(c.Request().Context())
+			if !ok {
 				return apperror.Unauthorized("authentication required")
 			}
 
-			user, err := userRepo.GetWithRole(c.Request().Context(), userID)
+			user, err := userRepo.GetWithRole(c.Request().Context(), caller.ID)
 			if err != nil {
 				return apperror.Internal("failed to load user").WithError(err)
 			}
-			// A session that outlives the account's status (D-A10) stops working here.
-			if user == nil || !user.CanSignIn() {
+			// A token that outlives the account's status (D-A10), or that was signed before a
+			// password change or reset (tokens_valid_after), stops working here.
+			if user == nil || !user.CanSignIn() || user.AccessRevoked(caller.IssuedAt) {
 				return apperror.Unauthorized("authentication required")
 			}
 

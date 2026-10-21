@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 )
 
 // okStatsSvc answers every call and counts them: a call proves a request got past the gates.
@@ -26,7 +26,6 @@ func (s *okStatsSvc) Get(context.Context, *string, *int) (model.AdminStats, erro
 // statsServer wires the real routes. A request is user 1 when it carries
 // X-Test-User; that user has the named role.
 func statsServer(roleName string) (*echo.Echo, *okStatsSvc) {
-	sm := scs.New()
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
 		return &model.User{ID: id, RoleID: 9, Role: &model.Role{Name: roleName}}, nil
@@ -34,16 +33,15 @@ func statsServer(roleName string) (*echo.Echo, *okStatsSvc) {
 	svc := &okStatsSvc{}
 	e := echo.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if id, err := strconv.ParseInt(c.Request().Header.Get("X-Test-User"), 10, 64); err == nil {
-				sm.Put(c.Request().Context(), "user_id", id)
+				c.SetRequest(c.Request().WithContext(request.WithUser(c.Request().Context(), request.User{ID: id})))
 			}
 			return next(c)
 		}
 	})
-	Setup(e, sm, users, permRoles{},
+	Setup(e, noAuthn, users, permRoles{},
 		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
 		nil, handler.NewStatsHandler(svc),

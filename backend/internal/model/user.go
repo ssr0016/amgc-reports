@@ -18,6 +18,10 @@ type User struct {
 	// Status is one of UserStatuses; only an active account can sign in (D-A10).
 	Status string `json:"status" db:"status"`
 
+	// TokensValidAfter: an access token signed before it is refused. Only
+	// GetWithRole loads it (the per-request check); the zero value never refuses.
+	TokensValidAfter time.Time `json:"-" db:"tokens_valid_after"`
+
 	// Profile defaults for the report form; nil when the admin has not set them.
 	// A report's worker is the user's name, so there is no separate worker.
 	AreaAssignment *string `json:"area_assignment,omitempty" db:"area_assignment"`

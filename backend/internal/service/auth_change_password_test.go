@@ -36,7 +36,7 @@ func newChangeFixture(t *testing.T) *changeFixture {
 		}
 		return u, err
 	}
-	f.users.UpdatePasswordKeepSessionFunc = func(_ context.Context, _ repository.Querier, id int64, hash, keep string) (int64, error) {
+	f.users.UpdatePasswordKeepSessionFunc = func(_ context.Context, id int64, hash, keep string) (int64, error) {
 		f.kept = keep
 		return f.ended, f.users.UpdatePassword(context.Background(), id, hash)
 	}
@@ -142,10 +142,10 @@ func TestChangePassword_AuditRowHasNoSecrets(t *testing.T) {
 func TestChangePassword_FailedAuditRollsBack(t *testing.T) {
 	f := newChangeFixture(t)
 	boom := errors.New("audit down")
-	f.audit.InsertFunc = func(context.Context, repository.Querier, model.AuditLog) error { return boom }
+	f.audit.InsertFunc = func(context.Context, model.AuditLog) error { return boom }
 
 	var committed bool
-	f.users.UpdatePasswordKeepSessionFunc = func(_ context.Context, _ repository.Querier, id int64, hash, _ string) (int64, error) {
+	f.users.UpdatePasswordKeepSessionFunc = func(_ context.Context, id int64, hash, _ string) (int64, error) {
 		committed = true
 		return 0, nil
 	}
@@ -166,8 +166,8 @@ func TestChangePassword_UnknownUserIsUnauthorized(t *testing.T) {
 // rollbackTx reports whether the work failed, as a real transaction would roll back.
 type rollbackTx struct{ rolledBack *bool }
 
-func (r rollbackTx) WithTx(_ context.Context, fn func(repository.Querier) error) error {
-	if err := fn(nil); err != nil {
+func (r rollbackTx) InTransaction(ctx context.Context, fn func(context.Context) error) error {
+	if err := fn(ctx); err != nil {
 		*r.rolledBack = true
 		return err
 	}

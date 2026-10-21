@@ -16,7 +16,7 @@ import (
 )
 
 // MockReportRepo is an in-memory implementation of ReportRepository for testing.
-// The Querier argument is ignored, so there is no transaction: a failed audit
+// It has no transaction: a failed audit
 // write in a service test does not roll the report back.
 type MockReportRepo struct {
 	mu      sync.Mutex
@@ -24,12 +24,12 @@ type MockReportRepo struct {
 	nextID  int64
 
 	// Override functions for testing specific behaviors
-	CreateFunc         func(ctx context.Context, q Querier, userID int64, year int, req model.CreateReportRequest) (*model.Report, error)
-	GetFunc            func(ctx context.Context, q Querier, id int64) (*model.Report, error)
+	CreateFunc         func(ctx context.Context, userID int64, year int, req model.CreateReportRequest) (*model.Report, error)
+	GetFunc            func(ctx context.Context, id int64) (*model.Report, error)
 	ListFunc           func(ctx context.Context, p model.ListReportsParams, pg pagination.Params) ([]*model.Report, int64, error)
-	UpdateFunc         func(ctx context.Context, q Querier, id int64, year int, req model.UpdateReportRequest) (*model.Report, error)
-	SoftDeleteFunc     func(ctx context.Context, q Querier, id int64) error
-	ToggleCompleteFunc func(ctx context.Context, q Querier, id, approverID int64) (*model.Report, error)
+	UpdateFunc         func(ctx context.Context, id int64, year int, req model.UpdateReportRequest) (*model.Report, error)
+	SoftDeleteFunc     func(ctx context.Context, id int64) error
+	ToggleCompleteFunc func(ctx context.Context, id, approverID int64) (*model.Report, error)
 }
 
 // NewMockReportRepo creates a new mock repository.
@@ -94,9 +94,9 @@ func copyReport(r *model.Report) *model.Report {
 	return &c
 }
 
-func (m *MockReportRepo) Create(ctx context.Context, q Querier, userID int64, year int, req model.CreateReportRequest) (*model.Report, error) {
+func (m *MockReportRepo) Create(ctx context.Context, userID int64, year int, req model.CreateReportRequest) (*model.Report, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(ctx, q, userID, year, req)
+		return m.CreateFunc(ctx, userID, year, req)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -121,9 +121,9 @@ func (m *MockReportRepo) Create(ctx context.Context, q Querier, userID int64, ye
 	return copyReport(r), nil
 }
 
-func (m *MockReportRepo) Get(ctx context.Context, q Querier, id int64) (*model.Report, error) {
+func (m *MockReportRepo) Get(ctx context.Context, id int64) (*model.Report, error) {
 	if m.GetFunc != nil {
-		return m.GetFunc(ctx, q, id)
+		return m.GetFunc(ctx, id)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -185,9 +185,9 @@ func pageOf(all []*model.Report, pg pagination.Params) []*model.Report {
 	return page
 }
 
-func (m *MockReportRepo) Update(ctx context.Context, q Querier, id int64, year int, req model.UpdateReportRequest) (*model.Report, error) {
+func (m *MockReportRepo) Update(ctx context.Context, id int64, year int, req model.UpdateReportRequest) (*model.Report, error) {
 	if m.UpdateFunc != nil {
-		return m.UpdateFunc(ctx, q, id, year, req)
+		return m.UpdateFunc(ctx, id, year, req)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -212,9 +212,9 @@ func (m *MockReportRepo) Update(ctx context.Context, q Querier, id int64, year i
 	return copyReport(r), nil
 }
 
-func (m *MockReportRepo) SoftDelete(ctx context.Context, q Querier, id int64) error {
+func (m *MockReportRepo) SoftDelete(ctx context.Context, id int64) error {
 	if m.SoftDeleteFunc != nil {
-		return m.SoftDeleteFunc(ctx, q, id)
+		return m.SoftDeleteFunc(ctx, id)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -228,9 +228,9 @@ func (m *MockReportRepo) SoftDelete(ctx context.Context, q Querier, id int64) er
 	return nil
 }
 
-func (m *MockReportRepo) ToggleComplete(ctx context.Context, q Querier, id, approverID int64) (*model.Report, error) {
+func (m *MockReportRepo) ToggleComplete(ctx context.Context, id, approverID int64) (*model.Report, error) {
 	if m.ToggleCompleteFunc != nil {
-		return m.ToggleCompleteFunc(ctx, q, id, approverID)
+		return m.ToggleCompleteFunc(ctx, id, approverID)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()

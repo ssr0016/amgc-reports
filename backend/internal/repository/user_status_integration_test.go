@@ -14,7 +14,7 @@ import (
 
 func mustAdmin(t *testing.T, users *UserRepo, email string, roleID int64) int64 {
 	t.Helper()
-	u, err := users.Create(context.Background(), users.db.Pool, model.NewUser{Email: email, Name: "Admin", PasswordHash: "h", RoleID: roleID})
+	u, err := users.Create(context.Background(), model.NewUser{Email: email, Name: "Admin", PasswordHash: "h", RoleID: roleID})
 	require.NoError(t, err)
 	return u.ID
 }
@@ -26,7 +26,7 @@ func TestUserRepo_UpdateStatus(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "active", u.Status, "a new account is active")
 
-	got, err := users.UpdateStatus(ctx, users.db.Pool, u.ID, "inactive")
+	got, err := users.UpdateStatus(ctx, u.ID, "inactive")
 
 	require.NoError(t, err)
 	assert.Equal(t, "inactive", got.Status)
@@ -44,7 +44,7 @@ func TestUserRepo_UpdateStatus(t *testing.T) {
 func TestUserRepo_UpdateStatus_MissingUser(t *testing.T) {
 	users, _ := setupSessions(t)
 
-	_, err := users.UpdateStatus(context.Background(), users.db.Pool, 99999, "inactive")
+	_, err := users.UpdateStatus(context.Background(), 99999, "inactive")
 
 	require.ErrorIs(t, err, ErrNotFound)
 }
@@ -60,7 +60,7 @@ func TestUserRepo_RevokeSessions_EndsOnlyThatUsersLiveSessions(t *testing.T) {
 	addSession(t, tdb, "a2", a.ID)
 	addSession(t, tdb, "b1", b.ID)
 
-	n, err := users.RevokeSessions(ctx, users.db.Pool, a.ID)
+	n, err := users.RevokeSessions(ctx, a.ID)
 
 	require.NoError(t, err)
 	assert.EqualValues(t, 2, n)
@@ -79,10 +79,10 @@ func TestUserRepo_LockActiveAdmins_ReturnsOnlyActiveAdmins(t *testing.T) {
 	a1 := mustAdmin(t, users, "a1@example.com", adminRole)
 	a2 := mustAdmin(t, users, "a2@example.com", adminRole)
 	gone := mustAdmin(t, users, "gone@example.com", adminRole)
-	_, err = users.UpdateStatus(ctx, users.db.Pool, gone, "inactive")
+	_, err = users.UpdateStatus(ctx, gone, "inactive")
 	require.NoError(t, err)
 
-	ids, err := users.LockActiveAdmins(ctx, users.db.Pool)
+	ids, err := users.LockActiveAdmins(ctx)
 
 	require.NoError(t, err)
 	assert.Equal(t, []int64{a1, a2}, ids, "only active admins, in id order")
@@ -95,7 +95,7 @@ func TestUserRepo_List_FiltersByStatus(t *testing.T) {
 	mk := func(email, status string) {
 		u, err := users.CreateWithPassword(ctx, email, "N", "h")
 		require.NoError(t, err)
-		_, err = users.UpdateStatus(ctx, users.db.Pool, u.ID, status)
+		_, err = users.UpdateStatus(ctx, u.ID, status)
 		require.NoError(t, err)
 	}
 	mk("a@example.com", "active")

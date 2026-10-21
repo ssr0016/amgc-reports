@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
 
@@ -47,7 +47,6 @@ func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc)
 }
 
 func adminUsersServerWith(limits Limiters, roleName string, perms ...string) (*echo.Echo, *okUserSvc) {
-	sm := scs.New()
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
 		return &model.User{ID: id, RoleID: 9, Role: &model.Role{Name: roleName}}, nil
@@ -60,20 +59,19 @@ func adminUsersServerWith(limits Limiters, roleName string, perms ...string) (*e
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if id, err := strconv.ParseInt(c.Request().Header.Get("X-Test-User"), 10, 64); err == nil {
-				sm.Put(c.Request().Context(), "user_id", id)
+				c.SetRequest(c.Request().WithContext(request.WithUser(c.Request().Context(), request.User{ID: id})))
 			}
 			return next(c)
 		}
 	})
-	Setup(e, sm, users, permRoles{perms: perms},
+	Setup(e, noAuthn, users, permRoles{perms: perms},
 		handler.NewAuthHandler(nil, nil), handler.NewUserHandler(users), nil, nil,
-		handler.NewAdminUserHandler(users, nil, svc, sm),
+		handler.NewAdminUserHandler(users, nil, svc),
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}, sm), nil,
+		handler.NewReportHandler(okReportSvc{}), nil,
 		limits,
 	)
 	return e, svc

@@ -8,12 +8,15 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
+	"github.com/ssr0016/pastoral-reports/backend/internal/config"
+	"github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
@@ -27,21 +30,29 @@ const (
 
 type cpTx struct{}
 
-func (cpTx) WithTx(_ context.Context, fn func(repository.Querier) error) error { return fn(nil) }
+func (cpTx) InTransaction(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 type cpFixture struct {
 	e      *echo.Echo
 	users  *repository.MockUserRepo
 	audit  *repository.MockAuditRepo
+	tokens *token.Manager
 	kept   string
 	userID int64
+
+	// validAfter is what the real repository stores as users.tokens_valid_after.
+	validAfter time.Time
 }
 
-// newCPFixture serves POST /auth/change-password and a /whoami probe over a real
-// session manager, so the session cookie can be followed across requests.
+const cpFamily = "family-1"
+
+// newCPFixture serves POST /auth/change-password and a /whoami probe behind the
+// real Authenticate and RequireRole middleware, so the access cookie can be
+// followed across requests and a revoked token is refused as it is in production.
 func newCPFixture(t *testing.T) *cpFixture {
 	t.Helper()
 	f := &cpFixture{users: repository.NewMockUserRepo(), audit: repository.NewMockAuditRepo()}
+	f.tokens = token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute})
 	hash, err := bcrypt.GenerateFromPassword([]byte(cpOld), bcrypt.MinCost)
 	if err != nil {
 		t.Fatal(err)
@@ -55,33 +66,35 @@ func newCPFixture(t *testing.T) *cpFixture {
 		got, err := f.users.GetByID(context.Background(), id)
 		if got != nil {
 			got.Role = &model.Role{Name: "user"}
+			got.TokensValidAfter = f.validAfter
 		}
 		return got, err
 	}
-	f.users.UpdatePasswordKeepSessionFunc = func(_ context.Context, _ repository.Querier, id int64, hash, keep string) (int64, error) {
+	f.users.UpdatePasswordKeepSessionFunc = func(_ context.Context, id int64, hash, keep string) (int64, error) {
 		f.kept = keep
+		f.validAfter = time.Now().Truncate(time.Millisecond)
 		return 0, f.users.UpdatePassword(context.Background(), id, hash)
 	}
 
-	sm := scs.New()
-	svc := service.NewAuthService(f.users, nil, nil, f.audit, cpTx{}, slog.New(slog.DiscardHandler))
-	h := NewAuthHandler(svc, sm)
+	svc := service.NewAuthService(f.users, nil, nil, f.audit, cpTx{}, slog.New(slog.DiscardHandler)).
+		WithTokens(f.tokens, repository.NewMockRefreshRepo(), service.TokenSettings{})
+	h := NewAuthHandler(svc, NewCookies(config.AuthConfig{}, false))
 
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
+	e.Use(middleware.Authenticate(f.tokens))
 	e.POST("/test-login", func(c echo.Context) error {
-		sm.Put(c.Request().Context(), "user_id", u.ID)
-		return c.NoContent(http.StatusNoContent)
-	})
-	e.GET("/whoami", func(c echo.Context) error {
-		if sm.GetInt64(c.Request().Context(), "user_id") == 0 {
-			return apperror.Unauthorized("not authenticated")
+		access, exp, err := f.tokens.Issue(u.ID, cpFamily)
+		if err != nil {
+			return err
 		}
+		NewCookies(config.AuthConfig{}, false).SetAccess(c, access, exp)
 		return c.NoContent(http.StatusNoContent)
 	})
-	e.POST("/auth/change-password", h.ChangePassword)
+	e.GET("/whoami", func(c echo.Context) error { return c.NoContent(http.StatusNoContent) },
+		middleware.RequireAuth(), middleware.RequireRole(f.users, "user"))
+	e.POST("/auth/change-password", h.ChangePassword, middleware.RequireAuth())
 	f.e = e
 	return f
 }
@@ -100,11 +113,11 @@ func (f *cpFixture) do(method, path, body string, cookie *http.Cookie) *httptest
 func sessionCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
 	for _, c := range rec.Result().Cookies() {
-		if c.Name == "session" {
+		if c.Name == middleware.AccessCookieName {
 			return c
 		}
 	}
-	t.Fatalf("no session cookie in %v", rec.Result().Cookies())
+	t.Fatalf("no access cookie in %v", rec.Result().Cookies())
 	return nil
 }
 
@@ -137,7 +150,7 @@ func details(t *testing.T, rec *httptest.ResponseRecorder) map[string]string {
 	return body.Details
 }
 
-func TestChangePassword_Success_KeepsThisSessionAndRotatesItsToken(t *testing.T) {
+func TestChangePassword_Success_KeepsThisSignInAndRenewsItsToken(t *testing.T) {
 	f := newCPFixture(t)
 	old := f.signIn(t)
 
@@ -146,15 +159,15 @@ func TestChangePassword_Success_KeepsThisSessionAndRotatesItsToken(t *testing.T)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want 204 (%s)", rec.Code, rec.Body.String())
 	}
-	if f.kept != old.Value {
-		t.Errorf("kept session = %q, want the caller's %q: the others end, this one must not", f.kept, old.Value)
+	if f.kept != cpFamily {
+		t.Errorf("kept sign-in = %q, want the caller's %q: the others end, this one must not", f.kept, cpFamily)
 	}
 	fresh := sessionCookie(t, rec)
 	if fresh.Value == old.Value {
-		t.Error("the session token was not rotated after the password change")
+		t.Error("the access token was not renewed after the password change")
 	}
 	if got := f.do(http.MethodGet, "/whoami", "", fresh); got.Code != http.StatusNoContent {
-		t.Errorf("the rotated session was signed out: status %d", got.Code)
+		t.Errorf("the renewed sign-in was signed out: status %d", got.Code)
 	}
 	if got := f.do(http.MethodGet, "/whoami", "", old); got.Code != http.StatusUnauthorized {
 		t.Errorf("the old token still works: status %d", got.Code)
@@ -257,7 +270,7 @@ func TestChangePassword_UserGoneIs401(t *testing.T) {
 func TestChangePassword_ServerErrorIs500AndHidesTheCause(t *testing.T) {
 	f := newCPFixture(t)
 	cookie := f.signIn(t)
-	f.users.UpdatePasswordKeepSessionFunc = func(context.Context, repository.Querier, int64, string, string) (int64, error) {
+	f.users.UpdatePasswordKeepSessionFunc = func(context.Context, int64, string, string) (int64, error) {
 		return 0, context.DeadlineExceeded
 	}
 	rec := f.do(http.MethodPost, "/auth/change-password", cpBody(cpOld, cpNew), cookie)

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
@@ -17,6 +16,7 @@ import (
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
@@ -58,18 +58,17 @@ func (okReportSvc) ToggleComplete(context.Context, int64, string, int64) (*model
 // reportsServer wires the real routes. A request is logged in as user 1 when it
 // carries the X-Test-User header; that user's role holds exactly perms.
 func reportsServer(perms ...string) *echo.Echo {
-	return reportsServerLimited(func(*scs.SessionManager) echo.MiddlewareFunc { return noLimit }, perms...)
+	return reportsServerLimited(func() echo.MiddlewareFunc { return noLimit }, perms...)
 }
 
-func reportsServerLimited(mkLimit func(*scs.SessionManager) echo.MiddlewareFunc, perms ...string) *echo.Echo {
-	return reportsServerWith(func(sm *scs.SessionManager) Limiters {
-		return Limiters{Global: noLimit, Read: noLimit, Write: mkLimit(sm)}
+func reportsServerLimited(mkLimit func() echo.MiddlewareFunc, perms ...string) *echo.Echo {
+	return reportsServerWith(func() Limiters {
+		return Limiters{Global: noLimit, Read: noLimit, Write: mkLimit()}
 	}, perms...)
 }
 
-func reportsServerWith(mk func(*scs.SessionManager) Limiters, perms ...string) *echo.Echo {
-	sm := scs.New()
-	limits := mk(sm)
+func reportsServerWith(mk func() Limiters, perms ...string) *echo.Echo {
+	limits := mk()
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
 		return &model.User{ID: id, RoleID: 9}, nil
@@ -78,19 +77,18 @@ func reportsServerWith(mk func(*scs.SessionManager) Limiters, perms ...string) *
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if id, err := strconv.ParseInt(c.Request().Header.Get("X-Test-User"), 10, 64); err == nil {
-				sm.Put(c.Request().Context(), "user_id", id)
+				c.SetRequest(c.Request().WithContext(request.WithUser(c.Request().Context(), request.User{ID: id})))
 			}
 			return next(c)
 		}
 	})
-	Setup(e, sm, users, permRoles{perms: perms},
+	Setup(e, noAuthn, users, permRoles{perms: perms},
 		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}, sm), nil, limits,
+		handler.NewReportHandler(okReportSvc{}), nil, limits,
 	)
 	return e
 }
@@ -204,9 +202,9 @@ func TestReportsRoutes_DeniedRequestsDoNotConsumeTokens(t *testing.T) {
 }
 
 // userLimit builds a per-user limiter with the given burst and practically no refill.
-func userLimit(burst int) func(*scs.SessionManager) echo.MiddlewareFunc {
-	return func(sm *scs.SessionManager) echo.MiddlewareFunc {
-		return ourmiddleware.RateLimitByUser(sm, rate.Limit(0.0001), burst)
+func userLimit(burst int) func() echo.MiddlewareFunc {
+	return func() echo.MiddlewareFunc {
+		return ourmiddleware.RateLimitByUser(rate.Limit(0.0001), burst)
 	}
 }
 

@@ -19,7 +19,7 @@ import (
 // failingAudit makes every audit insert fail, as a database error would.
 type failingAudit struct{}
 
-func (failingAudit) Insert(context.Context, repository.Querier, model.AuditLog) error {
+func (failingAudit) Insert(context.Context, model.AuditLog) error {
 	return errors.New("audit insert failed")
 }
 
@@ -42,7 +42,7 @@ func newUserSvcEnv(t *testing.T) userSvcEnv {
 }
 
 func (e userSvcEnv) service(audit repository.AuditRepository) *UserService {
-	return NewUserService(e.users, e.roles, audit, repository.NewTxManager(e.tdb.Pool))
+	return NewUserService(e.users, e.roles, audit, &database.DB{Pool: e.tdb.Pool, Builder: database.NewStatementBuilder()})
 }
 
 func (e userSvcEnv) auditActions(t *testing.T, action string) int {

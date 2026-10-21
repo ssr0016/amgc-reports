@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 )
 
 func TestEvictAfter(t *testing.T) {
@@ -422,19 +422,15 @@ func TestRateLimit_RetryAfterIsSkippedWhenRateIsZero(t *testing.T) {
 	}
 }
 
-// RateLimitByUser keys on the session user, and falls back to the IP without one.
+// RateLimitByUser keys on the user, and falls back to the IP without one.
 func TestRateLimitByUser_Key(t *testing.T) {
-	sm := scs.New()
-	mw := RateLimitByUser(sm, rate.Limit(0.0001), 1) // burst 1: a second hit on one key is 429
+	mw := RateLimitByUser(rate.Limit(0.0001), 1) // burst 1: a second hit on one key is 429
 
-	// hit sends a request from one IP as the given user (0 = no session user).
+	// hit sends a request from one IP as the given user (0 = no user).
 	hit := func(user int64) error {
-		ctx, err := sm.Load(context.Background(), "")
-		if err != nil {
-			t.Fatal(err)
-		}
+		ctx := context.Background()
 		if user != 0 {
-			sm.Put(ctx, UserIDKey, user)
+			ctx = request.WithUser(ctx, request.User{ID: user})
 		}
 		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/", nil)
 		req.RemoteAddr = "203.0.113.9:1234"
@@ -451,7 +447,7 @@ func TestRateLimitByUser_Key(t *testing.T) {
 	if err := hit(2); err != nil {
 		t.Errorf("user 2 from the same IP blocked by user 1: %v", err)
 	}
-	// no session user: keyed by IP, separate from any user key
+	// no user: keyed by IP, separate from any user key
 	if err := hit(0); err != nil {
 		t.Errorf("anonymous first hit: %v", err)
 	}

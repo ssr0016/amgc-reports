@@ -44,7 +44,7 @@ func TestUserRepo_Create_Profile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := repo.Create(ctx, tdb.Pool, tt.in)
+			got, err := repo.Create(ctx, tt.in)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantRole(def.RoleID), got.RoleID)
 			assert.Equal(t, tt.area, got.AreaAssignment)
@@ -66,9 +66,9 @@ func TestUserRepo_Create_Profile(t *testing.T) {
 }
 
 func TestUserRepo_Create_Errors(t *testing.T) {
-	repo, tdb := setupTestRepo(t)
+	repo, _ := setupTestRepo(t)
 	ctx := context.Background()
-	_, err := repo.Create(ctx, tdb.Pool, model.NewUser{Email: "dup@example.com", Name: "One", PasswordHash: "h"})
+	_, err := repo.Create(ctx, model.NewUser{Email: "dup@example.com", Name: "One", PasswordHash: "h"})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -81,20 +81,20 @@ func TestUserRepo_Create_Errors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := repo.Create(ctx, tdb.Pool, tt.in)
+			_, err := repo.Create(ctx, tt.in)
 			assert.ErrorIs(t, err, tt.want)
 		})
 	}
 }
 
 func TestUserRepo_UpdateProfile(t *testing.T) {
-	repo, tdb := setupTestRepo(t)
+	repo, _ := setupTestRepo(t)
 	ctx := context.Background()
-	u, err := repo.Create(ctx, tdb.Pool, model.NewUser{Email: "u@example.com", Name: "Old", PasswordHash: "keep", AreaAssignment: "A", ChurchName: "C"})
+	u, err := repo.Create(ctx, model.NewUser{Email: "u@example.com", Name: "Old", PasswordHash: "keep", AreaAssignment: "A", ChurchName: "C"})
 	require.NoError(t, err)
 
 	t.Run("replaces name and profile; empty text becomes NULL", func(t *testing.T) {
-		got, err := repo.UpdateProfile(ctx, tdb.Pool, u.ID, model.UserProfile{Name: "New", AreaAssignment: "", ChurchName: "C2"})
+		got, err := repo.UpdateProfile(ctx, u.ID, model.UserProfile{Name: "New", AreaAssignment: "", ChurchName: "C2"})
 		require.NoError(t, err)
 		assert.Equal(t, "New", got.Name)
 		assert.Nil(t, got.AreaAssignment)
@@ -104,7 +104,7 @@ func TestUserRepo_UpdateProfile(t *testing.T) {
 	})
 
 	t.Run("unknown user", func(t *testing.T) {
-		_, err := repo.UpdateProfile(ctx, tdb.Pool, 999999, model.UserProfile{Name: "Nobody"})
+		_, err := repo.UpdateProfile(ctx, 999999, model.UserProfile{Name: "Nobody"})
 		assert.ErrorIs(t, err, ErrNotFound)
 	})
 }

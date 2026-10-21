@@ -27,7 +27,7 @@ func (e userSvcEnv) adminRole(t *testing.T) int64 {
 
 func (e userSvcEnv) newAdmin(t *testing.T, email string, roleID int64) *model.User {
 	t.Helper()
-	u, err := e.users.Create(context.Background(), e.tdb.Pool, model.NewUser{Email: email, Name: "Admin", PasswordHash: "h", RoleID: roleID})
+	u, err := e.users.Create(context.Background(), model.NewUser{Email: email, Name: "Admin", PasswordHash: "h", RoleID: roleID})
 	require.NoError(t, err)
 	return u
 }
@@ -36,7 +36,7 @@ func (e userSvcEnv) addSessions(t *testing.T, userID int64, tokens ...string) {
 	t.Helper()
 	for _, tok := range tokens {
 		_, err := e.tdb.Pool.Exec(context.Background(),
-			`INSERT INTO sessions (token, data, expiry, user_id) VALUES ($1, '\x00', NOW() + interval '1 hour', $2)`, tok, userID)
+			`INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at) VALUES ($2, $1, $1, NOW() + interval '1 hour')`, tok, userID)
 		require.NoError(t, err)
 	}
 }
@@ -45,7 +45,7 @@ func (e userSvcEnv) liveSessions(t *testing.T, userID int64) int {
 	t.Helper()
 	var n int
 	require.NoError(t, e.tdb.Pool.QueryRow(context.Background(),
-		`SELECT COUNT(*) FROM sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID).Scan(&n))
+		`SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL`, userID).Scan(&n))
 	return n
 }
 

@@ -64,7 +64,7 @@ func scanReport(row pgx.Row) (*model.Report, error) {
 
 // Create inserts the report and its metrics and returns it with Metrics loaded.
 // year is already resolved by the caller (the request may omit it).
-func (r *ReportRepo) Create(ctx context.Context, q Querier, userID int64, year int, req model.CreateReportRequest) (*model.Report, error) {
+func (r *ReportRepo) Create(ctx context.Context, userID int64, year int, req model.CreateReportRequest) (*model.Report, error) {
 	query, args, err := r.db.Builder.
 		Insert("reports").
 		Columns("created_by", "month", "year", "worker", "area_assignment", "church_name",
@@ -76,14 +76,14 @@ func (r *ReportRepo) Create(ctx context.Context, q Querier, userID int64, year i
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	rep, err := scanReport(q.QueryRow(ctx, query, args...))
+	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 	if err != nil {
 		return nil, err
 	}
-	if err := r.insertMetrics(ctx, q, rep.ID, req.Metrics); err != nil {
+	if err := r.insertMetrics(ctx, rep.ID, req.Metrics); err != nil {
 		return nil, err
 	}
-	if err := r.loadMetrics(ctx, q, []*model.Report{rep}); err != nil {
+	if err := r.loadMetrics(ctx, []*model.Report{rep}); err != nil {
 		return nil, err
 	}
 	return rep, nil
@@ -91,7 +91,7 @@ func (r *ReportRepo) Create(ctx context.Context, q Querier, userID int64, year i
 
 // insertMetrics writes every supplied (metric, week) in one multi-row insert.
 // Values go in as text and are cast to NUMERIC by Postgres (D-4).
-func (r *ReportRepo) insertMetrics(ctx context.Context, q Querier, reportID int64, metrics map[string]model.MetricWeeks) error {
+func (r *ReportRepo) insertMetrics(ctx context.Context, reportID int64, metrics map[string]model.MetricWeeks) error {
 	ib := r.db.Builder.Insert("report_metrics").Columns("report_id", "metric", "week_no", "value")
 	n := 0
 	for metric, weeks := range metrics {
@@ -107,14 +107,14 @@ func (r *ReportRepo) insertMetrics(ctx context.Context, q Querier, reportID int6
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	if _, err := q.Exec(ctx, query, args...); err != nil {
+	if _, err := r.db.Querier(ctx).Exec(ctx, query, args...); err != nil {
 		return fmt.Errorf("insert metrics: %w", err)
 	}
 	return nil
 }
 
 // loadMetrics fills Metrics on all given reports with one query (no N+1).
-func (r *ReportRepo) loadMetrics(ctx context.Context, q Querier, reports []*model.Report) error {
+func (r *ReportRepo) loadMetrics(ctx context.Context, reports []*model.Report) error {
 	if len(reports) == 0 {
 		return nil
 	}
@@ -133,7 +133,7 @@ func (r *ReportRepo) loadMetrics(ctx context.Context, q Querier, reports []*mode
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	rows, err := q.Query(ctx, query, args...)
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("query metrics: %w", err)
 	}
@@ -153,7 +153,7 @@ func (r *ReportRepo) loadMetrics(ctx context.Context, q Querier, reports []*mode
 }
 
 // Get returns the report with metrics, or nil, nil when it is missing or soft-deleted.
-func (r *ReportRepo) Get(ctx context.Context, q Querier, id int64) (*model.Report, error) {
+func (r *ReportRepo) Get(ctx context.Context, id int64) (*model.Report, error) {
 	query, args, err := r.db.Builder.
 		Select(reportColumns).
 		From("reports").
@@ -162,11 +162,11 @@ func (r *ReportRepo) Get(ctx context.Context, q Querier, id int64) (*model.Repor
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	rep, err := scanReport(q.QueryRow(ctx, query, args...))
+	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 	if err != nil || rep == nil {
 		return nil, err
 	}
-	if err := r.loadMetrics(ctx, q, []*model.Report{rep}); err != nil {
+	if err := r.loadMetrics(ctx, []*model.Report{rep}); err != nil {
 		return nil, err
 	}
 	return rep, nil
@@ -200,7 +200,7 @@ func (r *ReportRepo) List(ctx context.Context, p model.ListReportsParams, pg pag
 		return nil, 0, fmt.Errorf("build count query: %w", err)
 	}
 	var total int64
-	if err := r.db.Pool.QueryRow(ctx, countQ, countArgs...).Scan(&total); err != nil {
+	if err := r.db.Querier(ctx).QueryRow(ctx, countQ, countArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count reports: %w", err)
 	}
 
@@ -215,7 +215,7 @@ func (r *ReportRepo) List(ctx context.Context, p model.ListReportsParams, pg pag
 	if err != nil {
 		return nil, 0, fmt.Errorf("build query: %w", err)
 	}
-	rows, err := r.db.Pool.Query(ctx, listQ, listArgs...)
+	rows, err := r.db.Querier(ctx).Query(ctx, listQ, listArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list reports: %w", err)
 	}
@@ -232,7 +232,7 @@ func (r *ReportRepo) List(ctx context.Context, p model.ListReportsParams, pg pag
 		return nil, 0, fmt.Errorf("list reports: %w", err)
 	}
 	rows.Close()
-	if err := r.loadMetrics(ctx, r.db.Pool, reports); err != nil {
+	if err := r.loadMetrics(ctx, reports); err != nil {
 		return nil, 0, err
 	}
 	return reports, total, nil
@@ -240,7 +240,7 @@ func (r *ReportRepo) List(ctx context.Context, p model.ListReportsParams, pg pag
 
 // Update replaces the scalar fields and the whole metric set. created_by and
 // completed* are never touched. Returns ErrNotFound when the report is missing.
-func (r *ReportRepo) Update(ctx context.Context, q Querier, id int64, year int, req model.UpdateReportRequest) (*model.Report, error) {
+func (r *ReportRepo) Update(ctx context.Context, id int64, year int, req model.UpdateReportRequest) (*model.Report, error) {
 	query, args, err := r.db.Builder.
 		Update("reports").
 		SetMap(map[string]any{
@@ -256,7 +256,7 @@ func (r *ReportRepo) Update(ctx context.Context, q Querier, id int64, year int, 
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	rep, err := scanReport(q.QueryRow(ctx, query, args...))
+	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 	if err != nil {
 		return nil, err
 	}
@@ -268,13 +268,13 @@ func (r *ReportRepo) Update(ctx context.Context, q Querier, id int64, year int, 
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	if _, err := q.Exec(ctx, delQ, delArgs...); err != nil {
+	if _, err := r.db.Querier(ctx).Exec(ctx, delQ, delArgs...); err != nil {
 		return nil, fmt.Errorf("delete metrics: %w", err)
 	}
-	if err := r.insertMetrics(ctx, q, id, req.Metrics); err != nil {
+	if err := r.insertMetrics(ctx, id, req.Metrics); err != nil {
 		return nil, err
 	}
-	if err := r.loadMetrics(ctx, q, []*model.Report{rep}); err != nil {
+	if err := r.loadMetrics(ctx, []*model.Report{rep}); err != nil {
 		return nil, err
 	}
 	return rep, nil
@@ -282,7 +282,7 @@ func (r *ReportRepo) Update(ctx context.Context, q Querier, id int64, year int, 
 
 // SoftDelete marks the report deleted. Returns ErrNotFound when it is missing
 // or already deleted.
-func (r *ReportRepo) SoftDelete(ctx context.Context, q Querier, id int64) error {
+func (r *ReportRepo) SoftDelete(ctx context.Context, id int64) error {
 	query, args, err := r.db.Builder.
 		Update("reports").
 		Set("deleted_at", sq.Expr("NOW()")).
@@ -292,7 +292,7 @@ func (r *ReportRepo) SoftDelete(ctx context.Context, q Querier, id int64) error 
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	res, err := q.Exec(ctx, query, args...)
+	res, err := r.db.Querier(ctx).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("soft delete report: %w", err)
 	}
@@ -305,7 +305,7 @@ func (r *ReportRepo) SoftDelete(ctx context.Context, q Querier, id int64) error 
 // ToggleComplete flips completed in one statement and returns the report; the
 // returned Completed says whether this was an approve or an unapprove. Metrics
 // are not loaded. Returns ErrNotFound when the report is missing.
-func (r *ReportRepo) ToggleComplete(ctx context.Context, q Querier, id, approverID int64) (*model.Report, error) {
+func (r *ReportRepo) ToggleComplete(ctx context.Context, id, approverID int64) (*model.Report, error) {
 	query, args, err := r.db.Builder.
 		Update("reports").
 		Set("completed", sq.Expr("NOT completed")).
@@ -318,7 +318,7 @@ func (r *ReportRepo) ToggleComplete(ctx context.Context, q Querier, id, approver
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	rep, err := scanReport(q.QueryRow(ctx, query, args...))
+	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 	if err != nil {
 		return nil, err
 	}

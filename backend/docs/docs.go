@@ -918,7 +918,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sessions end; this one stays and its token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session. confirm_password is required and must equal new_password exactly (422 on confirm_password); that check runs first, so a typo does not count as a failed attempt.",
+                "description": "Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sign-ins end; this one stays and its access token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session. confirm_password is required and must equal new_password exactly (422 on confirm_password); that check runs first, so a typo does not count as a failed attempt.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1060,7 +1060,7 @@ const docTemplate = `{
         },
         "/auth/login": {
             "post": {
-                "description": "Authenticates user and creates a session",
+                "description": "Authenticates the user and sets the access_token and refresh_token cookies (HttpOnly)",
                 "consumes": [
                     "application/json"
                 ],
@@ -1112,12 +1112,7 @@ const docTemplate = `{
         },
         "/auth/logout": {
             "post": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "Destroys the current session",
+                "description": "Ends the sign-in the refresh_token cookie belongs to and clears both cookies. It needs no valid access token, so it works after that has expired.",
                 "produces": [
                     "application/json"
                 ],
@@ -1162,6 +1157,38 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "description": "Trades the refresh_token cookie for a new access token and a new refresh token, both set as cookies. The old refresh token stops working. Answers 401 and clears the cookies when the refresh token is unknown, expired, idle too long, revoked, or its account may no longer sign in. A token that was rotated within the last 10 seconds (a second tab) is a 401 that leaves the cookies alone.",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh the sign-in",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2591,7 +2618,7 @@ const docTemplate = `{
     "securityDefinitions": {
         "CookieAuth": {
             "type": "apiKey",
-            "name": "app_session",
+            "name": "access_token",
             "in": "cookie"
         }
     }
@@ -2604,7 +2631,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "Pastoral Reports API",
-	Description:      "Pastoral Reports backend API: session auth and RBAC",
+	Description:      "Pastoral Reports backend API: JWT cookie auth and RBAC",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

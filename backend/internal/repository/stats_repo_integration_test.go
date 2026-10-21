@@ -42,7 +42,7 @@ func TestStatsRepo_Counts(t *testing.T) {
 
 	file := func(userID int64, month string, year int) *model.Report {
 		t.Helper()
-		rep, err := reports.Create(ctx, db.Pool, userID, year, model.CreateReportRequest{Month: month, NarrativeReport: "n"})
+		rep, err := reports.Create(ctx, userID, year, model.CreateReportRequest{Month: month, NarrativeReport: "n"})
 		require.NoError(t, err)
 		return rep
 	}
@@ -51,9 +51,9 @@ func TestStatsRepo_Counts(t *testing.T) {
 	janBoss := file(boss.ID, "January", 2026)
 	file(ana.ID, "February", 2026) // another month
 	file(ana.ID, "January", 2025)  // another year
-	_, err = reports.ToggleComplete(ctx, db.Pool, janAna.ID, boss.ID)
+	_, err = reports.ToggleComplete(ctx, janAna.ID, boss.ID)
 	require.NoError(t, err)
-	require.NoError(t, reports.SoftDelete(ctx, db.Pool, janBoss.ID))
+	require.NoError(t, reports.SoftDelete(ctx, janBoss.ID))
 
 	t.Run("counts the period, not other months, years or deleted reports", func(t *testing.T) {
 		got, err := stats.Counts(ctx, "January", 2026)
@@ -66,7 +66,7 @@ func TestStatsRepo_Counts(t *testing.T) {
 	})
 
 	t.Run("an approval taken back counts as pending", func(t *testing.T) {
-		_, err := reports.ToggleComplete(ctx, db.Pool, janAna.ID, boss.ID)
+		_, err := reports.ToggleComplete(ctx, janAna.ID, boss.ID)
 		require.NoError(t, err)
 		got, err := stats.Counts(ctx, "January", 2026)
 		require.NoError(t, err)

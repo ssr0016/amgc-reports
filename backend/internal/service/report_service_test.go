@@ -18,7 +18,9 @@ import (
 // fakeTx runs fn directly. The in-memory mocks have no transaction to roll back.
 type fakeTx struct{}
 
-func (fakeTx) WithTx(_ context.Context, fn func(repository.Querier) error) error { return fn(nil) }
+func (fakeTx) InTransaction(ctx context.Context, fn func(context.Context) error) error {
+	return fn(ctx)
+}
 
 // stubRoles serves permissions by role ID; other methods panic if called.
 type stubRoles struct {
@@ -73,7 +75,7 @@ func newFixture() fixture {
 		roleD: {"reports:read", "reports:read_any", "reports:delete_any"},
 	}}
 	f := fixture{reports: repository.NewMockReportRepo(), audit: repository.NewMockAuditRepo()}
-	f.svc = NewReportService(f.reports, f.audit, fakeTx{}, nil, users, roles)
+	f.svc = NewReportService(f.reports, f.audit, fakeTx{}, users, roles)
 	f.svc.now = func() time.Time { return time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC) }
 	return f
 }
@@ -119,7 +121,7 @@ func TestReportService_Create(t *testing.T) {
 
 	t.Run("audit failure fails the call", func(t *testing.T) {
 		boom := errors.New("boom")
-		f.audit.InsertFunc = func(context.Context, repository.Querier, model.AuditLog) error { return boom }
+		f.audit.InsertFunc = func(context.Context, model.AuditLog) error { return boom }
 		defer func() { f.audit.InsertFunc = nil }()
 		_, err := f.svc.Create(ctx, bob, "", req("February"))
 		require.ErrorIs(t, err, boom)

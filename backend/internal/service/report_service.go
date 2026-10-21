@@ -36,7 +36,6 @@ type ReportService struct {
 	reports repository.ReportRepository
 	audit   repository.AuditRepository
 	tx      repository.TxRunner
-	q       repository.Querier // pool, for reads outside a transaction
 	users   repository.UserRepository
 	roles   repository.RoleRepository
 	now     func() time.Time
@@ -47,7 +46,6 @@ func NewReportService(
 	reports repository.ReportRepository,
 	audit repository.AuditRepository,
 	tx repository.TxRunner,
-	q repository.Querier,
 	users repository.UserRepository,
 	roles repository.RoleRepository,
 ) *ReportService {
@@ -55,7 +53,7 @@ func NewReportService(
 	if err != nil {
 		panic(fmt.Sprintf("load Asia/Manila (is tzdata installed?): %v", err))
 	}
-	return &ReportService{reports: reports, audit: audit, tx: tx, q: q, users: users, roles: roles, now: time.Now, loc: loc}
+	return &ReportService{reports: reports, audit: audit, tx: tx, users: users, roles: roles, now: time.Now, loc: loc}
 }
 
 type actor struct {
@@ -120,7 +118,7 @@ func (a *actor) auditEntry(ip, action string, rep *model.Report) model.AuditLog 
 
 // load returns the report if the actor may act on it, else ErrReportNotFound.
 func (s *ReportService) load(ctx context.Context, a *actor, id int64, anyPerm string) (*model.Report, error) {
-	rep, err := s.reports.Get(ctx, s.q, id)
+	rep, err := s.reports.Get(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get report: %w", err)
 	}
@@ -170,12 +168,12 @@ func (s *ReportService) Create(ctx context.Context, userID int64, ip string, req
 	}
 
 	var rep *model.Report
-	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		var err error
-		if rep, err = s.reports.Create(ctx, q, userID, year, req); err != nil {
+		if rep, err = s.reports.Create(ctx, userID, year, req); err != nil {
 			return err
 		}
-		return s.audit.Insert(ctx, q, a.auditEntry(ip, model.AuditCreateReport, rep))
+		return s.audit.Insert(ctx, a.auditEntry(ip, model.AuditCreateReport, rep))
 	})
 	if err != nil {
 		return nil, mapErr(err)
@@ -238,12 +236,12 @@ func (s *ReportService) Update(ctx context.Context, userID int64, ip string, id 
 	}
 
 	var rep *model.Report
-	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		var err error
-		if rep, err = s.reports.Update(ctx, q, id, year, req); err != nil {
+		if rep, err = s.reports.Update(ctx, id, year, req); err != nil {
 			return err
 		}
-		return s.audit.Insert(ctx, q, a.auditEntry(ip, model.AuditUpdateReport, rep))
+		return s.audit.Insert(ctx, a.auditEntry(ip, model.AuditUpdateReport, rep))
 	})
 	if err != nil {
 		return nil, mapErr(err)
@@ -261,11 +259,11 @@ func (s *ReportService) Delete(ctx context.Context, userID int64, ip string, id 
 	if err != nil {
 		return err
 	}
-	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
-		if err := s.reports.SoftDelete(ctx, q, id); err != nil {
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
+		if err := s.reports.SoftDelete(ctx, id); err != nil {
 			return err
 		}
-		return s.audit.Insert(ctx, q, a.auditEntry(ip, model.AuditDeleteReport, rep))
+		return s.audit.Insert(ctx, a.auditEntry(ip, model.AuditDeleteReport, rep))
 	})
 	return mapErr(err)
 }
@@ -280,16 +278,16 @@ func (s *ReportService) ToggleComplete(ctx context.Context, userID int64, ip str
 		return nil, err
 	}
 	var rep *model.Report
-	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		var err error
-		if rep, err = s.reports.ToggleComplete(ctx, q, id, userID); err != nil {
+		if rep, err = s.reports.ToggleComplete(ctx, id, userID); err != nil {
 			return err
 		}
 		action := model.AuditUnapproveReport
 		if rep.Completed {
 			action = model.AuditApproveReport
 		}
-		return s.audit.Insert(ctx, q, a.auditEntry(ip, action, rep))
+		return s.audit.Insert(ctx, a.auditEntry(ip, action, rep))
 	})
 	if err != nil {
 		return nil, mapErr(err)

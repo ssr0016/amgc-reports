@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -32,7 +33,7 @@ func TestUserRepo_ClearLockout_ClearsOnlyThatUser(t *testing.T) {
 	lockOut(t, users, a.ID)
 	lockOut(t, users, b.ID)
 
-	require.NoError(t, users.ClearLockout(ctx, users.db.Pool, a.ID))
+	require.NoError(t, users.ClearLockout(ctx, a.ID))
 
 	gotA, err := users.GetByID(ctx, a.ID)
 	require.NoError(t, err)
@@ -47,12 +48,12 @@ func TestUserRepo_ClearLockout_ClearsOnlyThatUser(t *testing.T) {
 func TestUserRepo_ClearLockout_MissingUser(t *testing.T) {
 	users, _ := setupSessions(t)
 
-	err := users.ClearLockout(context.Background(), users.db.Pool, 99999)
+	err := users.ClearLockout(context.Background(), 99999)
 
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
-// It runs on the caller's transaction, so a rolled-back reset leaves the lockout in place.
+// It joins the caller's transaction, so a rolled-back reset leaves the lockout in place.
 func TestUserRepo_ClearLockout_RollsBackWithItsTransaction(t *testing.T) {
 	users, _ := setupSessions(t)
 	ctx := context.Background()
@@ -60,10 +61,11 @@ func TestUserRepo_ClearLockout_RollsBackWithItsTransaction(t *testing.T) {
 	require.NoError(t, err)
 	lockOut(t, users, a.ID)
 
-	tx, err := users.db.Pool.Begin(ctx)
-	require.NoError(t, err)
-	require.NoError(t, users.ClearLockout(ctx, tx, a.ID))
-	require.NoError(t, tx.Rollback(ctx))
+	err = users.db.InTransaction(ctx, func(ctx context.Context) error {
+		require.NoError(t, users.ClearLockout(ctx, a.ID))
+		return errors.New("rollback")
+	})
+	require.Error(t, err)
 
 	got, err := users.GetByID(ctx, a.ID)
 	require.NoError(t, err)
@@ -101,7 +103,7 @@ func TestUserRepo_UpdatePasswordKeepSession_EmptyTokenEndsEverySession(t *testin
 	addSession(t, tdb, "a3", a.ID)
 	addSession(t, tdb, "b1", b.ID)
 
-	ended, err := users.UpdatePasswordKeepSession(ctx, users.db.Pool, a.ID, "newhash", "")
+	ended, err := users.UpdatePasswordKeepSession(ctx, a.ID, "newhash", "")
 
 	require.NoError(t, err)
 	assert.EqualValues(t, 3, ended)

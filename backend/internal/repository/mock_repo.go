@@ -19,21 +19,21 @@ type MockUserRepo struct {
 	GetByIDFunc                   func(ctx context.Context, id int64) (*model.User, error)
 	GetByEmailFunc                func(ctx context.Context, email string) (*model.User, error)
 	CreateWithPasswordFunc        func(ctx context.Context, email, name, hash string) (*model.User, error)
-	CreateFunc                    func(ctx context.Context, q Querier, n model.NewUser) (*model.User, error)
-	UpdateProfileFunc             func(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error)
+	CreateFunc                    func(ctx context.Context, n model.NewUser) (*model.User, error)
+	UpdateProfileFunc             func(ctx context.Context, id int64, p model.UserProfile) (*model.User, error)
 	ListFunc                      func(ctx context.Context, emailFilter, status string, limit int) ([]model.User, error)
 	UpdateRoleFunc                func(ctx context.Context, userID, roleID int64) error
 	GetWithRoleFunc               func(ctx context.Context, id int64) (*model.User, error)
 	ListWithPaginationFunc        func(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 	MarkEmailVerifiedFunc         func(ctx context.Context, userID int64) error
 	UpdatePasswordFunc            func(ctx context.Context, userID int64, hash string) error
-	UpdatePasswordKeepSessionFunc func(ctx context.Context, q Querier, userID int64, hash, keepToken string) (int64, error)
+	UpdatePasswordKeepSessionFunc func(ctx context.Context, userID int64, hash, keepToken string) (int64, error)
 	RecordFailedLoginFunc         func(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
 	ResetLoginAttemptsFunc        func(ctx context.Context, userID int64) error
-	ClearLockoutFunc              func(ctx context.Context, q Querier, userID int64) error
-	UpdateStatusFunc              func(ctx context.Context, q Querier, id int64, status string) (*model.User, error)
-	RevokeSessionsFunc            func(ctx context.Context, q Querier, userID int64) (int64, error)
-	LockActiveAdminsFunc          func(ctx context.Context, q Querier) ([]int64, error)
+	ClearLockoutFunc              func(ctx context.Context, userID int64) error
+	UpdateStatusFunc              func(ctx context.Context, id int64, status string) (*model.User, error)
+	RevokeSessionsFunc            func(ctx context.Context, userID int64) (int64, error)
+	LockActiveAdminsFunc          func(ctx context.Context) ([]int64, error)
 }
 
 // NewMockUserRepo creates a new mock repository.
@@ -92,10 +92,10 @@ func (m *MockUserRepo) CreateWithPassword(ctx context.Context, email, name, hash
 	return user, nil
 }
 
-// Create inserts an account (mock); q is ignored.
-func (m *MockUserRepo) Create(ctx context.Context, q Querier, n model.NewUser) (*model.User, error) {
+// Create inserts an account (mock).
+func (m *MockUserRepo) Create(ctx context.Context, n model.NewUser) (*model.User, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(ctx, q, n)
+		return m.CreateFunc(ctx, n)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -115,10 +115,10 @@ func (m *MockUserRepo) Create(ctx context.Context, q Querier, n model.NewUser) (
 	return user, nil
 }
 
-// UpdateProfile replaces a user's name and profile text (mock); q is ignored.
-func (m *MockUserRepo) UpdateProfile(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error) {
+// UpdateProfile replaces a user's name and profile text (mock).
+func (m *MockUserRepo) UpdateProfile(ctx context.Context, id int64, p model.UserProfile) (*model.User, error) {
 	if m.UpdateProfileFunc != nil {
-		return m.UpdateProfileFunc(ctx, q, id, p)
+		return m.UpdateProfileFunc(ctx, id, p)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -227,9 +227,9 @@ func (m *MockUserRepo) UpdatePassword(ctx context.Context, userID int64, hash st
 }
 
 // UpdatePasswordKeepSession sets the password (mock); the mock has no sessions, so it ends none.
-func (m *MockUserRepo) UpdatePasswordKeepSession(ctx context.Context, q Querier, userID int64, hash, keepToken string) (int64, error) {
+func (m *MockUserRepo) UpdatePasswordKeepSession(ctx context.Context, userID int64, hash, keepToken string) (int64, error) {
 	if m.UpdatePasswordKeepSessionFunc != nil {
-		return m.UpdatePasswordKeepSessionFunc(ctx, q, userID, hash, keepToken)
+		return m.UpdatePasswordKeepSessionFunc(ctx, userID, hash, keepToken)
 	}
 	return 0, m.UpdatePassword(ctx, userID, hash)
 }
@@ -271,18 +271,18 @@ func (m *MockUserRepo) ResetLoginAttempts(ctx context.Context, userID int64) err
 	return nil
 }
 
-// ClearLockout clears failed attempts and the lock (mock); q is ignored.
-func (m *MockUserRepo) ClearLockout(ctx context.Context, q Querier, userID int64) error {
+// ClearLockout clears failed attempts and the lock (mock).
+func (m *MockUserRepo) ClearLockout(ctx context.Context, userID int64) error {
 	if m.ClearLockoutFunc != nil {
-		return m.ClearLockoutFunc(ctx, q, userID)
+		return m.ClearLockoutFunc(ctx, userID)
 	}
 	return m.ResetLoginAttempts(ctx, userID)
 }
 
-// UpdateStatus sets a user's status (mock); q is ignored.
-func (m *MockUserRepo) UpdateStatus(ctx context.Context, q Querier, id int64, status string) (*model.User, error) {
+// UpdateStatus sets a user's status (mock).
+func (m *MockUserRepo) UpdateStatus(ctx context.Context, id int64, status string) (*model.User, error) {
 	if m.UpdateStatusFunc != nil {
-		return m.UpdateStatusFunc(ctx, q, id, status)
+		return m.UpdateStatusFunc(ctx, id, status)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -296,9 +296,9 @@ func (m *MockUserRepo) UpdateStatus(ctx context.Context, q Querier, id int64, st
 }
 
 // RevokeSessions ends a user's sessions (mock): there are none, so it ends none.
-func (m *MockUserRepo) RevokeSessions(ctx context.Context, q Querier, userID int64) (int64, error) {
+func (m *MockUserRepo) RevokeSessions(ctx context.Context, userID int64) (int64, error) {
 	if m.RevokeSessionsFunc != nil {
-		return m.RevokeSessionsFunc(ctx, q, userID)
+		return m.RevokeSessionsFunc(ctx, userID)
 	}
 	return 0, nil
 }
@@ -306,9 +306,9 @@ func (m *MockUserRepo) RevokeSessions(ctx context.Context, q Querier, userID int
 // LockActiveAdmins returns the ids of the active users whose role id is the mock
 // admin role, in id order (mock). The mock has no role names, so it returns none
 // unless LockActiveAdminsFunc is set.
-func (m *MockUserRepo) LockActiveAdmins(ctx context.Context, q Querier) ([]int64, error) {
+func (m *MockUserRepo) LockActiveAdmins(ctx context.Context) ([]int64, error) {
 	if m.LockActiveAdminsFunc != nil {
-		return m.LockActiveAdminsFunc(ctx, q)
+		return m.LockActiveAdminsFunc(ctx)
 	}
 	return nil, nil
 }

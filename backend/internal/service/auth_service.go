@@ -9,8 +9,10 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 )
 
 var (
@@ -43,6 +45,11 @@ type AuthService struct {
 	audit               repository.AuditRepository // for ChangePassword; nil in callers that never call it
 	tx                  repository.TxRunner        // likewise
 	log                 *slog.Logger
+
+	// Set by WithTokens; nil in callers that never start or refresh a sign-in.
+	tokens   *token.Manager
+	refresh  repository.RefreshTokenRepository
+	tokenSet TokenSettings
 }
 
 func NewAuthService(
@@ -71,7 +78,7 @@ func (s *AuthService) Me(ctx context.Context, userID int64) (*model.MeResponse, 
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	if user == nil || !user.CanSignIn() {
+	if user == nil || !user.CanSignIn() || accessRevoked(ctx, user) {
 		return nil, ErrUnauthorized
 	}
 	me := &model.MeResponse{
@@ -133,19 +140,19 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 	return user, nil
 }
 
-// ChangePassword changes the signed-in user's own password. keepToken is the
-// session they are using; their other sessions end with the change.
+// ChangePassword changes the signed-in user's own password. keepFamily is the
+// sign-in they are using (the access token's sid); their other sign-ins end with the change.
 //
 // The current password is checked against the same failure counter as login, so
 // a stolen session cannot use this to guess it. The "same as current" rule
 // is applied only after the current password is verified: before that, its
 // answer would tell the caller what the current password is.
-func (s *AuthService) ChangePassword(ctx context.Context, userID int64, ip, keepToken, current, next string) error {
+func (s *AuthService) ChangePassword(ctx context.Context, userID int64, ip, keepFamily, current, next string) error {
 	user, err := s.userRepo.GetWithRole(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("get user: %w", err)
 	}
-	if user == nil {
+	if user == nil || accessRevoked(ctx, user) {
 		return ErrUnauthorized
 	}
 	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
@@ -173,12 +180,12 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, ip, keep
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
-		ended, err := s.userRepo.UpdatePasswordKeepSession(ctx, q, user.ID, string(hash), keepToken)
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
+		ended, err := s.userRepo.UpdatePasswordKeepSession(ctx, user.ID, string(hash), keepFamily)
 		if err != nil {
 			return err
 		}
-		return s.audit.Insert(ctx, q, userAudit(user, ip, model.AuditChangePassword, user,
+		return s.audit.Insert(ctx, userAudit(user, ip, model.AuditChangePassword, user,
 			map[string]any{"sessions_ended": ended}))
 	})
 	if errors.Is(err, repository.ErrNotFound) {
@@ -189,6 +196,13 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, ip, keep
 	}
 	s.log.Info("password changed", "user_id", user.ID)
 	return nil
+}
+
+// accessRevoked reports whether the request's access token was signed before the
+// user's tokens_valid_after. A caller with no token in ctx (a test) is not revoked.
+func accessRevoked(ctx context.Context, user *model.User) bool {
+	caller, ok := request.UserFrom(ctx)
+	return ok && user.AccessRevoked(caller.IssuedAt)
 }
 
 func deref(s *string) string {

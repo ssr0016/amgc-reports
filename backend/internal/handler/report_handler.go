@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
@@ -31,11 +31,10 @@ var _ ReportServiceInterface = (*service.ReportService)(nil)
 
 type ReportHandler struct {
 	svc ReportServiceInterface
-	sm  *scs.SessionManager
 }
 
-func NewReportHandler(svc ReportServiceInterface, sm *scs.SessionManager) *ReportHandler {
-	return &ReportHandler{svc: svc, sm: sm}
+func NewReportHandler(svc ReportServiceInterface) *ReportHandler {
+	return &ReportHandler{svc: svc}
 }
 
 // reportError maps service errors to API errors. A session user that no longer
@@ -56,11 +55,11 @@ func reportError(err error, msg string) error {
 }
 
 func (h *ReportHandler) userID(c echo.Context) (int64, error) {
-	id := h.sm.GetInt64(c.Request().Context(), "user_id")
-	if id == 0 {
+	u, ok := request.UserFrom(c.Request().Context())
+	if !ok {
 		return 0, apperror.Unauthorized("authentication required")
 	}
-	return id, nil
+	return u.ID, nil
 }
 
 func reportID(c echo.Context) (int64, error) {

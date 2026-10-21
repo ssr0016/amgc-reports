@@ -6,12 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 )
 
 type allowAll struct{ repository.RoleRepository }
@@ -33,32 +33,30 @@ func TestRBAC_NonActiveUserIsUnauthorized(t *testing.T) {
 		{model.UserStatusDisciplinary, http.StatusUnauthorized},
 		{model.UserStatusDeceased, http.StatusUnauthorized},
 	}
-	gates := map[string]func(repository.UserRepository, *scs.SessionManager) echo.MiddlewareFunc{
-		"RequireRole": func(u repository.UserRepository, sm *scs.SessionManager) echo.MiddlewareFunc {
-			return RequireRole(u, sm, "admin")
+	gates := map[string]func(repository.UserRepository) echo.MiddlewareFunc{
+		"RequireRole": func(u repository.UserRepository) echo.MiddlewareFunc {
+			return RequireRole(u, "admin")
 		},
-		"RequirePermission": func(u repository.UserRepository, sm *scs.SessionManager) echo.MiddlewareFunc {
-			return RequirePermission(allowAll{}, u, sm, "reports:read")
+		"RequirePermission": func(u repository.UserRepository) echo.MiddlewareFunc {
+			return RequirePermission(allowAll{}, u, "reports:read")
 		},
 	}
 	for name, gate := range gates {
 		for _, tt := range tests {
 			t.Run(name+"/"+tt.status, func(t *testing.T) {
-				sm := scs.New()
 				users := repository.NewMockUserRepo()
 				users.GetWithRoleFunc = func(context.Context, int64) (*model.User, error) {
 					return &model.User{ID: 1, RoleID: 9, Role: &model.Role{Name: "admin"}, Status: tt.status}, nil
 				}
 				e := echo.New()
 				e.HTTPErrorHandler = apperror.ErrorHandler
-				e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 				e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 					return func(c echo.Context) error {
-						sm.Put(c.Request().Context(), "user_id", int64(1))
+						c.SetRequest(c.Request().WithContext(request.WithUser(c.Request().Context(), request.User{ID: 1})))
 						return next(c)
 					}
 				})
-				e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) }, gate(users, sm))
+				e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) }, gate(users))
 
 				rec := httptest.NewRecorder()
 				e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil))

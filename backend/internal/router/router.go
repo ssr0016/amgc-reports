@@ -3,7 +3,6 @@ package router
 import (
 	"time"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
@@ -22,7 +21,7 @@ type Limiters struct {
 
 func Setup(
 	e *echo.Echo,
-	sm *scs.SessionManager,
+	authenticate echo.MiddlewareFunc,
 	userRepo repository.UserRepository,
 	roleRepo repository.RoleRepository,
 	authHandler *handler.AuthHandler,
@@ -36,6 +35,9 @@ func Setup(
 	statsHandler *handler.StatsHandler,
 	limits Limiters,
 ) {
+	// authenticate only runs in the groups that need a user, so public routes never read a token.
+	authn := authenticate
+
 	api := e.Group("/api/v1", limits.Global)
 
 	// ============================================================
@@ -45,6 +47,10 @@ func Setup(
 	authLimit := ourmiddleware.RateLimit(rate.Limit(5.0/60.0), 3)
 	auth.GET("/csrf", handler.CSRFToken)
 	auth.POST("/login", authHandler.Login, authLimit)
+	// Refresh and logout read only the refresh cookie, so they stay open: they must
+	// work after the access token has expired. CSRF protection still applies.
+	auth.POST("/refresh", authHandler.Refresh, ourmiddleware.RateLimit(rate.Every(time.Second), 10))
+	auth.POST("/logout", authHandler.Logout)
 
 	// Token flows: one bucket per route, so they cannot starve each other or
 	// the login/register bucket. Each RateLimit call owns its own store.
@@ -58,8 +64,7 @@ func Setup(
 	// ============================================================
 	// Authenticated routes
 	// ============================================================
-	authProtected := auth.Group("", ourmiddleware.RequireAuth(sm))
-	authProtected.POST("/logout", authHandler.Logout)
+	authProtected := auth.Group("", authn, ourmiddleware.RequireAuth())
 	authProtected.GET("/me", authHandler.Me)
 	// Shares the per-user write bucket. It runs after RequireAuth, so only a signed-in
 	// caller uses tokens. The lockout counter, not this limit, stops password guessing.
@@ -67,7 +72,7 @@ func Setup(
 
 	// Lists every account's email and name, so it is admin-only, like /admin/users.
 	// A permission gate would not do: the plain user role holds users:read.
-	users := api.Group("/users", ourmiddleware.RequireAuth(sm), ourmiddleware.RequireRole(userRepo, sm, "admin"))
+	users := api.Group("/users", authn, ourmiddleware.RequireAuth(), ourmiddleware.RequireRole(userRepo, "admin"))
 	users.GET("", userHandler.ListUsers)
 	users.GET("/:id", userHandler.GetUser)
 
@@ -75,9 +80,9 @@ func Setup(
 	// Reports (permission-gated; the service applies the _any ownership scope)
 	// ============================================================
 	perm := func(name string) echo.MiddlewareFunc {
-		return ourmiddleware.RequirePermission(roleRepo, userRepo, sm, name)
+		return ourmiddleware.RequirePermission(roleRepo, userRepo, name)
 	}
-	reports := api.Group("/reports", ourmiddleware.RequireAuth(sm))
+	reports := api.Group("/reports", authn, ourmiddleware.RequireAuth())
 	reports.GET("", reportHandler.ListReports, perm("reports:read"), limits.Read)
 	// One shared bucket for all four writes (each costs a transaction and an audit
 	// row). It runs after RequirePermission, so only callers who may write use
@@ -92,8 +97,8 @@ func Setup(
 	// Admin routes (RBAC-protected)
 	// ============================================================
 	admin := api.Group("/admin",
-		ourmiddleware.RequireAuth(sm),
-		ourmiddleware.RequireRole(userRepo, sm, "admin"),
+		authn, ourmiddleware.RequireAuth(),
+		ourmiddleware.RequireRole(userRepo, "admin"),
 	)
 
 	// Roles

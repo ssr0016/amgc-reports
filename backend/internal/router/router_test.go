@@ -40,7 +40,7 @@ func newTestServer() *echo.Echo {
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 
-	Setup(e, nil, nil, nil,
+	Setup(e, noAuthn, nil, nil,
 		handler.NewAuthHandler(nil, nil),
 		nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil),
@@ -95,7 +95,7 @@ func resetServer() *echo.Echo {
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	svc := service.NewPasswordResetService(repository.NewMockUserRepo(), noTokenRepo{}, slog.New(slog.DiscardHandler))
-	Setup(e, nil, nil, nil,
+	Setup(e, noAuthn, nil, nil,
 		handler.NewAuthHandler(nil, nil),
 		nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil),

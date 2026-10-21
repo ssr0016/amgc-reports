@@ -22,7 +22,7 @@ const DefaultTrustedProxyCIDR = "100.64.0.0/10"
 type Config struct {
 	App      AppConfig
 	Database DatabaseConfig
-	Session  SessionConfig
+	Auth     AuthConfig
 	Logging  LoggingConfig
 	CORS     CORSConfig
 	Proxy    ProxyConfig
@@ -88,11 +88,21 @@ type DatabaseConfig struct {
 	MigrateURL string
 }
 
-// SessionConfig holds session settings.
-type SessionConfig struct {
-	CookieName  string
-	Lifetime    time.Duration
-	IdleTimeout time.Duration
+// minJWTSecretLen is the shortest HS256 secret accepted: 32 bytes, the size of the hash.
+const minJWTSecretLen = 32
+
+// AuthConfig holds the JWT sign-in settings (D-AR1).
+type AuthConfig struct {
+	JWTSecret   string
+	JWTIssuer   string
+	JWTAudience string
+	// AccessTTL is the life of an access token; RefreshTTL is the absolute life of
+	// a sign-in, and RefreshIdleTTL how long it may go without a refresh.
+	AccessTTL      time.Duration
+	RefreshTTL     time.Duration
+	RefreshIdleTTL time.Duration
+	// CookieDomain is empty (host-only cookies) until D-F1 sets .amgreports.com.
+	CookieDomain string
 }
 
 // LoggingConfig holds logging settings.
@@ -123,10 +133,14 @@ func Load() (*Config, error) {
 			Name:     getEnv("DB_NAME", "app_db"),
 			URL:      getEnv("DATABASE_URL", ""),
 		},
-		Session: SessionConfig{
-			CookieName:  getEnv("SESSION_COOKIE_NAME", "app_session"),
-			Lifetime:    getEnvDuration("SESSION_LIFETIME", 24*time.Hour),
-			IdleTimeout: getEnvDuration("SESSION_IDLE_TIMEOUT", 30*time.Minute),
+		Auth: AuthConfig{
+			JWTSecret:      os.Getenv("JWT_SECRET"),
+			JWTIssuer:      getEnv("JWT_ISSUER", "amgreports"),
+			JWTAudience:    getEnv("JWT_AUDIENCE", "amgreports-web"),
+			AccessTTL:      getEnvDuration("JWT_ACCESS_TTL", 10*time.Minute),
+			RefreshTTL:     getEnvDuration("REFRESH_TTL", 24*time.Hour),
+			RefreshIdleTTL: getEnvDuration("REFRESH_IDLE_TTL", 30*time.Minute),
+			CookieDomain:   strings.TrimSpace(os.Getenv("COOKIE_DOMAIN")),
 		},
 		Logging: LoggingConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
@@ -189,9 +203,6 @@ func (c *Config) Validate() error {
 	if c.App.Port == "" {
 		return fmt.Errorf("APP_PORT is required")
 	}
-	if c.Session.CookieName == "" {
-		return fmt.Errorf("SESSION_COOKIE_NAME is required")
-	}
 	if len(c.CORS.AllowedOrigins) == 0 {
 		return fmt.Errorf("CORS_ALLOWED_ORIGINS is required")
 	}
@@ -206,6 +217,20 @@ func (c *Config) Validate() error {
 	}
 	if p := c.Observability.MetricsPassword; p != "" && len(p) < minMetricsPasswordLen {
 		return fmt.Errorf("METRICS_PASSWORD must be at least %d characters", minMetricsPasswordLen)
+	}
+	return nil
+}
+
+// ValidateAuth checks the JWT settings. The server calls it at startup and fails
+// closed: a missing or short secret would let anyone sign a token. It is not part
+// of Validate because `api migrate`, which runs before the new secret may exist,
+// does not sign anything.
+func (c *Config) ValidateAuth() error {
+	if len(c.Auth.JWTSecret) < minJWTSecretLen {
+		return fmt.Errorf("JWT_SECRET is required and must be at least %d bytes", minJWTSecretLen)
+	}
+	if c.Auth.AccessTTL <= 0 || c.Auth.RefreshTTL <= 0 || c.Auth.RefreshIdleTTL <= 0 {
+		return fmt.Errorf("JWT_ACCESS_TTL, REFRESH_TTL and REFRESH_IDLE_TTL must be positive")
 	}
 	return nil
 }

@@ -83,16 +83,16 @@ func (s *UserService) Create(ctx context.Context, actorID int64, ip string, req 
 	}
 
 	var user *model.User
-	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		var err error
-		user, err = s.users.Create(ctx, q, model.NewUser{
+		user, err = s.users.Create(ctx, model.NewUser{
 			Email: req.Email, Name: req.Name, PasswordHash: string(hash), RoleID: roleID,
 			AreaAssignment: req.AreaAssignment, ChurchName: req.ChurchName,
 		})
 		if err != nil {
 			return err
 		}
-		return s.audit.Insert(ctx, q, userAudit(actor, ip, model.AuditCreateUser, user, details))
+		return s.audit.Insert(ctx, userAudit(actor, ip, model.AuditCreateUser, user, details))
 	})
 	switch {
 	case errors.Is(err, repository.ErrUniqueViolation):
@@ -115,13 +115,13 @@ func (s *UserService) Update(ctx context.Context, actorID int64, ip string, id i
 	}
 
 	var user *model.User
-	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		var err error
-		user, err = s.users.UpdateProfile(ctx, q, id, model.UserProfile(req))
+		user, err = s.users.UpdateProfile(ctx, id, model.UserProfile(req))
 		if err != nil {
 			return err
 		}
-		return s.audit.Insert(ctx, q, userAudit(actor, ip, model.AuditUpdateUser, user, map[string]any{}))
+		return s.audit.Insert(ctx, userAudit(actor, ip, model.AuditUpdateUser, user, map[string]any{}))
 	})
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
@@ -151,9 +151,9 @@ func (s *UserService) ChangeStatus(ctx context.Context, actorID int64, ip string
 	}
 
 	var user *model.User
-	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		var err error
-		user, err = s.setStatus(ctx, q, actor, ip, id, status)
+		user, err = s.setStatus(ctx, actor, ip, id, status)
 		return err
 	})
 	switch {
@@ -167,14 +167,14 @@ func (s *UserService) ChangeStatus(ctx context.Context, actorID int64, ip string
 	return user, nil
 }
 
-// setStatus is the body of ChangeStatus's transaction, on q.
-func (s *UserService) setStatus(ctx context.Context, q repository.Querier, actor *model.User, ip string, id int64, status string) (*model.User, error) {
-	admins, err := s.users.LockActiveAdmins(ctx, q)
+// setStatus is the body of ChangeStatus's transaction; ctx carries it.
+func (s *UserService) setStatus(ctx context.Context, actor *model.User, ip string, id int64, status string) (*model.User, error) {
+	admins, err := s.users.LockActiveAdmins(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// Read outside the transaction (GetByID takes no Querier); only the audit's
-	// "from" and the unchanged shortcut depend on it, and the lock above guards the admins.
+	// Only the audit's "from" and the unchanged shortcut depend on this read; the lock
+	// above guards the admins.
 	current, err := s.users.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -190,17 +190,17 @@ func (s *UserService) setStatus(ctx context.Context, q repository.Querier, actor
 	}
 
 	from := current.Status
-	user, err := s.users.UpdateStatus(ctx, q, id, status)
+	user, err := s.users.UpdateStatus(ctx, id, status)
 	if err != nil {
 		return nil, err
 	}
 	var revoked int64
 	if status != model.UserStatusActive {
-		if revoked, err = s.users.RevokeSessions(ctx, q, id); err != nil {
+		if revoked, err = s.users.RevokeSessions(ctx, id); err != nil {
 			return nil, err
 		}
 	}
-	err = s.audit.Insert(ctx, q, userAudit(actor, ip, model.AuditChangeUserStatus, user,
+	err = s.audit.Insert(ctx, userAudit(actor, ip, model.AuditChangeUserStatus, user,
 		map[string]any{"from": from, "to": status, "sessions_revoked": revoked}))
 	if err != nil {
 		return nil, err
@@ -237,16 +237,16 @@ func (s *UserService) ResetPassword(ctx context.Context, actorID int64, ip strin
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	err = s.tx.WithTx(ctx, func(q repository.Querier) error {
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		// An empty keep-token: an admin reset has no session to keep, so all of them end.
-		ended, err := s.users.UpdatePasswordKeepSession(ctx, q, id, string(hash), "")
+		ended, err := s.users.UpdatePasswordKeepSession(ctx, id, string(hash), "")
 		if err != nil {
 			return err
 		}
-		if err := s.users.ClearLockout(ctx, q, id); err != nil {
+		if err := s.users.ClearLockout(ctx, id); err != nil {
 			return err
 		}
-		return s.audit.Insert(ctx, q, userAudit(actor, ip, model.AuditAdminResetPassword, target,
+		return s.audit.Insert(ctx, userAudit(actor, ip, model.AuditAdminResetPassword, target,
 			map[string]any{"sessions_ended": ended}))
 	})
 	switch {

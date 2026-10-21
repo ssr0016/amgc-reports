@@ -131,7 +131,7 @@ func TestAdminUserHandler_ChangeRole_WriteErrors(t *testing.T) {
 				return &model.User{ID: id}, nil
 			}
 			users.UpdateRoleFunc = func(context.Context, int64, int64) error { return tt.updateErr }
-			h := NewAdminUserHandler(users, existingRoleRepo{}, nil, nil)
+			h := NewAdminUserHandler(users, existingRoleRepo{}, nil)
 
 			status, body := servePost(t, "/admin/users/:id/role", h.ChangeRole,
 				"/admin/users/5/role", `{"role_id": 9}`)

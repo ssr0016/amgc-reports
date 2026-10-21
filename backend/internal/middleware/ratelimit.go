@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 )
 
 type visitor struct {
@@ -157,10 +157,10 @@ func RateLimit(r rate.Limit, burst int) echo.MiddlewareFunc {
 // IP (one office NAT) get separate buckets and the key does not depend on
 // proxy trust. A request without a session user falls back to the IP key; put
 // RequireAuth before it and that fallback is never used.
-func RateLimitByUser(sm *scs.SessionManager, r rate.Limit, burst int) echo.MiddlewareFunc {
+func RateLimitByUser(r rate.Limit, burst int) echo.MiddlewareFunc {
 	return rateLimitBy(r, burst, func(c echo.Context) string {
-		if id := sm.GetInt64(c.Request().Context(), UserIDKey); id != 0 {
-			return "user:" + strconv.FormatInt(id, 10)
+		if u, ok := request.UserFrom(c.Request().Context()); ok {
+			return "user:" + strconv.FormatInt(u.ID, 10)
 		}
 		return rateLimitKey(c)
 	})

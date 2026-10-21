@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,8 +15,9 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
 )
 
-// These tests need the columns the goose migrations add to sessions, which the
-// hand-written RunMigrations schema does not have.
+// These tests need the refresh_tokens table and the users columns the goose
+// migrations add; MigrateWithGoose applies them. A "session" here is a sign-in:
+// one live refresh token, whose family is named by the string passed to addSession.
 func setupSessions(t *testing.T) (*UserRepo, *testutil.TestDB) {
 	t.Helper()
 	tdb := testutil.SetupPostgres(t)
@@ -23,11 +25,11 @@ func setupSessions(t *testing.T) (*UserRepo, *testutil.TestDB) {
 	return NewUserRepo(&database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}), tdb
 }
 
-func addSession(t *testing.T, tdb *testutil.TestDB, token string, userID int64) {
+func addSession(t *testing.T, tdb *testutil.TestDB, family string, userID int64) {
 	t.Helper()
 	_, err := tdb.Pool.Exec(context.Background(),
-		`INSERT INTO sessions (token, data, expiry, user_id) VALUES ($1, '\x00', NOW() + interval '1 hour', $2)`,
-		token, userID)
+		`INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at) VALUES ($1, $2, $2, NOW() + interval '1 hour')`,
+		userID, family)
 	require.NoError(t, err)
 }
 
@@ -35,7 +37,7 @@ func liveSessions(t *testing.T, tdb *testutil.TestDB, userID int64) int {
 	t.Helper()
 	var n int
 	require.NoError(t, tdb.Pool.QueryRow(context.Background(),
-		`SELECT COUNT(*) FROM sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID).Scan(&n))
+		`SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL`, userID).Scan(&n))
 	return n
 }
 
@@ -71,7 +73,7 @@ func TestUserRepo_UpdatePassword_MissingUserRevokesNothing(t *testing.T) {
 }
 
 // Deleting a user must not leave sessions that point at nobody.
-func TestSessions_DeletingUserRemovesTheirSessions(t *testing.T) {
+func TestRefreshTokens_DeletingUserRemovesTheirs(t *testing.T) {
 	users, tdb := setupSessions(t)
 	ctx := context.Background()
 	a, err := users.CreateWithPassword(ctx, "a@example.com", "A", "hash")
@@ -82,7 +84,7 @@ func TestSessions_DeletingUserRemovesTheirSessions(t *testing.T) {
 	require.NoError(t, err)
 
 	var n int
-	require.NoError(t, tdb.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM sessions WHERE token = 'a1'`).Scan(&n))
+	require.NoError(t, tdb.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM refresh_tokens WHERE family_id = 'a1'`).Scan(&n))
 	assert.Zero(t, n, "the session outlived its user")
 }
 
@@ -96,12 +98,12 @@ func TestUserRepo_UpdatePassword_RollbackOnRevokeFailure(t *testing.T) {
 	require.NoError(t, err)
 	addSession(t, tdb, "a1", a.ID)
 
-	// Make every UPDATE of sessions fail, which is what the revoke runs.
+	// Make every UPDATE of refresh_tokens fail, which is what the revoke runs.
 	_, err = tdb.Pool.Exec(ctx, `
-		CREATE FUNCTION block_session_update() RETURNS trigger LANGUAGE plpgsql AS $$
-		BEGIN RAISE EXCEPTION 'session update blocked'; END $$;
-		CREATE TRIGGER sessions_block_update BEFORE UPDATE ON sessions
-			FOR EACH ROW EXECUTE FUNCTION block_session_update();`)
+		CREATE FUNCTION block_refresh_update() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN RAISE EXCEPTION 'refresh update blocked'; END $$;
+		CREATE TRIGGER refresh_block_update BEFORE UPDATE ON refresh_tokens
+			FOR EACH ROW EXECUTE FUNCTION block_refresh_update();`)
 	require.NoError(t, err)
 
 	err = users.UpdatePassword(ctx, a.ID, "newhash")
@@ -128,7 +130,7 @@ func TestUserRepo_UpdatePasswordKeepSession(t *testing.T) {
 	addSession(t, tdb, "a-laptop", a.ID)
 	addSession(t, tdb, "b1", b.ID)
 
-	ended, err := users.UpdatePasswordKeepSession(ctx, tdb.Pool, a.ID, "newhash", "a-here")
+	ended, err := users.UpdatePasswordKeepSession(ctx, a.ID, "newhash", "a-here")
 
 	require.NoError(t, err)
 	assert.EqualValues(t, 2, ended)
@@ -138,8 +140,14 @@ func TestUserRepo_UpdatePasswordKeepSession(t *testing.T) {
 	assert.Equal(t, 1, liveSessions(t, tdb, a.ID), "only the current session should be left")
 	var kept string
 	require.NoError(t, tdb.Pool.QueryRow(ctx,
-		`SELECT token FROM sessions WHERE user_id = $1 AND revoked_at IS NULL`, a.ID).Scan(&kept))
+		`SELECT family_id FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL`, a.ID).Scan(&kept))
 	assert.Equal(t, "a-here", kept)
+	gotA, err := users.GetWithRole(ctx, a.ID)
+	require.NoError(t, err)
+	assert.False(t, gotA.TokensValidAfter.IsZero() || gotA.TokensValidAfter.Unix() == 0, "tokens_valid_after was not moved")
+	gotB, err := users.GetWithRole(ctx, b.ID)
+	require.NoError(t, err)
+	assert.Zero(t, gotB.TokensValidAfter.Unix(), "another user's tokens_valid_after moved")
 	assert.Equal(t, 1, liveSessions(t, tdb, b.ID), "another user's session was revoked")
 }
 
@@ -150,7 +158,7 @@ func TestUserRepo_UpdatePasswordKeepSession_MissingUser(t *testing.T) {
 	require.NoError(t, err)
 	addSession(t, tdb, "b1", b.ID)
 
-	_, err = users.UpdatePasswordKeepSession(ctx, tdb.Pool, 99999, "newhash", "x")
+	_, err = users.UpdatePasswordKeepSession(ctx, 99999, "newhash", "x")
 
 	require.ErrorIs(t, err, ErrNotFound)
 	assert.Equal(t, 1, liveSessions(t, tdb, b.ID))
@@ -166,8 +174,8 @@ func TestUserRepo_UpdatePasswordKeepSession_RollsBackWithItsTransaction(t *testi
 	addSession(t, tdb, "a-phone", a.ID)
 
 	boom := errors.New("audit failed")
-	err = WithTx(ctx, tdb.Pool, func(q Querier) error {
-		if _, err := users.UpdatePasswordKeepSession(ctx, q, a.ID, "newhash", "a-here"); err != nil {
+	err = txDB(tdb).InTransaction(ctx, func(ctx context.Context) error {
+		if _, err := users.UpdatePasswordKeepSession(ctx, a.ID, "newhash", "a-here"); err != nil {
 			return err
 		}
 		return boom // what a failed audit insert would do
@@ -178,4 +186,29 @@ func TestUserRepo_UpdatePasswordKeepSession_RollsBackWithItsTransaction(t *testi
 	require.NoError(t, err)
 	assert.Equal(t, "oldhash", got.PasswordHash)
 	assert.Equal(t, 2, liveSessions(t, tdb, a.ID), "the revocation survived the rollback")
+}
+
+// RevokeSessions (a status change) ends every sign-in and moves tokens_valid_after,
+// for that user only.
+func TestUserRepo_RevokeSessions_EndsSignInsAndAccessTokens(t *testing.T) {
+	users, tdb := setupSessions(t)
+	ctx := context.Background()
+	a, err := users.CreateWithPassword(ctx, "a@example.com", "A", "hash")
+	require.NoError(t, err)
+	b, err := users.CreateWithPassword(ctx, "b@example.com", "B", "hash")
+	require.NoError(t, err)
+	addSession(t, tdb, "a1", a.ID)
+	addSession(t, tdb, "a2", a.ID)
+	addSession(t, tdb, "b1", b.ID)
+
+	ended, err := users.RevokeSessions(ctx, a.ID)
+
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, ended)
+	assert.Zero(t, liveSessions(t, tdb, a.ID))
+	assert.Equal(t, 1, liveSessions(t, tdb, b.ID))
+	gotA, err := users.GetWithRole(ctx, a.ID)
+	require.NoError(t, err)
+	assert.True(t, gotA.AccessRevoked(time.Now().Add(-time.Minute)), "an older access token must be refused")
+	assert.False(t, gotA.AccessRevoked(time.Now().Add(time.Second)), "a newer one must pass")
 }

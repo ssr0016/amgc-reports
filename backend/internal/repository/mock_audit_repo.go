@@ -13,14 +13,14 @@ type MockAuditRepo struct {
 	entries []model.AuditLog
 
 	// Override function for testing specific behaviors
-	InsertFunc func(ctx context.Context, q Querier, e model.AuditLog) error
+	InsertFunc func(ctx context.Context, e model.AuditLog) error
 }
 
 func NewMockAuditRepo() *MockAuditRepo { return &MockAuditRepo{} }
 
-func (m *MockAuditRepo) Insert(ctx context.Context, q Querier, e model.AuditLog) error {
+func (m *MockAuditRepo) Insert(ctx context.Context, e model.AuditLog) error {
 	if m.InsertFunc != nil {
-		return m.InsertFunc(ctx, q, e)
+		return m.InsertFunc(ctx, e)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -4,21 +4,21 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 )
 
 type AuthHandler struct {
 	authService *service.AuthService
-	sm          *scs.SessionManager
+	cookies     *Cookies
 }
 
-func NewAuthHandler(authService *service.AuthService, sm *scs.SessionManager) *AuthHandler {
-	return &AuthHandler{authService: authService, sm: sm}
+func NewAuthHandler(authService *service.AuthService, cookies *Cookies) *AuthHandler {
+	return &AuthHandler{authService: authService, cookies: cookies}
 }
 
 // messageAccountLocked is shown on login and on change-password for a locked account.
@@ -26,7 +26,7 @@ const messageAccountLocked = "Account locked. Try again later."
 
 // Login godoc
 // @Summary      Login user
-// @Description  Authenticates user and creates a session
+// @Description  Authenticates the user and sets the access_token and refresh_token cookies (HttpOnly)
 // @Tags         auth
 // @Accept       json
 // @Produce      json
@@ -63,33 +63,64 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return apperror.Internal("login failed").WithError(err)
 	}
 
-	ctx := c.Request().Context()
-	if err := h.sm.RenewToken(ctx); err != nil {
+	pair, err := h.authService.StartSession(c.Request().Context(), user.ID, c.RealIP(), c.Request().UserAgent())
+	if err != nil {
 		return apperror.Internal("session error").WithError(err)
 	}
-	h.sm.Put(ctx, "user_id", user.ID)
+	h.cookies.setPair(c, pair)
 
 	return c.JSON(http.StatusOK, user.ToResponse())
 }
 
 // Logout godoc
 // @Summary      Logout user
-// @Description  Destroys the current session
+// @Description  Ends the sign-in the refresh_token cookie belongs to and clears both cookies. It needs no valid access token, so it works after that has expired.
 // @Tags         auth
 // @Produce      json
-// @Security     CookieAuth
 // @Success      200 {object} map[string]string
 // @Router       /auth/logout [post]
 func (h *AuthHandler) Logout(c echo.Context) error {
-	if err := h.sm.Destroy(c.Request().Context()); err != nil {
-		return apperror.Internal("logout failed").WithError(err)
+	h.cookies.clear(c) // before the body: cookies cannot be set once it is written
+	if raw := refreshCookie(c); raw != "" {
+		if err := h.authService.EndSession(c.Request().Context(), raw); err != nil {
+			return apperror.Internal("logout failed").WithError(err)
+		}
 	}
 	return c.JSON(http.StatusOK, map[string]string{"message": "logged out"})
 }
 
+// Refresh godoc
+// @Summary      Refresh the sign-in
+// @Description  Trades the refresh_token cookie for a new access token and a new refresh token, both set as cookies. The old refresh token stops working. Answers 401 and clears the cookies when the refresh token is unknown, expired, idle too long, revoked, or its account may no longer sign in. A token that was rotated within the last 10 seconds (a second tab) is a 401 that leaves the cookies alone.
+// @Tags         auth
+// @Success      204
+// @Failure      401 {object} map[string]string
+// @Failure      429 {object} map[string]string
+// @Router       /auth/refresh [post]
+func (h *AuthHandler) Refresh(c echo.Context) error {
+	raw := refreshCookie(c)
+	if raw == "" {
+		return apperror.Unauthorized("authentication required")
+	}
+	pair, err := h.authService.Refresh(c.Request().Context(), raw, c.RealIP(), c.Request().UserAgent())
+	switch {
+	case errors.Is(err, service.ErrRefreshReplayed):
+		// Another tab just refreshed with this token. The cookies now hold its new
+		// tokens (the jar is shared), so clearing them would end a live sign-in.
+		return apperror.Unauthorized("authentication required")
+	case errors.Is(err, service.ErrInvalidRefresh), errors.Is(err, service.ErrUnauthorized):
+		h.cookies.clear(c)
+		return apperror.Unauthorized("authentication required")
+	case err != nil:
+		return apperror.Internal("could not refresh the session").WithError(err)
+	}
+	h.cookies.setPair(c, pair)
+	return c.NoContent(http.StatusNoContent)
+}
+
 // ChangePassword godoc
 // @Summary      Change own password
-// @Description  Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sessions end; this one stays and its token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session. confirm_password is required and must equal new_password exactly (422 on confirm_password); that check runs first, so a typo does not count as a failed attempt.
+// @Description  Changes the signed-in user's password. The current password is checked against the same failure counter as login (5 wrong attempts lock the account for 15 minutes). The user's other sign-ins end; this one stays and its access token is renewed. A wrong current password is a 422 on current_password, not a 401, so the client does not read it as a lost session. confirm_password is required and must equal new_password exactly (422 on confirm_password); that check runs first, so a typo does not count as a failed attempt.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
@@ -104,10 +135,11 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 // @Router       /auth/change-password [post]
 func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	ctx := c.Request().Context()
-	userID := h.sm.GetInt64(ctx, "user_id")
-	if userID == 0 {
+	caller, ok := request.UserFrom(ctx)
+	if !ok {
 		return apperror.Unauthorized("not authenticated")
 	}
+	userID := caller.ID
 	var req model.ChangePasswordRequest
 	if err := c.Bind(&req); err != nil {
 		return apperror.BadRequest("invalid request body").WithError(err)
@@ -116,7 +148,7 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 		return err
 	}
 
-	err := h.authService.ChangePassword(ctx, userID, c.RealIP(), h.sm.Token(ctx), req.CurrentPassword, req.NewPassword)
+	err := h.authService.ChangePassword(ctx, userID, c.RealIP(), caller.SessionID, req.CurrentPassword, req.NewPassword)
 	switch {
 	case errors.Is(err, service.ErrInvalidCredentials):
 		return fieldError("current_password", "is incorrect")
@@ -132,9 +164,12 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 		return apperror.Internal("could not change the password").WithError(err)
 	}
 
-	// The password has changed and the other sessions are gone. A new token for this
-	// one is extra safety, so a failure here must not report the change as failed.
-	_ = h.sm.RenewToken(ctx)
+	// The password change moved tokens_valid_after past this sign-in's access token,
+	// so it needs a new one. A failure here must not report the change as failed:
+	// the next request refreshes.
+	if access, exp, err := h.authService.RenewAccess(caller.ID, caller.SessionID); err == nil {
+		h.cookies.SetAccess(c, access, exp)
+	}
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -152,11 +187,11 @@ func fieldError(field, message string) error {
 // @Failure      401 {object} map[string]string
 // @Router       /auth/me [get]
 func (h *AuthHandler) Me(c echo.Context) error {
-	userID := h.sm.GetInt64(c.Request().Context(), "user_id")
-	if userID == 0 {
+	caller, ok := request.UserFrom(c.Request().Context())
+	if !ok {
 		return apperror.Unauthorized("not authenticated")
 	}
-	me, err := h.authService.Me(c.Request().Context(), userID)
+	me, err := h.authService.Me(c.Request().Context(), caller.ID)
 	if err != nil {
 		if errors.Is(err, service.ErrUnauthorized) {
 			return apperror.Unauthorized("not authenticated")

@@ -30,7 +30,7 @@ func TestAuditRepo_Insert(t *testing.T) {
 	}
 
 	t.Run("commits with the transaction", func(t *testing.T) {
-		require.NoError(t, WithTx(ctx, db.Pool, func(q Querier) error { return repo.Insert(ctx, q, entry) }))
+		require.NoError(t, db.InTransaction(ctx, func(ctx context.Context) error { return repo.Insert(ctx, entry) }))
 
 		var gotType, gotMonth string
 		require.NoError(t, db.Pool.QueryRow(ctx,
@@ -42,7 +42,7 @@ func TestAuditRepo_Insert(t *testing.T) {
 	t.Run("nil details stored as empty object", func(t *testing.T) {
 		e := entry
 		e.Details = nil
-		require.NoError(t, repo.Insert(ctx, db.Pool, e))
+		require.NoError(t, repo.Insert(ctx, e))
 		var n int
 		require.NoError(t, db.Pool.QueryRow(ctx, `SELECT count(*) FROM audit_logs WHERE details = '{}'::jsonb`).Scan(&n))
 		assert.Equal(t, 1, n)
@@ -51,8 +51,8 @@ func TestAuditRepo_Insert(t *testing.T) {
 	t.Run("rolls back with the transaction", func(t *testing.T) {
 		var before, after int
 		require.NoError(t, db.Pool.QueryRow(ctx, `SELECT count(*) FROM audit_logs`).Scan(&before))
-		_ = WithTx(ctx, db.Pool, func(q Querier) error {
-			require.NoError(t, repo.Insert(ctx, q, entry))
+		_ = db.InTransaction(ctx, func(ctx context.Context) error {
+			require.NoError(t, repo.Insert(ctx, entry))
 			return assert.AnError
 		})
 		require.NoError(t, db.Pool.QueryRow(ctx, `SELECT count(*) FROM audit_logs`).Scan(&after))
@@ -62,6 +62,6 @@ func TestAuditRepo_Insert(t *testing.T) {
 	t.Run("unknown action is rejected", func(t *testing.T) {
 		e := entry
 		e.Action = "NOPE"
-		require.Error(t, repo.Insert(ctx, db.Pool, e))
+		require.Error(t, repo.Insert(ctx, e))
 	})
 }

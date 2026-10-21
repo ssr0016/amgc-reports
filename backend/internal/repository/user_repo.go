@@ -45,7 +45,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id int64) (*model.User, error) {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	return scanUser(r.db.Pool.QueryRow(ctx, query, args...))
+	return scanUser(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 }
 
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*model.User, error) {
@@ -58,16 +58,16 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*model.User, e
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	return scanUser(r.db.Pool.QueryRow(ctx, query, args...))
+	return scanUser(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 }
 
 func (r *UserRepo) CreateWithPassword(ctx context.Context, email, name, hash string) (*model.User, error) {
-	return r.Create(ctx, r.db.Pool, model.NewUser{Email: email, Name: name, PasswordHash: hash})
+	return r.Create(ctx, model.NewUser{Email: email, Name: name, PasswordHash: hash})
 }
 
-// Create inserts an account on q (a transaction, so an audit row can share it).
+// Create inserts an account. In a transaction ctx it joins it, so an audit row can share it.
 // A zero RoleID means the default role.
-func (r *UserRepo) Create(ctx context.Context, q Querier, n model.NewUser) (*model.User, error) {
+func (r *UserRepo) Create(ctx context.Context, n model.NewUser) (*model.User, error) {
 	roleID := n.RoleID
 	if roleID == 0 {
 		roleQuery, roleArgs, err := r.db.Builder.
@@ -78,7 +78,7 @@ func (r *UserRepo) Create(ctx context.Context, q Querier, n model.NewUser) (*mod
 		if err != nil {
 			return nil, fmt.Errorf("build role query: %w", err)
 		}
-		if err := q.QueryRow(ctx, roleQuery, roleArgs...).Scan(&roleID); err != nil {
+		if err := r.db.Querier(ctx).QueryRow(ctx, roleQuery, roleArgs...).Scan(&roleID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, fmt.Errorf("get default role %q: %w", model.DefaultRoleName, ErrDefaultRoleMissing)
 			}
@@ -96,16 +96,16 @@ func (r *UserRepo) Create(ctx context.Context, q Querier, n model.NewUser) (*mod
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	u, err := scanUser(q.QueryRow(ctx, query, args...))
+	u, err := scanUser(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 	if isForeignKeyViolation(err) {
 		return nil, fmt.Errorf("create user: %w: %w", ErrForeignKeyViolation, err)
 	}
 	return u, err
 }
 
-// UpdateProfile replaces a user's name and profile text on q; the password and
+// UpdateProfile replaces a user's name and profile text; the password and
 // role are not touched. Empty profile text is stored as NULL.
-func (r *UserRepo) UpdateProfile(ctx context.Context, q Querier, id int64, p model.UserProfile) (*model.User, error) {
+func (r *UserRepo) UpdateProfile(ctx context.Context, id int64, p model.UserProfile) (*model.User, error) {
 	query, args, err := r.db.Builder.
 		Update("users").
 		Set("name", p.Name).
@@ -118,7 +118,7 @@ func (r *UserRepo) UpdateProfile(ctx context.Context, q Querier, id int64, p mod
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	u, err := scanUser(q.QueryRow(ctx, query, args...))
+	u, err := scanUser(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (r *UserRepo) List(ctx context.Context, emailFilter, status string, limit i
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
@@ -187,7 +187,7 @@ func (r *UserRepo) UpdateRole(ctx context.Context, userID, roleID int64) error {
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	result, err := r.db.Pool.Exec(ctx, query, args...)
+	result, err := r.db.Querier(ctx).Exec(ctx, query, args...)
 	if isForeignKeyViolation(err) {
 		return fmt.Errorf("update role: %w: %w", ErrForeignKeyViolation, err)
 	}
@@ -205,7 +205,7 @@ func (r *UserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, erro
 	query, args, err := r.db.Builder.
 		Select(
 			"u.id", "u.email", "u.name", "u.password_hash", "u.role_id",
-			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status",
+			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status", "u.tokens_valid_after",
 			"r.id", "r.name", "r.description", "r.created_at", "r.updated_at",
 		).
 		From("users u").
@@ -221,9 +221,9 @@ func (r *UserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, erro
 	var rName, rDesc *string
 	var rCreatedAt, rUpdatedAt *time.Time
 
-	err = r.db.Pool.QueryRow(ctx, query, args...).Scan(
+	err = r.db.Querier(ctx).QueryRow(ctx, query, args...).Scan(
 		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID,
-		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status,
+		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.TokensValidAfter,
 		&rID, &rName, &rDesc, &rCreatedAt, &rUpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -279,7 +279,7 @@ func (r *UserRepo) ListWithPagination(ctx context.Context, emailFilter string, p
 	}
 
 	var total int64
-	if err := r.db.Pool.QueryRow(ctx, countSQL, countArgs...).Scan(&total); err != nil {
+	if err := r.db.Querier(ctx).QueryRow(ctx, countSQL, countArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count users: %w", err)
 	}
 
@@ -293,7 +293,7 @@ func (r *UserRepo) ListWithPagination(ctx context.Context, emailFilter string, p
 		return nil, 0, fmt.Errorf("build query: %w", err)
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("query: %w", err)
 	}
@@ -323,7 +323,7 @@ func (r *UserRepo) MarkEmailVerified(ctx context.Context, userID int64) error {
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	result, err := r.db.Pool.Exec(ctx, query, args...)
+	result, err := r.db.Querier(ctx).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("mark email verified: %w", err)
 	}
@@ -333,61 +333,62 @@ func (r *UserRepo) MarkEmailVerified(ctx context.Context, userID int64) error {
 	return nil
 }
 
-// UpdatePassword updates a user's password hash and revokes all of the user's
-// sessions, in one transaction: a changed password never leaves the old
-// sessions alive, and a failed revocation leaves the old password in place.
+// UpdatePassword updates a user's password hash and ends all of the user's
+// sign-ins (refresh tokens, and access tokens through tokens_valid_after), in one
+// transaction: a changed password never leaves the old sign-ins alive, and a
+// failed revocation leaves the old password in place.
 func (r *UserRepo) UpdatePassword(ctx context.Context, userID int64, hash string) error {
+	now := revocationTime()
 	query, args, err := r.db.Builder.
 		Update("users").
 		Set("password_hash", hash).
 		Set("updated_at", sq.Expr("NOW()")).
+		Set("tokens_valid_after", now).
 		Where(sq.Eq{"id": userID}).
 		ToSql()
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
 
-	tx, err := r.db.Pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }() // no-op once committed
+	return r.db.InTransaction(ctx, func(ctx context.Context) error {
+		q := r.db.Querier(ctx)
+		result, err := q.Exec(ctx, query, args...)
+		if err != nil {
+			return fmt.Errorf("update password: %w", err)
+		}
+		if result.RowsAffected() == 0 {
+			return fmt.Errorf("users: %w", ErrNotFound)
+		}
 
-	result, err := tx.Exec(ctx, query, args...)
-	if err != nil {
-		return fmt.Errorf("update password: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("users: %w", ErrNotFound)
-	}
-
-	// A tombstone, not a delete: see the session store.
-	if _, err := tx.Exec(ctx,
-		`UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`, userID); err != nil {
-		return fmt.Errorf("revoke sessions: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit: %w", err)
-	}
-	return nil
+		if _, err := q.Exec(ctx,
+			`UPDATE refresh_tokens SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL`, userID, now); err != nil {
+			return fmt.Errorf("revoke sessions: %w", err)
+		}
+		return nil
+	})
 }
 
-// UpdatePasswordKeepSession sets the password and revokes the user's sessions
-// except keepToken, the one the user is changing it from. It runs on q, so the
-// caller can put it in one transaction with the audit row, and it returns how
-// many sessions it ended. A missing user is ErrNotFound and revokes nothing.
-// UpdatePassword, by contrast, ends every session (used when the user is not signed in).
-func (r *UserRepo) UpdatePasswordKeepSession(ctx context.Context, q Querier, userID int64, hash, keepToken string) (int64, error) {
+// UpdatePasswordKeepSession sets the password and ends the user's other sign-ins:
+// every refresh-token family except keepFamily (the one the user is changing it
+// from) is revoked, and tokens_valid_after is moved up so their access tokens stop
+// working at once. The caller issues a fresh access token for keepFamily. It joins
+// the transaction in ctx, so the caller can put it in one transaction with the
+// audit row, and it returns how many sign-ins it ended. A missing user is
+// ErrNotFound and revokes nothing. UpdatePassword, by contrast, ends every
+// sign-in (used when the user is not signed in).
+func (r *UserRepo) UpdatePasswordKeepSession(ctx context.Context, userID int64, hash, keepFamily string) (int64, error) {
+	now := revocationTime()
 	query, args, err := r.db.Builder.
 		Update("users").
 		Set("password_hash", hash).
 		Set("updated_at", sq.Expr("NOW()")).
+		Set("tokens_valid_after", now).
 		Where(sq.Eq{"id": userID}).
 		ToSql()
 	if err != nil {
 		return 0, fmt.Errorf("build query: %w", err)
 	}
+	q := r.db.Querier(ctx)
 	result, err := q.Exec(ctx, query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("update password: %w", err)
@@ -396,15 +397,20 @@ func (r *UserRepo) UpdatePasswordKeepSession(ctx context.Context, q Querier, use
 		return 0, fmt.Errorf("users: %w", ErrNotFound)
 	}
 
-	// A tombstone, not a delete: see the session store.
 	revoked, err := q.Exec(ctx,
-		`UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND token <> $2 AND revoked_at IS NULL`,
-		userID, keepToken)
+		`UPDATE refresh_tokens SET revoked_at = $3 WHERE user_id = $1 AND family_id <> $2 AND revoked_at IS NULL`,
+		userID, keepFamily, now)
 	if err != nil {
 		return 0, fmt.Errorf("revoke sessions: %w", err)
 	}
 	return revoked.RowsAffected(), nil
 }
+
+// revocationTime is the moment a revocation takes effect. It is cut to the
+// millisecond, the precision of an access token's iat, so a token signed right
+// after the revocation is never older than it. It comes from the app clock, the
+// same one that signs tokens, not the database's.
+func revocationTime() time.Time { return time.Now().Truncate(time.Millisecond) }
 
 // RecordFailedLogin increments failed_login_attempts and locks account if threshold reached.
 func (r *UserRepo) RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error {
@@ -418,7 +424,7 @@ func (r *UserRepo) RecordFailedLogin(ctx context.Context, userID int64, maxAttem
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	result, err := r.db.Pool.Exec(ctx, query, args...)
+	result, err := r.db.Querier(ctx).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("record failed login: %w", err)
 	}
@@ -430,12 +436,12 @@ func (r *UserRepo) RecordFailedLogin(ctx context.Context, userID int64, maxAttem
 
 // ResetLoginAttempts clears failed attempts and unlocks account.
 func (r *UserRepo) ResetLoginAttempts(ctx context.Context, userID int64) error {
-	return r.ClearLockout(ctx, r.db.Pool, userID)
+	return r.ClearLockout(ctx, userID)
 }
 
-// ClearLockout is ResetLoginAttempts on q: failed_login_attempts to 0 and locked_until to
+// ClearLockout is ResetLoginAttempts: failed_login_attempts to 0 and locked_until to
 // NULL. A missing user is ErrNotFound.
-func (r *UserRepo) ClearLockout(ctx context.Context, q Querier, userID int64) error {
+func (r *UserRepo) ClearLockout(ctx context.Context, userID int64) error {
 	query, args, err := r.db.Builder.
 		Update("users").
 		Set("failed_login_attempts", 0).
@@ -446,7 +452,7 @@ func (r *UserRepo) ClearLockout(ctx context.Context, q Querier, userID int64) er
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	result, err := q.Exec(ctx, query, args...)
+	result, err := r.db.Querier(ctx).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("reset login attempts: %w", err)
 	}
@@ -456,9 +462,9 @@ func (r *UserRepo) ClearLockout(ctx context.Context, q Querier, userID int64) er
 	return nil
 }
 
-// UpdateStatus sets a user's status on q (a transaction, so the audit row and the
+// UpdateStatus sets a user's status (in a transaction ctx, so the audit row and the
 // session revoke share it) and returns the updated user. A missing user is ErrNotFound.
-func (r *UserRepo) UpdateStatus(ctx context.Context, q Querier, id int64, status string) (*model.User, error) {
+func (r *UserRepo) UpdateStatus(ctx context.Context, id int64, status string) (*model.User, error) {
 	query, args, err := r.db.Builder.
 		Update("users").
 		Set("status", status).
@@ -469,7 +475,7 @@ func (r *UserRepo) UpdateStatus(ctx context.Context, q Querier, id int64, status
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	u, err := scanUser(q.QueryRow(ctx, query, args...))
+	u, err := scanUser(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 	if err != nil {
 		return nil, err
 	}
@@ -479,23 +485,28 @@ func (r *UserRepo) UpdateStatus(ctx context.Context, q Querier, id int64, status
 	return u, nil
 }
 
-// RevokeSessions ends all of a user's live sessions on q and returns how many.
-// A tombstone, not a delete: see the session store.
-func (r *UserRepo) RevokeSessions(ctx context.Context, q Querier, userID int64) (int64, error) {
+// RevokeSessions ends all of a user's sign-ins (refresh tokens and, through
+// tokens_valid_after, access tokens) and returns how many refresh tokens it revoked.
+func (r *UserRepo) RevokeSessions(ctx context.Context, userID int64) (int64, error) {
+	now := revocationTime()
+	q := r.db.Querier(ctx)
 	res, err := q.Exec(ctx,
-		`UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`, userID)
+		`UPDATE refresh_tokens SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL`, userID, now)
 	if err != nil {
 		return 0, fmt.Errorf("revoke sessions: %w", err)
+	}
+	if _, err := q.Exec(ctx, `UPDATE users SET tokens_valid_after = $2 WHERE id = $1`, userID, now); err != nil {
+		return 0, fmt.Errorf("revoke access tokens: %w", err)
 	}
 	return res.RowsAffected(), nil
 }
 
 // LockActiveAdmins returns the ids of the active admins, in id order, and locks
-// their rows until the transaction on q ends. Taking the locks in a fixed order
+// their rows until the transaction in ctx ends. Taking the locks in a fixed order
 // means two admins changing each other's status at once cannot both pass the
 // last-admin check.
-func (r *UserRepo) LockActiveAdmins(ctx context.Context, q Querier) ([]int64, error) {
-	rows, err := q.Query(ctx,
+func (r *UserRepo) LockActiveAdmins(ctx context.Context) ([]int64, error) {
+	rows, err := r.db.Querier(ctx).Query(ctx,
 		`SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id
 		 WHERE r.name = 'admin' AND u.status = 'active' ORDER BY u.id FOR UPDATE OF u`)
 	if err != nil {

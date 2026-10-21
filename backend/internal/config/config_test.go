@@ -7,14 +7,55 @@ import (
 	"time"
 )
 
+func TestValidateAuth(t *testing.T) {
+	good := AuthConfig{JWTSecret: "0123456789abcdef0123456789abcdef", AccessTTL: time.Minute, RefreshTTL: time.Hour, RefreshIdleTTL: time.Minute}
+	tests := []struct {
+		name    string
+		mutate  func(*AuthConfig)
+		wantErr string
+	}{
+		{"valid", func(*AuthConfig) {}, ""},
+		{"missing secret", func(a *AuthConfig) { a.JWTSecret = "" }, "JWT_SECRET"},
+		{"short secret", func(a *AuthConfig) { a.JWTSecret = "too-short" }, "JWT_SECRET"},
+		{"zero access ttl", func(a *AuthConfig) { a.AccessTTL = 0 }, "TTL"},
+		{"negative refresh ttl", func(a *AuthConfig) { a.RefreshTTL = -time.Hour }, "TTL"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := good
+			tt.mutate(&a)
+			err := (&Config{Auth: a}).ValidateAuth()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("ValidateAuth() = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("ValidateAuth() = %v, want an error naming %s", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// api migrate loads the config before the secret exists; it must still work.
+func TestLoad_DoesNotRequireJWTSecret(t *testing.T) {
+	_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+	_ = os.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+	defer cleanupEnv()
+	_ = os.Unsetenv("JWT_SECRET")
+	if _, err := Load(); err != nil {
+		t.Fatalf("Load() without JWT_SECRET: %v", err)
+	}
+}
+
 func TestLoad_WithAllEnvVars(t *testing.T) {
 	// Set env vars
 	_ = os.Setenv("APP_ENV", "production")
 	_ = os.Setenv("APP_PORT", "9090")
 	_ = os.Setenv("APP_URL", "https://api.example.com")
 	_ = os.Setenv("DATABASE_URL", "postgres://user:pass@host:5432/db")
-	_ = os.Setenv("SESSION_COOKIE_NAME", "my_session")
-	_ = os.Setenv("SESSION_LIFETIME", "3600")
+	_ = os.Setenv("REFRESH_TTL", "3600")
 	_ = os.Setenv("LOG_LEVEL", "warn")
 	_ = os.Setenv("LOG_FORMAT", "json")
 	_ = os.Setenv("CORS_ALLOWED_ORIGINS", "https://app.example.com,https://admin.example.com")
@@ -41,12 +82,9 @@ func TestLoad_WithAllEnvVars(t *testing.T) {
 		t.Errorf("Database.URL = %s, want postgres://user:pass@host:5432/db", cfg.Database.URL)
 	}
 
-	// Session
-	if cfg.Session.CookieName != "my_session" {
-		t.Errorf("Session.CookieName = %s, want my_session", cfg.Session.CookieName)
-	}
-	if cfg.Session.Lifetime != 3600*time.Second {
-		t.Errorf("Session.Lifetime = %v, want 1h", cfg.Session.Lifetime)
+	// Auth
+	if cfg.Auth.RefreshTTL != 3600*time.Second {
+		t.Errorf("Auth.RefreshTTL = %v, want 1h", cfg.Auth.RefreshTTL)
 	}
 
 	// Logging
@@ -86,8 +124,8 @@ func TestLoad_WithDefaults(t *testing.T) {
 	if cfg.App.Port != "8080" {
 		t.Errorf("App.Port = %s, want 8080", cfg.App.Port)
 	}
-	if cfg.Session.CookieName != "app_session" {
-		t.Errorf("Session.CookieName = %s, want app_session", cfg.Session.CookieName)
+	if cfg.Auth.AccessTTL != 10*time.Minute || cfg.Auth.RefreshTTL != 24*time.Hour || cfg.Auth.RefreshIdleTTL != 30*time.Minute {
+		t.Errorf("Auth TTL defaults = %v/%v/%v, want 10m/24h/30m", cfg.Auth.AccessTTL, cfg.Auth.RefreshTTL, cfg.Auth.RefreshIdleTTL)
 	}
 	if cfg.Logging.Level != "info" {
 		t.Errorf("Logging.Level = %s, want info", cfg.Logging.Level)
@@ -163,7 +201,7 @@ func cleanupEnv() {
 	for _, key := range []string{
 		"APP_ENV", "APP_PORT", "PORT", "APP_URL",
 		"DATABASE_URL", "MIGRATE_DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME",
-		"SESSION_COOKIE_NAME", "SESSION_LIFETIME", "SESSION_IDLE_TIMEOUT",
+		"JWT_SECRET", "JWT_ISSUER", "JWT_AUDIENCE", "JWT_ACCESS_TTL", "REFRESH_TTL", "REFRESH_IDLE_TTL", "COOKIE_DOMAIN",
 		"LOG_LEVEL", "LOG_FORMAT",
 		"CORS_ALLOWED_ORIGINS", "TRUSTED_PROXY_CIDRS",
 		"ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME",

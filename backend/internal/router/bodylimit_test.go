@@ -24,7 +24,7 @@ func TestBodyLimit_AppliesToAllBindRoutes(t *testing.T) {
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	e.Use(ourmiddleware.BodyLimit())
 	e.Use(echomw.Recover())
-	Setup(e, nil, nil, nil,
+	Setup(e, noAuthn, nil, nil,
 		handler.NewAuthHandler(nil, nil),
 		nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil),

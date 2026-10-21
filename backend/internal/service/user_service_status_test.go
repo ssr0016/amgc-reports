@@ -10,25 +10,24 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 )
 
 func TestUserService_ChangeStatus(t *testing.T) {
 	ctx := context.Background()
 	newUser := func(f userFixture) *model.User {
-		u, err := f.users.Create(ctx, nil, model.NewUser{Email: "u@example.com", Name: "U", PasswordHash: "keep"})
+		u, err := f.users.Create(ctx, model.NewUser{Email: "u@example.com", Name: "U", PasswordHash: "keep"})
 		require.NoError(t, err)
 		return u
 	}
 	// admins sets who the active-admin lock reports.
 	admins := func(f userFixture, ids ...int64) {
-		f.users.LockActiveAdminsFunc = func(context.Context, repository.Querier) ([]int64, error) { return ids, nil }
+		f.users.LockActiveAdminsFunc = func(context.Context) ([]int64, error) { return ids, nil }
 	}
 
 	t.Run("moves a user away from active: updates, ends sessions, one audit row", func(t *testing.T) {
 		f := newUserFixture()
 		u := newUser(f)
-		f.users.RevokeSessionsFunc = func(context.Context, repository.Querier, int64) (int64, error) { return 3, nil }
+		f.users.RevokeSessionsFunc = func(context.Context, int64) (int64, error) { return 3, nil }
 
 		got, err := f.svc.ChangeStatus(ctx, adminID, "10.0.0.2", u.ID, model.UserStatusInactive)
 		require.NoError(t, err)
@@ -48,7 +47,7 @@ func TestUserService_ChangeStatus(t *testing.T) {
 		f := newUserFixture()
 		u := newUser(f)
 		u.Status = model.UserStatusDeceased
-		f.users.RevokeSessionsFunc = func(context.Context, repository.Querier, int64) (int64, error) {
+		f.users.RevokeSessionsFunc = func(context.Context, int64) (int64, error) {
 			t.Error("sessions were revoked on a move to active")
 			return 0, nil
 		}
@@ -63,7 +62,7 @@ func TestUserService_ChangeStatus(t *testing.T) {
 	t.Run("the same status is a quiet success: nothing written, no audit row", func(t *testing.T) {
 		f := newUserFixture()
 		u := newUser(f)
-		f.users.UpdateStatusFunc = func(context.Context, repository.Querier, int64, string) (*model.User, error) {
+		f.users.UpdateStatusFunc = func(context.Context, int64, string) (*model.User, error) {
 			t.Error("an unchanged status was written")
 			return nil, nil
 		}
@@ -125,7 +124,7 @@ func TestUserService_ChangeStatus(t *testing.T) {
 	t.Run("audit failure fails the change", func(t *testing.T) {
 		f := newUserFixture()
 		u := newUser(f)
-		f.audit.InsertFunc = func(context.Context, repository.Querier, model.AuditLog) error { return errors.New("audit down") }
+		f.audit.InsertFunc = func(context.Context, model.AuditLog) error { return errors.New("audit down") }
 
 		_, err := f.svc.ChangeStatus(ctx, adminID, "", u.ID, model.UserStatusInactive)
 

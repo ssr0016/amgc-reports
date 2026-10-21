@@ -19,14 +19,14 @@ func TestMockReportRepo(t *testing.T) {
 	req := model.CreateReportRequest{Month: "January", Worker: "Ana",
 		Metrics: map[string]model.MetricWeeks{"outreach": {Week1: &v}}}
 
-	r, err := m.Create(ctx, nil, 1, 2026, req)
+	r, err := m.Create(ctx, 1, 2026, req)
 	require.NoError(t, err)
 	assert.Equal(t, "120.5", string(*r.ToResponse().Metrics["outreach"].Week1))
 
-	_, err = m.Create(ctx, nil, 1, 2026, req)
+	_, err = m.Create(ctx, 1, 2026, req)
 	require.ErrorIs(t, err, ErrUniqueViolation)
 
-	on, err := m.ToggleComplete(ctx, nil, r.ID, 9)
+	on, err := m.ToggleComplete(ctx, r.ID, 9)
 	require.NoError(t, err)
 	assert.True(t, on.Completed)
 
@@ -35,12 +35,12 @@ func TestMockReportRepo(t *testing.T) {
 	assert.EqualValues(t, 1, total)
 	assert.Len(t, list, 1)
 
-	require.NoError(t, m.SoftDelete(ctx, nil, r.ID))
-	got, err := m.Get(ctx, nil, r.ID)
+	require.NoError(t, m.SoftDelete(ctx, r.ID))
+	got, err := m.Get(ctx, r.ID)
 	require.NoError(t, err)
 	assert.Nil(t, got)
-	require.ErrorIs(t, m.SoftDelete(ctx, nil, r.ID), ErrNotFound)
+	require.ErrorIs(t, m.SoftDelete(ctx, r.ID), ErrNotFound)
 
-	_, err = m.Create(ctx, nil, 1, 2026, req) // period is free again
+	_, err = m.Create(ctx, 1, 2026, req) // period is free again
 	require.NoError(t, err)
 }

@@ -127,7 +127,7 @@ func TestUserService_Create(t *testing.T) {
 		{
 			name: "two creates race: the unique index rejects the second", actor: adminID, want: ErrEmailTaken,
 			setup: func(f userFixture, _ *model.CreateUserRequest) {
-				f.users.CreateFunc = func(context.Context, repository.Querier, model.NewUser) (*model.User, error) {
+				f.users.CreateFunc = func(context.Context, model.NewUser) (*model.User, error) {
 					return nil, fmt.Errorf("users: %w", repository.ErrUniqueViolation)
 				}
 			},
@@ -137,7 +137,7 @@ func TestUserService_Create(t *testing.T) {
 			setup: func(f userFixture, req *model.CreateUserRequest) {
 				r := int64(7)
 				req.RoleID = &r
-				f.users.CreateFunc = func(context.Context, repository.Querier, model.NewUser) (*model.User, error) {
+				f.users.CreateFunc = func(context.Context, model.NewUser) (*model.User, error) {
 					return nil, fmt.Errorf("users: %w", repository.ErrForeignKeyViolation)
 				}
 			},
@@ -149,7 +149,7 @@ func TestUserService_Create(t *testing.T) {
 		{
 			name: "audit failure fails the whole create", actor: adminID,
 			setup: func(f userFixture, _ *model.CreateUserRequest) {
-				f.audit.InsertFunc = func(context.Context, repository.Querier, model.AuditLog) error { return errors.New("audit down") }
+				f.audit.InsertFunc = func(context.Context, model.AuditLog) error { return errors.New("audit down") }
 			},
 			wantFn: func(t *testing.T, err error) { assert.ErrorContains(t, err, "audit down") },
 		},
@@ -174,7 +174,7 @@ func TestUserService_Create(t *testing.T) {
 func TestUserService_Update(t *testing.T) {
 	ctx := context.Background()
 	newUser := func(f userFixture) *model.User {
-		u, err := f.users.Create(ctx, nil, model.NewUser{Email: "u@example.com", Name: "Old", PasswordHash: "keep", AreaAssignment: "A"})
+		u, err := f.users.Create(ctx, model.NewUser{Email: "u@example.com", Name: "Old", PasswordHash: "keep", AreaAssignment: "A"})
 		require.NoError(t, err)
 		return u
 	}
@@ -209,7 +209,7 @@ func TestUserService_Update(t *testing.T) {
 	t.Run("audit failure fails the update", func(t *testing.T) {
 		f := newUserFixture()
 		u := newUser(f)
-		f.audit.InsertFunc = func(context.Context, repository.Querier, model.AuditLog) error { return errors.New("audit down") }
+		f.audit.InsertFunc = func(context.Context, model.AuditLog) error { return errors.New("audit down") }
 		_, err := f.svc.Update(ctx, adminID, "", u.ID, req)
 		assert.ErrorContains(t, err, "audit down")
 	})

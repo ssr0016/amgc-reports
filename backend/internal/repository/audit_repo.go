@@ -15,7 +15,7 @@ func NewAuditRepo(db *database.DB) *AuditRepo { return &AuditRepo{db: db} }
 // Insert appends one audit row. Pass the transaction of the change being
 // audited so both commit or roll back together (D-10). ID and CreatedAt are
 // set by the database. Details must never hold narrative or prayer text.
-func (r *AuditRepo) Insert(ctx context.Context, q Querier, e model.AuditLog) error {
+func (r *AuditRepo) Insert(ctx context.Context, e model.AuditLog) error {
 	details := e.Details
 	if details == nil {
 		details = map[string]any{} // column is NOT NULL
@@ -30,7 +30,7 @@ func (r *AuditRepo) Insert(ctx context.Context, q Querier, e model.AuditLog) err
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	if _, err := q.Exec(ctx, query, args...); err != nil {
+	if _, err := r.db.Querier(ctx).Exec(ctx, query, args...); err != nil {
 		return fmt.Errorf("insert audit log: %w", err)
 	}
 	return nil

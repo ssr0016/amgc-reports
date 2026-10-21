@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
@@ -52,7 +52,7 @@ func (byRole) GetPermissions(_ context.Context, roleID int64) ([]model.Permissio
 // runTx runs fn directly: the in-memory mocks have no transaction to roll back.
 type runTx struct{}
 
-func (runTx) WithTx(_ context.Context, fn func(repository.Querier) error) error { return fn(nil) }
+func (runTx) InTransaction(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
 
 // previousMonthBody is a create body for the month a plain user may file, so the
 // seed POST passes the previous-month rule whatever day the tests run (D-F8).
@@ -72,29 +72,27 @@ func previousMonthName() string {
 // repositories, so the ownership rule is exercised through HTTP. Unlike
 // reportsServer it has no stub service.
 func ownershipServer() *echo.Echo {
-	sm := scs.New()
 	users := repository.NewMockUserRepo()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
 		return &model.User{ID: id, RoleID: id, Role: &model.Role{Name: "test"}}, nil
 	}
-	svc := service.NewReportService(repository.NewMockReportRepo(), repository.NewMockAuditRepo(), runTx{}, nil, users, byRole{})
+	svc := service.NewReportService(repository.NewMockReportRepo(), repository.NewMockAuditRepo(), runTx{}, users, byRole{})
 
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if id, err := strconv.ParseInt(c.Request().Header.Get("X-Test-User"), 10, 64); err == nil {
-				sm.Put(c.Request().Context(), "user_id", id)
+				c.SetRequest(c.Request().WithContext(request.WithUser(c.Request().Context(), request.User{ID: id})))
 			}
 			return next(c)
 		}
 	})
-	Setup(e, sm, users, byRole{},
+	Setup(e, noAuthn, users, byRole{},
 		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(svc, sm), nil,
+		handler.NewReportHandler(svc), nil,
 		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},
 	)
 	return e

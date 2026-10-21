@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/model"
 	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 )
 
@@ -33,16 +33,14 @@ func (m meRoles) GetPermissions(context.Context, int64) ([]model.Permission, err
 // serveMe calls GET /auth/me as the given session user (0 = no session).
 func serveMe(t *testing.T, users *repository.MockUserRepo, perms []string, userID int64) *httptest.ResponseRecorder {
 	t.Helper()
-	sm := scs.New()
-	h := NewAuthHandler(service.NewAuthService(users, meRoles{perms: perms}, nil, nil, nil, nil), sm)
+	h := NewAuthHandler(service.NewAuthService(users, meRoles{perms: perms}, nil, nil, nil, nil), nil)
 
 	e := echo.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.Use(echo.WrapMiddleware(sm.LoadAndSave))
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if userID != 0 {
-				sm.Put(c.Request().Context(), "user_id", userID)
+				c.SetRequest(c.Request().WithContext(request.WithUser(c.Request().Context(), request.User{ID: userID})))
 			}
 			return next(c)
 		}

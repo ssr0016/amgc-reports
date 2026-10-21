@@ -98,7 +98,8 @@ func (tdb *TestDB) RunMigrations(t *testing.T) {
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			area_assignment VARCHAR(150),
 			church_name VARCHAR(150),
-			status TEXT NOT NULL DEFAULT 'active'
+			status TEXT NOT NULL DEFAULT 'active',
+			tokens_valid_after TIMESTAMPTZ NOT NULL DEFAULT 'epoch'
 		)`,
 		// Keep in step with migrations/20251012000002_add_user_link_to_sessions.sql:
 		// UserRepo.UpdatePassword revokes sessions through these columns.
@@ -108,6 +109,20 @@ func (tdb *TestDB) RunMigrations(t *testing.T) {
 			expiry TIMESTAMPTZ NOT NULL,
 			user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
 			revoked_at TIMESTAMPTZ
+		)`,
+		// Keep in step with migrations/20261021100000_create_refresh_tokens.sql.
+		`CREATE TABLE IF NOT EXISTS refresh_tokens (
+			id BIGSERIAL PRIMARY KEY,
+			user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			family_id TEXT NOT NULL,
+			token_hash TEXT NOT NULL UNIQUE,
+			expires_at TIMESTAMPTZ NOT NULL,
+			last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			revoked_at TIMESTAMPTZ,
+			replaced_by BIGINT REFERENCES refresh_tokens(id) ON DELETE SET NULL,
+			ip TEXT,
+			user_agent TEXT,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
 		`CREATE TABLE IF NOT EXISTS verification_tokens (
 			id BIGSERIAL PRIMARY KEY,
@@ -140,7 +155,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 	ctx := context.Background()
 	tables := []string{
 		"password_resets", "verification_tokens", "role_permissions",
-		"permissions", "sessions", "users", "roles",
+		"permissions", "sessions", "refresh_tokens", "users", "roles",
 	}
 	for _, table := range tables {
 		_, _ = tdb.Pool.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s RESTART IDENTITY CASCADE", table))
