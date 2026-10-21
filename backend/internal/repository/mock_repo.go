@@ -34,6 +34,7 @@ type MockUserRepo struct {
 	UpdateStatusFunc              func(ctx context.Context, id int64, status string) (*model.User, error)
 	RevokeSessionsFunc            func(ctx context.Context, userID int64) (int64, error)
 	LockActiveAdminsFunc          func(ctx context.Context) ([]int64, error)
+	LockUserFunc                  func(ctx context.Context, userID int64) error
 }
 
 // NewMockUserRepo creates a new mock repository.
@@ -301,6 +302,14 @@ func (m *MockUserRepo) RevokeSessions(ctx context.Context, userID int64) (int64,
 		return m.RevokeSessionsFunc(ctx, userID)
 	}
 	return 0, nil
+}
+
+// LockUser takes no lock (mock) unless LockUserFunc is set.
+func (m *MockUserRepo) LockUser(ctx context.Context, userID int64) error {
+	if m.LockUserFunc != nil {
+		return m.LockUserFunc(ctx, userID)
+	}
+	return nil
 }
 
 // LockActiveAdmins returns the ids of the active users whose role id is the mock

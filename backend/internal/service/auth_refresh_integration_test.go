@@ -88,3 +88,119 @@ func TestRefresh_LateReuseRevokesTheFamily(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidRefresh)
 	assert.Zero(t, liveTokens(t, tdb, first.SessionID), "the revocation was rolled back with the error")
 }
+
+// pausingRefresh holds a rotation open at a chosen point: after it has inserted
+// the new token and before it marks the old one replaced, so its transaction has
+// uncommitted work and holds its locks.
+type pausingRefresh struct {
+	repository.RefreshTokenRepository
+	reached chan struct{}
+	release chan struct{}
+}
+
+func (p *pausingRefresh) MarkReplaced(ctx context.Context, id, replacedBy int64, at time.Time) error {
+	close(p.reached)
+	<-p.release
+	return p.RefreshTokenRepository.MarkReplaced(ctx, id, replacedBy, at)
+}
+
+// A revocation that starts while a refresh is in flight must wait for it and then
+// end the token the refresh created. Before the user-row lock, the revocation
+// waited on the old token, skipped it once it was revoked, never saw the new row
+// (not yet committed when its statement began), and left a live sign-in behind.
+func TestRefresh_RevocationDuringRotationEndsTheNewToken(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	ctx := context.Background()
+	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
+	users := repository.NewUserRepo(db)
+	u, err := users.CreateWithPassword(ctx, "ana@example.com", "Ana", "hash")
+	require.NoError(t, err)
+
+	pause := &pausingRefresh{
+		RefreshTokenRepository: repository.NewRefreshTokenRepo(db),
+		reached:                make(chan struct{}),
+		release:                make(chan struct{}),
+	}
+	mgr := token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute})
+	set := TokenSettings{RefreshTTL: time.Hour, RefreshIdleTTL: time.Hour}
+	log := slog.New(slog.DiscardHandler)
+	start := NewAuthService(users, nil, nil, nil, db, log).WithTokens(mgr, repository.NewRefreshTokenRepo(db), set)
+	svc := NewAuthService(users, nil, nil, nil, db, log).WithTokens(mgr, pause, set)
+
+	p, err := start.StartSession(ctx, u.ID, "ip", "ua")
+	require.NoError(t, err)
+
+	refreshed := make(chan error, 1)
+	go func() {
+		_, err := svc.Refresh(ctx, p.Refresh, "ip", "ua")
+		refreshed <- err
+	}()
+	<-pause.reached // the rotation holds its locks and has inserted the new token, uncommitted
+
+	revoked := make(chan error, 1)
+	go func() {
+		_, err := users.RevokeSessions(ctx, u.ID)
+		revoked <- err
+	}()
+
+	select {
+	case err := <-revoked:
+		t.Fatalf("the revocation did not wait for the rotation in flight (err=%v)", err)
+	case <-time.After(500 * time.Millisecond): // still blocked on the user row: as intended
+	}
+
+	close(pause.release)
+	require.NoError(t, <-refreshed, "the refresh was already past its checks")
+	require.NoError(t, <-revoked)
+
+	assert.Zero(t, liveTokens(t, tdb, p.SessionID), "a sign-in survived the revocation")
+	var live int
+	require.NoError(t, tdb.Pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL`, u.ID).Scan(&live))
+	assert.Zero(t, live)
+	got, err := users.GetWithRole(ctx, u.ID)
+	require.NoError(t, err)
+	assert.True(t, got.AccessRevoked(time.Now().Add(-time.Minute)), "tokens_valid_after was not moved")
+}
+
+// The other direction: a revocation that is already running makes a refresh wait,
+// and the refresh then finds its token revoked.
+func TestRefresh_WaitsForARevocationInFlight(t *testing.T) {
+	svc, tdb, userID := newRefreshEnv(t)
+	ctx := context.Background()
+	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
+	users := repository.NewUserRepo(db)
+	p, err := svc.StartSession(ctx, userID, "ip", "ua")
+	require.NoError(t, err)
+
+	inRevocation, releaseRevocation := make(chan struct{}), make(chan struct{})
+	revoked := make(chan error, 1)
+	go func() {
+		revoked <- db.InTransaction(ctx, func(ctx context.Context) error {
+			if _, err := users.RevokeSessions(ctx, userID); err != nil {
+				return err
+			}
+			close(inRevocation)
+			<-releaseRevocation // hold the transaction open, row locks and all
+			return nil
+		})
+	}()
+	<-inRevocation
+
+	refreshed := make(chan error, 1)
+	go func() {
+		_, err := svc.Refresh(ctx, p.Refresh, "ip", "ua")
+		refreshed <- err
+	}()
+	select {
+	case err := <-refreshed:
+		t.Fatalf("the refresh did not wait for the revocation (err=%v)", err)
+	case <-time.After(500 * time.Millisecond):
+	}
+
+	close(releaseRevocation)
+	require.NoError(t, <-revoked)
+	require.ErrorIs(t, <-refreshed, ErrInvalidRefresh)
+	assert.Zero(t, liveTokens(t, tdb, p.SessionID))
+}

@@ -125,7 +125,12 @@ func (s *AuthService) Refresh(ctx context.Context, raw, ip, userAgent string) (*
 // token (nil: rotated); err is a failure of the store, which rolls back.
 func (s *AuthService) rotate(ctx context.Context, raw, ip, userAgent string) (pair *TokenPair, outcome, err error) {
 	now := time.Now()
-	old, err := s.refresh.GetForUpdate(ctx, token.Hash(raw))
+	hash := token.Hash(raw)
+
+	if outcome, err := s.lockOwner(ctx, hash); outcome != nil || err != nil {
+		return nil, outcome, err
+	}
+	old, err := s.refresh.GetForUpdate(ctx, hash) // read again: it may have changed while we waited
 	if err != nil || old == nil {
 		return nil, ErrInvalidRefresh, err
 	}
@@ -158,6 +163,26 @@ func (s *AuthService) rotate(ctx context.Context, raw, ip, userAgent string) (pa
 	}
 	pair, err = s.pair(old.UserID, old.FamilyID, next, old.ExpiresAt)
 	return pair, nil, err
+}
+
+// lockOwner locks the user a refresh token belongs to, before the caller locks the
+// token. Lock order: the user, then the token. Revocations update the users row
+// first, so one of them either waits for this rotation and then revokes the token
+// it creates, or finishes first and the rotation finds the family revoked. Without
+// the user lock a revocation could miss the new token and leave a sign-in alive.
+// outcome is ErrInvalidRefresh for an unknown token or a deleted user; err is the store's.
+func (s *AuthService) lockOwner(ctx context.Context, hash string) (outcome, err error) {
+	owner, found, err := s.refresh.UserIDByHash(ctx, hash)
+	if err != nil || !found {
+		return ErrInvalidRefresh, err
+	}
+	switch err := s.userRepo.LockUser(ctx, owner); {
+	case errors.Is(err, repository.ErrNotFound):
+		return ErrInvalidRefresh, nil
+	case err != nil:
+		return nil, err
+	}
+	return nil, nil
 }
 
 // handleSpent judges a refresh token that is already revoked. A token rotated

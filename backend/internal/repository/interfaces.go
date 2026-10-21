@@ -31,12 +31,16 @@ type UserRepository interface {
 	UpdateStatus(ctx context.Context, id int64, status string) (*model.User, error)
 	RevokeSessions(ctx context.Context, userID int64) (int64, error)
 	LockActiveAdmins(ctx context.Context) ([]int64, error)
+	LockUser(ctx context.Context, userID int64) error
 }
 
 // RefreshTokenRepository defines the interface for refresh-token access. Tokens
 // are found by the hash of the token (token.Hash), never by the token.
 type RefreshTokenRepository interface {
 	Create(ctx context.Context, t model.NewRefreshToken) (int64, error)
+	// UserIDByHash is the owner of a token, read without a lock, so a caller can
+	// lock the user before the token. found is false for an unknown token.
+	UserIDByHash(ctx context.Context, hash string) (userID int64, found bool, err error)
 	// GetForUpdate returns the token and locks its row until the transaction in ctx
 	// ends, so two refreshes of one token run one after the other. (nil, nil) when
 	// there is no such token.

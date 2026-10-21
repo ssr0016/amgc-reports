@@ -489,16 +489,43 @@ func (r *UserRepo) UpdateStatus(ctx context.Context, id int64, status string) (*
 // tokens_valid_after, access tokens) and returns how many refresh tokens it revoked.
 func (r *UserRepo) RevokeSessions(ctx context.Context, userID int64) (int64, error) {
 	now := revocationTime()
-	q := r.db.Querier(ctx)
-	res, err := q.Exec(ctx,
-		`UPDATE refresh_tokens SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL`, userID, now)
+	var ended int64
+	// The users row goes first, always: Refresh holds a share lock on it while it
+	// rotates (see LockUser), so a revocation waits for a rotation in flight and
+	// then sees the token it created. Its own transaction when the caller has none,
+	// so the two statements cannot be separated by a refresh.
+	err := r.db.InTransaction(ctx, func(ctx context.Context) error {
+		q := r.db.Querier(ctx)
+		if _, err := q.Exec(ctx, `UPDATE users SET tokens_valid_after = $2 WHERE id = $1`, userID, now); err != nil {
+			return fmt.Errorf("revoke access tokens: %w", err)
+		}
+		res, err := q.Exec(ctx,
+			`UPDATE refresh_tokens SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL`, userID, now)
+		if err != nil {
+			return fmt.Errorf("revoke sessions: %w", err)
+		}
+		ended = res.RowsAffected()
+		return nil
+	})
+	return ended, err
+}
+
+// LockUser takes a share lock on the user's row until the transaction in ctx ends.
+// Refresh calls it before it locks the token, so it runs one at a time with every
+// revocation (UpdatePassword, UpdatePasswordKeepSession, RevokeSessions), which
+// update the users row first. One lock order, users then refresh_tokens, so no
+// deadlock. Two refreshes share the lock and meet on the token row. A missing
+// user is ErrNotFound.
+func (r *UserRepo) LockUser(ctx context.Context, userID int64) error {
+	var one int
+	err := r.db.Querier(ctx).QueryRow(ctx, `SELECT 1 FROM users WHERE id = $1 FOR SHARE`, userID).Scan(&one)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("users: %w", ErrNotFound)
+	}
 	if err != nil {
-		return 0, fmt.Errorf("revoke sessions: %w", err)
+		return fmt.Errorf("lock user: %w", err)
 	}
-	if _, err := q.Exec(ctx, `UPDATE users SET tokens_valid_after = $2 WHERE id = $1`, userID, now); err != nil {
-		return 0, fmt.Errorf("revoke access tokens: %w", err)
-	}
-	return res.RowsAffected(), nil
+	return nil
 }
 
 // LockActiveAdmins returns the ids of the active admins, in id order, and locks

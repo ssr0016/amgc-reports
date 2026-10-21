@@ -30,6 +30,16 @@ func (m *MockRefreshRepo) Create(_ context.Context, t model.NewRefreshToken) (in
 	return m.nextID, nil
 }
 
+func (m *MockRefreshRepo) UserIDByHash(_ context.Context, hash string) (int64, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	t, ok := m.byHash[hash]
+	if !ok {
+		return 0, false, nil
+	}
+	return t.UserID, true, nil
+}
+
 func (m *MockRefreshRepo) GetForUpdate(_ context.Context, hash string) (*model.RefreshToken, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

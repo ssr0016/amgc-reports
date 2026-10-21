@@ -30,6 +30,18 @@ func (r *RefreshTokenRepo) Create(ctx context.Context, t model.NewRefreshToken) 
 	return id, nil
 }
 
+func (r *RefreshTokenRepo) UserIDByHash(ctx context.Context, hash string) (int64, bool, error) {
+	var id int64
+	err := r.db.Querier(ctx).QueryRow(ctx, `SELECT user_id FROM refresh_tokens WHERE token_hash = $1`, hash).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("get refresh token owner: %w", err)
+	}
+	return id, true, nil
+}
+
 func (r *RefreshTokenRepo) GetForUpdate(ctx context.Context, hash string) (*model.RefreshToken, error) {
 	var t model.RefreshToken
 	err := r.db.Querier(ctx).QueryRow(ctx,
