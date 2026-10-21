@@ -1,0 +1,63 @@
+// Package user is the accounts admins manage: profile, role and status.
+// Callers depend on the interfaces here; userimpl implements them and rest
+// serves them.
+package user
+
+import (
+	"context"
+	"errors"
+	"time"
+)
+
+var (
+	// ErrEmailTaken is returned when another account already has the email.
+	ErrEmailTaken = errors.New("email already taken")
+	// ErrRoleNotFound is returned when the requested role does not exist.
+	ErrRoleNotFound = errors.New("role not found")
+	// ErrUserNotFound is returned when the user to update does not exist.
+	ErrUserNotFound = errors.New("user not found")
+	// ErrCannotChangeOwnStatus: an admin never changes their own status (D-A10).
+	ErrCannotChangeOwnStatus = errors.New("cannot change your own status")
+	// ErrCannotResetOwnPassword: an admin changes their own password on the Change
+	// password page, which asks for the current one (D-A12).
+	ErrCannotResetOwnPassword = errors.New("cannot reset your own password")
+	// ErrLastActiveAdmin: the only active admin cannot be moved away from active.
+	ErrLastActiveAdmin = errors.New("at least one active admin is required")
+	// ErrInvalidUserStatus: the status is not one of UserStatuses.
+	ErrInvalidUserStatus = errors.New("invalid user status")
+)
+
+// Service is how an admin creates and edits accounts. Each change and its
+// audit row are written in one transaction.
+type Service interface {
+	Create(ctx context.Context, actorID int64, ip string, req CreateUserRequest) (*User, error)
+	Update(ctx context.Context, actorID int64, ip string, id int64, req UpdateUserRequest) (*User, error)
+	ChangeStatus(ctx context.Context, actorID int64, ip string, id int64, status string) (*User, error)
+	ResetPassword(ctx context.Context, actorID int64, ip string, id int64, newPassword string) error
+}
+
+// Store defines the interface for user data access.
+type Store interface {
+	GetByID(ctx context.Context, id int64) (*User, error)
+	GetByEmail(ctx context.Context, email string) (*User, error)
+	CreateWithPassword(ctx context.Context, email, name, hash string) (*User, error)
+	Create(ctx context.Context, n NewUser) (*User, error)
+	UpdateProfile(ctx context.Context, id int64, p UserProfile) (*User, error)
+	// List returns users newest first; an empty status means every status.
+	List(ctx context.Context, emailFilter, status string, limit int) ([]User, error)
+	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]User, int64, error)
+	MarkEmailVerified(ctx context.Context, userID int64) error
+	UpdatePassword(ctx context.Context, userID int64, hash string) error
+	UpdatePasswordKeepSession(ctx context.Context, userID int64, hash, keepFamily string) (int64, error)
+	RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
+	ResetLoginAttempts(ctx context.Context, userID int64) error
+	// ClearLockout zeroes the failed-login counter and the lock on q, so an admin reset can
+	// do it in the same transaction as the password change. A missing user is ErrNotFound.
+	ClearLockout(ctx context.Context, userID int64) error
+	UpdateRole(ctx context.Context, userID, roleID int64) error
+	GetWithRole(ctx context.Context, id int64) (*User, error)
+	UpdateStatus(ctx context.Context, id int64, status string) (*User, error)
+	RevokeSessions(ctx context.Context, userID int64) (int64, error)
+	LockActiveAdmins(ctx context.Context) ([]int64, error)
+	LockUser(ctx context.Context, userID int64) error
+}

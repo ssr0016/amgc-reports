@@ -48,13 +48,13 @@ linters:
       - tmp/
       - bin/
     rules:
-      - path: internal/handler/
+      - path: internal/.*/rest/
         linters:
           - dupl
-      - path: internal/repository/verification_repo\.go
+      - path: internal/auth/authimpl/verification_store\.go
         linters:
           - dupl
-      - path: internal/repository/password_reset_repo\.go
+      - path: internal/auth/authimpl/password_reset_store\.go
         linters:
           - dupl
           - gosec

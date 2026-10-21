@@ -13,10 +13,10 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
-	"github.com/ssr0016/pastoral-reports/backend/internal/service"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth/authimpl"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
 
@@ -41,10 +41,10 @@ func newTestServer() *echo.Echo {
 	e.HTTPErrorHandler = apperror.ErrorHandler
 
 	Setup(e, noAuthn, nil, nil,
-		handler.NewAuthHandler(nil, nil),
+		authrest.NewAuthHandler(nil, nil),
 		nil, nil, nil, nil,
-		handler.NewVerificationHandler(nil),
-		handler.NewPasswordResetHandler(nil),
+		authrest.NewVerificationHandler(nil),
+		authrest.NewPasswordResetHandler(nil),
 		nil, nil, noLimits,
 	)
 	return e
@@ -85,21 +85,21 @@ func postJSON(t *testing.T, e *echo.Echo, path, body string) (int, apperror.Erro
 // noTokenRepo knows no reset token, so a request that passes validation ends at the
 // service as an invalid token (400).
 type noTokenRepo struct {
-	repository.PasswordResetRepository
+	auth.PasswordResetStore
 }
 
-func (noTokenRepo) GetByToken(context.Context, string) (*model.PasswordReset, error) { return nil, nil }
+func (noTokenRepo) GetByToken(context.Context, string) (*auth.PasswordReset, error) { return nil, nil }
 
 func resetServer() *echo.Echo {
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	svc := service.NewPasswordResetService(repository.NewMockUserRepo(), noTokenRepo{}, slog.New(slog.DiscardHandler))
+	svc := authimpl.NewPasswordResetService(userimpl.NewMockStore(), noTokenRepo{}, slog.New(slog.DiscardHandler))
 	Setup(e, noAuthn, nil, nil,
-		handler.NewAuthHandler(nil, nil),
+		authrest.NewAuthHandler(nil, nil),
 		nil, nil, nil, nil,
-		handler.NewVerificationHandler(nil),
-		handler.NewPasswordResetHandler(svc),
+		authrest.NewVerificationHandler(nil),
+		authrest.NewPasswordResetHandler(svc),
 		nil, nil, noLimits,
 	)
 	return e

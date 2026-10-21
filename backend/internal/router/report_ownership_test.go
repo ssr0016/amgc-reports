@@ -12,12 +12,16 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
+	"github.com/ssr0016/pastoral-reports/backend/internal/report"
+	"github.com/ssr0016/pastoral-reports/backend/internal/report/reportimpl"
+	reportrest "github.com/ssr0016/pastoral-reports/backend/internal/report/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/request"
-	"github.com/ssr0016/pastoral-reports/backend/internal/service"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
 
@@ -39,12 +43,12 @@ var rolePerms = map[int64][]string{
 }
 
 // byRole serves permissions by role ID; a user's role ID is their user ID here.
-type byRole struct{ repository.RoleRepository }
+type byRole struct{ accesscontrol.RoleStore }
 
-func (byRole) GetPermissions(_ context.Context, roleID int64) ([]model.Permission, error) {
-	var out []model.Permission
+func (byRole) GetPermissions(_ context.Context, roleID int64) ([]accesscontrol.Permission, error) {
+	var out []accesscontrol.Permission
 	for _, n := range rolePerms[roleID] {
-		out = append(out, model.Permission{Name: n})
+		out = append(out, accesscontrol.Permission{Name: n})
 	}
 	return out, nil
 }
@@ -65,18 +69,18 @@ func previousMonthName() string {
 	}
 	t := time.Now().In(loc)
 	prev := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, -1, 0)
-	return model.Months[prev.Month()-1]
+	return report.Months[prev.Month()-1]
 }
 
-// ownershipServer wires the real routes, handler and ReportService over in-memory
+// ownershipServer wires the real routes, handler and report service over in-memory
 // repositories, so the ownership rule is exercised through HTTP. Unlike
 // reportsServer it has no stub service.
 func ownershipServer() *echo.Echo {
-	users := repository.NewMockUserRepo()
-	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
-		return &model.User{ID: id, RoleID: id, Role: &model.Role{Name: "test"}}, nil
+	users := userimpl.NewMockStore()
+	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
+		return &user.User{ID: id, RoleID: id, Role: &accesscontrol.Role{Name: "test"}}, nil
 	}
-	svc := service.NewReportService(repository.NewMockReportRepo(), repository.NewMockAuditRepo(), runTx{}, users, byRole{})
+	svc := reportimpl.NewService(reportimpl.NewMockStore(), auditimpl.NewMockStore(), runTx{}, users, byRole{})
 
 	e := echo.New()
 	e.Validator = validator.New()
@@ -90,9 +94,9 @@ func ownershipServer() *echo.Echo {
 		}
 	})
 	Setup(e, noAuthn, users, byRole{},
-		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
-		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(svc), nil,
+		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
+		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
+		reportrest.NewReportHandler(svc), nil,
 		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},
 	)
 	return e

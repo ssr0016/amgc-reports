@@ -11,26 +11,29 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
+	"github.com/ssr0016/pastoral-reports/backend/internal/report"
+	reportrest "github.com/ssr0016/pastoral-reports/backend/internal/report/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/request"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 // permRoles serves a fixed permission list for every role.
 type permRoles struct {
-	repository.RoleRepository
+	accesscontrol.RoleStore
 	perms []string
 }
 
-func (p permRoles) GetPermissions(context.Context, int64) ([]model.Permission, error) {
-	var out []model.Permission
+func (p permRoles) GetPermissions(context.Context, int64) ([]accesscontrol.Permission, error) {
+	var out []accesscontrol.Permission
 	for _, n := range p.perms {
-		out = append(out, model.Permission{Name: n})
+		out = append(out, accesscontrol.Permission{Name: n})
 	}
 	return out, nil
 }
@@ -38,21 +41,21 @@ func (p permRoles) GetPermissions(context.Context, int64) ([]model.Permission, e
 // okReportSvc answers every call successfully; it proves a request got past the gate.
 type okReportSvc struct{}
 
-func (okReportSvc) Create(context.Context, int64, string, model.CreateReportRequest) (*model.ReportResponse, error) {
-	return &model.ReportResponse{}, nil
+func (okReportSvc) Create(context.Context, int64, string, report.CreateReportRequest) (*report.ReportResponse, error) {
+	return &report.ReportResponse{}, nil
 }
-func (okReportSvc) Get(context.Context, int64, int64) (*model.ReportResponse, error) {
-	return &model.ReportResponse{}, nil
+func (okReportSvc) Get(context.Context, int64, int64) (*report.ReportResponse, error) {
+	return &report.ReportResponse{}, nil
 }
-func (okReportSvc) List(context.Context, int64, model.ListReportsParams, pagination.Params) ([]model.ReportResponse, int64, error) {
+func (okReportSvc) List(context.Context, int64, report.ListReportsParams, pagination.Params) ([]report.ReportResponse, int64, error) {
 	return nil, 0, nil
 }
-func (okReportSvc) Update(context.Context, int64, string, int64, model.UpdateReportRequest) (*model.ReportResponse, error) {
-	return &model.ReportResponse{}, nil
+func (okReportSvc) Update(context.Context, int64, string, int64, report.UpdateReportRequest) (*report.ReportResponse, error) {
+	return &report.ReportResponse{}, nil
 }
 func (okReportSvc) Delete(context.Context, int64, string, int64) error { return nil }
-func (okReportSvc) ToggleComplete(context.Context, int64, string, int64) (*model.ReportMetadata, error) {
-	return &model.ReportMetadata{}, nil
+func (okReportSvc) ToggleComplete(context.Context, int64, string, int64) (*report.ReportMetadata, error) {
+	return &report.ReportMetadata{}, nil
 }
 
 // reportsServer wires the real routes. A request is logged in as user 1 when it
@@ -69,9 +72,9 @@ func reportsServerLimited(mkLimit func() echo.MiddlewareFunc, perms ...string) *
 
 func reportsServerWith(mk func() Limiters, perms ...string) *echo.Echo {
 	limits := mk()
-	users := repository.NewMockUserRepo()
-	users.GetWithRoleFunc = func(_ context.Context, id int64) (*model.User, error) {
-		return &model.User{ID: id, RoleID: 9}, nil
+	users := userimpl.NewMockStore()
+	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
+		return &user.User{ID: id, RoleID: 9}, nil
 	}
 
 	e := echo.New()
@@ -86,9 +89,9 @@ func reportsServerWith(mk func() Limiters, perms ...string) *echo.Echo {
 		}
 	})
 	Setup(e, noAuthn, users, permRoles{perms: perms},
-		handler.NewAuthHandler(nil, nil), nil, nil, nil, nil,
-		handler.NewVerificationHandler(nil), handler.NewPasswordResetHandler(nil),
-		handler.NewReportHandler(okReportSvc{}), nil, limits,
+		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
+		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
+		reportrest.NewReportHandler(okReportSvc{}), nil, limits,
 	)
 	return e
 }

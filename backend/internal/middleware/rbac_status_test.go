@@ -8,16 +8,17 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
 	"github.com/ssr0016/pastoral-reports/backend/internal/request"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 )
 
-type allowAll struct{ repository.RoleRepository }
+type allowAll struct{ accesscontrol.RoleStore }
 
-func (allowAll) GetPermissions(context.Context, int64) ([]model.Permission, error) {
-	return []model.Permission{{Name: "reports:read"}}, nil
+func (allowAll) GetPermissions(context.Context, int64) ([]accesscontrol.Permission, error) {
+	return []accesscontrol.Permission{{Name: "reports:read"}}, nil
 }
 
 // A session that outlives an account's status stops working: a non-active user is
@@ -27,26 +28,26 @@ func TestRBAC_NonActiveUserIsUnauthorized(t *testing.T) {
 		status string
 		want   int
 	}{
-		{model.UserStatusActive, http.StatusOK},
+		{user.UserStatusActive, http.StatusOK},
 		{"", http.StatusOK}, // an unset status only comes from a hand-built value
-		{model.UserStatusInactive, http.StatusUnauthorized},
-		{model.UserStatusDisciplinary, http.StatusUnauthorized},
-		{model.UserStatusDeceased, http.StatusUnauthorized},
+		{user.UserStatusInactive, http.StatusUnauthorized},
+		{user.UserStatusDisciplinary, http.StatusUnauthorized},
+		{user.UserStatusDeceased, http.StatusUnauthorized},
 	}
-	gates := map[string]func(repository.UserRepository) echo.MiddlewareFunc{
-		"RequireRole": func(u repository.UserRepository) echo.MiddlewareFunc {
+	gates := map[string]func(user.Store) echo.MiddlewareFunc{
+		"RequireRole": func(u user.Store) echo.MiddlewareFunc {
 			return RequireRole(u, "admin")
 		},
-		"RequirePermission": func(u repository.UserRepository) echo.MiddlewareFunc {
+		"RequirePermission": func(u user.Store) echo.MiddlewareFunc {
 			return RequirePermission(allowAll{}, u, "reports:read")
 		},
 	}
 	for name, gate := range gates {
 		for _, tt := range tests {
 			t.Run(name+"/"+tt.status, func(t *testing.T) {
-				users := repository.NewMockUserRepo()
-				users.GetWithRoleFunc = func(context.Context, int64) (*model.User, error) {
-					return &model.User{ID: 1, RoleID: 9, Role: &model.Role{Name: "admin"}, Status: tt.status}, nil
+				users := userimpl.NewMockStore()
+				users.GetWithRoleFunc = func(context.Context, int64) (*user.User, error) {
+					return &user.User{ID: 1, RoleID: 9, Role: &accesscontrol.Role{Name: "admin"}, Status: tt.status}, nil
 				}
 				e := echo.New()
 				e.HTTPErrorHandler = apperror.ErrorHandler

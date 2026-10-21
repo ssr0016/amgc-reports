@@ -17,16 +17,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol/acimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth/authimpl"
+	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
 	"github.com/ssr0016/pastoral-reports/backend/internal/config"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
-	"github.com/ssr0016/pastoral-reports/backend/internal/handler"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
-	"github.com/ssr0016/pastoral-reports/backend/internal/repository"
-	"github.com/ssr0016/pastoral-reports/backend/internal/service"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
 
@@ -47,14 +50,14 @@ func do(t *testing.T, h http.Handler, method, path, body string, cookies ...*htt
 	return rec
 }
 
-// authEnv wires the real routes, AuthService and token middleware over a real database.
+// authEnv wires the real routes, auth service and token middleware over a real database.
 type authEnv struct {
 	h       http.Handler
-	users   *repository.UserRepo
-	resets  *repository.PasswordResetRepo
+	users   user.Store
+	resets  auth.PasswordResetStore
 	pool    *pgxpool.Pool
 	tokens  *token.Manager
-	refresh *repository.RefreshTokenRepo
+	refresh auth.RefreshStore
 }
 
 func newAuthEnv(t *testing.T, tokenTTL time.Duration) *authEnv {
@@ -63,33 +66,32 @@ func newAuthEnv(t *testing.T, tokenTTL time.Duration) *authEnv {
 	tdb.MigrateWithGoose(t)
 	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
 	env := &authEnv{
-		users:   repository.NewUserRepo(db),
-		resets:  repository.NewPasswordResetRepo(db),
+		users:   userimpl.NewStore(db),
+		resets:  authimpl.NewPasswordResetStore(db),
 		pool:    tdb.Pool,
-		refresh: repository.NewRefreshTokenRepo(db),
+		refresh: authimpl.NewRefreshStore(db),
 		tokens: token.New(token.Config{
 			Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: tokenTTL,
 		}),
 	}
 	log := slog.New(slog.DiscardHandler)
-	authService := service.NewAuthService(env.users, repository.NewRoleRepo(db), nil, repository.NewMockAuditRepo(), db, log).
-		WithTokens(env.tokens, env.refresh, service.TokenSettings{RefreshTTL: time.Hour, RefreshIdleTTL: time.Hour})
+	authService := authimpl.NewService(env.users, acimpl.NewRoleStore(db), nil, auditimpl.NewMockStore(), db, log, env.tokens, env.refresh, authimpl.TokenSettings{RefreshTTL: time.Hour, RefreshIdleTTL: time.Hour})
 
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	Setup(e, ourmiddleware.Authenticate(env.tokens), env.users, nil,
-		handler.NewAuthHandler(authService, handler.NewCookies(config.AuthConfig{}, false)),
+		authrest.NewAuthHandler(authService, authrest.NewCookies(config.AuthConfig{}, false)),
 		nil, nil, nil, nil,
-		handler.NewVerificationHandler(nil),
-		handler.NewPasswordResetHandler(service.NewPasswordResetService(env.users, env.resets, log)),
+		authrest.NewVerificationHandler(nil),
+		authrest.NewPasswordResetHandler(authimpl.NewPasswordResetService(env.users, env.resets, log)),
 		nil, nil, noLimits,
 	)
 	env.h = e
 	return env
 }
 
-func (env *authEnv) addUser(t *testing.T, email, password string) *model.User {
+func (env *authEnv) addUser(t *testing.T, email, password string) *user.User {
 	t.Helper()
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 	require.NoError(t, err)

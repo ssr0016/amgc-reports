@@ -22,19 +22,22 @@ Thanks for your interest in contributing to this project!
 
 ### Project Structure
 
-Follow existing layering:
+Code is grouped by domain under `internal/<domain>/`:
 
-- Handler (HTTP layer) - parse, validate, respond
-- Service (business logic) - orchestration, rules
-- Repository (data access) - SQL queries
-- Model (domain) - structs, DTOs
+- `<domain>.go` - the `Service` and `Store` interfaces and the domain errors
+- `model.go` - entities and request/response DTOs
+- `<domain>impl/` - the unexported `service` and `store` behind `NewService` / `NewStore`, plus in-memory mocks
+- `rest/` - Echo handlers: parse, validate, map errors, respond
+
+Wiring is manual, in `cmd/api/app/server.go`; routes stay in `internal/router/router.go`.
 
 ### Architecture Rules
 
 See docs/ARCHITECTURE.md for detailed rules:
 
-- Handler to Repository: for simple CRUD
-- Handler to Service to Repository: for complex logic
+- Handler to Store: for simple CRUD (`accesscontrol` has no service)
+- Handler to Service to Store: for complex logic
+- Services and stores take `context.Context` and plain values, never an Echo context
 - Every layer must add value
 
 ## Testing
@@ -51,7 +54,7 @@ Or:
 
 Requires Docker:
 
-    go test -tags=integration ./internal/repository/ -v
+    go test -tags=integration ./internal/... -v
 
 ### Coverage
 
@@ -75,7 +78,7 @@ Aim for 70%+ coverage on new code.
 
 4. Run integration tests (if applicable)
 
-   go test -tags=integration ./internal/repository/
+   go test -tags=integration ./internal/...
 
 5. Build
 

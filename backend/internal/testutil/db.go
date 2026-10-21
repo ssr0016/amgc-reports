@@ -102,7 +102,7 @@ func (tdb *TestDB) RunMigrations(t *testing.T) {
 			tokens_valid_after TIMESTAMPTZ NOT NULL DEFAULT 'epoch'
 		)`,
 		// Keep in step with migrations/20251012000002_add_user_link_to_sessions.sql:
-		// UserRepo.UpdatePassword revokes sessions through these columns.
+		// user.Store.UpdatePassword revokes sessions through these columns.
 		`CREATE TABLE IF NOT EXISTS sessions (
 			token TEXT PRIMARY KEY,
 			data BYTEA NOT NULL,

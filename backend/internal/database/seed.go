@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 )
 
 // AdminSeed holds the credentials for the initial admin user.
@@ -32,7 +32,7 @@ func SeedData(ctx context.Context, db *DB, log *slog.Logger, admin AdminSeed) er
 	}{
 		{"admin", "Administrator with full access"},
 		{"editor", "Editor with write access"},
-		{model.DefaultRoleName, "Default user with read-only access"},
+		{accesscontrol.DefaultRoleName, "Default user with read-only access"},
 	}
 
 	for _, r := range roles {
@@ -119,7 +119,7 @@ func SeedData(ctx context.Context, db *DB, log *slog.Logger, admin AdminSeed) er
 		FROM roles r, permissions p
 		WHERE r.name = $1 AND p.name IN ('users:read', 'reports:read', 'reports:read_any', 'reports:write', 'reports:delete')
 		ON CONFLICT (role_id, permission_id) DO NOTHING
-	`, model.DefaultRoleName)
+	`, accesscontrol.DefaultRoleName)
 	if err != nil {
 		return fmt.Errorf("assign user permissions: %w", err)
 	}

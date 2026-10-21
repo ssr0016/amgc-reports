@@ -9,7 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ssr0016/pastoral-reports/backend/internal/model"
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
+	"github.com/ssr0016/pastoral-reports/backend/internal/report"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 )
 
 // The Go lists in the model package must equal the CHECK constraints (D-6): a
@@ -22,10 +24,10 @@ func TestModelConstants_MatchCheckConstraints(t *testing.T) {
 		constraint string
 		want       []string
 	}{
-		{"chk_report_metrics_metric", model.MetricKeys},
-		{"chk_reports_month", model.Months},
-		{"chk_audit_logs_action", model.AuditActions},
-		{"chk_users_status", model.UserStatuses},
+		{"chk_report_metrics_metric", report.MetricKeys},
+		{"chk_reports_month", report.Months},
+		{"chk_audit_logs_action", audit.Actions},
+		{"chk_users_status", user.UserStatuses},
 	}
 	for _, tt := range tests {
 		t.Run(tt.constraint, func(t *testing.T) {
