@@ -212,7 +212,7 @@ Both need the admin role, `reports:read_any` and the CSRF header (POST, because 
 
 The first returns one report, approved or not. The second takes a body and returns the month's bulk workbook (D-A16):
 
-- Sheet 1, "Report Dashboard" (D-A19): the title "Report Dashboard" merged over A1:F1, a header row (Churches, Month, Year, Status, Coordinator's Remark, Support Status), then one row per church account (an account with a church name that is not deleted and not an admin; inactive, disciplinary and deceased accounts are included), ordered by church name. Month and Year are the account's report's (blank when it has not filed); the year is a number. Status is "Approved" (green), "Pending" or "Not Filed" (red) for that month. The two remark columns are blank.
+- Sheet 1, "Report Dashboard" (D-A19): the title "Report Dashboard" merged over A1:F1, a header row (Churches, Month, Year, Status, Coordinator's Remark, Support Status), then one row per church account (an account with a church name that is not deleted and not an admin; inactive, disciplinary and deceased accounts are included), ordered by church name. Month and Year are the account's report's (blank when it has not filed); the year is a number. Status is "Approved" (blue), "Pending" or "Not Filed" (red) for that month. An Approved row reads "Checked" and "Ready for Pick Up" in the two remark columns (white on blue); other rows leave them blank.
 - Then one sheet per **approved** report of the month (not soft-deleted, including those whose owner is deleted or deceased), ordered by church name. Pending reports get no sheet. A church sheet named "Report Dashboard" gets " (2)".
 
 A month with no approved reports still returns the file, with the dashboard alone:

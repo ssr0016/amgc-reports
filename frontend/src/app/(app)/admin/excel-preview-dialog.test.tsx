@@ -39,7 +39,7 @@ beforeEach(() => {
   h.previewExcel.mockResolvedValue({
     count: 2,
     sheets: [
-      dashboard(["Bethel", "September", "2026", "Approved", "", ""], ["Abba", "", "", "Not Filed", "", ""]),
+      dashboard(["Bethel", "September", "2026", "Approved", "Checked", "Ready for Pick Up"], ["Abba", "", "", "Not Filed", "", ""]),
       { name: "Bethel", rows: grid("Bethel title") },
       { name: "Zion", rows: grid("Zion title") },
     ],

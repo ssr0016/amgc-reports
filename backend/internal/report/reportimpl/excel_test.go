@@ -332,13 +332,14 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	assert.InDelta(t, 18, title.Font.Size, 0.01)
 	for cell, want := range map[string][]string{
 		"A1": {"DDDDFF"}, "F1": {"DDDDFF"}, "A2": {"E0E0E0"}, "F2": {"E0E0E0"},
-		"D3": {"00AA00"}, // Approved
+		"D3": {"0000FF"},                   // Approved
+		"E3": {"0000CC"}, "F3": {"0000CC"}, // Approved remarks
 		"D4": {"FF0000"}, // Pending
 		"D5": {"FF0000"}, // Not Filed
 	} {
 		assert.Equal(t, want, style(cell).Fill.Color, cell)
 	}
-	for _, cell := range []string{"A3", "B3", "C3", "E3", "F5"} {
+	for _, cell := range []string{"A3", "B3", "C3", "E4", "F5"} {
 		assert.Empty(t, style(cell).Fill.Color, "%s: no fill", cell)
 		assert.Len(t, style(cell).Border, 4, "%s: thin borders on every side", cell)
 	}
@@ -347,11 +348,10 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	assert.False(t, style("B3").Font.Bold, "the month is regular")
 	assert.True(t, style("C3").Font.Bold, "the year is bold")
 	assert.Equal(t, "FFFFFF", style("D4").Font.Color)
-	for _, cell := range []string{"E3", "F5"} {
-		v, err := f.GetCellValue(sh, cell)
-		require.NoError(t, err)
-		assert.Empty(t, v, "%s: the remark cells stay blank", cell)
-	}
+	assert.Equal(t, "FFFFFF", style("E3").Font.Color)
+	assert.True(t, style("E3").Font.Bold, "Checked is bold")
+	assert.Equal(t, "FFFFFF", style("F3").Font.Color)
+	assert.True(t, style("F3").Font.Bold, "Ready for Pick Up is bold")
 
 	sheets, err := previewSheets(f, true)
 	require.NoError(t, err)
@@ -359,7 +359,7 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	assert.Equal(t, [][]string{
 		{"Report Dashboard", "", "", "", "", ""},
 		{"Churches", "Month", "Year", "Status", "Coordinator's Remark", "Support Status"},
-		{`=HYPERLINK("http://x")`, "May", "2026", "Approved", "", ""},
+		{`=HYPERLINK("http://x")`, "May", "2026", "Approved", "Checked", "Ready for Pick Up"},
 		{"Bethel", "May", "2026", "Pending", "", ""},
 		{"Zion", "", "", "Not Filed", "", ""},
 	}, sheets[0].Rows)

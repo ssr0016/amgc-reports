@@ -47,7 +47,7 @@ type excelStyles struct {
 	title, subtitle, label, month, value, bandLabel, band, headerLabel, header,
 	weekHeader, mainLabel, subLabel, cell, money, names, textLabel, text int
 	// Report Dashboard.
-	dashTitle, dashHeader, dashChurch, dashMonth, dashYear, dashApproved, dashOpen, dashRemark int
+	dashTitle, dashHeader, dashChurch, dashMonth, dashYear, dashApproved, dashOpen, dashRemark, dashRemarkSet int
 }
 
 // sides returns thin black borders on the named sides: l, r, t and b.
@@ -104,9 +104,10 @@ func newExcelStyles(f *excelize.File) (excelStyles, error) {
 		{&st.dashChurch, &excelize.Style{Font: arial(false, ""), Border: sides("lrtb")}},
 		{&st.dashMonth, &excelize.Style{Font: arial(false, ""), Border: sides("lrtb"), Alignment: center}},
 		{&st.dashYear, &excelize.Style{Font: arial(true, ""), Border: sides("lrtb"), Alignment: center}},
-		{&st.dashApproved, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("00AA00"), Border: sides("lrtb"), Alignment: center}},
+		{&st.dashApproved, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("0000FF"), Border: sides("lrtb"), Alignment: center}},
 		{&st.dashOpen, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("FF0000"), Border: sides("lrtb"), Alignment: center}},
 		{&st.dashRemark, &excelize.Style{Font: arial(false, ""), Border: sides("lrtb")}},
+		{&st.dashRemarkSet, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("0000CC"), Border: sides("lrtb"), Alignment: center}},
 	} {
 		id, err := f.NewStyle(s.style)
 		if err != nil {
@@ -174,14 +175,15 @@ func renderWorkbook(rows []report.DashboardRow, reps []*report.Report) (*exceliz
 }
 
 // dashboardHeader is the Report Dashboard's header row, under its merged title.
-// The remark columns stay blank for the coordinator to fill in (D-A17).
+// The remark columns are filled for approved reports only (D-A19).
 var dashboardHeader = []string{"Churches", "Month", "Year", "Status", "Coordinator's Remark", "Support Status"}
 
 // writeDashboard writes the owner's reference layout (D-A19): a title merged
 // over A1:F1, the header in row 2, then one bordered row per church account.
-// Approved is green and Pending or Not Filed red. Month and Year are the
+// Approved is blue and Pending or Not Filed red. Month and Year are the
 // report's and blank when the church has not filed; the year is a number,
-// everything else text. The remark columns are bordered but blank.
+// everything else text. Approved rows read "Checked" and "Ready for Pick Up"
+// on blue in the remark columns; other rows leave them bordered but blank.
 func writeDashboard(f *excelize.File, rows []report.DashboardRow, st excelStyles) error {
 	sh := dashboardSheet
 	steps := []error{
@@ -204,16 +206,17 @@ func writeDashboard(f *excelize.File, rows []report.DashboardRow, st excelStyles
 	}
 	for i, r := range rows {
 		n := strconv.Itoa(i + 3)
-		status := st.dashOpen
+		status, remark := st.dashOpen, st.dashRemark
 		if r.Status == report.StatusApproved {
-			status = st.dashApproved
+			status, remark = st.dashApproved, st.dashRemarkSet
+			steps = append(steps, f.SetCellStr(sh, "E"+n, "Checked"), f.SetCellStr(sh, "F"+n, "Ready for Pick Up"))
 		}
 		steps = append(steps,
 			f.SetCellStyle(sh, "A"+n, "A"+n, st.dashChurch),
 			f.SetCellStyle(sh, "B"+n, "B"+n, st.dashMonth),
 			f.SetCellStyle(sh, "C"+n, "C"+n, st.dashYear),
 			f.SetCellStyle(sh, "D"+n, "D"+n, status),
-			f.SetCellStyle(sh, "E"+n, "F"+n, st.dashRemark),
+			f.SetCellStyle(sh, "E"+n, "F"+n, remark),
 			f.SetCellStr(sh, "A"+n, r.Church),
 			f.SetCellStr(sh, "B"+n, r.Month),
 			f.SetCellStr(sh, "D"+n, r.Status),

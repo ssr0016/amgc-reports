@@ -484,8 +484,8 @@ var wantDashboard = [][]string{
 	{"Report Dashboard", "", "", "", "", ""},
 	{"Churches", "Month", "Year", "Status", "Coordinator's Remark", "Support Status"},
 	{"bethel", "May", "2026", "Pending", "", ""},
-	{"Report Dashboard", "May", "2026", "Approved", "", ""},
-	{"zion", "May", "2026", "Approved", "", ""},
+	{"Report Dashboard", "May", "2026", "Approved", "Checked", "Ready for Pick Up"},
+	{"zion", "May", "2026", "Approved", "Checked", "Ready for Pick Up"},
 	{"Abba", "", "", "Not Filed", "", ""},
 }
 
