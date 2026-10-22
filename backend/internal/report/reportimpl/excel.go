@@ -104,7 +104,7 @@ func newExcelStyles(f *excelize.File) (excelStyles, error) {
 		{&st.dashChurch, &excelize.Style{Font: arial(false, ""), Border: sides("lrtb")}},
 		{&st.dashMonth, &excelize.Style{Font: arial(false, ""), Border: sides("lrtb"), Alignment: center}},
 		{&st.dashYear, &excelize.Style{Font: arial(true, ""), Border: sides("lrtb"), Alignment: center}},
-		{&st.dashApproved, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("0000FF"), Border: sides("lrtb"), Alignment: center}},
+		{&st.dashApproved, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("00AA00"), Border: sides("lrtb"), Alignment: center}},
 		{&st.dashOpen, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("FF0000"), Border: sides("lrtb"), Alignment: center}},
 		{&st.dashRemark, &excelize.Style{Font: arial(false, ""), Border: sides("lrtb")}},
 		{&st.dashRemarkSet, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("0000CC"), Border: sides("lrtb"), Alignment: center}},
@@ -180,7 +180,7 @@ var dashboardHeader = []string{"Churches", "Month", "Year", "Status", "Coordinat
 
 // writeDashboard writes the owner's reference layout (D-A19): a title merged
 // over A1:F1, the header in row 2, then one bordered row per church account.
-// Approved is blue and Pending or Not Filed red. Month and Year are the
+// Approved is green and Pending or Not Filed red. Month and Year are the
 // report's and blank when the church has not filed; the year is a number,
 // everything else text. Approved rows read "Checked" and "Ready for Pick Up"
 // on blue in the remark columns; other rows leave them bordered but blank.

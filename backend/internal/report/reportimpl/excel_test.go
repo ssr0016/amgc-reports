@@ -332,7 +332,7 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	assert.InDelta(t, 18, title.Font.Size, 0.01)
 	for cell, want := range map[string][]string{
 		"A1": {"DDDDFF"}, "F1": {"DDDDFF"}, "A2": {"E0E0E0"}, "F2": {"E0E0E0"},
-		"D3": {"0000FF"},                   // Approved
+		"D3": {"00AA00"},                   // Approved
 		"E3": {"0000CC"}, "F3": {"0000CC"}, // Approved remarks
 		"D4": {"FF0000"}, // Pending
 		"D5": {"FF0000"}, // Not Filed
