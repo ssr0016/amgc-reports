@@ -55,6 +55,11 @@ func (s *okUserSvc) Restore(context.Context, int64, string, int64) (*user.User, 
 	return &user.User{ID: 1, Email: "pia@example.com", Name: "Pia"}, nil
 }
 
+func (s *okUserSvc) ChangeRole(context.Context, int64, string, int64, int64) (*user.User, error) {
+	s.calls++
+	return &user.User{ID: 1, Email: "pia@example.com", Name: "Pia"}, nil
+}
+
 func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc) {
 	return adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: noLimit}, roleName, perms...)
 }
@@ -82,7 +87,7 @@ func adminUsersServerWith(limits Limiters, roleName string, perms ...string) (*e
 	})
 	Setup(e, noAuthn, users, permRoles{perms: perms},
 		authrest.NewAuthHandler(nil, nil), userrest.NewUserHandler(users), nil, nil,
-		userrest.NewAdminUserHandler(users, nil, svc),
+		userrest.NewAdminUserHandler(users, svc),
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		reportrest.NewReportHandler(okReportSvc{}), nil,
 		nil, limits,
@@ -100,6 +105,7 @@ var adminUserRoutes = []struct {
 	{"status", http.MethodPut, "/api/v1/admin/users/1/status", `{"status":"inactive"}`, http.StatusOK},
 	{"delete", http.MethodDelete, "/api/v1/admin/users/1", `{"reason":"left"}`, http.StatusOK},
 	{"restore", http.MethodPost, "/api/v1/admin/users/1/restore", "", http.StatusOK},
+	{"role", http.MethodPut, "/api/v1/admin/users/1/role", `{"role_id":4}`, http.StatusOK},
 	{"reset-password", http.MethodPost, "/api/v1/admin/users/1/reset-password",
 		`{"new_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK","confirm_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"}`, http.StatusNoContent},
 }

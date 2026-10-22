@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
@@ -83,4 +83,16 @@ describe("UserForm password confirmation", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
   });
+});
+
+it("the create form's role dropdown lists custom roles too", () => {
+  const roles = [
+    { id: 1, name: "admin" },
+    { id: 3, name: "user" },
+    { id: 4, name: "CGP Coordinator" },
+  ];
+  render(<UserForm mode="create" initial={initial} roles={roles} submitLabel="Save" onSubmit={vi.fn()} onCancel={vi.fn()} />);
+  const select = screen.getByLabelText("Role");
+  expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["admin", "user", "CGP Coordinator"]);
+  expect(select).toHaveValue("3");
 });

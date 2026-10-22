@@ -28,6 +28,10 @@ const (
 	ActionLogin              = "LOGIN"
 	ActionLogout             = "LOGOUT"
 	ActionLoginFailed        = "LOGIN_FAILED"
+	ActionCreateRole         = "CREATE_ROLE"
+	ActionUpdateRole         = "UPDATE_ROLE"
+	ActionDeleteRole         = "DELETE_ROLE"
+	ActionChangeUserRole     = "CHANGE_USER_ROLE"
 )
 
 // Reasons stored in a LOGIN_FAILED row's details. A login refused by the
@@ -42,6 +46,7 @@ const (
 const (
 	TargetTypeReport = "Report"
 	TargetTypeUser   = "User"
+	TargetTypeRole   = "Role"
 )
 
 // Actions lists every action above; a test compares it with the CHECK constraint.
@@ -52,6 +57,7 @@ var Actions = []string{
 	ActionCreateUser, ActionUpdateUser, ActionChangePassword, ActionChangeUserStatus,
 	ActionAdminResetPassword, ActionDeleteUser, ActionRestoreUser,
 	ActionLogin, ActionLogout, ActionLoginFailed,
+	ActionCreateRole, ActionUpdateRole, ActionDeleteRole, ActionChangeUserRole,
 }
 
 // DetailKeys is the allow-list of details keys per action. Insert refuses any
@@ -74,6 +80,10 @@ var DetailKeys = map[string][]string{
 	ActionLogin:              {},
 	ActionLogout:             {},
 	ActionLoginFailed:        {"reason"},
+	ActionCreateRole:         {"name", "permissions"},
+	ActionUpdateRole:         {"from", "to", "added", "removed"},
+	ActionDeleteRole:         {"name"},
+	ActionChangeUserRole:     {"from", "to"},
 }
 
 // ErrDetailKey is returned for an unknown action or a details key outside DetailKeys.

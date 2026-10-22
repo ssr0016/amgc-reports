@@ -1,5 +1,5 @@
 import { api } from "./api";
-import type { Page, ResetPasswordInput, Role, User, UserInput, UserUpdate } from "./api-schema";
+import type { Page, ResetPasswordInput, Role, RoleDetail, User, UserInput, UserUpdate } from "./api-schema";
 
 export type { Role, User, UserInput, UserUpdate };
 
@@ -38,6 +38,7 @@ export const deleteUser = (id: number, reason: string) =>
 export const restoreUser = (id: number) => api<User>(`/admin/users/${id}/restore`, { method: "POST" });
 
 // The handler answers { data, meta }; the Swagger type says a bare array, which is wrong.
-export async function listRoles(): Promise<Role[]> {
-  return (await api<Page<Role>>("/admin/roles?limit=100")).data;
+// Each role carries its permissions and user_count.
+export async function listRoles(): Promise<RoleDetail[]> {
+  return (await api<Page<RoleDetail>>("/admin/roles?limit=100")).data;
 }

@@ -22,6 +22,7 @@ vi.mock("@/lib/users", () => ({
   updateUser: vi.fn(),
   changeUserStatus: h.changeUserStatus,
   resetUserPassword: vi.fn(),
+  listRoles: vi.fn(async () => [{ id: 3, name: "user" }]),
 }));
 
 function renderEdit() {

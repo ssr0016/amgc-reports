@@ -86,3 +86,27 @@
 **Why it matters:** The delta rewrites the production-migration rule in `AGENTS.md`, `docs/ARCHITECTURE.md` and `docs/DECISIONS.md` (Render Free tier runs neither Pre-Deploy nor Shell; run `make migrate-up` against Neon before pushing). That change is outside the Tracker spec's Files / areas. `backend/SETUP.md` (the runbook ARCHITECTURE links to) still tells the reader to set `/app/api migrate` as the Pre-Deploy Command, and `blueprint/context/project-overview.md` still says "run `/app/api migrate` as a separate pre-deploy step". So a deployer gets two different procedures. No code is affected and this feature has no migration, so it is P3.
 **Suggested fix:** Update SETUP.md section 1 and section 3, and project-overview.md line 107, to match the D-H1 update of 2026-10-22. Or move the whole doc change out of the feature commit into its own docs commit.
 **Resolution:** Fixed 2026-10-22 on `fix/migration-docs-for-render-free-tier-and-pending-in-the-tracker`: SETUP.md sections 1 and 3 and both runbooks, and project-overview.md:107, now describe the local migrate run against Neon before pushing `main`. Awaiting re-review.
+
+### F-14 [P3] open - The role API accepts a blank or space-padded name
+
+**File:** backend/internal/accesscontrol/model.go:60, backend/internal/accesscontrol/model.go:67
+**Found:** 2026-10-22 by /audit independent (scope: current; lens: quality, security)
+**Why it matters:** `name` is validated as `required,min=2,max=50` and stored as sent. The form trims it (`role-form.tsx:58`), but the server doesn't, so a direct API call can create a role named two spaces, or `"Reviewer "` beside `"Reviewer"`. These show up as blank or look-alike entries in the Roles tab and the role dropdowns. Only an admin with `roles:write` can do this, and the built-in names are still protected by exact match, so it's P3.
+**Suggested fix:** Trim `Name` in the service (or handler) before validating and writing, and refuse a blank result with a 422 on `name`. Add a handler test for `"  "`.
+**Resolution:**
+
+### F-15 [P3] open - Role writes take a second pool connection inside their transaction
+
+**File:** backend/internal/accesscontrol/acimpl/permission_store.go:104, backend/internal/accesscontrol/acimpl/service.go:187
+**Found:** 2026-10-22 by /audit independent (scope: current; lens: performance)
+**Why it matters:** `permissionNames` runs inside `InTransaction`, but `permissionStore.scanPermissions` queries `r.db.Pool`, not `r.db.Querier(ctx)`. So every role Create and Update holds its transaction's connection and acquires another one for the permission list. If enough role writes run at once to use every pool connection (`DB_MAX_CONNS`, 20 by default), each waits for a second connection that never frees, until the request context ends. The routes are admin-only and rate-limited, so this is unlikely in practice. The read also doesn't see the transaction, but the foreign key still catches a permission deleted mid-write.
+**Suggested fix:** Use `r.db.Querier(ctx)` in `scanPermissions`, as the role store now does. No current requirement is lost.
+**Resolution:**
+
+### F-16 [P3] open - The permission checklist's error is not tied to the checkboxes
+
+**File:** frontend/src/components/role-form.tsx:100-122
+**Found:** 2026-10-22 by /audit independent (scope: current; lens: quality)
+**Why it matters:** Spec step 6 says field errors from 422 `details` use `aria-describedby`. Name and description get it through `AuthField`, but a 422 on `permission_ids` renders as a separate `<p id="permission_ids-note">` that no fieldset or checkbox points at, and nothing marks the checklist invalid. The note gets focus through `data-field-error`, so a screen reader announces it once, but moving back into the checklist gives no hint. The server returns this error only for an id that no longer exists, so it's rare.
+**Suggested fix:** Add `aria-describedby="permission_ids-note"` to each `<fieldset>` while `errors.permission_ids` is set. Optionally extend the edit-role 422 test to check it.
+**Resolution:**

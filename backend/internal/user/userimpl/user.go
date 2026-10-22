@@ -362,6 +362,86 @@ func (s *service) Restore(ctx context.Context, actorID int64, ip string, id int6
 	return usr, nil
 }
 
+// ChangeRole gives a user another role (D-A21). The change and its audit row are one
+// transaction. An admin cannot change their own role, and the only active admin cannot
+// be moved off admin: the active admins' rows are locked first, as in ChangeStatus. The
+// same role as now is a quiet success that writes and audits nothing. A deleted account
+// may be changed, so a role it holds can be freed for deletion.
+func (s *service) ChangeRole(ctx context.Context, actorID int64, ip string, id, roleID int64) (*user.User, error) {
+	actor, err := s.actor(ctx, actorID)
+	if err != nil {
+		return nil, err
+	}
+	if actorID == id {
+		return nil, user.ErrCannotChangeOwnRole
+	}
+
+	var usr *user.User
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
+		var err error
+		usr, err = s.setRole(ctx, actor, ip, id, roleID)
+		return err
+	})
+	switch {
+	case errors.Is(err, user.ErrLastActiveAdmin), errors.Is(err, user.ErrRoleNotFound):
+		return nil, err
+	case errors.Is(err, database.ErrForeignKeyViolation):
+		// The role was deleted between the check and the update.
+		return nil, user.ErrRoleNotFound
+	case errors.Is(err, database.ErrNotFound):
+		return nil, user.ErrUserNotFound
+	case err != nil:
+		return nil, fmt.Errorf("change user role: %w", err)
+	}
+	return usr, nil
+}
+
+// setRole is the body of ChangeRole's transaction; ctx carries it.
+func (s *service) setRole(ctx context.Context, actor *user.User, ip string, id, roleID int64) (*user.User, error) {
+	admins, err := s.users.LockActiveAdmins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	current, err := s.users.GetWithRole(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if current == nil {
+		return nil, database.ErrNotFound
+	}
+	role, err := s.roles.GetByID(ctx, roleID)
+	if err != nil {
+		return nil, err
+	}
+	if role == nil {
+		return nil, user.ErrRoleNotFound
+	}
+	if current.RoleID == roleID {
+		return current, nil
+	}
+	if len(admins) == 1 && admins[0] == id && role.Name != "admin" {
+		return nil, user.ErrLastActiveAdmin
+	}
+
+	from := ""
+	if current.Role != nil {
+		from = current.Role.Name
+	}
+	if err := s.users.UpdateRole(ctx, id, roleID); err != nil {
+		return nil, err
+	}
+	usr, err := s.users.GetWithRole(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	err = s.audit.Insert(ctx, user.AuditLog(actor, ip, audit.ActionChangeUserRole, usr,
+		map[string]any{"from": from, "to": role.Name}))
+	if err != nil {
+		return nil, err
+	}
+	return usr, nil
+}
+
 // actor loads the admin making the change, for the audit row. A session whose
 // user is gone is unauthorized.
 func (s *service) actor(ctx context.Context, id int64) (*user.User, error) {

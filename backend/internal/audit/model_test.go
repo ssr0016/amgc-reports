@@ -7,8 +7,8 @@ import (
 )
 
 func TestActions(t *testing.T) {
-	if got := len(Actions); got != 17 {
-		t.Fatalf("len(Actions) = %d, want 17", got)
+	if got := len(Actions); got != 21 {
+		t.Fatalf("len(Actions) = %d, want 21", got)
 	}
 	seen := map[string]bool{}
 	for _, a := range Actions {
@@ -20,7 +20,8 @@ func TestActions(t *testing.T) {
 }
 
 func TestActions_IncludeEveryNamedAction(t *testing.T) {
-	for _, want := range []string{ActionChangeUserStatus, ActionAdminResetPassword, ActionLogin, ActionLogout, ActionLoginFailed} {
+	for _, want := range []string{ActionChangeUserStatus, ActionAdminResetPassword, ActionLogin, ActionLogout, ActionLoginFailed,
+		ActionCreateRole, ActionUpdateRole, ActionDeleteRole, ActionChangeUserRole} {
 		found := false
 		for _, a := range Actions {
 			found = found || a == want
@@ -65,6 +66,14 @@ func TestCheckDetails(t *testing.T) {
 		{"key outside the list", Log{Action: ActionApproveReport, Details: map[string]any{"narrative_report": "x"}}, ErrDetailKey},
 		{"any key where none are allowed", Log{Action: ActionLogin, Details: map[string]any{"email": "a@b.c"}}, ErrDetailKey},
 		{"password on a reset", Log{Action: ActionAdminResetPassword, Details: map[string]any{"new_password": "x"}}, ErrDetailKey},
+		{"role created", Log{Action: ActionCreateRole, Details: map[string]any{"name": "Reviewer", "permissions": []string{"reports:read_any"}}}, nil},
+		{"role updated", Log{Action: ActionUpdateRole, Details: map[string]any{"from": "A", "to": "B", "added": []string{}, "removed": []string{}}}, nil},
+		{"role deleted", Log{Action: ActionDeleteRole, Details: map[string]any{"name": "Reviewer"}}, nil},
+		{"user role changed", Log{Action: ActionChangeUserRole, Details: map[string]any{"from": "user", "to": "Reviewer"}}, nil},
+		{"description on a role create", Log{Action: ActionCreateRole, Details: map[string]any{"description": "x"}}, ErrDetailKey},
+		{"description on a role update", Log{Action: ActionUpdateRole, Details: map[string]any{"description": "x"}}, ErrDetailKey},
+		{"permissions on a role delete", Log{Action: ActionDeleteRole, Details: map[string]any{"permissions": []string{}}}, ErrDetailKey},
+		{"role id on a user role change", Log{Action: ActionChangeUserRole, Details: map[string]any{"role_id": 4}}, ErrDetailKey},
 		{"unknown action", Log{Action: "NOPE"}, ErrDetailKey},
 	}
 	for _, tt := range tests {

@@ -108,14 +108,13 @@ func Setup(
 		ourmiddleware.RequireRole(userRepo, "admin"),
 	)
 
-	// Roles
+	// Roles (D-A21). Writes need roles:write on top of the admin role, and are audited;
+	// PUT replaces the whole permission set, so there are no per-permission routes.
 	admin.GET("/roles", roleHandler.List)
-	admin.POST("/roles", roleHandler.Create)
+	admin.POST("/roles", roleHandler.Create, perm("roles:write"), limits.Write)
 	admin.GET("/roles/:id", roleHandler.Get)
-	admin.PUT("/roles/:id", roleHandler.Update)
-	admin.DELETE("/roles/:id", roleHandler.Delete)
-	admin.POST("/roles/:id/permissions", roleHandler.AssignPermission)
-	admin.DELETE("/roles/:id/permissions/:pid", roleHandler.RevokePermission)
+	admin.PUT("/roles/:id", roleHandler.Update, perm("roles:write"), limits.Write)
+	admin.DELETE("/roles/:id", roleHandler.Delete, perm("roles:write"), limits.Write)
 
 	// Permissions
 	admin.GET("/permissions", permissionHandler.List)
@@ -125,12 +124,12 @@ func Setup(
 
 	// Users (admin management)
 	admin.GET("/users/:id", adminUserHandler.GetUser)
-	admin.PUT("/users/:id/role", adminUserHandler.ChangeRole)
 	// The only way to create an account (there is no self-registration). The group
 	// already requires the admin role; users:write is a second, explicit gate.
 	admin.POST("/users", adminUserHandler.CreateUser, perm("users:write"))
 	admin.PUT("/users/:id", adminUserHandler.UpdateUser, perm("users:write"))
 	admin.PUT("/users/:id/status", adminUserHandler.ChangeStatus, perm("users:write"))
+	admin.PUT("/users/:id/role", adminUserHandler.ChangeRole, perm("users:write"), limits.Write)
 	admin.DELETE("/users/:id", adminUserHandler.DeleteUser, perm("users:write"))
 	admin.POST("/users/:id/restore", adminUserHandler.RestoreUser, perm("users:write"))
 	// Sets another user's password (D-A12): a write, so it shares change-password's limiter.

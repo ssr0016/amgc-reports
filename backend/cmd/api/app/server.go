@@ -133,9 +133,9 @@ func run() error {
 	// Handlers
 	authHandler := authrest.NewAuthHandler(authService, authrest.NewCookies(cfg.Auth, cfg.IsProduction()))
 	userHandler := userrest.NewUserHandler(userRepo)
-	roleHandler := acrest.NewRoleHandler(roleRepo, permissionRepo)
+	roleHandler := acrest.NewRoleHandler(roleRepo, acimpl.NewService(roleRepo, permissionRepo, userRepo, auditRepo, db))
 	permissionHandler := acrest.NewPermissionHandler(permissionRepo)
-	adminUserHandler := userrest.NewAdminUserHandler(userRepo, roleRepo, userService)
+	adminUserHandler := userrest.NewAdminUserHandler(userRepo, userService)
 	verificationHandler := authrest.NewVerificationHandler(verificationService)
 	passwordResetHandler := authrest.NewPasswordResetHandler(passwordResetService)
 	reportHandler := reportrest.NewReportHandler(reportService)

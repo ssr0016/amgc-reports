@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
@@ -34,16 +35,17 @@ func scanRole(row pgx.Row) (*accesscontrol.Role, error) {
 	return &role, nil
 }
 
-func (r *roleStore) findByColumn(ctx context.Context, column string, value interface{}) (*accesscontrol.Role, error) {
+func (r *roleStore) findByColumn(ctx context.Context, column string, value any, suffix ...string) (*accesscontrol.Role, error) {
 	query, args, err := r.db.Builder.
 		Select(roleColumns).
 		From("roles").
 		Where(sq.Eq{column: value}).
+		Suffix(strings.Join(suffix, " ")).
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	return scanRole(r.db.Pool.QueryRow(ctx, query, args...))
+	return scanRole(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 }
 
 func (r *roleStore) Create(ctx context.Context, req accesscontrol.CreateRoleRequest) (*accesscontrol.Role, error) {
@@ -56,11 +58,15 @@ func (r *roleStore) Create(ctx context.Context, req accesscontrol.CreateRoleRequ
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	return scanRole(r.db.Pool.QueryRow(ctx, query, args...))
+	return scanRole(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 }
 
 func (r *roleStore) GetByID(ctx context.Context, id int64) (*accesscontrol.Role, error) {
 	return r.findByColumn(ctx, "id", id)
+}
+
+func (r *roleStore) GetForUpdate(ctx context.Context, id int64) (*accesscontrol.Role, error) {
+	return r.findByColumn(ctx, "id", id, "FOR UPDATE")
 }
 
 func (r *roleStore) GetByName(ctx context.Context, name string) (*accesscontrol.Role, error) {
@@ -77,7 +83,7 @@ func (r *roleStore) List(ctx context.Context) ([]accesscontrol.Role, error) {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query roles: %w", err)
 	}
@@ -95,33 +101,25 @@ func (r *roleStore) List(ctx context.Context) ([]accesscontrol.Role, error) {
 }
 
 func (r *roleStore) Update(ctx context.Context, id int64, req accesscontrol.UpdateRoleRequest) (*accesscontrol.Role, error) {
-	builder := r.db.Builder.Update("roles").Where(sq.Eq{"id": id})
-
-	if req.Name != "" {
-		builder = builder.Set("name", req.Name)
-		if req.Name != accesscontrol.DefaultRoleName {
-			// Guarded in the statement so a rename cannot slip in between a
-			// check and the write.
-			builder = builder.Where(sq.NotEq{"name": accesscontrol.DefaultRoleName})
-		}
-	}
-	if req.Description != "" {
-		builder = builder.Set("description", req.Description)
-	}
-	builder = builder.Set("updated_at", sq.Expr("NOW()"))
-
-	query, args, err := builder.
+	// The built-in guard is in the statement so a change cannot slip in between a
+	// check and the write.
+	query, args, err := r.db.Builder.Update("roles").
+		Set("name", req.Name).
+		Set("description", req.Description).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": id}).
+		Where(sq.NotEq{"name": accesscontrol.BuiltInRoles}).
 		Suffix("RETURNING " + roleColumns).
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	role, err := scanRole(r.db.Pool.QueryRow(ctx, query, args...))
+	role, err := scanRole(r.db.Querier(ctx).QueryRow(ctx, query, args...))
 	if err != nil || role != nil {
 		return role, err
 	}
-	// No row updated: the role is missing (nil, nil) or is the default role
-	// the guard above refused to rename.
+	// No row updated: the role is missing (nil, nil) or is a built-in role the
+	// guard above refused to change.
 	if err := r.refuseIfExists(ctx, id, "update roles"); err != nil {
 		return nil, err
 	}
@@ -129,7 +127,7 @@ func (r *roleStore) Update(ctx context.Context, id int64, req accesscontrol.Upda
 }
 
 func (r *roleStore) Delete(ctx context.Context, id int64) error {
-	err := deleteByID(ctx, r.db, "roles", id, sq.NotEq{"name": accesscontrol.DefaultRoleName})
+	err := deleteByID(ctx, r.db, "roles", id, sq.NotEq{"name": accesscontrol.BuiltInRoles})
 	if errors.Is(err, database.ErrNotFound) {
 		if refuse := r.refuseIfExists(ctx, id, "delete roles"); refuse != nil {
 			return refuse
@@ -139,7 +137,7 @@ func (r *roleStore) Delete(ctx context.Context, id int64) error {
 }
 
 // refuseIfExists returns accesscontrol.ErrProtectedRole when role id exists, which after a
-// guarded write that touched no row can only mean the default role. It returns
+// guarded write that touched no row can only mean a built-in role. It returns
 // nil when the role is missing or the lookup fails, leaving the caller's own
 // result in place.
 func (r *roleStore) refuseIfExists(ctx context.Context, id int64, op string) error {
@@ -148,6 +146,49 @@ func (r *roleStore) refuseIfExists(ctx context.Context, id int64, op string) err
 		return nil
 	}
 	return fmt.Errorf("%s: %w: %s", op, accesscontrol.ErrProtectedRole, role.Name)
+}
+
+func (r *roleStore) CountUsers(ctx context.Context, roleID int64) (int64, error) {
+	query, args, err := r.db.Builder.Select("COUNT(*)").From("users").Where(sq.Eq{"role_id": roleID}).ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build query: %w", err)
+	}
+	var n int64
+	if err := r.db.Querier(ctx).QueryRow(ctx, query, args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count role users: %w", err)
+	}
+	return n, nil
+}
+
+// ReplacePermissions deletes the role's grants and inserts ids. Run it in a
+// transaction (ctx) so a failed insert leaves the old set.
+func (r *roleStore) ReplacePermissions(ctx context.Context, roleID int64, ids []int64) error {
+	query, args, err := r.db.Builder.Delete("role_permissions").Where(sq.Eq{"role_id": roleID}).ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+	if _, err := r.db.Querier(ctx).Exec(ctx, query, args...); err != nil {
+		return fmt.Errorf("clear permissions: %w", err)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	ins := r.db.Builder.Insert("role_permissions").Columns("role_id", "permission_id")
+	for _, id := range ids {
+		ins = ins.Values(roleID, id)
+	}
+	query, args, err = ins.ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+	_, err = r.db.Querier(ctx).Exec(ctx, query, args...)
+	if database.IsForeignKeyViolation(err) {
+		return fmt.Errorf("replace permissions: %w: %w", database.ErrForeignKeyViolation, err)
+	}
+	if err != nil {
+		return fmt.Errorf("replace permissions: %w", err)
+	}
+	return nil
 }
 
 func (r *roleStore) GetPermissions(ctx context.Context, roleID int64) ([]accesscontrol.Permission, error) {
@@ -162,7 +203,7 @@ func (r *roleStore) GetPermissions(ctx context.Context, roleID int64) ([]accessc
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query permissions: %w", err)
 	}
@@ -189,7 +230,7 @@ func (r *roleStore) AssignPermission(ctx context.Context, roleID, permissionID i
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	_, err = r.db.Pool.Exec(ctx, query, args...)
+	_, err = r.db.Querier(ctx).Exec(ctx, query, args...)
 	if database.IsForeignKeyViolation(err) {
 		return fmt.Errorf("assign permission: %w: %w", database.ErrForeignKeyViolation, err)
 	}
@@ -207,7 +248,7 @@ func (r *roleStore) RevokePermission(ctx context.Context, roleID, permissionID i
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	_, err = r.db.Pool.Exec(ctx, query, args...)
+	_, err = r.db.Querier(ctx).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("revoke permission: %w", err)
 	}
@@ -236,14 +277,15 @@ func (r *roleStore) ListWithPagination(ctx context.Context, page, limit int) ([]
 	}
 
 	var total int64
-	if err := r.db.Pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
+	if err := r.db.Querier(ctx).QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count roles: %w", err)
 	}
 
 	// Get paginated data
 	offset := (page - 1) * limit
+	// Every account holding the role counts, deleted ones included: they keep the foreign key.
 	query, args, err := r.db.Builder.
-		Select(roleColumns).
+		Select(roleColumns, "(SELECT COUNT(*) FROM users u WHERE u.role_id = roles.id)").
 		From("roles").
 		OrderBy("id ASC").
 		Limit(uint64(limit)).   // #nosec G115 - limit validated
@@ -253,7 +295,7 @@ func (r *roleStore) ListWithPagination(ctx context.Context, page, limit int) ([]
 		return nil, 0, fmt.Errorf("build query: %w", err)
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("query roles: %w", err)
 	}
@@ -262,7 +304,7 @@ func (r *roleStore) ListWithPagination(ctx context.Context, page, limit int) ([]
 	var roles []accesscontrol.Role
 	for rows.Next() {
 		var role accesscontrol.Role
-		if err := rows.Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt); err != nil {
+		if err := rows.Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt, &role.UserCount); err != nil {
 			return nil, 0, fmt.Errorf("scan role: %w", err)
 		}
 		roles = append(roles, role)

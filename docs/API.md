@@ -88,22 +88,29 @@ Requires role: admin.
 
 GET /admin/roles?page=1&limit=10
 
-### Create Role
+Each role carries its `permissions` (left out when it has none) and `user_count`, which counts deleted accounts too.
 
-POST /admin/roles
+### Create, Replace and Delete Role (D-A21)
 
-    {
-      "name": "manager",
-      "description": "Manager role"
-    }
+Admin role and `roles:write`; the write rate limiter. Each writes one audit row (`CREATE_ROLE`, `UPDATE_ROLE`, `DELETE_ROLE`).
 
-### Assign Permission
-
-POST /admin/roles/:id/permissions
+POST /admin/roles → 201
 
     {
-      "permission_id": 1
+      "name": "Reviewer",
+      "description": "Approves reports",
+      "permission_ids": [11, 16]
     }
+
+PUT /admin/roles/:id → 200, the same body as a full replace (`permission_ids` required, may be empty). A request that changes nothing audits nothing.
+
+DELETE /admin/roles/:id → 204
+
+- `name` 2-50 characters and unique; `description` up to 255; `permission_ids` unique and existing (422 on `permission_ids` otherwise).
+- 409: "role name already exists", "built-in roles cannot be changed" (`admin`, `editor`, `user`), "role is assigned to N users; reassign them first".
+- 404 for a missing role.
+
+The old `POST /admin/roles/:id/permissions` and `DELETE /admin/roles/:id/permissions/:pid` are removed.
 
 ### List Permissions (paginated)
 
@@ -111,11 +118,13 @@ GET /admin/permissions?page=1&limit=10&resource=users
 
 ### Change User Role
 
-PUT /admin/users/:id/role
+PUT /admin/users/:id/role (admin role and `users:write`; the write rate limiter)
 
     {
       "role_id": 2
     }
+
+Answers 200 with the user and audits `CHANGE_USER_ROLE` `{from, to}`. 403 for your own account, 409 when it would move the last active admin off `admin`, 404 for an unknown user or role. The same role answers 200 and audits nothing. A deleted account may be changed.
 
 ### Create User
 
@@ -603,16 +612,16 @@ Requires role: admin.
 ### List Roles
   GET /api/v1/admin/roles?page=1&limit=10
 
-### Create Role
+### Create Role (admin role and roles:write)
   POST /api/v1/admin/roles
-  Body: {"name":"manager","description":"Manager role"}
+  Body: {"name":"Reviewer","description":"Approves reports","permission_ids":[11,16]}
 
-### Assign Permission to Role
-  POST /api/v1/admin/roles/:id/permissions
-  Body: {"permission_id": 1}
+### Replace Role (admin role and roles:write)
+  PUT /api/v1/admin/roles/:id
+  Body: {"name":"Reviewer","description":"","permission_ids":[11]}
 
-### Revoke Permission
-  DELETE /api/v1/admin/roles/:id/permissions/:pid
+### Delete Role (admin role and roles:write)
+  DELETE /api/v1/admin/roles/:id
 
 ### List Permissions
   GET /api/v1/admin/permissions?page=1&limit=10&resource=users
@@ -621,6 +630,6 @@ Requires role: admin.
   POST /api/v1/admin/permissions
   Body: {"name":"posts:read","resource":"posts","action":"read"}
 
-### Change User Role
+### Change User Role (admin role and users:write)
   PUT /api/v1/admin/users/:id/role
   Body: {"role_id": 2}

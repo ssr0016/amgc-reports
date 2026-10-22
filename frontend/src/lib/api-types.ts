@@ -513,7 +513,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List all roles */
+        /**
+         * List all roles
+         * @description Admin only. Each role carries its permissions and user_count: every account holding it, deleted ones included.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -535,7 +538,10 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create a new role */
+        /**
+         * Create a role
+         * @description Admin role and roles:write. Creates a role with its permissions and audits CREATE_ROLE (D-A21).
+         */
         post: {
             parameters: {
                 query?: never;
@@ -557,6 +563,28 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
                     };
                 };
             };
@@ -598,7 +626,10 @@ export interface paths {
                 };
             };
         };
-        /** Update a role */
+        /**
+         * Replace a role
+         * @description Admin role and roles:write. Replaces the name, description and whole permission set, and audits UPDATE_ROLE. Built-in roles (admin, editor, user) answer 409. A request that changes nothing answers 200 and audits nothing.
+         */
         put: {
             parameters: {
                 query?: never;
@@ -609,7 +640,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Role update payload */
+            /** @description Role payload */
             requestBody: {
                 content: {
                     "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateRoleRequest"];
@@ -625,10 +656,46 @@ export interface paths {
                         "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"];
                     };
                 };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
             };
         };
         post?: never;
-        /** Delete a role */
+        /**
+         * Delete a role
+         * @description Admin role and roles:write. Audits DELETE_ROLE. A built-in role, or one any account holds (deleted ones included), answers 409.
+         */
         delete: {
             parameters: {
                 query?: never;
@@ -648,42 +715,8 @@ export interface paths {
                     };
                     content?: never;
                 };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/roles/{id}/permissions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Assign a permission to a role */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Role ID */
-                    id: number;
-                };
-                cookie?: never;
-            };
-            /** @description Permission payload */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
+                /** @description Not Found */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -693,45 +726,16 @@ export interface paths {
                         };
                     };
                 };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/roles/{id}/permissions/{pid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Revoke a permission from a role */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Role ID */
-                    id: number;
-                    /** @description Permission ID */
-                    pid: number;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description No Content */
-                204: {
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
                 };
             };
         };
@@ -1442,7 +1446,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Change a user's role */
+        /**
+         * Change a user's role
+         * @description Admin role and users:write. Gives the user another role and audits CHANGE_USER_ROLE (D-A21). You cannot change your own role (403), and the only active admin cannot be moved off admin (409). The same role as now answers 200 and audits nothing. A deleted account may be changed.
+         */
         put: {
             parameters: {
                 query?: never;
@@ -1467,6 +1474,39 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
                     };
                 };
             };
@@ -2912,9 +2952,6 @@ export interface components {
             users_total?: number;
             year?: number;
         };
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest": {
-            permission_id: number;
-        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AuditLogResponse": {
             action?: string;
             created_at?: string;
@@ -2962,6 +2999,7 @@ export interface components {
         "github_com_ssr0016_pastoral-reports_backend_internal_model.CreateRoleRequest": {
             description?: string;
             name: string;
+            permission_ids?: number[];
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.CreateUserRequest": {
             area_assignment?: string;
@@ -3058,6 +3096,7 @@ export interface components {
             name?: string;
             permissions?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"][];
             updated_at?: string;
+            user_count?: number;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.Tracker": {
             month?: string;
@@ -3090,7 +3129,8 @@ export interface components {
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateRoleRequest": {
             description?: string;
-            name?: string;
+            name: string;
+            permission_ids: number[];
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateUserRequest": {
             area_assignment?: string;

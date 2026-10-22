@@ -10,27 +10,17 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
-	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 )
 
 type AdminUserHandler struct {
 	userRepo user.Store
-	roleRepo accesscontrol.RoleStore
 	svc      user.Service
 }
 
-func NewAdminUserHandler(
-	userRepo user.Store,
-	roleRepo accesscontrol.RoleStore,
-	svc user.Service,
-) *AdminUserHandler {
-	return &AdminUserHandler{
-		userRepo: userRepo,
-		roleRepo: roleRepo,
-		svc:      svc,
-	}
+func NewAdminUserHandler(userRepo user.Store, svc user.Service) *AdminUserHandler {
+	return &AdminUserHandler{userRepo: userRepo, svc: svc}
 }
 
 // userError maps service errors to API errors; anything unexpected is a 500
@@ -51,6 +41,8 @@ func userError(err error, msg string) error {
 		return apperror.Forbidden("You cannot reset your own password. Use the Change Password page instead.")
 	case errors.Is(err, user.ErrLastActiveAdmin):
 		return apperror.Conflict("At least one active admin is required.")
+	case errors.Is(err, user.ErrCannotChangeOwnRole):
+		return apperror.Forbidden("You cannot change your own role.")
 	case errors.Is(err, user.ErrCannotDeleteSelf):
 		return apperror.Forbidden("You cannot delete your own account.")
 	case errors.Is(err, user.ErrEmailBelongsToDeletedUser):
@@ -319,6 +311,7 @@ func (h *AdminUserHandler) GetUser(c echo.Context) error {
 
 // ChangeRole godoc
 // @Summary      Change a user's role
+// @Description  Admin role and users:write. Gives the user another role and audits CHANGE_USER_ROLE (D-A21). You cannot change your own role (403), and the only active admin cannot be moved off admin (409). The same role as now answers 200 and audits nothing. A deleted account may be changed.
 // @Tags         admin/users
 // @Accept       json
 // @Produce      json
@@ -326,13 +319,19 @@ func (h *AdminUserHandler) GetUser(c echo.Context) error {
 // @Param        id path int true "User ID"
 // @Param        body body accesscontrol.ChangeRoleRequest true "Role change payload"
 // @Success      200 {object} user.UserResponse
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Failure      409 {object} map[string]string
 // @Router       /admin/users/{id}/role [put]
 func (h *AdminUserHandler) ChangeRole(c echo.Context) error {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	actor, err := h.actorID(c)
 	if err != nil {
+		return err
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
 		return apperror.BadRequest("invalid user id")
 	}
-
 	var req accesscontrol.ChangeRoleRequest
 	if err := c.Bind(&req); err != nil {
 		return apperror.BadRequest("invalid request body").WithError(err)
@@ -341,44 +340,14 @@ func (h *AdminUserHandler) ChangeRole(c echo.Context) error {
 		return err
 	}
 
-	// Verify user exists
-	user, err := h.userRepo.GetByID(c.Request().Context(), id)
+	usr, err := h.svc.ChangeRole(c.Request().Context(), actor, c.RealIP(), id, req.RoleID)
+	if errors.Is(err, user.ErrRoleNotFound) {
+		return apperror.NotFound("role not found") // the role is what this request names, unlike Create's optional field
+	}
 	if err != nil {
-		return apperror.Internal("failed to get user").WithError(err)
+		return userError(err, "failed to change role")
 	}
-	if user == nil {
-		return apperror.NotFound("user not found")
-	}
-
-	// Verify role exists
-	role, err := h.roleRepo.GetByID(c.Request().Context(), req.RoleID)
-	if err != nil {
-		return apperror.Internal("failed to get role").WithError(err)
-	}
-	if role == nil {
-		return apperror.NotFound("role not found")
-	}
-
-	// Update user's role
-	if err := h.userRepo.UpdateRole(c.Request().Context(), id, req.RoleID); err != nil {
-		// Either row can be deleted between the checks above and this update:
-		// the role trips the foreign key, the user matches no row.
-		if errors.Is(err, database.ErrForeignKeyViolation) {
-			return apperror.NotFound("role not found")
-		}
-		if errors.Is(err, database.ErrNotFound) {
-			return apperror.NotFound("user not found")
-		}
-		return apperror.Internal("failed to update role").WithError(err)
-	}
-
-	// Reload user with role
-	updatedUser, err := h.userRepo.GetWithRole(c.Request().Context(), id)
-	if err != nil {
-		return apperror.Internal("failed to reload user").WithError(err)
-	}
-
-	return c.JSON(http.StatusOK, updatedUser.ToResponse())
+	return c.JSON(http.StatusOK, usr.ToResponse())
 }
 
 func fieldError(field, message string) error {

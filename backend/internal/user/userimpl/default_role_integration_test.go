@@ -14,8 +14,8 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
 )
 
-// Register assigns the default role, so deleting or renaming it would break
-// registration until the next restart re-seeds it.
+// Creating a user assigns the default role, so deleting or renaming it would break
+// that until the next restart re-seeds it. It is one of the read-only BuiltInRoles.
 func TestDefaultRole_IsProtected(t *testing.T) {
 	tdb := testutil.SetupPostgres(t)
 	tdb.RunMigrations(t)
@@ -46,17 +46,10 @@ func TestDefaultRole_IsProtected(t *testing.T) {
 		require.Equal(t, accesscontrol.DefaultRoleName, still.Name)
 	})
 
-	t.Run("description-only update still works", func(t *testing.T) {
-		got, err := roles.Update(ctx, def.ID, accesscontrol.UpdateRoleRequest{Description: "new description"})
-		require.NoError(t, err)
-		require.Equal(t, "new description", got.Description)
-		require.Equal(t, accesscontrol.DefaultRoleName, got.Name)
-	})
-
-	t.Run("update that keeps the name still works", func(t *testing.T) {
-		got, err := roles.Update(ctx, def.ID, accesscontrol.UpdateRoleRequest{Name: accesscontrol.DefaultRoleName, Description: "same name"})
-		require.NoError(t, err)
-		require.Equal(t, "same name", got.Description)
+	// Built-in roles are read-only (D-A21): even the description stays as seeded.
+	t.Run("a description change is refused too", func(t *testing.T) {
+		_, err := roles.Update(ctx, def.ID, accesscontrol.UpdateRoleRequest{Name: accesscontrol.DefaultRoleName, Description: "new description"})
+		require.ErrorIs(t, err, accesscontrol.ErrProtectedRole)
 	})
 
 	t.Run("other roles are unaffected", func(t *testing.T) {

@@ -61,9 +61,10 @@ describe("audit logs: filters", () => {
     renderLogs();
     await screen.findByText("Church 1");
     const actions = within(screen.getByLabelText("Action")).getAllByRole("option").map((o) => o.textContent);
-    expect(actions).toHaveLength(18);
+    expect(actions).toHaveLength(22);
     expect(actions[0]).toBe("All actions");
     expect(actions).toContain("Failed login");
+    expect(actions).toContain("Changed user role");
     const years = within(screen.getByLabelText("Year")).getAllByRole("option").map((o) => o.textContent);
     expect(years[0]).toBe("2026");
   });

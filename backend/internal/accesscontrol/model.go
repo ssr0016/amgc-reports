@@ -1,6 +1,9 @@
 package accesscontrol
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // Swagger names are pinned (@name) to the ones these types had in package model,
 // so the generated frontend types do not change with the package.
@@ -8,6 +11,14 @@ import "time"
 // DefaultRoleName is the role Register assigns to new users. Seed creates it
 // and the role admin API refuses to delete or rename it.
 const DefaultRoleName = "user"
+
+// BuiltInRoles are seeded and named in code (RequireRole, the Tracker, the
+// last-admin guard), so they cannot be renamed, deleted or have their
+// permissions changed (D-A21). Seed re-grants their permissions on startup.
+var BuiltInRoles = []string{"admin", "editor", DefaultRoleName}
+
+// IsBuiltIn reports whether name is one of BuiltInRoles.
+func IsBuiltIn(name string) bool { return slices.Contains(BuiltInRoles, name) }
 
 // Role represents a job title or access level (e.g., admin, editor, viewer).
 type Role struct {
@@ -19,6 +30,8 @@ type Role struct {
 
 	// Permissions attached to this role (loaded on demand)
 	Permissions []Permission `json:"permissions,omitempty"`
+	// UserCount is how many accounts hold the role (loaded on demand).
+	UserCount int64 `json:"user_count"`
 }
 
 // Permission represents a granular access right (e.g., users:read, users:write).
@@ -44,20 +57,17 @@ type RolePermission struct {
 
 // CreateRoleRequest is the payload for creating a new role.
 type CreateRoleRequest struct {
-	Name        string `json:"name" validate:"required,min=2,max=50"`
-	Description string `json:"description" validate:"max=255"`
+	Name          string  `json:"name" validate:"required,min=2,max=50"`
+	Description   string  `json:"description" validate:"max=255"`
+	PermissionIDs []int64 `json:"permission_ids" validate:"unique"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.CreateRoleRequest
 
-// UpdateRoleRequest is the payload for updating a role.
+// UpdateRoleRequest replaces a role's name, description and permissions.
 type UpdateRoleRequest struct {
-	Name        string `json:"name" validate:"omitempty,min=2,max=50"`
-	Description string `json:"description" validate:"omitempty,max=255"`
+	Name          string  `json:"name" validate:"required,min=2,max=50"`
+	Description   string  `json:"description" validate:"max=255"`
+	PermissionIDs []int64 `json:"permission_ids" validate:"required,unique"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateRoleRequest
-
-// AssignPermissionRequest is the payload for assigning a permission to a role.
-type AssignPermissionRequest struct {
-	PermissionID int64 `json:"permission_id" validate:"required"`
-} // @name github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest
 
 // ChangeRoleRequest is the payload for changing a user's role.
 type ChangeRoleRequest struct {
@@ -70,6 +80,7 @@ type RoleResponse struct {
 	Name        string               `json:"name"`
 	Description string               `json:"description"`
 	Permissions []PermissionResponse `json:"permissions,omitempty"`
+	UserCount   int64                `json:"user_count"`
 	CreatedAt   time.Time            `json:"created_at"`
 	UpdatedAt   time.Time            `json:"updated_at"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse
@@ -93,6 +104,7 @@ func (r *Role) ToResponse() RoleResponse {
 		Name:        r.Name,
 		Description: r.Description,
 		Permissions: perms,
+		UserCount:   r.UserCount,
 		CreatedAt:   r.CreatedAt,
 		UpdatedAt:   r.UpdatedAt,
 	}

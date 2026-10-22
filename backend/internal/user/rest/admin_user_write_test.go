@@ -33,6 +33,13 @@ type fakeUserSvc struct {
 	gotStatus   string
 	gotPassword string
 	gotReason   string
+	gotRoleID   int64
+}
+
+func (f *fakeUserSvc) ChangeRole(_ context.Context, actor int64, ip string, id, roleID int64) (*user.User, error) {
+	f.calls++
+	f.gotActor, f.gotIP, f.gotID, f.gotRoleID = actor, ip, id, roleID
+	return &user.User{ID: id, Email: "u@example.com", Name: "U", RoleID: roleID, PasswordHash: "secret-hash"}, f.err
 }
 
 func (f *fakeUserSvc) Create(_ context.Context, actor int64, ip string, req user.CreateUserRequest) (*user.User, error) {
@@ -81,7 +88,7 @@ type userErrBody struct {
 
 func serveUserAdmin(t *testing.T, svc user.Service, sessionUser int64, method, target, body string) (*httptest.ResponseRecorder, userErrBody) {
 	t.Helper()
-	h := NewAdminUserHandler(nil, nil, svc)
+	h := NewAdminUserHandler(nil, svc)
 
 	e := echo.New()
 	e.Validator = validator.New()
@@ -100,6 +107,7 @@ func serveUserAdmin(t *testing.T, svc user.Service, sessionUser int64, method, t
 	e.POST("/admin/users/:id/reset-password", h.ResetPassword)
 	e.DELETE("/admin/users/:id", h.DeleteUser)
 	e.POST("/admin/users/:id/restore", h.RestoreUser)
+	e.PUT("/admin/users/:id/role", h.ChangeRole)
 
 	req := httptest.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

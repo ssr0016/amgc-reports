@@ -27,13 +27,6 @@ definitions:
       year:
         type: integer
     type: object
-  github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest:
-    properties:
-      permission_id:
-        type: integer
-    required:
-    - permission_id
-    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.AuditLogResponse:
     properties:
       action:
@@ -149,6 +142,11 @@ definitions:
         maxLength: 50
         minLength: 2
         type: string
+      permission_ids:
+        items:
+          type: integer
+        type: array
+        uniqueItems: true
     required:
     - name
     type: object
@@ -379,6 +377,8 @@ definitions:
         type: array
       updated_at:
         type: string
+      user_count:
+        type: integer
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.Tracker:
     properties:
@@ -468,6 +468,14 @@ definitions:
         maxLength: 50
         minLength: 2
         type: string
+      permission_ids:
+        items:
+          type: integer
+        type: array
+        uniqueItems: true
+    required:
+    - name
+    - permission_ids
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateUserRequest:
     properties:
@@ -905,6 +913,8 @@ paths:
       - admin
   /admin/roles:
     get:
+      description: 'Admin only. Each role carries its permissions and user_count:
+        every account holding it, deleted ones included.'
       produces:
       - application/json
       responses:
@@ -922,6 +932,8 @@ paths:
     post:
       consumes:
       - application/json
+      description: Admin role and roles:write. Creates a role with its permissions
+        and audits CREATE_ROLE (D-A21).
       parameters:
       - description: Role payload
         in: body
@@ -936,13 +948,27 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - CookieAuth: []
-      summary: Create a new role
+      summary: Create a role
       tags:
       - admin/roles
   /admin/roles/{id}:
     delete:
+      description: Admin role and roles:write. Audits DELETE_ROLE. A built-in role,
+        or one any account holds (deleted ones included), answers 409.
       parameters:
       - description: Role ID
         in: path
@@ -952,6 +978,18 @@ paths:
       responses:
         "204":
           description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - CookieAuth: []
       summary: Delete a role
@@ -979,13 +1017,16 @@ paths:
     put:
       consumes:
       - application/json
+      description: Admin role and roles:write. Replaces the name, description and
+        whole permission set, and audits UPDATE_ROLE. Built-in roles (admin, editor,
+        user) answer 409. A request that changes nothing answers 200 and audits nothing.
       parameters:
       - description: Role ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Role update payload
+      - description: Role payload
         in: body
         name: body
         required: true
@@ -998,58 +1039,27 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse'
-      security:
-      - CookieAuth: []
-      summary: Update a role
-      tags:
-      - admin/roles
-  /admin/roles/{id}/permissions:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Role ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Permission payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest'
-      responses:
-        "200":
-          description: OK
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - CookieAuth: []
-      summary: Assign a permission to a role
-      tags:
-      - admin/roles
-  /admin/roles/{id}/permissions/{pid}:
-    delete:
-      parameters:
-      - description: Role ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Permission ID
-        in: path
-        name: pid
-        required: true
-        type: integer
-      responses:
-        "204":
-          description: No Content
-      security:
-      - CookieAuth: []
-      summary: Revoke a permission from a role
+      summary: Replace a role
       tags:
       - admin/roles
   /admin/stats:
@@ -1479,6 +1489,10 @@ paths:
     put:
       consumes:
       - application/json
+      description: Admin role and users:write. Gives the user another role and audits
+        CHANGE_USER_ROLE (D-A21). You cannot change your own role (403), and the only
+        active admin cannot be moved off admin (409). The same role as now answers
+        200 and audits nothing. A deleted account may be changed.
       parameters:
       - description: User ID
         in: path
@@ -1498,6 +1512,24 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - CookieAuth: []
       summary: Change a user's role

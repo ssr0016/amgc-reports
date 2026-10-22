@@ -35,9 +35,11 @@ describe("listAuditLogs", () => {
 });
 
 describe("actions", () => {
-  it("labels all 17 audited actions, each once", () => {
-    expect(ACTIONS).toHaveLength(17);
-    expect(new Set(ACTIONS.map((a) => a.code)).size).toBe(17);
+  it("labels all 21 audited actions, each once", () => {
+    expect(ACTIONS).toHaveLength(21);
+    expect(new Set(ACTIONS.map((a) => a.code)).size).toBe(21);
+    expect(actionLabel("CHANGE_USER_ROLE")).toBe("Changed user role");
+    expect(actionLabel("DELETE_ROLE")).toBe("Deleted role");
     expect(actionLabel("LOGIN_FAILED")).toBe("Failed login");
     expect(actionLabel("APPROVE_REPORT")).toBe("Approved report");
   });
@@ -59,6 +61,14 @@ describe("detailRows", () => {
     ["DELETE_USER", { reason: "Left the ministry", sessions_revoked: 1 }, [["Reason", "Left the ministry"], ["Sessions ended", "1"]]],
     ["DELETE_USER", { reason: null, sessions_revoked: 0 }, [["Reason", "—"], ["Sessions ended", "0"]]],
     ["CREATE_USER", { role_id: 3 }, [["Role ID", "3"]]],
+    ["CREATE_ROLE", { name: "Reviewer", permissions: ["reports:approve", "reports:read_any"] },
+      [["Role", "Reviewer"], ["Permissions", "reports:approve, reports:read_any"]]],
+    ["CREATE_ROLE", { name: "Empty", permissions: [] }, [["Role", "Empty"], ["Permissions", "—"]]],
+    ["UPDATE_ROLE", { from: "Reviewer", to: "Senior reviewer", added: ["users:read"], removed: [] },
+      [["Name", "Reviewer → Senior reviewer"], ["Permissions added", "users:read"], ["Permissions removed", "—"]]],
+    ["UPDATE_ROLE", { added: [], removed: ["reports:approve"] }, [["Permissions added", "—"], ["Permissions removed", "reports:approve"]]],
+    ["DELETE_ROLE", { name: "Reviewer" }, [["Role", "Reviewer"]]],
+    ["CHANGE_USER_ROLE", { from: "user", to: "CGP Coordinator" }, [["Role", "user → CGP Coordinator"]]],
     ["LOGIN", {}, []],
   ] as const)("%s %j", (action, details, want) => {
     expect(detailRows(action, details)).toEqual(want);

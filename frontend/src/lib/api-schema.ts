@@ -27,6 +27,10 @@ export type ReportMetadata = Always<Model<"ReportMetadata">, "id" | "completed">
 
 export type User = Always<Model<"UserResponse">, "id" | "email" | "name" | "role_id" | "email_verified" | "created_at" | "status">;
 export type Role = Always<Model<"RoleResponse">, "id" | "name">;
+// The list and get always send user_count; permissions is left out when the role has none.
+export type RoleDetail = Always<Model<"RoleResponse">, "id" | "name" | "description" | "user_count">;
+export type PermissionInfo = Always<Model<"PermissionResponse">, "id" | "name" | "resource" | "action">;
+export type RoleInput = Model<"UpdateRoleRequest">;
 export type UserInput = Model<"CreateUserRequest">;
 export type UserUpdate = Model<"UpdateUserRequest">;
 export type ResetPasswordInput = Model<"AdminResetPasswordRequest">;

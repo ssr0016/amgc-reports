@@ -25,6 +25,8 @@ var (
 	ErrLastActiveAdmin = errors.New("at least one active admin is required")
 	// ErrInvalidUserStatus: the status is not one of UserStatuses.
 	ErrInvalidUserStatus = errors.New("invalid user status")
+	// ErrCannotChangeOwnRole: an admin never changes their own role (D-A21).
+	ErrCannotChangeOwnRole = errors.New("cannot change your own role")
 	// ErrCannotDeleteSelf: an admin never deletes their own account (D-A11).
 	ErrCannotDeleteSelf = errors.New("cannot delete your own account")
 	// ErrEmailBelongsToDeletedUser: the email is reserved by a deleted account, which
@@ -41,6 +43,7 @@ type Service interface {
 	ResetPassword(ctx context.Context, actorID int64, ip string, id int64, newPassword string) error
 	Delete(ctx context.Context, actorID int64, ip string, id int64, reason string) (*User, error)
 	Restore(ctx context.Context, actorID int64, ip string, id int64) (*User, error)
+	ChangeRole(ctx context.Context, actorID int64, ip string, id, roleID int64) (*User, error)
 }
 
 // Store defines the interface for user data access.

@@ -490,6 +490,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
+                "description": "Admin only. Each role carries its permissions and user_count: every account holding it, deleted ones included.",
                 "produces": [
                     "application/json"
                 ],
@@ -515,6 +516,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
+                "description": "Admin role and roles:write. Creates a role with its permissions and audits CREATE_ROLE (D-A21).",
                 "consumes": [
                     "application/json"
                 ],
@@ -524,7 +526,7 @@ const docTemplate = `{
                 "tags": [
                     "admin/roles"
                 ],
-                "summary": "Create a new role",
+                "summary": "Create a role",
                 "parameters": [
                     {
                         "description": "Role payload",
@@ -541,6 +543,24 @@ const docTemplate = `{
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -584,6 +604,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
+                "description": "Admin role and roles:write. Replaces the name, description and whole permission set, and audits UPDATE_ROLE. Built-in roles (admin, editor, user) answer 409. A request that changes nothing answers 200 and audits nothing.",
                 "consumes": [
                     "application/json"
                 ],
@@ -593,7 +614,7 @@ const docTemplate = `{
                 "tags": [
                     "admin/roles"
                 ],
-                "summary": "Update a role",
+                "summary": "Replace a role",
                 "parameters": [
                     {
                         "type": "integer",
@@ -603,7 +624,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Role update payload",
+                        "description": "Role payload",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -618,6 +639,33 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
                         }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             },
@@ -627,6 +675,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
+                "description": "Admin role and roles:write. Audits DELETE_ROLE. A built-in role, or one any account holds (deleted ones included), answers 409.",
                 "tags": [
                     "admin/roles"
                 ],
@@ -643,85 +692,24 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
-                    }
-                }
-            }
-        },
-        "/admin/roles/{id}/permissions": {
-            "post": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin/roles"
-                ],
-                "summary": "Assign a permission to a role",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Role ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
                     },
-                    {
-                        "description": "Permission payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
                                 "type": "string"
                             }
                         }
-                    }
-                }
-            }
-        },
-        "/admin/roles/{id}/permissions/{pid}": {
-            "delete": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "tags": [
-                    "admin/roles"
-                ],
-                "summary": "Revoke a permission from a role",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Role ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
                     },
-                    {
-                        "type": "integer",
-                        "description": "Permission ID",
-                        "name": "pid",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -1350,6 +1338,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
+                "description": "Admin role and users:write. Gives the user another role and audits CHANGE_USER_ROLE (D-A21). You cannot change your own role (403), and the only active admin cannot be moved off admin (409). The same role as now answers 200 and audits nothing. A deleted account may be changed.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1383,6 +1372,33 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -2602,17 +2618,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest": {
-            "type": "object",
-            "required": [
-                "permission_id"
-            ],
-            "properties": {
-                "permission_id": {
-                    "type": "integer"
-                }
-            }
-        },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AuditLogResponse": {
             "type": "object",
             "properties": {
@@ -2772,6 +2777,13 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 50,
                     "minLength": 2
+                },
+                "permission_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },
@@ -3100,6 +3112,9 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "user_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -3214,6 +3229,10 @@ const docTemplate = `{
         },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateRoleRequest": {
             "type": "object",
+            "required": [
+                "name",
+                "permission_ids"
+            ],
             "properties": {
                 "description": {
                     "type": "string",
@@ -3223,6 +3242,13 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 50,
                     "minLength": 2
+                },
+                "permission_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },

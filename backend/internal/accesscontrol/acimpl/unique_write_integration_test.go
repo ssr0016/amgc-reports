@@ -24,7 +24,7 @@ func TestWrites_DuplicateValueIsErrUniqueViolation(t *testing.T) {
 	users := userimpl.NewStore(db)
 	ctx := context.Background()
 
-	editor, err := roles.Create(ctx, accesscontrol.CreateRoleRequest{Name: "editor", Description: "x"})
+	editor, err := roles.Create(ctx, accesscontrol.CreateRoleRequest{Name: "writer", Description: "x"})
 	require.NoError(t, err)
 	viewer, err := roles.Create(ctx, accesscontrol.CreateRoleRequest{Name: "viewer", Description: "x"})
 	require.NoError(t, err)
@@ -34,19 +34,19 @@ func TestWrites_DuplicateValueIsErrUniqueViolation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("create a role with an existing name", func(t *testing.T) {
-		_, err := roles.Create(ctx, accesscontrol.CreateRoleRequest{Name: "editor", Description: "y"})
+		_, err := roles.Create(ctx, accesscontrol.CreateRoleRequest{Name: "writer", Description: "y"})
 		require.ErrorIs(t, err, database.ErrUniqueViolation)
 	})
 
 	t.Run("rename a role to an existing name", func(t *testing.T) {
-		_, err := roles.Update(ctx, viewer.ID, accesscontrol.UpdateRoleRequest{Name: "editor"})
+		_, err := roles.Update(ctx, viewer.ID, accesscontrol.UpdateRoleRequest{Name: "writer"})
 		require.ErrorIs(t, err, database.ErrUniqueViolation)
 	})
 
 	t.Run("rename a role to its own name is not a violation", func(t *testing.T) {
-		got, err := roles.Update(ctx, editor.ID, accesscontrol.UpdateRoleRequest{Name: "editor"})
+		got, err := roles.Update(ctx, editor.ID, accesscontrol.UpdateRoleRequest{Name: "writer"})
 		require.NoError(t, err)
-		require.Equal(t, "editor", got.Name)
+		require.Equal(t, "writer", got.Name)
 	})
 
 	t.Run("create a permission with an existing name", func(t *testing.T) {

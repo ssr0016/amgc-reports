@@ -2,18 +2,23 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 )
 
-// fakePermissionRepo overrides only Delete (see fakeRoleRepo).
+// fakePermissionRepo overrides only Delete; any other method panics on the nil
+// embedded interface, which keeps these tests honest about what they touch.
 type fakePermissionRepo struct {
 	accesscontrol.PermissionStore
 	deleteErr error
@@ -61,4 +66,22 @@ func TestPermissionHandler_Delete(t *testing.T) {
 			}
 		})
 	}
+}
+
+func serveDelete(t *testing.T, route string, h echo.HandlerFunc, target string) (int, errorBody) {
+	t.Helper()
+	e := echo.New()
+	e.HTTPErrorHandler = apperror.ErrorHandler
+	e.DELETE(route, h)
+
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodDelete, target, nil))
+
+	var body errorBody
+	if rec.Body.Len() > 0 {
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode body %q: %v", rec.Body.String(), err)
+		}
+	}
+	return rec.Code, body
 }

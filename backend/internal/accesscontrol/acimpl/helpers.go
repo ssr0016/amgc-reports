@@ -21,7 +21,7 @@ func deleteByID(ctx context.Context, db *database.DB, table string, id int64, ex
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-	result, err := db.Pool.Exec(ctx, query, args...)
+	result, err := db.Querier(ctx).Exec(ctx, query, args...)
 	if database.IsForeignKeyViolation(err) {
 		return fmt.Errorf("delete %s: %w: %w", table, database.ErrForeignKeyViolation, err)
 	}

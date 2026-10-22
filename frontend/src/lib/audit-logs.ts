@@ -27,6 +27,10 @@ export const ACTIONS: readonly { code: string; label: string; group: Group }[] =
   { code: "RESTORE_USER", label: "Restored user", group: "delete" },
   { code: "CHANGE_USER_STATUS", label: "Changed user status", group: "change" },
   { code: "ADMIN_RESET_PASSWORD", label: "Reset password", group: "change" },
+  { code: "CHANGE_USER_ROLE", label: "Changed user role", group: "change" },
+  { code: "CREATE_ROLE", label: "Created role", group: "create" },
+  { code: "UPDATE_ROLE", label: "Updated role", group: "change" },
+  { code: "DELETE_ROLE", label: "Deleted role", group: "delete" },
   { code: "APPROVE_REPORT", label: "Approved report", group: "approve" },
   { code: "UNAPPROVE_REPORT", label: "Unapproved report", group: "approve" },
   { code: "DOWNLOAD_SINGLE_EXCEL", label: "Downloaded Excel", group: "download" },
@@ -57,6 +61,8 @@ const REASONS: Record<string, string> = {
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const text = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
+// A list of permission names, or a dash when there are none.
+const list = (v: unknown) => (Array.isArray(v) && v.length > 0 ? v.join(", ") : "—");
 
 // The details of one row as labelled values. A known action shows only the keys it has a
 // label for (never a raw JSON blob); an unknown one lists its keys as they are.
@@ -67,7 +73,16 @@ export function detailRows(action: string, details: Record<string, unknown>): [s
   if (d.month !== undefined && d.year !== undefined) rows.push(["Period", `${d.month} ${d.year}`]);
   if (action === "DOWNLOAD_BULK_EXCEL" && d.count !== undefined) rows.push(["Reports", text(d.count)]);
   if (d.role_id !== undefined) rows.push(["Role ID", text(d.role_id)]);
-  if (d.from !== undefined && d.to !== undefined) rows.push(["Status", `${capitalize(String(d.from))} → ${capitalize(String(d.to))}`]);
+  // Role names are shown as typed; a status is a lowercase code.
+  if (d.from !== undefined && d.to !== undefined) {
+    if (action === "UPDATE_ROLE") rows.push(["Name", `${text(d.from)} → ${text(d.to)}`]);
+    else if (action === "CHANGE_USER_ROLE") rows.push(["Role", `${text(d.from)} → ${text(d.to)}`]);
+    else rows.push(["Status", `${capitalize(String(d.from))} → ${capitalize(String(d.to))}`]);
+  }
+  if (d.name !== undefined) rows.push(["Role", text(d.name)]);
+  if (d.permissions !== undefined) rows.push(["Permissions", list(d.permissions)]);
+  if (d.added !== undefined) rows.push(["Permissions added", list(d.added)]);
+  if (d.removed !== undefined) rows.push(["Permissions removed", list(d.removed)]);
   if ("reason" in d) {
     rows.push(["Reason", action === "LOGIN_FAILED" ? (REASONS[String(d.reason)] ?? text(d.reason)) : text(d.reason)]);
   }

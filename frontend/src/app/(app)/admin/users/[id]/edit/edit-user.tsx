@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { getUser, updateUser } from "@/lib/users";
 import { ResetPasswordSection } from "./reset-password-section";
+import { RoleSection } from "./role-section";
 import { StatusSection } from "./status-section";
 import { refreshAdminViews } from "@/lib/query";
 
@@ -65,6 +66,7 @@ export function EditUser() {
           onCancel={() => router.push("/admin?tab=users")}
         />
         <StatusSection user={data} />
+        <RoleSection user={data} />
         <ResetPasswordSection user={data} />
       </>
     );

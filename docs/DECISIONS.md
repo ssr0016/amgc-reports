@@ -29,6 +29,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A18 | Closed system: no self-registration, no email recovery for now | Decided 2026-10-22 | here |
 | D-A19 | Report Dashboard: Month and Year columns, owner's new reference styling | Decided 2026-10-22 | here |
 | D-A20 | Audit Logs UI and sign-in audit | Decided 2026-10-22; built in 21a | here |
+| D-A21 | Dynamic RBAC: Roles tab, custom roles, audited role changes | Decided 2026-10-22; built in 37a | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -302,6 +303,17 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Read API:** `GET /admin/audit-logs`, admin role, one Asia/Manila month (`month`, `year`), optional `action`, 50 per page by default, newest first with `id` breaking ties. No `ip_address` in the SELECT or the response; no actor ID. Amends D-10 ("No read API").
 - **Logs tab:** third tab of `/admin`; Month/Year default to the **current** Manila month (a log view must show today, unlike the Reports tab's previous month); Action filter; expandable rows with labelled details, never raw JSON. Read-only.
 - **Not done (backlog):** CSV export (item 30), retention (D-10), filtering by actor or target.
+
+### D-A21 Dynamic RBAC: the Roles tab
+**Date:** 2026-10-22 · **Status:** Decided by the owner; first half built in 37a (37b not specced) · **Spec:** `blueprint/context/current-feature.md` (archived under `blueprint/history/features/` by `/complete`)
+
+- **Owner decisions:** (1) creating, editing and deleting roles needs the admin role **and** `roles:write`; (2) a role any account still holds cannot be deleted, so the admin reassigns them first; (3) the permission checklist shows every permission in the database, grouped by category; (4) Create and Edit User offer every role.
+- **Built-in roles are read-only:** `admin`, `editor` and `user` (`accesscontrol.BuiltInRoles`) cannot be renamed, deleted or have their description or permissions changed (409 "built-in roles cannot be changed"). The code names them (`RequireRole`, the Tracker, the Excel dashboard, the last-admin guard) and `seed.go` re-grants their permissions on startup, so an edit would break access or silently revert. The store guards it in the statement; the service refuses first.
+- **The permission list is fixed:** the UI never creates or deletes permissions; one that no code checks does nothing.
+- **API:** `POST /admin/roles` and `PUT /admin/roles/:id` take `name`, `description` and `permission_ids` together (PUT is a full replace and needs `permission_ids`, which may be empty); `DELETE /admin/roles/:id`. All three need `roles:write` and the write limiter. `GET /admin/roles` adds `user_count`, which counts deleted accounts too because they keep the foreign key. The unaudited `POST` and `DELETE /admin/roles/:id/permissions[/:pid]` are removed.
+- **A user's role change** (`PUT /admin/users/:id/role`) moved into the user service and is guarded like a status change (D-A10): the admin role and `users:write`; never your own account (403); the last active admin cannot be moved off `admin` (409, active admins locked first). The same role is a quiet 200 with no audit row. A deleted account may be changed, so a role it holds can be freed.
+- **Audit (migration `20261022200000`):** `CREATE_ROLE` `{name, permissions}`, `UPDATE_ROLE` `{from, to}` when renamed plus `{added, removed}`, `DELETE_ROLE` `{name}`, `CHANGE_USER_ROLE` `{from, to}`, all as names, in the same transaction as the change. Target type `Role` for the first three. The description (free text) is never audited. An update that changes nothing writes no row.
+- **Not changed:** the whole `/admin` area still requires the `admin` role, so a custom role's permissions apply only outside it (37b). The Tracker and Excel dashboard still count only the `user` role (D-A3, D-A16); a custom-role worker who files reports is not counted, which is an open question for the owner.
 
 ### D-AR1 Architecture alignment with the company codebase, and JWT auth
 **Date:** 2026-10-21 · **Status:** Decided; phases 0 to 3 built (JWT cutover and frontend refresh), not deployed

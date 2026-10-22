@@ -51,6 +51,9 @@
   - [x] 22g. Excel export in the legacy layout: admin-only `POST /admin/reports/:id/excel` (single) and `POST /admin/reports/excel` (bulk), `DOWNLOAD_SINGLE_EXCEL` / `DOWNLOAD_BULK_EXCEL` audit (shipped as feature 22 in `cf0fcb6`; F-05 sheet-name fix `d9e32a3`)
   - [x] 22f. Excel export preview (D-A15): the row "Excel" and "Download Bulk" buttons open a modal that shows the workbook's sheets as read-only tables from a new `POST /admin/reports/excel/preview` (admin only, single and bulk, no audit row); a sheet selector for bulk; only the modal's "Download" calls the existing export (which builds the file again and writes the `DOWNLOAD_*_EXCEL` audit row); "Cancel" closes with no download and no audit (~6h)
   - [x] 22h. Bulk export dashboard and approved-only sheets (D-A16): the bulk export and its preview start with a "Report Dashboard" sheet listing every church with Approved, Pending or Not Filed for the month; metric sheets only for approved reports, in the existing layout; single export unchanged (~6h)
+- [ ] 37. Dynamic RBAC (owner, 2026-10-22; D-A21)
+  - [x] 37a. Roles tab: list roles with their permissions and user counts; create, rename and delete custom roles (admin role and `roles:write`; a role with users cannot be deleted); a permission checklist grouped by category saved as one set; `admin`, `editor` and `user` read-only; role dropdown on Create and Edit User with last-admin and self protection; audit of role and role-permission changes with their migration
+  - [ ] 37b. Permission-gated admin panel: admin routes and tabs check permissions instead of the `admin` role, so a custom role (e.g. "Reviewer") can use the parts its permissions allow (not specced)
 
 > Phase contents are in `backend/docs/06-Implementation-Plan.md` (commit `a18b572`). `TODO (confirm)`: split them into tasks when you start Phase A.
 
@@ -66,9 +69,10 @@ Future features, not yet specced. Notes say what already exists, so a spec start
 
 ### UX and error handling
 
-- [ ] 31. Empty states and loading spinners: a consistent pass across pages (the Reports, Users and Logs tabs already have empty and loading states)
+- [ ] 31. Empty states and loading spinners: a consistent pass across pages (the admin panel's tabs and Excel preview got a shared `Loading` spinner and `ErrorRetry` in the 2026-10-22 fix; the gap is the non-admin pages)
 - [ ] 32. "Copy to clipboard" for admin-managed passwords: already on the admin reset-password dialog (22e); the gap is the create-user form
 - [ ] 33. User profile pictures (avatars): upload, storage and display (the header avatar shows initials today)
+- [ ] 38. Server-side pagination for the admin Users list: `GET /users` has no pages and the tab shows at most 100 accounts (`LIMIT` in `users-list.tsx`); deferred from the 2026-10-22 admin panel fix (owner)
 
 ### DevOps and infrastructure
 
