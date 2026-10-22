@@ -26,7 +26,7 @@ describe("tracker", () => {
   });
 
   it("labels the statuses and passes an unknown one through", () => {
-    expect(trackerLabel("for_review")).toBe("For Review");
+    expect(trackerLabel("for_review")).toBe("Pending");
     expect(trackerLabel("mystery")).toBe("mystery");
   });
 });

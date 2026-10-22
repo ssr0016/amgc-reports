@@ -91,6 +91,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 #### D-A3 Tracker denominator
 - **Decided:** the `user` role; "For Review" is submitted and not approved.
 - **Confirmed by the owner (2026-10-22), built in 21b:** inactive, disciplinary and deceased `user` accounts are tracked (with their status badge; no report counts as Not Submitted); deleted accounts are not. Editors are excluded, so the Tracker's set differs from the Excel Report Dashboard's (D-A16, every non-admin account with a church). `GET /admin/tracker` (admin role and `reports:read_any`), Tracker tab between Reports and Users.
+- **Wording (owner, 2026-10-22):** the Tracker displays the filed-not-approved state as "Pending", the word the Reports tab, the stats cards and the Excel dashboard use. The API code stays `for_review`.
 - **Question:** who counts as expected to submit (role `user` only, or anyone with `reports:write`), and is "For Review" simply submitted and not approved?
 - **Recommendation:** the `user` role; "For Review" as stated, with no new status.
 

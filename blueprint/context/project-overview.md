@@ -104,7 +104,7 @@ shadcn over Radix, Tailwind 4, Sonner toasts. Skip link, focus management, annou
 ## Deployment
 
 - Render: backend; Neon: Postgres. Docker compose for local/prod. Frontend: Vercel (`app.<domain>`). DNS on Cloudflare (per `AGENTS.md`).
-- Production does not auto-migrate; run `/app/api migrate` as a separate pre-deploy step.
+- Production does not auto-migrate, and Render's Free tier runs neither the Pre-Deploy Command nor Shell: run migrations locally against Neon (`make migrate-up DATABASE_URL='<Neon owner URL>'`) before pushing `main` (H-1).
 - Domain: `amgcreports.com` chosen, not set up; feature 16 deferred.
 
 > TODO: env var names, health path, and build commands are not in the plans.

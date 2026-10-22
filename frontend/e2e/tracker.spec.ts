@@ -3,7 +3,7 @@ import { ACCOUNTS, API, authFile, clientIp, earlierPeriod, expect, previousPerio
 test.describe("as admin", () => {
   test.use({ storageState: authFile("admin") });
 
-  test("the Tracker shows the e2e user's report as For Review, then Approved, and leaves the editor out", async ({ page, request, playwright }) => {
+  test("the Tracker shows the e2e user's report as Pending, then Approved, and leaves the editor out", async ({ page, request, playwright }) => {
     // A plain user may file only the previous month; another spec may have left a report there, so start clean.
     const period = previousPeriod();
     const worker = await playwright.request.newContext({
@@ -23,7 +23,7 @@ test.describe("as admin", () => {
       await tracker.getByLabel("Year").selectOption(String(period.year));
       const row = tracker.getByRole("row").filter({ hasText: ACCOUNTS.user.email });
       await expect(row).toContainText(ACCOUNTS.user.church_name);
-      await expect(row).toContainText("For Review");
+      await expect(row).toContainText("Pending");
       await expect(tracker.getByRole("row").filter({ hasText: ACCOUNTS.editor.email })).toHaveCount(0);
       await expect(tracker.getByRole("progressbar")).toBeVisible();
 

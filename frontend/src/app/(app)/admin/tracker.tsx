@@ -119,7 +119,7 @@ export function Tracker() {
               ["Expected", counts.expected],
               ["Submitted", counts.submitted],
               ["Approved", counts.approved],
-              ["For Review", counts.forReview],
+              ["Pending", counts.forReview],
               ["Not Submitted", counts.notSubmitted],
             ].map(([label, value]) => (
               <div key={label} className="rounded-lg border p-3">

@@ -66,7 +66,7 @@ describe("tracker", () => {
     expect(count("Expected")).toBe("4");
     expect(count("Submitted")).toBe("2");
     expect(count("Approved")).toBe("1");
-    expect(count("For Review")).toBe("1");
+    expect(count("Pending")).toBe("1");
     expect(count("Not Submitted")).toBe("2");
     const bar = screen.getByRole("progressbar", { name: "2 of 4 submitted" });
     expect(bar).toHaveAttribute("value", "2");

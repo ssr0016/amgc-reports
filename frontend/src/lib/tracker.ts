@@ -9,7 +9,7 @@ export const getTracker = (month: string, year: number) =>
 // The three statuses the server sends (D-A3), in the order of the Status filter.
 export const TRACKER_STATUSES = [
   { code: "approved", label: "Approved" },
-  { code: "for_review", label: "For Review" },
+  { code: "for_review", label: "Pending" },
   { code: "not_submitted", label: "Not Submitted" },
 ] as const;
 

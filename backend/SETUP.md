@@ -154,8 +154,8 @@ database is Neon (PostgreSQL); the frontend is on Vercel.
 - **Root Directory**: `backend`. The Dockerfile copies `go.mod` and `go.sum`,
   so the build context must be `backend/`.
 - **Health Check Path**: `/health` (verify in the Render dashboard).
-- **Pre-Deploy Command**: `/app/api migrate`, if the plan supports one (verify
-  in the Render dashboard). See [Migrations](#3-migrations).
+- **Pre-Deploy Command**: not used. The Free tier runs neither it nor Render
+  Shell (H-1), so migrations run from your machine. See [Migrations](#3-migrations).
 - **Auto-Deploy** on push to `main`, and whether it waits for CI: verify in the
   Render dashboard.
 
@@ -183,12 +183,24 @@ variables.
 
 ### 3. Migrations
 
-With `APP_ENV=production` the server does **not** run migrations on startup.
-Run `/app/api migrate` as a separate step before the new version serves
-traffic: as the service's Pre-Deploy Command where the plan allows it, or by
-hand otherwise. Which one production uses: verify in the Render dashboard.
-It applies the embedded goose migrations using `MIGRATE_DATABASE_URL`
-(falling back to `DATABASE_URL`).
+With `APP_ENV=production` the server does **not** run migrations on startup,
+and Render's Free tier runs neither the Pre-Deploy Command nor Shell (H-1).
+Apply migrations **from your machine against Neon, before pushing `main`**:
+
+    cd backend
+    make migrate-up DATABASE_URL='<Neon owner-role URL>'
+    make migrate-status DATABASE_URL='<Neon owner-role URL>'   # nothing pending
+
+- Pass the URL **on the make command line**. The Makefile includes
+  `backend/.env`, whose `DATABASE_URL` wins over a plain environment variable,
+  so `DATABASE_URL=… make migrate-up` would migrate your local database.
+- Use the owner (or `migrate_user`) URL, never `app_user`: it cannot run DDL.
+- The old version keeps serving until the push deploys, so the migration must
+  work with the code already running (backward compatible, or code first).
+
+`make migrate-up` runs goose over the same files the binary embeds. The other
+runner is the binary's own `api migrate`, which uses `MIGRATE_DATABASE_URL`
+(falling back to `DATABASE_URL`):
 
 - If it exits non-zero, do not deploy the new version.
 - Its log lines carry `phase=migrate`, and each applied migration is logged.
@@ -196,9 +208,11 @@ It applies the embedded goose migrations using `MIGRATE_DATABASE_URL`
 - `api migrate` runs only migrations; it never starts the server. Any other
   argument is a usage error (exit 2), so a typo cannot start the server.
 
-Run it by hand to bootstrap or recover, against a database you can reach:
+Run it from `backend/` against a database you can reach. A value set in the
+shell wins over `backend/.env`, but `MIGRATE_DATABASE_URL` wins over
+`DATABASE_URL`, so set the one `.env` would otherwise supply:
 
-    DATABASE_URL='<url>' go run ./cmd/api migrate
+    MIGRATE_DATABASE_URL='<url>' go run ./cmd/api migrate
 
 The admin user is seeded on startup when `ADMIN_EMAIL` and `ADMIN_PASSWORD`
 are set.
@@ -228,7 +242,7 @@ In production use `migrate_user` (created by migration
 `20251012000001_create_migrate_user_role.sql`), not the `postgres` superuser.
 `migrate_user` owns the tables, so it can still `DROP` them; it cannot create
 roles, change server settings (`ALTER SYSTEM`) or run programs
-(`COPY ... TO PROGRAM`). The pre-deploy log line `applying migrations` carries
+(`COPY ... TO PROGRAM`). The `api migrate` log line `applying migrations` carries
 `role=`, which shows who ran the migrations.
 
 #### migrate_user rollout runbook
@@ -239,9 +253,9 @@ roles, change server settings (`ALTER SYSTEM`) or run programs
 
 The role is `NOLOGIN` until you enable it, so nothing changes on deploy.
 
-1. Deploy a release containing the migration. `MIGRATE_DATABASE_URL` is still
-   the owner URL, so the pre-deploy command creates the role and transfers
-   ownership of the tables to it.
+1. Apply the migration from your machine with the owner URL (see
+   [Migrations](#3-migrations)); it creates the role and transfers ownership
+   of the tables to it. Then push the release.
 2. In the Postgres console, check the result:
    `SELECT version();` and
    `SELECT tablename, tableowner FROM pg_tables WHERE schemaname = 'public';`
@@ -251,8 +265,9 @@ The role is `NOLOGIN` until you enable it, so nothing changes on deploy.
    `ALTER ROLE migrate_user LOGIN;`. Store the password in your password manager.
 4. Set `MIGRATE_DATABASE_URL` to
    `postgresql://migrate_user:<password>@<host>/<database>?sslmode=require`.
-5. Redeploy. With nothing pending, the pre-deploy command should log
-   `applying migrations role=migrate_user` and `migrations complete`.
+5. Run `api migrate` locally with this URL as `MIGRATE_DATABASE_URL`. With
+   nothing pending it should log `applying migrations role=migrate_user` and
+   `migrations complete`.
 
 **Rollback:** set `MIGRATE_DATABASE_URL` back to the owner URL and redeploy.
 No data changes; optionally `ALTER ROLE migrate_user NOLOGIN;`.
@@ -278,8 +293,8 @@ service to it:
    5b. In the Deploy Logs, look for `admin user seeded`. It confirms the
    startup seed works as `app_user`.
 
-Do step 2 before step 3, or the pre-deploy migrate runs as `app_user` and
-fails on DDL.
+Run migrations with the owner (or `migrate_user`) URL, never the `app_user`
+one: a migration run as `app_user` fails on DDL.
 
 **Rollback:** set `DATABASE_URL` back to the Postgres URL and redeploy. It is
 one variable and no data changes.
