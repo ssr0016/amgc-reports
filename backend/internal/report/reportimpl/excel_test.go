@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf16"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
@@ -164,14 +165,24 @@ func TestSheetNames(t *testing.T) {
 		{ID: 6, ChurchName: strPtr(long)},
 		{ID: 7, ChurchName: strPtr(long)},
 		{ID: 8, ChurchName: strPtr("  ")},
+		{ID: 9, ChurchName: strPtr(strings.Repeat("🙏", 20))},
+		{ID: 10, ChurchName: strPtr(strings.Repeat("🙏", 20))},
+		{ID: 11, ChurchName: strPtr(strings.Repeat("a", 30) + "'b")},
+		{ID: 12, ChurchName: strPtr("'''")},
+		{ID: 13, ChurchName: strPtr(strings.Repeat("c", 26) + "'dddd")},
+		{ID: 14, ChurchName: strPtr(strings.Repeat("c", 26) + "'dddd")},
 	}
 	got := sheetNames(reps)
 	assert.Equal(t, []string{
 		"San Isidro", "san isidro (2)", "Ptr. Ana", "Report 4", "A-B- -C----",
 		strings.Repeat("x", 31), strings.Repeat("x", 27) + " (2)", "Report 8",
+		// Emoji are two UTF-16 units each; a cut never leaves a trailing '.
+		strings.Repeat("🙏", 15), strings.Repeat("🙏", 13) + " (2)",
+		strings.Repeat("a", 30), "Report 12",
+		strings.Repeat("c", 26) + "'dddd", strings.Repeat("c", 26) + " (2)",
 	}, got)
 	for _, n := range got {
-		assert.LessOrEqual(t, len([]rune(n)), 31)
+		assert.LessOrEqual(t, len(utf16.Encode([]rune(n))), 31)
 	}
 
 	// A workbook with all of them opens (Excel rejects bad or duplicate names).

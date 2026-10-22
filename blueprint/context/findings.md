@@ -39,12 +39,12 @@
 **Suggested fix:** Optional: accept and note the residual window in D-A12 (as D-A10 may for F-02), or have session creation re-check that the password hash is unchanged. No current requirement is lost by only documenting it.
 **Resolution:**
 
-### F-05 [P2] open - Some church names make the Excel export fail with a 500, and one such report blocks the whole month
+### F-08 [P3] open - Names that differ only by Unicode case folding merge two reports into one sheet
 
-**File:** backend/internal/report/reportimpl/excel.go:219-226, backend/internal/report/reportimpl/excel.go:234-239
-**Found:** 2026-10-21 by /audit independent (scope: current; lens: quality)
-**Why it matters:** `sheetNames` cuts names to 31 runes, but excelize v2.11.0 `checkSheetName` counts UTF-16 units, and it also rejects a name that starts or ends with `'`. The leading/trailing `'` is trimmed before the cut, so the cut can leave a new trailing `'`. A probe against `workbookBytes` (run through a `go test -overlay`, no repo file added) showed that 20 × "🙏" fails with "the sheet name length exceeds the 31 characters limit", and `"a"×30 + "'b"` fails with "the first or last character of the sheet name can not be a single quote". `church_name` is free text up to 150 characters, so an admin gets a 500 for that report. The bulk export then fails for the whole month, because every report shares one workbook. No audit row is written, which is correct. `TestSheetNames` only covers ASCII names.
-**Suggested fix:** Truncate by UTF-16 units (or loop on excelize's own length check), trim `'` after truncating, including after the ` (n)` suffix step, and add the two cases above to `TestSheetNames`.
+**File:** backend/internal/report/reportimpl/excel.go:218, backend/internal/report/reportimpl/excel.go:226-230
+**Found:** 2026-10-22 by /audit independent (scope: current; lens: quality)
+**Why it matters:** `sheetNames` dedupes on `strings.ToLower`, but excelize's `NewSheet` matches existing sheets with `strings.EqualFold` (`GetSheetIndex`, sheet.go:428-439). When a name collides it returns the existing index with no error and creates nothing. Some names are equal under `EqualFold` but not under `ToLower`, such as `ſ`/`s` or `ς`/`σ`. In that case `buildWorkbook` writes the second report into the first one's sheet. A probe showed `["Zion ſ", "Zion s"]` gives one sheet and no error. The export then silently drops a report, while the bulk audit row still counts both. This predates the delta (feature 22): the delta kept the dedupe unchanged, as the spec asked. Church names using these characters are unlikely, so this is P3.
+**Suggested fix:** Dedupe with `strings.EqualFold` over the names already chosen. A slice scan is fine at the 100-report cap. Add the `ſ`/`s` pair to `TestSheetNames`.
 **Resolution:**
 
 ### F-06 [P3] open - filename* leaves some characters unescaped that RFC 5987 does not allow

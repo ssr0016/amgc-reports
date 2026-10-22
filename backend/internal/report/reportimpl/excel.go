@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"github.com/xuri/excelize/v2"
 
@@ -209,8 +210,9 @@ func sheetLabel(r *report.Report) string {
 }
 
 // sheetNames returns a valid, unique Excel sheet name for each report: the
-// characters []:*?/\ become "-", names are cut to 31 characters, and repeats
-// get " (2)", " (3)"… (the base is cut so the suffix still fits).
+// characters []:*?/\ become "-", names are cut to 31 UTF-16 units with no '
+// at either end, and repeats get " (2)", " (3)"… (the base is cut so the
+// suffix still fits).
 func sheetNames(reps []*report.Report) []string {
 	clean := strings.NewReplacer("[", "-", "]", "-", ":", "-", "*", "-", "?", "-", "/", "-", `\`, "-")
 	seen := map[string]bool{}
@@ -220,10 +222,10 @@ func sheetNames(reps []*report.Report) []string {
 		if base == "" {
 			base = "Report " + strconv.FormatInt(r.ID, 10)
 		}
-		name := truncateRunes(base, 31)
+		name := fitSheetName(base, 31)
 		for n := 2; seen[strings.ToLower(name)]; n++ {
 			suffix := fmt.Sprintf(" (%d)", n)
-			name = truncateRunes(base, 31-len(suffix)) + suffix
+			name = fitSheetName(base, 31-len(suffix)) + suffix
 		}
 		seen[strings.ToLower(name)] = true
 		out = append(out, name)
@@ -231,11 +233,17 @@ func sheetNames(reps []*report.Report) []string {
 	return out
 }
 
-func truncateRunes(s string, n int) string {
-	if r := []rune(s); len(r) > n {
-		return string(r[:n])
+// fitSheetName cuts s to at most n UTF-16 units (whole runes only), the unit
+// excelize counts, and trims the ' it forbids at either end.
+func fitSheetName(s string, n int) string {
+	units := 0
+	for i, c := range s {
+		if units += utf16.RuneLen(c); units > n {
+			s = s[:i]
+			break
+		}
 	}
-	return s
+	return strings.Trim(s, "'")
 }
 
 // exportFilename is "<label> <Month> <Year>.xlsx" with path separators and

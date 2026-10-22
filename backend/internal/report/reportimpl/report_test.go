@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -494,6 +495,25 @@ func TestReportService_ExportMonth(t *testing.T) {
 		_, err := f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "June", Year: 2026})
 		require.ErrorIs(t, err, report.ErrNoReports)
 		assert.Len(t, f.audit.Entries(), n)
+	})
+
+	t.Run("an emoji church name still exports every sheet", func(t *testing.T) {
+		for _, c := range []struct {
+			user   int64
+			church string
+		}{{alice, strings.Repeat("🙏", 20)}, {bob, "Bethel"}} {
+			r := req("July")
+			y := 2026
+			r.Year, r.ChurchName = &y, c.church
+			_, err := f.reports.Create(ctx, c.user, 2026, r)
+			require.NoError(t, err)
+		}
+		x, err := f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "July", Year: 2026})
+		require.NoError(t, err)
+		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
+		require.NoError(t, err)
+		defer func() { _ = wb.Close() }()
+		assert.Equal(t, []string{"Bethel", strings.Repeat("🙏", 15)}, wb.GetSheetList())
 	})
 
 	t.Run("more than the cap is ErrTooManyReports and not audited", func(t *testing.T) {
