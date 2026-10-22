@@ -18,6 +18,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ApiError } from "@/lib/api";
 import { retryText } from "@/lib/auth-form";
 import { previewExcel } from "@/lib/reports";
+import { Loading } from "@/components/loading";
+import { ErrorRetry } from "@/components/error-retry";
 
 // One report (the row's Excel button) or one month (Download Bulk).
 export type PreviewTarget = { reportId: number; label: string } | { month: string; year: number };
@@ -39,7 +41,7 @@ export function ExcelPreviewDialog({
   onClose: () => void;
 }) {
   const single = "reportId" in target;
-  const { data, error, isPending } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     queryKey: ["excel-preview", target],
     queryFn: () => previewExcel(single ? { report_id: target.reportId } : { month: target.month, year: target.year }),
     // Every opening reads the current data.
@@ -70,13 +72,12 @@ export function ExcelPreviewDialog({
         </AlertDialogHeader>
 
         {isPending ? (
-          <p role="status" className="text-sm text-muted-foreground">
-            Loading preview…
-          </p>
+          <Loading>Loading preview…</Loading>
         ) : error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error instanceof ApiError ? retryText(error) : "Could not load the preview. Try again."}
-          </p>
+          <ErrorRetry
+            message={error instanceof ApiError ? retryText(error) : "Could not load the preview. Try again."}
+            onRetry={() => refetch()}
+          />
         ) : (
           <>
             {!single && (

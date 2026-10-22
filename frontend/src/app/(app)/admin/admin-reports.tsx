@@ -24,6 +24,9 @@ import {
 } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { ExcelPreviewDialog, type PreviewTarget } from "./excel-preview-dialog";
+import { Loading } from "@/components/loading";
+import { ErrorRetry } from "@/components/error-retry";
+import { refreshAdminViews } from "@/lib/query";
 
 // Which report a row control is for, so a screen reader user can tell the rows apart.
 const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
@@ -38,7 +41,7 @@ export function AdminReports() {
   const [page, setPage] = useState(1);
 
   const filters = { month: period.month, year: period.year, page: page > 1 ? page : undefined };
-  const { data, error, isPending } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     queryKey: ["reports", filters], // the same prefix as /reports, so one invalidation reaches both
     queryFn: () => listReports(filters),
     enabled: allowed,
@@ -57,8 +60,8 @@ export function AdminReports() {
     try {
       const meta = await toggleComplete(r.id);
       // The server decides (another admin may have approved it first, and this click undid that), so say what it did.
-      toast.success(`${meta.completed ? "Approved" : "Unapproved"} ${when}`);
-      queryClient.invalidateQueries({ queryKey: ["admin-stats"] }); // the cards above count these reports
+      toast.success(`Report ${meta.completed ? "approved" : "unapproved"}: ${when}`);
+      refreshAdminViews(queryClient); // the cards above and the Tracker count these reports
       await queryClient.invalidateQueries({ queryKey: ["reports"] }); // the row only changes once this answers, so hold the button
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
@@ -84,7 +87,9 @@ export function AdminReports() {
   async function download(key: string, run: () => ReturnType<typeof exportReport>): Promise<boolean> {
     setDownloading((s) => new Set(s).add(key));
     try {
-      saveFile(await run());
+      const file = await run();
+      saveFile(file);
+      toast.success(`Downloaded ${file.filename}`);
       return true;
     } catch (err) {
       toast.error(err instanceof ApiError ? retryText(err) : "Could not download the file. Try again.");
@@ -158,11 +163,9 @@ export function AdminReports() {
       </form>
 
       {isPending ? (
-        <p role="status" className="text-sm text-muted-foreground">Loading…</p>
+        <Loading />
       ) : error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error.message}
-        </p>
+        <ErrorRetry message={error.message} onRetry={() => refetch()} />
       ) : data && data.data.length === 0 ? (
         <p role="status" className="text-sm text-muted-foreground">No reports match these filters.</p>
       ) : (

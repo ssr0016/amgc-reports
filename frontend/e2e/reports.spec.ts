@@ -26,7 +26,7 @@ test.describe("user", () => {
     await page.getByLabel("Outreach, week 1").fill("3");
     await page.getByLabel("Tithes & Offering, week 2").fill("1500.50");
     await page.getByLabel("Narrative Report").fill("A quiet, good month.");
-    await page.getByRole("button", { name: "Create Report" }).click();
+    await page.getByRole("button", { name: "Submit Report" }).click();
 
     await expect(page).toHaveURL(/\/reports$/);
     const row = rowOf(page, ACCOUNTS.user.name);
@@ -37,7 +37,7 @@ test.describe("user", () => {
   test("a second report for the same month is refused and keeps the form", async ({ page }) => {
     await page.goto("/reports/new");
     await page.getByLabel("Narrative Report").fill("Do not lose me.");
-    await page.getByRole("button", { name: "Create Report" }).click();
+    await page.getByRole("button", { name: "Submit Report" }).click();
     await expect(page.getByText("You already have a report for this month and year.")).toBeVisible();
     await expect(page).toHaveURL(/\/reports\/new$/);
     await expect(page.getByLabel("Narrative Report")).toHaveValue("Do not lose me.");
@@ -48,7 +48,7 @@ test.describe("user", () => {
     await page.getByLabel("Outreach, week 1").fill("1.5");
     await page.getByLabel("Outreach, week 1").blur();
     await expect(page.getByText("Must be a whole number", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Create Report" }).click();
+    await page.getByRole("button", { name: "Submit Report" }).click();
     await expect(page.getByText("Fix the highlighted fields and try again.")).toBeVisible();
     await expect(page).toHaveURL(/\/reports\/new$/);
   });
@@ -63,7 +63,7 @@ test.describe("user", () => {
 
     await page.getByLabel("Worker Name").fill("E2E User Edited");
     await page.getByLabel("Outreach, week 1").fill("4");
-    await page.getByRole("button", { name: "Update Report" }).click();
+    await page.getByRole("button", { name: "Save Changes" }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(rowOf(page, "E2E User Edited")).toBeVisible();
   });
@@ -137,7 +137,7 @@ test.describe("admin", () => {
 
     await row().getByRole("button", { name: /^Approve / }).click();
     await expect(row().getByText("Completed")).toBeVisible();
-    await expect(page.getByText(`Approved ${label}`)).toBeVisible();
+    await expect(page.getByText(`Report approved: ${label}`)).toBeVisible();
     await expect(row().getByRole("button", { name: /^Unapprove / })).toBeVisible();
     await expect(card("Approved")).toHaveText(String(approved + 1));
     await expect(card("Pending")).toHaveText(String(pending - 1));
@@ -187,7 +187,7 @@ test.describe("user, later", () => {
     await expect(page.getByText("No reports match these filters.")).toBeVisible();
 
     await page.goto("/reports/new");
-    await page.getByRole("button", { name: "Create Report" }).click();
+    await page.getByRole("button", { name: "Submit Report" }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
   });

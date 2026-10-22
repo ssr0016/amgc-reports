@@ -4,11 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStats } from "@/lib/stats";
 import { useSession } from "@/lib/session";
+import { Loading } from "@/components/loading";
+import { ErrorRetry } from "@/components/error-retry";
 
 // The numbers are text, so nothing here relies on colour. Counts only: the endpoint sends no report text.
 export function StatsCards() {
   const { isAdmin } = useSession();
-  const { data, error, isPending } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: getStats,
     enabled: isAdmin,
@@ -17,14 +19,10 @@ export function StatsCards() {
 
   if (!isAdmin) return null;
   if (error) {
-    return (
-      <p role="alert" className="text-sm text-destructive">
-        {error.message}
-      </p>
-    );
+    return <ErrorRetry message={error.message} onRetry={() => refetch()} />;
   }
   if (isPending) {
-    return <p role="status" className="text-sm text-muted-foreground">Loading…</p>;
+    return <Loading />;
   }
 
   const cards = [

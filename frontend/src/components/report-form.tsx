@@ -31,11 +31,17 @@ const shortTexts = [
   ["church_name", "Church Name", "e.g. AMGC Church"],
 ] as const;
 
+// [name, label, placeholder, help line under the field]
 const longTexts = [
-  ["names", "Names of New Believers", "e.g. Juan Dela Cruz, Maria Santos"],
-  ["narrative_report", "Narrative Report", "Summarize the month's activities..."],
-  ["challenges", "Challenges", "Describe any challenges..."],
-  ["prayer_request", "Prayer Request", "List prayer requests..."],
+  ["names", "Names of New Believers", "Juan dela Cruz, Maria Santos", "e.g., Juan dela Cruz, Maria Santos (Separate names with commas)."],
+  [
+    "narrative_report",
+    "Narrative Report",
+    "This month we…",
+    "Describe what happened this month in your ministry. Include key events, milestones, or testimonies.",
+  ],
+  ["challenges", "Challenges", "e.g. Low attendance during the rainy season", "What challenges or difficulties did you encounter this month?"],
+  ["prayer_request", "Prayer Request", "e.g. Pray for the youth camp", "List your prayer requests here so the team can pray for you."],
 ] as const;
 
 const sectionClass = "flex flex-col gap-4";
@@ -281,7 +287,7 @@ export function ReportForm({
           <h2 id="section-details" className={headingClass}>
             Report Details
           </h2>
-          {longTexts.map(([name, label, placeholder]) =>
+          {longTexts.map(([name, label, placeholder, help]) =>
             restricted ? (
               <div key={name} className="flex flex-col gap-2">
                 <p className="text-sm font-medium">{label}</p>
@@ -298,8 +304,11 @@ export function ReportForm({
                 value={form[name]}
                 onChange={(e) => setField(name, e.target.value)}
                 aria-invalid={!!errors[name]}
-                aria-describedby={errors[name] ? `${name}-note` : undefined}
+                aria-describedby={errors[name] ? `${name}-note ${name}-hint` : `${name}-hint`}
               />
+              <p id={`${name}-hint`} className="text-sm text-muted-foreground">
+                {help}
+              </p>
               {errors[name] && (
                 <p id={`${name}-note`} className="text-sm text-destructive">
                   {errors[name]}

@@ -30,6 +30,19 @@ const wrap = (ui: React.ReactNode) => {
 };
 
 describe("users list", () => {
+  it("a failed load shows Retry, which asks again", async () => {
+    vi.mocked(listUsers).mockRejectedValueOnce(new Error("Server error."));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <UsersPanel />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Server error.");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
   it("each Edit link names its user", async () => {
     wrap(<UsersPanel />);
     expect(await screen.findByRole("link", { name: "Edit Ana Cruz" })).toHaveAttribute("href", "/admin/users/1/edit");

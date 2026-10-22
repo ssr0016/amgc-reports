@@ -23,6 +23,19 @@ const metric = (label: string, week: number) => screen.getByLabelText(`${label},
 afterEach(() => vi.restoreAllMocks());
 
 describe("ReportForm", () => {
+  it("describes each long-text field with its help line", () => {
+    setup();
+    expect(screen.getByLabelText("Narrative Report")).toHaveAccessibleDescription(
+      "Describe what happened this month in your ministry. Include key events, milestones, or testimonies.",
+    );
+    expect(screen.getByLabelText("Names of New Believers")).toHaveAccessibleDescription(
+      "e.g., Juan dela Cruz, Maria Santos (Separate names with commas).",
+    );
+    expect(screen.getByLabelText("Prayer Request")).toHaveAccessibleDescription(
+      "List your prayer requests here so the team can pray for you.",
+    );
+  });
+
   it("submits the typed values, sending only the weeks that have a value", async () => {
     const { user, onSubmit } = setup();
     await user.type(metric("Outreach", 1), "0");
@@ -86,6 +99,16 @@ describe("ReportForm", () => {
     await user.click(screen.getByRole("button", { name: "Save report" }));
     expect(await screen.findByText("Too long")).toBeInTheDocument();
     expect(screen.getByText("Bad metric")).toBeInTheDocument();
+  });
+
+  it("a field error and the help line both describe the field", async () => {
+    const err = new ApiError(422, "VALIDATION_ERROR", "bad", { challenges: "Too long" });
+    const { user } = setup({ onSubmit: vi.fn().mockRejectedValue(err) });
+    await user.click(screen.getByRole("button", { name: "Save report" }));
+    await screen.findByText("Too long");
+    expect(screen.getByLabelText("Challenges")).toHaveAccessibleDescription(
+      "Too long What challenges or difficulties did you encounter this month?",
+    );
   });
 
   it("shows the server's previous-month 422 on the month field", async () => {

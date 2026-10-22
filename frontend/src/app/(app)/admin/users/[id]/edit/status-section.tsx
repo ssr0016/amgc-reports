@@ -19,6 +19,7 @@ import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { STATUS_LABEL, statusLabel, USER_STATUSES } from "@/lib/user-status";
 import { changeUserStatus, type User } from "@/lib/users";
+import { refreshAdminViews } from "@/lib/query";
 
 // Its own request, apart from the profile form: the profile PUT never carries the status.
 export function StatusSection({
@@ -44,6 +45,7 @@ export function StatusSection({
         queryClient.invalidateQueries({ queryKey: ["users"] }),
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
         queryClient.invalidateQueries({ queryKey: ["user", user.id] }),
+        refreshAdminViews(queryClient),
       ]);
     } catch (err) {
       setError(

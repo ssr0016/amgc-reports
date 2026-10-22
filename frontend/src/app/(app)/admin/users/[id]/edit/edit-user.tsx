@@ -8,6 +8,7 @@ import { useSession } from "@/lib/session";
 import { getUser, updateUser } from "@/lib/users";
 import { ResetPasswordSection } from "./reset-password-section";
 import { StatusSection } from "./status-section";
+import { refreshAdminViews } from "@/lib/query";
 
 export function EditUser() {
   const router = useRouter();
@@ -58,7 +59,7 @@ export function EditUser() {
               area_assignment: v.area_assignment.trim(),
               church_name: v.church_name.trim(),
             });
-            await queryClient.invalidateQueries({ queryKey: ["users"] });
+            await Promise.all([queryClient.invalidateQueries({ queryKey: ["users"] }), refreshAdminViews(queryClient)]);
             router.replace("/admin?tab=users");
           }}
           onCancel={() => router.push("/admin?tab=users")}

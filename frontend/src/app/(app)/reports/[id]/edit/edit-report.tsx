@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api";
 import { fromReport, isRestricted } from "@/lib/report-form";
 import { getReport, updateReport } from "@/lib/reports";
 import { useSession } from "@/lib/session";
+import { refreshAdminViews } from "@/lib/query";
 
 export function EditReport() {
   const router = useRouter();
@@ -47,13 +48,13 @@ export function EditReport() {
     body = (
       <ReportForm
         initial={fromReport(data)}
-        submitLabel="Update Report"
+        submitLabel="Save Changes"
         lockedPeriod={{ month: data.month, year: data.year }}
         readOnly={!editable}
         restricted={isRestricted(data, user?.user_id, can)}
         onSubmit={async (input) => {
           await updateReport(reportId, input);
-          await queryClient.invalidateQueries({ queryKey: ["reports"] });
+          await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
           router.replace("/reports");
         }}
         onCancel={() => router.push("/reports")}

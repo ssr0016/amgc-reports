@@ -279,6 +279,7 @@ describe("admin reports: Excel preview and downloads", () => {
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Download Bulk" })).toBeEnabled();
     expect(h.toast.error).not.toHaveBeenCalled();
+    expect(h.toast.success).toHaveBeenCalledWith(`Downloaded ${file.filename}`);
   });
 
   it("a row's Excel button previews that report; Cancel downloads nothing", async () => {
@@ -380,9 +381,10 @@ describe("admin reports: approve", () => {
 
     h.listReports.mockResolvedValue(page([report(1), report(2)]));
     resolve({ id: 1, completed: false });
-    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Unapproved September 2026"));
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Report unapproved: September 2026"));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reports"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["admin-stats"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["tracker"] });
     await waitFor(() => expect(within(row("Worker 1")).getByText("Pending")).toBeInTheDocument());
     expect(approve("Worker 1")).toBeEnabled();
   });
@@ -414,9 +416,10 @@ describe("admin reports: approve", () => {
 
     h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
     resolve({ id: 1, completed: true });
-    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Approved September 2026"));
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Report approved: September 2026"));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reports"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["admin-stats"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["tracker"] });
     // the refetched list now shows it done, with no button
     await waitFor(() => expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument());
     expect(within(row("Worker 1")).queryByRole("button", { name: /Approve/ })).not.toBeInTheDocument();
@@ -427,7 +430,7 @@ describe("admin reports: approve", () => {
     const { user } = renderReports("reports:read", "reports:approve");
     await screen.findByText("Worker 1");
     await user.click(approve("Worker 1"));
-    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Unapproved September 2026"));
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Report unapproved: September 2026"));
   });
 
   it("a 404 says the report is gone and reloads the list, not the cards", async () => {

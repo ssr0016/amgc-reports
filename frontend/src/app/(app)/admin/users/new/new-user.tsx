@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { UserForm } from "@/components/user-form";
 import { useSession } from "@/lib/session";
 import { createUser, listRoles } from "@/lib/users";
+import { refreshAdminViews } from "@/lib/query";
 
 export function NewUser() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export function NewUser() {
             area_assignment: v.area_assignment.trim(),
             church_name: v.church_name.trim(),
           });
-          await queryClient.invalidateQueries({ queryKey: ["users"] });
+          await Promise.all([queryClient.invalidateQueries({ queryKey: ["users"] }), refreshAdminViews(queryClient)]);
           router.replace("/admin?tab=users");
         }}
         onCancel={() => router.push("/admin?tab=users")}

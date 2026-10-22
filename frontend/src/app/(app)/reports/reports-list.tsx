@@ -33,6 +33,7 @@ import {
   type ReportFilters,
 } from "@/lib/reports";
 import { useSession } from "@/lib/session";
+import { refreshAdminViews } from "@/lib/query";
 
 const textFields = [
   ["worker", "e.g. Juan Dela Cruz"],
@@ -110,7 +111,7 @@ function ReportsList() {
     setTarget(null);
     // Deleting the last row of a later page would leave an empty page behind.
     const lastOnPage = (filters.page ?? 1) > 1 && data?.data.length === 1;
-    await queryClient.invalidateQueries({ queryKey: ["reports"] });
+    await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
     if (lastOnPage) goToPage((filters.page ?? 1) - 1);
   }
 

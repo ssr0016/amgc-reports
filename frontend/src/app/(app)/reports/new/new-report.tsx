@@ -7,6 +7,7 @@ import { ReportForm } from "@/components/report-form";
 import { emptyForm } from "@/lib/report-form";
 import { createReport, defaultPeriod } from "@/lib/reports";
 import { useSession } from "@/lib/session";
+import { refreshAdminViews } from "@/lib/query";
 
 export function NewReport() {
   const router = useRouter();
@@ -29,11 +30,11 @@ export function NewReport() {
       {can("reports:write") ? (
         <ReportForm
           initial={initial}
-          submitLabel="Create Report"
+          submitLabel="Submit Report"
           lockedPeriod={period}
           onSubmit={async (input) => {
             await createReport(input);
-            await queryClient.invalidateQueries({ queryKey: ["reports"] });
+            await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
             router.replace("/reports");
           }}
           onCancel={() => router.push("/reports")}

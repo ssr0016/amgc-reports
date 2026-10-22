@@ -11,3 +11,11 @@ export const queryClient = new QueryClient({
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
+
+// A report or account change moves the admin cards and the Tracker too. Invalidating marks them
+// stale, so each refetches when it is next shown; nothing polls.
+export const refreshAdminViews = (client: QueryClient) =>
+  Promise.all([
+    client.invalidateQueries({ queryKey: ["admin-stats"] }),
+    client.invalidateQueries({ queryKey: ["tracker"] }),
+  ]);

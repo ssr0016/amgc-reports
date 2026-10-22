@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { StatsCards } from "./stats-cards";
@@ -35,6 +36,15 @@ beforeEach(() => {
 });
 
 describe("StatsCards", () => {
+  it("shows a failed load with Retry, and Retry loads the cards", async () => {
+    h.getStats.mockRejectedValueOnce(new Error("Server error.")).mockResolvedValue(stats());
+    renderCards();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Server error.");
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Pending", { selector: "[data-slot=card-description]" })).toBeInTheDocument();
+    expect(h.getStats).toHaveBeenCalledTimes(2);
+  });
+
   it("announces loading as a status message", () => {
     h.getStats.mockReturnValue(new Promise(() => {}));
     renderCards();

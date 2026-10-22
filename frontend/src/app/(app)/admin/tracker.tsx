@@ -4,7 +4,6 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { cn } from "cn";
 import { UserStatusBadge } from "@/components/user-status-badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -12,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ApiError } from "@/lib/api";
 import { defaultPeriod, FIRST_YEAR, MONTHS } from "@/lib/reports";
 import { getTracker, TRACKER_STATUSES, trackerCounts, trackerLabel } from "@/lib/tracker";
+import { Loading } from "@/components/loading";
+import { ErrorRetry } from "@/components/error-retry";
 
 // Light tint with dark text (and the reverse in the dark theme) to stay above 4.5:1 for axe.
 // The label is always printed, so colour is never the only cue.
@@ -100,16 +101,9 @@ export function Tracker() {
       </form>
 
       {isPending ? (
-        <p role="status" className="text-sm text-muted-foreground">Loading…</p>
+        <Loading />
       ) : error ? (
-        <div className="flex flex-wrap items-center gap-4">
-          <p role="alert" className="text-sm text-destructive">
-            {error.message}
-          </p>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            Retry
-          </Button>
-        </div>
+        <ErrorRetry message={error.message} onRetry={() => refetch()} />
       ) : rows.length === 0 ? (
         <p role="status" className="text-sm text-muted-foreground">No church workers to track.</p>
       ) : (

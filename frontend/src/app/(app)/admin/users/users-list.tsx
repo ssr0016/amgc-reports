@@ -26,6 +26,9 @@ import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { deleteUser, listRoles, listUsers, restoreUser, type User } from "@/lib/users";
 import { STATUS_LABEL, USER_STATUSES } from "@/lib/user-status";
+import { Loading } from "@/components/loading";
+import { ErrorRetry } from "@/components/error-retry";
+import { refreshAdminViews } from "@/lib/query";
 
 // The list endpoint has no pages, so it returns at most this many.
 const LIMIT = 100;
@@ -53,6 +56,7 @@ export function UsersPanel() {
         queryClient.invalidateQueries({ queryKey: ["users"] }),
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
         queryClient.invalidateQueries({ queryKey: ["user", u.id] }),
+        refreshAdminViews(queryClient),
       ]);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not restore the user. Try again.");
@@ -67,7 +71,7 @@ export function UsersPanel() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data, error, isPending } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     queryKey: ["users", email, status],
     queryFn: () => listUsers(email, status),
     enabled: isAdmin,
@@ -83,13 +87,9 @@ export function UsersPanel() {
   if (!isAdmin || (error instanceof ApiError && error.status === 403)) {
     body = <p className="text-sm text-muted-foreground">You are not allowed to manage users.</p>;
   } else if (error) {
-    body = (
-      <p role="alert" className="text-sm text-destructive">
-        {error.message}
-      </p>
-    );
+    body = <ErrorRetry message={error.message} onRetry={() => refetch()} />;
   } else if (isPending) {
-    body = <p role="status" className="text-sm text-muted-foreground">Loading…</p>;
+    body = <Loading />;
   } else if (rows.length === 0) {
     body = <p role="status" className="text-sm text-muted-foreground">No users match.</p>;
   } else {
@@ -252,6 +252,7 @@ function DeleteUserDialog({ user, onClose }: { user: User | null; onClose: () =>
         queryClient.invalidateQueries({ queryKey: ["users"] }),
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
         queryClient.invalidateQueries({ queryKey: ["user", user.id] }),
+        refreshAdminViews(queryClient),
       ]);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not delete the user. Try again.");
