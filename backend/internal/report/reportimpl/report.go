@@ -313,11 +313,7 @@ func respond(r *report.Report) *report.ReportResponse {
 // ExportOne builds one report's workbook. The workbook is complete before the
 // audit row is written, so a failed build never leaves an audit row (D-10).
 func (s *service) ExportOne(ctx context.Context, userID int64, ip string, id int64) (*report.Export, error) {
-	a, err := s.actor(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	rep, err := s.load(ctx, a, id, "reports:read_any")
+	a, rep, err := s.oneForExport(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -335,31 +331,13 @@ func (s *service) ExportOne(ctx context.Context, userID int64, ip string, id int
 	return &report.Export{Filename: exportFilename(label, rep.Month, int(rep.Year)), Data: data}, nil
 }
 
-// ExportMonth builds one workbook with a sheet per report of the month, ordered
-// by church name (case-insensitive), then id. Without reports:read_any it holds
-// only the caller's own reports, as List does.
+// ExportMonth builds one workbook with a sheet per report of the month, in
+// monthForExport's order.
 func (s *service) ExportMonth(ctx context.Context, userID int64, ip string, req report.ExportReportsRequest) (*report.Export, error) {
-	a, err := s.actor(ctx, userID)
+	a, reps, err := s.monthForExport(ctx, userID, req.Month, req.Year)
 	if err != nil {
 		return nil, err
 	}
-	p := report.ListReportsParams{Month: req.Month, Year: req.Year}
-	if !a.perms["reports:read_any"] {
-		p.CreatedBy = userID
-	}
-	reps, total, err := s.reports.List(ctx, p, pagination.Params{Page: 1, Limit: report.MaxExportReports})
-	if err != nil {
-		return nil, fmt.Errorf("list reports: %w", err)
-	}
-	switch {
-	case total == 0:
-		return nil, report.ErrNoReports
-	case total > report.MaxExportReports:
-		return nil, report.ErrTooManyReports
-	}
-	slices.SortFunc(reps, func(x, y *report.Report) int {
-		return cmp.Or(cmp.Compare(strings.ToLower(deref(x.ChurchName)), strings.ToLower(deref(y.ChurchName))), cmp.Compare(x.ID, y.ID))
-	})
 	data, err := workbookBytes(reps)
 	if err != nil {
 		return nil, err
@@ -370,6 +348,76 @@ func (s *service) ExportMonth(ctx context.Context, userID int64, ip string, req 
 		return nil, fmt.Errorf("insert audit: %w", err)
 	}
 	return &report.Export{Filename: exportFilename("Church Growth Program Report", req.Month, req.Year), Data: data}, nil
+}
+
+// Preview builds the same workbook as ExportOne (report_id) or ExportMonth
+// (month and year) and returns its sheets as text. It never writes an audit row:
+// only the download does (D-A15).
+func (s *service) Preview(ctx context.Context, userID int64, req report.ExcelPreviewRequest) (*report.ExcelPreview, error) {
+	var reps []*report.Report
+	if req.ReportID != 0 {
+		_, rep, err := s.oneForExport(ctx, userID, req.ReportID)
+		if err != nil {
+			return nil, err
+		}
+		reps = []*report.Report{rep}
+	} else {
+		var err error
+		if _, reps, err = s.monthForExport(ctx, userID, req.Month, req.Year); err != nil {
+			return nil, err
+		}
+	}
+	f, err := buildWorkbook(reps)
+	if err != nil {
+		return nil, fmt.Errorf("build workbook: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+	sheets, err := previewSheets(f)
+	if err != nil {
+		return nil, fmt.Errorf("preview workbook: %w", err)
+	}
+	return &report.ExcelPreview{Count: len(reps), Sheets: sheets}, nil
+}
+
+// oneForExport loads the report of a single export or preview.
+func (s *service) oneForExport(ctx context.Context, userID, id int64) (*actor, *report.Report, error) {
+	a, err := s.actor(ctx, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	rep, err := s.load(ctx, a, id, "reports:read_any")
+	if err != nil {
+		return nil, nil, err
+	}
+	return a, rep, nil
+}
+
+// monthForExport lists the reports of a bulk export or preview, ordered by
+// church name (case-insensitive), then id. Without reports:read_any it holds
+// only the caller's own reports, as List does.
+func (s *service) monthForExport(ctx context.Context, userID int64, month string, year int) (*actor, []*report.Report, error) {
+	a, err := s.actor(ctx, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	p := report.ListReportsParams{Month: month, Year: year}
+	if !a.perms["reports:read_any"] {
+		p.CreatedBy = userID
+	}
+	reps, total, err := s.reports.List(ctx, p, pagination.Params{Page: 1, Limit: report.MaxExportReports})
+	if err != nil {
+		return nil, nil, fmt.Errorf("list reports: %w", err)
+	}
+	switch {
+	case total == 0:
+		return nil, nil, report.ErrNoReports
+	case total > report.MaxExportReports:
+		return nil, nil, report.ErrTooManyReports
+	}
+	slices.SortFunc(reps, func(x, y *report.Report) int {
+		return cmp.Or(cmp.Compare(strings.ToLower(deref(x.ChurchName)), strings.ToLower(deref(y.ChurchName))), cmp.Compare(x.ID, y.ID))
+	})
+	return a, reps, nil
 }
 
 func workbookBytes(reps []*report.Report) ([]byte, error) {

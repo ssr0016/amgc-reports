@@ -1,7 +1,7 @@
 import { api, downloadFile } from "./api";
-import type { MetricWeeks, Page, Report, ReportInput, ReportMetadata } from "./api-schema";
+import type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetadata } from "./api-schema";
 
-export type { MetricWeeks, Page, Report, ReportInput, ReportMetadata };
+export type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetadata };
 
 export type ReportFilters = {
   month?: string;
@@ -41,6 +41,10 @@ export const toggleComplete = (id: number) =>
 export const exportReport = (id: number) => downloadFile(`/admin/reports/${id}/excel`);
 
 export const exportReports = (month: string, year: number) => downloadFile("/admin/reports/excel", { month, year });
+
+// The workbook either export would build, as text; writes no audit row (D-A15).
+export const previewExcel = (body: { report_id: number } | { month: string; year: number }) =>
+  api<ExcelPreview>("/admin/reports/excel/preview", { method: "POST", body });
 
 export const MONTHS = [
   "January",

@@ -227,6 +227,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/reports/excel/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview an Excel export
+         * @description Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and A1:G42 cell text. Writes no audit row (D-A15).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description One report, or one month */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreviewRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreview"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/reports/{id}/excel": {
         parameters: {
             query?: never;
@@ -2682,6 +2781,16 @@ export interface components {
         "github_com_ssr0016_pastoral-reports_backend_internal_model.DeleteUserRequest": {
             reason?: string;
         };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreview": {
+            count?: number;
+            sheets?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PreviewSheet"][];
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreviewRequest": {
+            /** @enum {string} */
+            month?: "January" | "February" | "March" | "April" | "May" | "June" | "July" | "August" | "September" | "October" | "November" | "December";
+            report_id?: number;
+            year?: number;
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ExportReportsRequest": {
             /** @enum {string} */
             month: "January" | "February" | "March" | "April" | "May" | "June" | "July" | "August" | "September" | "October" | "November" | "December";
@@ -2713,6 +2822,10 @@ export interface components {
             id?: number;
             name?: string;
             resource?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.PreviewSheet": {
+            name?: string;
+            rows?: string[][];
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata": {
             completed?: boolean;

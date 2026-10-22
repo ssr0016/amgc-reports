@@ -22,6 +22,7 @@ export type Report = Always<
   Model<"ReportResponse">,
   "id" | "created_by" | "month" | "year" | "metrics" | "completed" | "created_at" | "updated_at" | "owner_status"
 >;
+export type ExcelPreview = { count: number; sheets: Required<Model<"PreviewSheet">>[] };
 export type ReportMetadata = Always<Model<"ReportMetadata">, "id" | "completed">;
 
 export type User = Always<Model<"UserResponse">, "id" | "email" | "name" | "role_id" | "email_verified" | "created_at" | "status">;

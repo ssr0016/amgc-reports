@@ -140,6 +140,28 @@ type ExportReportsRequest struct {
 	Year  int    `json:"year" validate:"required,gte=2000,lte=2100"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ExportReportsRequest
 
+// ExcelPreviewRequest is the body of POST /admin/reports/excel/preview: one
+// report (report_id) or one month (month and year), never both (D-A15).
+type ExcelPreviewRequest struct {
+	ReportID int64  `json:"report_id,omitempty" validate:"required_without=Month,excluded_with=Month,omitempty,gt=0"`
+	Month    string `json:"month,omitempty" validate:"required_without=ReportID,required_with=Year,omitempty,oneof=January February March April May June July August September October November December"`
+	Year     int    `json:"year,omitempty" validate:"required_with=Month,excluded_with=ReportID,omitempty,gte=2000,lte=2100"`
+} // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreviewRequest
+
+// ExcelPreview is the workbook an export would build, as text: one sheet per
+// report, in the export's order.
+type ExcelPreview struct {
+	Count  int            `json:"count"`
+	Sheets []PreviewSheet `json:"sheets"`
+} // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreview
+
+// PreviewSheet is one sheet's name and its A1:G42 cell text, row by row. A
+// merged range's text is in its top-left cell.
+type PreviewSheet struct {
+	Name string     `json:"name"`
+	Rows [][]string `json:"rows"`
+} // @name github_com_ssr0016_pastoral-reports_backend_internal_model.PreviewSheet
+
 // Export is a generated .xlsx file and its download name.
 type Export struct {
 	Filename string

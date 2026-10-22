@@ -23,6 +23,7 @@ import {
   type Report,
 } from "@/lib/reports";
 import { useSession } from "@/lib/session";
+import { ExcelPreviewDialog, type PreviewTarget } from "./excel-preview-dialog";
 
 // Which report a row control is for, so a screen reader user can tell the rows apart.
 const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
@@ -77,13 +78,17 @@ export function AdminReports() {
 
   // Excel downloads in flight: "bulk" or a row's id. Each button waits for its own file.
   const [downloading, setDownloading] = useState<Set<string>>(new Set());
+  // The open Excel preview (D-A15): its target, and the download its Download button runs.
+  const [preview, setPreview] = useState<{ key: string; target: PreviewTarget; run: () => ReturnType<typeof exportReport> } | null>(null);
 
-  async function download(key: string, run: () => ReturnType<typeof exportReport>) {
+  async function download(key: string, run: () => ReturnType<typeof exportReport>): Promise<boolean> {
     setDownloading((s) => new Set(s).add(key));
     try {
       saveFile(await run());
+      return true;
     } catch (err) {
       toast.error(err instanceof ApiError ? retryText(err) : "Could not download the file. Try again.");
+      return false;
     } finally {
       setDownloading((s) => {
         const n = new Set(s);
@@ -144,7 +149,9 @@ export function AdminReports() {
           className="ml-auto"
           disabled={downloading.has("bulk") || !data?.data.length}
           aria-busy={downloading.has("bulk")}
-          onClick={() => download("bulk", () => exportReports(period.month, period.year))}
+          onClick={() =>
+            setPreview({ key: "bulk", target: { ...period }, run: () => exportReports(period.month, period.year) })
+          }
         >
           {downloading.has("bulk") ? "Downloading…" : "Download Bulk"}
         </Button>
@@ -212,7 +219,13 @@ export function AdminReports() {
                         variant="outline"
                         disabled={downloading.has(String(r.id))}
                         aria-busy={downloading.has(String(r.id))}
-                        onClick={() => download(String(r.id), () => exportReport(r.id))}
+                        onClick={() =>
+                          setPreview({
+                            key: String(r.id),
+                            target: { reportId: r.id, label: r.church_name || `Report ${r.id}` },
+                            run: () => exportReport(r.id),
+                          })
+                        }
                       >
                         {downloading.has(String(r.id)) ? "Downloading…" : "Excel"} <span className="sr-only">{rowName(r)}</span>
                       </Button>
@@ -238,6 +251,13 @@ export function AdminReports() {
             )}
           </>
         )
+      )}
+      {preview && (
+        <ExcelPreviewDialog
+          target={preview.target}
+          onDownload={() => download(preview.key, preview.run)}
+          onClose={() => setPreview(null)}
+        />
       )}
     </div>
   );

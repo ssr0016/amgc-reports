@@ -190,6 +190,80 @@ func writeMetrics(f *excelize.File, sh string, r *report.Report, st excelStyles)
 	return steps
 }
 
+// previewRows is the last template row; previewCols are its columns.
+const previewRows = 42
+
+var previewCols = [7]string{"A", "B", "C", "D", "E", "F", "G"}
+
+// previewSheets reads every sheet's A1:G42 as the text Excel shows (D-A15).
+// The Average formulas are not cached in a new workbook, so column G is
+// calculated. excelize repeats a merged range's value in every cell it covers;
+// only the top-left cell keeps it here.
+func previewSheets(f *excelize.File) ([]report.PreviewSheet, error) {
+	sheets := make([]report.PreviewSheet, 0, f.SheetCount)
+	for _, sh := range f.GetSheetList() {
+		covered, err := mergedTails(f, sh)
+		if err != nil {
+			return nil, err
+		}
+		rows := make([][]string, previewRows)
+		for i := range rows {
+			rows[i] = make([]string, len(previewCols))
+			for j, col := range previewCols {
+				cell := col + strconv.Itoa(i+1)
+				if covered[cell] {
+					continue
+				}
+				read := f.GetCellValue
+				if formula, err := f.GetCellFormula(sh, cell); err != nil {
+					return nil, fmt.Errorf("read %s!%s: %w", sh, cell, err)
+				} else if formula != "" {
+					read = f.CalcCellValue
+				}
+				v, err := read(sh, cell)
+				if err != nil {
+					return nil, fmt.Errorf("read %s!%s: %w", sh, cell, err)
+				}
+				rows[i][j] = v
+			}
+		}
+		sheets = append(sheets, report.PreviewSheet{Name: sh, Rows: rows})
+	}
+	return sheets, nil
+}
+
+// mergedTails returns the cells of sh's merged ranges other than their top-left cell.
+func mergedTails(f *excelize.File, sh string) (map[string]bool, error) {
+	merges, err := f.GetMergeCells(sh)
+	if err != nil {
+		return nil, fmt.Errorf("merged cells of %s: %w", sh, err)
+	}
+	tails := map[string]bool{}
+	for _, m := range merges {
+		c1, r1, err := excelize.CellNameToCoordinates(m.GetStartAxis())
+		if err != nil {
+			return nil, err
+		}
+		c2, r2, err := excelize.CellNameToCoordinates(m.GetEndAxis())
+		if err != nil {
+			return nil, err
+		}
+		for r := r1; r <= r2; r++ {
+			for c := c1; c <= c2; c++ {
+				if r == r1 && c == c1 {
+					continue
+				}
+				name, err := excelize.CoordinatesToCellName(c, r)
+				if err != nil {
+					return nil, err
+				}
+				tails[name] = true
+			}
+		}
+	}
+	return tails, nil
+}
+
 func ptrTo[T any](v T) *T { return &v }
 
 func deref(s *string) string {

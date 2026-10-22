@@ -220,6 +220,21 @@ Response (200): the `.xlsx` bytes with `Content-Type: application/vnd.openxmlfor
 
 Each successful download writes one `DOWNLOAD_SINGLE_EXCEL` or `DOWNLOAD_BULK_EXCEL` audit row with `details` `{month, year, count}`; a failed one writes none. Errors: 400 for a non-numeric id, 401 without a session, 403 for a non-admin or without `reports:read_any`, 404 for a missing or deleted report or "No reports for that month.", 422 for a missing or invalid month or year (2000-2100) or more than 100 reports in the month. Both share the per-user write limit.
 
+### Preview an Excel Export (admin role only)
+
+POST /admin/reports/excel/preview
+
+The admin Reports tab shows this before every download (D-A15). It builds the same workbook as the export and returns it as text. It writes no audit row. Same gate as the export (admin role, `reports:read_any`, CSRF header); it uses the per-user read limit. The body is exactly one of:
+
+
+{"report_id":42}
+{"month":"September","year":2026}
+
+
+Response (200), `Cache-Control: no-store`: `{"count":2,"sheets":[{"name":"Bethel","rows":[["ANG MANANAMPALATAYANG GUMAWA","","","","","",""], ...]}]}`. Sheets come in the export's order with the export's sheet names. `rows` is always A1:G42 (42 rows of 7 strings) as Excel shows them: the month as "September 2026", tithes as "1,810.50" and the Average column calculated. A merged range's text is in its top-left cell only.
+
+Errors: 400 for a malformed body, 401, 403 as above, 404 for a missing or deleted report or "No reports for that month.", 422 when neither or both shapes are sent, for an invalid id, month or year (2000-2100), or more than 100 reports in the month.
+
 ## Reports
 
 All Reports endpoints need a session cookie, and POST/PUT/PATCH/DELETE also need the CSRF token (see CSRF Protection). Each route needs one permission. A role may also hold an `_any` permission, which widens the scope from the caller's own reports to all reports.

@@ -197,3 +197,47 @@ func TestExportFilename(t *testing.T) {
 	assert.Equal(t, "Gospel Bearer September 2026.xlsx", exportFilename("Gospel Bearer", "September", 2026))
 	assert.Equal(t, "ab May 2026.xlsx", exportFilename("a/b\\\n", "May", 2026))
 }
+
+func TestPreviewSheets(t *testing.T) {
+	rep := &report.Report{
+		ID: 7, Month: "September", Year: 2026,
+		Worker: strPtr("Ptr. Ana"), ChurchName: strPtr("Gospel Bearer"),
+		NarrativeReport: strPtr("=HYPERLINK(\"http://x\")"),
+		Metrics: map[string]map[int]pgtype.Numeric{
+			"worship_service": {1: numeric(t, "59"), 2: numeric(t, "0"), 4: numeric(t, "100")},
+			"tithes_offering": {1: numeric(t, "1810.50"), 2: numeric(t, "200")},
+		},
+	}
+	other := &report.Report{ID: 8, Month: "September", Year: 2026, ChurchName: strPtr("Abba")}
+	f, err := buildWorkbook([]*report.Report{rep, other})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+
+	sheets, err := previewSheets(f)
+	require.NoError(t, err)
+	require.Len(t, sheets, 2)
+	assert.Equal(t, "Gospel Bearer", sheets[0].Name)
+	assert.Equal(t, "Abba", sheets[1].Name)
+	for _, s := range sheets {
+		require.Len(t, s.Rows, 42)
+		for _, row := range s.Rows {
+			require.Len(t, row, 7)
+		}
+	}
+
+	at := func(ref string) string {
+		col, row, err := excelize.CellNameToCoordinates(ref)
+		require.NoError(t, err)
+		return sheets[0].Rows[row-1][col-1]
+	}
+	for ref, want := range map[string]string{
+		"A1": "ANG MANANAMPALATAYANG GUMAWA", "B1": "", "B4": "September 2026", "C4": "",
+		"B5": "Ptr. Ana", "C5": "", "G9": "Average",
+		"B10": "59", "C10": "0", "D10": "", "E10": "100", "G10": "53",
+		"B11": "", "G11": "", // a row with no weeks has no average
+		"B27": "1,810.50", "C27": "200.00", "G27": "1,005.25",
+		"B40": `=HYPERLINK("http://x")`,
+	} {
+		assert.Equal(t, want, at(ref), ref)
+	}
+}

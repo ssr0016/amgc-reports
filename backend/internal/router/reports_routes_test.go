@@ -63,6 +63,9 @@ func (okReportSvc) ExportOne(context.Context, int64, string, int64) (*report.Exp
 func (okReportSvc) ExportMonth(context.Context, int64, string, report.ExportReportsRequest) (*report.Export, error) {
 	return &report.Export{Filename: "r.xlsx"}, nil
 }
+func (okReportSvc) Preview(context.Context, int64, report.ExcelPreviewRequest) (*report.ExcelPreview, error) {
+	return &report.ExcelPreview{Count: 1}, nil
+}
 
 // reportsServer wires the real routes. A request is logged in as user 1 when it
 // carries the X-Test-User header; that user's role holds exactly perms.

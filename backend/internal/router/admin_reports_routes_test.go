@@ -5,11 +5,12 @@ import (
 	"testing"
 )
 
-// The Excel exports need the admin role and reports:read_any (D-A6).
+// The Excel exports and their preview need the admin role and reports:read_any (D-A6, D-A15).
 func TestAdminReportExportRoutes_Access(t *testing.T) {
 	routes := []struct{ name, path, body string }{
 		{"one", "/api/v1/admin/reports/1/excel", ""},
 		{"month", "/api/v1/admin/reports/excel", `{"month":"May","year":2026}`},
+		{"preview", "/api/v1/admin/reports/excel/preview", `{"report_id":1}`},
 	}
 	tests := []struct {
 		name, role string

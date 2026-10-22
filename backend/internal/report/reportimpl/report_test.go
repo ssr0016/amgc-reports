@@ -531,3 +531,72 @@ func TestReportService_ExportMonth(t *testing.T) {
 		assert.Len(t, f.audit.Entries(), n+1)
 	})
 }
+
+func TestReportService_Preview(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	for _, c := range []struct {
+		user   int64
+		church string
+	}{{alice, "zion"}, {bob, "Bethel"}, {dave, "bethel"}} {
+		r := req("May")
+		y := 2026
+		r.Year, r.ChurchName = &y, c.church
+		_, err := f.reports.Create(ctx, c.user, 2026, r)
+		require.NoError(t, err)
+	}
+	r := req("April")
+	r.ChurchName = "Gospel Bearer"
+	rep, err := f.svc.Create(ctx, alice, "", r)
+	require.NoError(t, err)
+	before := len(f.audit.Entries())
+	names := func(p *report.ExcelPreview) []string {
+		var out []string
+		for _, s := range p.Sheets {
+			out = append(out, s.Name)
+		}
+		return out
+	}
+
+	t.Run("one report", func(t *testing.T) {
+		p, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{ReportID: rep.ID})
+		require.NoError(t, err)
+		assert.Equal(t, 1, p.Count)
+		assert.Equal(t, []string{"Gospel Bearer"}, names(p))
+		assert.Equal(t, "Gospel Bearer", p.Sheets[0].Rows[6][1]) // B7
+	})
+
+	t.Run("a month, in the export's sheet order", func(t *testing.T) {
+		p, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{Month: "May", Year: 2026})
+		require.NoError(t, err)
+		assert.Equal(t, 3, p.Count)
+		assert.Equal(t, []string{"Bethel", "bethel (2)", "zion"}, names(p))
+	})
+
+	t.Run("a missing or deleted report is not found", func(t *testing.T) {
+		_, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{ReportID: 9999})
+		require.ErrorIs(t, err, report.ErrReportNotFound)
+		gone, err := f.svc.Create(ctx, bob, "", req("January"))
+		require.NoError(t, err)
+		require.NoError(t, f.svc.Delete(ctx, bob, "", gone.ID))
+		_, err = f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{ReportID: gone.ID})
+		require.ErrorIs(t, err, report.ErrReportNotFound)
+		before = len(f.audit.Entries())
+	})
+
+	t.Run("an empty month is ErrNoReports", func(t *testing.T) {
+		_, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{Month: "June", Year: 2026})
+		require.ErrorIs(t, err, report.ErrNoReports)
+	})
+
+	t.Run("more than the cap is ErrTooManyReports", func(t *testing.T) {
+		for u := int64(100); u <= 100+report.MaxExportReports; u++ {
+			_, err := f.reports.Create(ctx, u, 2025, req("March"))
+			require.NoError(t, err)
+		}
+		_, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{Month: "March", Year: 2025})
+		require.ErrorIs(t, err, report.ErrTooManyReports)
+	})
+
+	assert.Len(t, f.audit.Entries(), before, "a preview never writes an audit row")
+}

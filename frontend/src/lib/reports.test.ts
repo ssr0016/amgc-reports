@@ -8,6 +8,7 @@ import {
   exportReports,
   getReport,
   listReports,
+  previewExcel,
   toggleComplete,
   updateReport,
 } from "./reports";
@@ -81,5 +82,15 @@ describe("reports API", () => {
     expect(at(f, 1)).toEqual(["/admin/reports/7/excel", "POST"]);
     expect(at(f, 2)).toEqual(["/admin/reports/excel", "POST"]);
     expect((f.mock.calls[2][1] as RequestInit).body).toBe('{"month":"May","year":2026}');
+  });
+
+  it("previewExcel POSTs the target and returns the sheets", async () => {
+    const f = vi.fn();
+    f.mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: "t" })));
+    f.mockResolvedValueOnce(new Response(JSON.stringify({ count: 1, sheets: [{ name: "Bethel", rows: [["A1"]] }] })));
+    vi.stubGlobal("fetch", f);
+    expect(await previewExcel({ report_id: 7 })).toEqual({ count: 1, sheets: [{ name: "Bethel", rows: [["A1"]] }] });
+    expect(at(f, 1)).toEqual(["/admin/reports/excel/preview", "POST"]);
+    expect((f.mock.calls[1][1] as RequestInit).body).toBe('{"report_id":7}');
   });
 });

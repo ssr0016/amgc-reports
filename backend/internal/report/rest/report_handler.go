@@ -348,3 +348,39 @@ func (h *ReportHandler) ExportReports(c echo.Context) error {
 	}
 	return sendExport(c, x)
 }
+
+// PreviewExcel godoc
+// @Summary      Preview an Excel export
+// @Description  Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and A1:G42 cell text. Writes no audit row (D-A15).
+// @Tags         admin
+// @Accept       json
+// @Produce      json
+// @Security     CookieAuth
+// @Param        body body report.ExcelPreviewRequest true "One report, or one month"
+// @Success      200 {object} report.ExcelPreview
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Router       /admin/reports/excel/preview [post]
+func (h *ReportHandler) PreviewExcel(c echo.Context) error {
+	uid, err := h.userID(c)
+	if err != nil {
+		return err
+	}
+	var req report.ExcelPreviewRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	p, err := h.svc.Preview(c.Request().Context(), uid, req)
+	if err != nil {
+		return reportError(err, "failed to preview export")
+	}
+	// The preview holds free text and tithes, like the file.
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.JSON(http.StatusOK, p)
+}

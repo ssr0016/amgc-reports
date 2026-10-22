@@ -23,6 +23,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A10 | User status (active, inactive, disciplinary, deceased) | Decided 2026-10-16; built in 22a | here |
 | D-A11 | Soft delete and restore of users | Decided 2026-10-16; built in 22b | here |
 | D-A12 | Admin reset password | Decided 2026-10-17; built in 22e | here |
+| D-A15 | Excel export preview before download | Decided 2026-10-22; built in 22f | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -224,6 +225,16 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **The password in the browser:** it lives only in the dialog's state. After a reset the dialog stays open and shows it once, with Copy; closing it, Escape or Cancel clears it. It is not cached, logged, put in a URL, or kept in a toast. The generator is client-side (Web Crypto, 20 characters, no look-alikes `0 O 1 l I`, at least one lower case, upper case and digit).
 - **Not built:** a "must change at next sign-in" flag (it needs a column), a bulk reset, a reset from the Users tab row, and a password history.
 - **Deploy order:** the migration only widens a CHECK and the old code never writes the action, so the order is safe. The new frontend calls a route the old API lacks, so the Reset password button gets a 404 until Railway finishes.
+
+### D-A15 Excel export preview
+**Date:** 2026-10-22 · **Status:** Decided; built in 22f
+
+- **Decision:** the row "Excel" and "Download Bulk" buttons open a preview modal first. Only the modal's "Download" button downloads the file; "Cancel" closes it with no download.
+- **Preview data (owner, 2026-10-22):** a new admin-only `POST /admin/reports/excel/preview` builds the same workbook as the export (D-A6) and returns each sheet's name and cell text as JSON. It writes no audit row. The server builds both, so sheet names, layout and averages match the file.
+- **Download builds again (owner, 2026-10-22):** "Download" calls the existing export endpoint, which reads the current data, builds the file and writes the `DOWNLOAD_SINGLE_EXCEL` or `DOWNLOAD_BULK_EXCEL` audit row (D-10). A report changed after the preview opened gives a file that differs from the preview. No preview token is stored.
+- **Bulk (owner, 2026-10-22):** a sheet selector shows one sheet at a time, with the report count. The 100-report cap (D-A6) applies to the preview too.
+- **Not the 20e modal:** 20e (report preview with Avg, D-A5) stays as planned and is separate.
+- **Built (22f):** the body is exactly one of `{report_id}` or `{month, year}` (422 otherwise). The response is each sheet's A1:G42 as displayed text, with the Average column calculated and a merged range's text in its top-left cell only. The preview uses the per-user read limiter, because a preview comes before every download and the write limiter would halve the export budget. It answers with `Cache-Control: no-store`. The modal is the house `AlertDialog`; it closes after a successful download and stays open after a failed one.
 
 ### D-AR1 Architecture alignment with the company codebase, and JWT auth
 **Date:** 2026-10-21 · **Status:** Decided; phases 0 to 3 built (JWT cutover and frontend refresh), not deployed

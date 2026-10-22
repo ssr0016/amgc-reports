@@ -137,6 +137,8 @@ func Setup(
 	// Excel downloads (D-A6). POST so the CSRF check covers the audit row they write.
 	admin.POST("/reports/excel", reportHandler.ExportReports, perm("reports:read_any"), limits.Write)
 	admin.POST("/reports/:id/excel", reportHandler.ExportReport, perm("reports:read_any"), limits.Write)
+	// Preview of either download (D-A15): no side effects, so the read limiter.
+	admin.POST("/reports/excel/preview", reportHandler.PreviewExcel, perm("reports:read_any"), limits.Read)
 
 	// Counts for the admin panel cards. The group already requires the admin role.
 	admin.GET("/stats", statsHandler.GetStats, limits.Read)

@@ -30,6 +30,7 @@ type fakeReportSvc struct {
 	gotPage   pagination.Params
 	listData  []report.ReportResponse
 	gotExport report.ExportReportsRequest
+	gotPrev   report.ExcelPreviewRequest
 	total     int64
 }
 
@@ -73,6 +74,11 @@ func (f *fakeReportSvc) ExportMonth(_ context.Context, uid int64, _ string, req 
 	return &report.Export{Filename: "Church Growth Program Report May 2026.xlsx", Data: []byte("PK")}, f.err
 }
 
+func (f *fakeReportSvc) Preview(_ context.Context, uid int64, req report.ExcelPreviewRequest) (*report.ExcelPreview, error) {
+	f.gotUser, f.gotPrev = uid, req
+	return &report.ExcelPreview{Count: 1, Sheets: []report.PreviewSheet{{Name: "Café", Rows: [][]string{{"A1"}}}}}, f.err
+}
+
 // serveReport routes one request through the handler with an optional session user.
 func serveReport(t *testing.T, svc report.Service, userID int64, method, target, body string) (*httptest.ResponseRecorder, errorBody) {
 	t.Helper()
@@ -97,6 +103,7 @@ func serveReport(t *testing.T, svc report.Service, userID int64, method, target,
 	e.PATCH("/reports/:id/complete", h.ToggleComplete)
 	e.POST("/admin/reports/excel", h.ExportReports)
 	e.POST("/admin/reports/:id/excel", h.ExportReport)
+	e.POST("/admin/reports/excel/preview", h.PreviewExcel)
 
 	req := httptest.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -330,6 +337,68 @@ func TestReportHandler_ExportReports(t *testing.T) {
 		rec, body := serveReport(t, &fakeReportSvc{err: tc.err}, 5, http.MethodPost, "/admin/reports/excel", may)
 		if rec.Code != tc.status || body.Message != tc.msg {
 			t.Errorf("%v: got %d %q, want %d %q", tc.err, rec.Code, body.Message, tc.status, tc.msg)
+		}
+	}
+}
+
+func TestReportHandler_PreviewExcel(t *testing.T) {
+	const path = "/admin/reports/excel/preview"
+	for _, tc := range []struct {
+		name, body string
+		want       report.ExcelPreviewRequest
+	}{
+		{"one report", `{"report_id":7}`, report.ExcelPreviewRequest{ReportID: 7}},
+		{"one month", `{"month":"May","year":2026}`, report.ExcelPreviewRequest{Month: "May", Year: 2026}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := &fakeReportSvc{}
+			rec, _ := serveReport(t, f, 5, http.MethodPost, path, tc.body)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+			if f.gotPrev != tc.want || f.gotUser != 5 {
+				t.Errorf("request = %+v by %d, want %+v by 5", f.gotPrev, f.gotUser, tc.want)
+			}
+			if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+				t.Errorf("Cache-Control = %q, want no-store", got)
+			}
+			if want := `{"count":1,"sheets":[{"name":"Café","rows":[["A1"]]}]}`; strings.TrimSpace(rec.Body.String()) != want {
+				t.Errorf("body = %s, want %s", rec.Body.String(), want)
+			}
+		})
+	}
+
+	if rec, _ := serveReport(t, &fakeReportSvc{}, 5, http.MethodPost, path, `{`); rec.Code != http.StatusBadRequest {
+		t.Errorf("malformed body: got %d, want 400", rec.Code)
+	}
+
+	for _, tc := range []struct{ name, body, field string }{
+		{"neither shape", `{}`, "report_id"},
+		{"both shapes", `{"report_id":7,"month":"May","year":2026}`, "report_id"},
+		{"bad id", `{"report_id":-1}`, "report_id"},
+		{"month without year", `{"month":"May"}`, "year"},
+		{"year without month", `{"year":2026}`, "month"},
+		{"bad month", `{"month":"may","year":2026}`, "month"},
+		{"year too high", `{"month":"May","year":2101}`, "year"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := &fakeReportSvc{}
+			rec, body := serveReport(t, f, 5, http.MethodPost, path, tc.body)
+			if _, ok := body.Details[tc.field]; rec.Code != 422 || !ok {
+				t.Errorf("got %d %v, want 422 on %s", rec.Code, body.Details, tc.field)
+			}
+			if f.gotUser != 0 {
+				t.Error("the service was called for an invalid request")
+			}
+		})
+	}
+
+	for _, tc := range []struct {
+		err    error
+		status int
+	}{{report.ErrReportNotFound, 404}, {report.ErrNoReports, 404}, {report.ErrTooManyReports, 422}} {
+		if rec, _ := serveReport(t, &fakeReportSvc{err: tc.err}, 5, http.MethodPost, path, `{"report_id":7}`); rec.Code != tc.status {
+			t.Errorf("%v: got %d, want %d", tc.err, rec.Code, tc.status)
 		}
 	}
 }

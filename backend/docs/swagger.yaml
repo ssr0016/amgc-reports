@@ -164,6 +164,39 @@ definitions:
         maxLength: 500
         type: string
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreview:
+    properties:
+      count:
+        type: integer
+      sheets:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PreviewSheet'
+        type: array
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreviewRequest:
+    properties:
+      month:
+        enum:
+        - January
+        - February
+        - March
+        - April
+        - May
+        - June
+        - July
+        - August
+        - September
+        - October
+        - November
+        - December
+        type: string
+      report_id:
+        type: integer
+      year:
+        maximum: 2100
+        minimum: 2000
+        type: integer
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.ExportReportsRequest:
     properties:
       month:
@@ -242,6 +275,17 @@ definitions:
         type: string
       resource:
         type: string
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.PreviewSheet:
+    properties:
+      name:
+        type: string
+      rows:
+        items:
+          items:
+            type: string
+          type: array
+        type: array
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata:
     properties:
@@ -665,6 +709,62 @@ paths:
       security:
       - CookieAuth: []
       summary: Download a month of reports as Excel
+      tags:
+      - admin
+  /admin/reports/excel/preview:
+    post:
+      consumes:
+      - application/json
+      description: Admin only. Builds the workbook the export would build, for one
+        report (report_id) or one month (month and year), and returns each sheet's
+        name and A1:G42 cell text. Writes no audit row (D-A15).
+      parameters:
+      - description: One report, or one month
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreview'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Preview an Excel export
       tags:
       - admin
   /admin/roles:

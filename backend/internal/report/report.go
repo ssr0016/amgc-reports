@@ -42,6 +42,9 @@ type Service interface {
 	// ExportOne and ExportMonth build the Excel download and write its audit row (D-A6, D-10).
 	ExportOne(ctx context.Context, userID int64, ip string, id int64) (*Export, error)
 	ExportMonth(ctx context.Context, userID int64, ip string, req ExportReportsRequest) (*Export, error)
+	// Preview builds the workbook ExportOne or ExportMonth would build and returns
+	// it as text. It writes no audit row (D-A15).
+	Preview(ctx context.Context, userID int64, req ExcelPreviewRequest) (*ExcelPreview, error)
 }
 
 // Store defines the interface for report data access. Get returns

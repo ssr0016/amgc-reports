@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   toggleComplete: vi.fn(),
   exportReport: vi.fn(),
   exportReports: vi.fn(),
+  previewExcel: vi.fn(),
   saveFile: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn() },
 }));
@@ -25,6 +26,7 @@ vi.mock("@/lib/reports", async (orig) => ({
   toggleComplete: h.toggleComplete,
   exportReport: h.exportReport,
   exportReports: h.exportReports,
+  previewExcel: h.previewExcel,
 }));
 vi.mock("@/lib/api", async (orig) => ({ ...(await orig<typeof import("@/lib/api")>()), saveFile: h.saveFile }));
 
@@ -236,59 +238,78 @@ describe("admin reports: Download Bulk", () => {
   });
 });
 
-describe("admin reports: Excel downloads", () => {
+describe("admin reports: Excel preview and downloads", () => {
   const file = { blob: new Blob(["PK"]), filename: "Church Growth Program Report May 2025.xlsx" };
+  const sheet = (name: string) => ({ name, rows: [[`${name} A1`, "", "", "", "", "", ""]] });
 
-  it("Download Bulk exports the selected month and year, busy until the file arrives", async () => {
-    let resolve!: (v: typeof file) => void;
-    h.exportReports.mockReturnValue(new Promise((r) => (resolve = r)));
+  beforeEach(() => {
+    h.previewExcel.mockResolvedValue({ count: 2, sheets: [sheet("Church 1"), sheet("Church 2")] });
+  });
+
+  it("Download Bulk opens the month's preview and downloads nothing yet", async () => {
     const { user } = renderReports("reports:read");
     await screen.findByText("Worker 1");
     await user.selectOptions(screen.getByLabelText("Month"), "May");
     await user.selectOptions(screen.getByLabelText("Year"), "2026");
     await user.click(screen.getByRole("button", { name: "Download Bulk" }));
 
-    expect(h.exportReports).toHaveBeenCalledWith("May", 2026);
-    const busy = screen.getByRole("button", { name: "Downloading…" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Excel preview: May 2026" });
+    expect(h.previewExcel).toHaveBeenCalledWith({ month: "May", year: 2026 });
+    expect(await within(dialog).findByText("Church 1 A1")).toBeInTheDocument();
+    expect(h.exportReports).not.toHaveBeenCalled();
+  });
+
+  it("Download exports once, is busy until the file arrives, then closes", async () => {
+    let resolve!: (v: typeof file) => void;
+    h.exportReports.mockReturnValue(new Promise((r) => (resolve = r)));
+    const { user } = renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    await user.click(screen.getByRole("button", { name: "Download Bulk" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await within(dialog).findByText("Church 1 A1");
+    await user.click(within(dialog).getByRole("button", { name: "Download" }));
+
+    expect(h.exportReports).toHaveBeenCalledTimes(1);
+    const busy = within(dialog).getByRole("button", { name: "Downloading…" });
     expect(busy).toBeDisabled();
     expect(busy).toHaveAttribute("aria-busy", "true");
 
     resolve(file);
     await waitFor(() => expect(h.saveFile).toHaveBeenCalledWith(file));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Download Bulk" })).toBeEnabled();
     expect(h.toast.error).not.toHaveBeenCalled();
   });
 
-  it("a row's Excel button exports that report, and only that row is busy", async () => {
-    let resolve!: (v: typeof file) => void;
-    h.exportReport.mockReturnValue(new Promise((r) => (resolve = r)));
+  it("a row's Excel button previews that report; Cancel downloads nothing", async () => {
+    h.previewExcel.mockResolvedValue({ count: 1, sheets: [sheet("Church 1")] });
     const { user } = renderReports("reports:read");
     await screen.findByText("Worker 1");
     await user.click(within(row("Worker 1")).getByRole("button", { name: /^Excel / }));
 
-    expect(h.exportReport).toHaveBeenCalledWith(1);
-    const busy = within(row("Worker 1")).getByRole("button", { name: "Downloading… September 2026, Worker 1" });
-    expect(busy).toBeDisabled();
-    expect(busy).toHaveAttribute("aria-busy", "true");
-    expect(within(row("Worker 2")).getByRole("button", { name: /^Excel / })).toBeEnabled();
+    const dialog = await screen.findByRole("alertdialog", { name: "Excel preview: Church 1" });
+    expect(h.previewExcel).toHaveBeenCalledWith({ report_id: 1 });
+    await within(dialog).findByText("Church 1 A1");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
-    resolve(file);
-    await waitFor(() => expect(h.saveFile).toHaveBeenCalledWith(file));
-    expect(within(row("Worker 1")).getByRole("button", { name: /^Excel / })).toBeEnabled();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(h.exportReport).not.toHaveBeenCalled();
+    expect(h.saveFile).not.toHaveBeenCalled();
   });
 
-  it("shows the server's message when a download fails", async () => {
-    h.exportReports.mockRejectedValue(new ApiError(404, "NOT_FOUND", "No reports for that month."));
-    h.exportReport.mockRejectedValue(new Error("boom"));
+  it("a failed download shows the server's message and keeps the preview open", async () => {
+    h.exportReport.mockRejectedValue(new ApiError(404, "NOT_FOUND", "Report not found."));
     const { user } = renderReports("reports:read");
     await screen.findByText("Worker 1");
-
-    await user.click(screen.getByRole("button", { name: "Download Bulk" }));
-    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("No reports for that month."));
     await user.click(within(row("Worker 2")).getByRole("button", { name: /^Excel / }));
-    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Could not download the file. Try again."));
+    const dialog = await screen.findByRole("alertdialog");
+    await within(dialog).findByText("Church 1 A1");
+    await user.click(within(dialog).getByRole("button", { name: "Download" }));
+
+    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Report not found."));
+    expect(h.exportReport).toHaveBeenCalledWith(2);
     expect(h.saveFile).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Download Bulk" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "Download" })).toBeEnabled();
   });
 });
 
