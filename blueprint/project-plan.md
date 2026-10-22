@@ -27,13 +27,12 @@ Church workers submit weekly reports. Admins review and approve them.
 - **RBAC:** roles, permissions and role-permission assignment, enforced by `RequirePermission` and `RequireRole`.
 - **Admin users:** admin CRUD for user accounts.
 - **Platform:** rate limiting, body limit, trusted-proxy client IP, Prometheus metrics, health endpoint, Swagger/OpenAPI docs.
-- **Audit:** 10 actions — `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT`, `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL`.
-
-> TODO (confirm): the Excel download actions exist in the audit enum; I did not confirm the download endpoints are shipped. The owner said exports belong to Phase C.
+- **Excel export:** admin-only single and bulk download in the legacy layout (`cf0fcb6`, F-05 fix `d9e32a3`).
+- **Audit:** 14 actions — `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT`, `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL`, `CHANGE_USER_STATUS` (22a), `DELETE_USER` and `RESTORE_USER` (22b), `ADMIN_RESET_PASSWORD` (22e).
 
 ## Data
 
-- PostgreSQL, migrated with goose (`backend/internal/database/migrations/`). Latest: `20261015100000_allow_change_password_audit_action`.
+- PostgreSQL, migrated with goose (`backend/internal/database/migrations/`). Latest: `20261021120000_add_user_soft_delete`. Added since F-1: `20261016120000_add_user_status` (22a), `20261017120000_allow_admin_reset_password_audit_action` (22e), `20261021100000_create_refresh_tokens`, `20261021120000_add_user_soft_delete` (22b).
 - Core tables: users, roles, permissions, role_permissions, reports (soft delete), audit log, verification tokens, password resets, sessions.
 - Seed data runs on API start (permissions, roles, admin account).
 
