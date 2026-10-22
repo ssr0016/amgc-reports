@@ -481,12 +481,12 @@ func monthFixture(t *testing.T) fixture {
 }
 
 var wantDashboard = [][]string{
-	{"Report Dashboard", "", "", ""},
-	{"Churches", "Status", "Coordinator's Remark", "Support Status"},
-	{"bethel", "Pending", "", ""},
-	{"Report Dashboard", "Approved", "", ""},
-	{"zion", "Approved", "", ""},
-	{"Abba", "Not Filed", "", ""},
+	{"Report Dashboard", "", "", "", "", ""},
+	{"Churches", "Month", "Year", "Status", "Coordinator's Remark", "Support Status"},
+	{"bethel", "May", "2026", "Pending", "", ""},
+	{"Report Dashboard", "May", "2026", "Approved", "", ""},
+	{"zion", "May", "2026", "Approved", "", ""},
+	{"Abba", "", "", "Not Filed", "", ""},
 }
 
 // dashboardOf reads a workbook's Report Dashboard as the preview shows it.
@@ -544,7 +544,7 @@ func TestReportService_ExportMonth(t *testing.T) {
 		rows := dashboardOf(t, wb)
 		require.Len(t, rows, 6)
 		for _, r := range rows[2:] {
-			assert.Equal(t, "Not Filed", r[1])
+			assert.Equal(t, []string{"", "", "Not Filed"}, r[1:4])
 		}
 		entries := f.audit.Entries()
 		require.Len(t, entries, 1)

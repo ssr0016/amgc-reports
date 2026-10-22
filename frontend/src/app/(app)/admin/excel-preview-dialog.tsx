@@ -22,7 +22,7 @@ import { previewExcel } from "@/lib/reports";
 // One report (the row's Excel button) or one month (Download Bulk).
 export type PreviewTarget = { reportId: number; label: string } | { month: string; year: number };
 
-// Column letters for a sheet's width: 7 for a report sheet, 4 for the Report Dashboard (D-A16).
+// Column letters for a sheet's width: 7 for a report sheet, 6 for the Report Dashboard (D-A19).
 const columns = (rows: string[][]) => Array.from({ length: rows[0]?.length ?? 0 }, (_, i) => String.fromCharCode(65 + i));
 
 // Shows the workbook an export would build before it is downloaded (D-A15). The

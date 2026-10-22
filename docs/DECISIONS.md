@@ -26,6 +26,8 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A15 | Excel export preview before download | Decided 2026-10-22; built in 22f | here |
 | D-A16 | Bulk export: Report Dashboard sheet and approved-only metric sheets | Decided 2026-10-22; built in 22h | here |
 | D-A17 | Excel sheets follow the legacy workbook's styling | Decided 2026-10-22 | here |
+| D-A18 | Closed system: no self-registration, no email recovery for now | Decided 2026-10-22 | here |
+| D-A19 | Report Dashboard: Month and Year columns, owner's new reference styling | Decided 2026-10-22 | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -267,6 +269,24 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
   - The second week header row is not bold.
 - **Row heights:** the dashboard title row is 23.25 pt, and rows 40, 41 and 42 are 56.25, 29.25 and 45 pt. These are measured from the screenshot, because Google Sheets grows rows that the file stores at 15.75 pt and Excel does not.
 - **Kept:** "Baptism" on row 19 uses the main label style (D-A6). The averages keep their number format; the template's `0` would round them (D-A5).
+
+### D-A18 Closed system with admin-managed passwords
+**Date:** 2026-10-22 · **Status:** Decided
+
+- **Decision (owner, 2026-10-22):** AMGCReports is a closed system. There is no public sign-up. Only admins create accounts and set the initial password, which they give to the pastor out-of-band. A forgotten password is reset by an admin (D-A12, built in 22e).
+- **Skipped for now:** build-plan 23 (E-1, email delivery), 24 (forgot-password flow) and 25 (reset-password UI) are checked off as skipped, not built. D-13 (which email provider) stays open and is not needed until they come back.
+- **Already true:** self-registration was removed in `b7185ed` ("admin creates accounts; remove self-registration"). Neither the API nor the frontend has a register or sign-up route.
+
+### D-A19 Report Dashboard with Month and Year columns
+**Date:** 2026-10-22 · **Status:** Decided
+
+- **Decision (owner, 2026-10-22):** the bulk export's Report Dashboard follows the owner's new reference screenshot (`blueprint/reference/image.png`, replaced 2026-10-22, kept out of Git). This amends D-A16's columns and D-A17's dashboard styling. The metric sheets keep D-A17.
+- **Columns:** Churches, Month, Year, Status, Coordinator's Remark, Support Status, under a title merged over A1:F1.
+- **Month and Year:** the account's report's month and year, so Approved and Pending rows show them and Not Filed rows leave both blank. The year is written as a number.
+- **Styling:** bold blue (`#0000FF`) 18 pt title, not underlined, on lavender (`#DDDDFF`); bold gray (`#E0E0E0`) header; white cells with thin borders on every side; Month centered, Year bold and centered. Approved is green (`#00AA00`); Pending and Not Filed stay red (`#FF0000`, D-A17). Widths are converted from the screenshot. The sheet prints landscape so the six columns fit on one page (owner).
+- **Remark columns:** still blank and unfilled (D-A17). The reference's "Checked" and "Ready for Pick Up" were typed by hand; their blue style is left for the feature that fills these columns.
+- **Unchanged:** only approved reports get a metric sheet (D-A16); every church account stays on the dashboard.
+
 ### D-AR1 Architecture alignment with the company codebase, and JWT auth
 **Date:** 2026-10-21 · **Status:** Decided; phases 0 to 3 built (JWT cutover and frontend refresh), not deployed
 **Spec:** `blueprint/context/current-feature.md`

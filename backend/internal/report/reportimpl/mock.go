@@ -175,7 +175,7 @@ func (m *MockStore) Dashboard(_ context.Context, month string, year int) ([]repo
 		row := report.DashboardRow{Church: acc.Church, Status: report.StatusNotFiled}
 		for _, r := range m.reports {
 			if r.DeletedAt == nil && r.CreatedBy == acc.ID && int(r.Year) == year && strings.EqualFold(r.Month, month) {
-				row.Status = report.StatusPending
+				row.Month, row.Year, row.Status = r.Month, int(r.Year), report.StatusPending
 				if r.Completed {
 					row.Status = report.StatusApproved
 				}

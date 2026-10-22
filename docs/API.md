@@ -212,7 +212,7 @@ Both need the admin role, `reports:read_any` and the CSRF header (POST, because 
 
 The first returns one report, approved or not. The second takes a body and returns the month's bulk workbook (D-A16):
 
-- Sheet 1, "Report Dashboard" (D-A17): the title "Report Dashboard" merged over A1:C1, a header row (Churches, Status, Coordinator's Remark, Support Status), then one row per church account (an account with a church name that is not deleted and not an admin; inactive, disciplinary and deceased accounts are included), ordered by church name. Status is "Approved" (blue), "Pending" or "Not Filed" (red) for that month. The two remark columns are blank.
+- Sheet 1, "Report Dashboard" (D-A19): the title "Report Dashboard" merged over A1:F1, a header row (Churches, Month, Year, Status, Coordinator's Remark, Support Status), then one row per church account (an account with a church name that is not deleted and not an admin; inactive, disciplinary and deceased accounts are included), ordered by church name. Month and Year are the account's report's (blank when it has not filed); the year is a number. Status is "Approved" (green), "Pending" or "Not Filed" (red) for that month. The two remark columns are blank.
 - Then one sheet per **approved** report of the month (not soft-deleted, including those whose owner is deleted or deceased), ordered by church name. Pending reports get no sheet. A church sheet named "Report Dashboard" gets " (2)".
 
 A month with no approved reports still returns the file, with the dashboard alone:
@@ -236,7 +236,7 @@ The admin Reports tab shows this before every download (D-A15). It builds the sa
 {"month":"September","year":2026}
 
 
-Response (200), `Cache-Control: no-store`: `{"count":1,"sheets":[{"name":"Report Dashboard","rows":[["Report Dashboard","","",""],["Churches","Status","Coordinator's Remark","Support Status"],["Bethel","Approved","",""], ...]},{"name":"Bethel","rows":[["ANG MANANAMPALATAYANG GUMAWA","","","","","",""], ...]}]}`. Sheets come in the export's order with the export's sheet names; a month starts with the Report Dashboard (4 columns, header plus one row per account), and `count` is the number of report sheets. A report sheet's `rows` is always A1:G42 (42 rows of 7 strings) as Excel shows them: the month as "September 2026", tithes as "1,810.50" and the Average column calculated. A merged range's text is in its top-left cell only.
+Response (200), `Cache-Control: no-store`: `{"count":1,"sheets":[{"name":"Report Dashboard","rows":[["Report Dashboard","","","","",""],["Churches","Month","Year","Status","Coordinator's Remark","Support Status"],["Bethel","September","2026","Approved","",""],["Abba","","","Not Filed","",""], ...]},{"name":"Bethel","rows":[["ANG MANANAMPALATAYANG GUMAWA","","","","","",""], ...]}]}`. Sheets come in the export's order with the export's sheet names; a month starts with the Report Dashboard (4 columns, header plus one row per account), and `count` is the number of report sheets. A report sheet's `rows` is always A1:G42 (42 rows of 7 strings) as Excel shows them: the month as "September 2026", tithes as "1,810.50" and the Average column calculated. A merged range's text is in its top-left cell only.
 
 Errors: 400 for a malformed body, 401, 403 as above, 404 for a missing or deleted report, 422 when neither or both shapes are sent, for an invalid id, month or year (2000-2100), or more than 100 approved reports in the month.
 

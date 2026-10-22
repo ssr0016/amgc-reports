@@ -52,16 +52,13 @@
 
 > Phase contents are in `backend/docs/06-Implementation-Plan.md` (commit `a18b572`). `TODO (confirm)`: split them into tasks when you start Phase A.
 
-## P3 — Email
-
-- [ ] 23. E-1: email delivery
-- [ ] 24. Password recovery (forgot-password flow)
-- [ ] 25. Reset-password UI
-
 ## Deferred
 
 - [ ] 16. F0: domain setup (`amgcreports.com` chosen; deferred to the end by the owner, 2026-10-16; not a blocker for the admin panel)
 - [ ] 26. D-F7: Cloudflare proxy and IP-limit handling
+- [x] 23. E-1: email delivery: skipped, not built (D-A18: closed system with admin-managed passwords)
+- [x] 24. Password recovery (forgot-password flow): skipped, not built (D-A18)
+- [x] 25. Reset-password UI: skipped, not built (D-A18)
 
 ## Not planned
 

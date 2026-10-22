@@ -139,7 +139,7 @@ export interface paths {
         put?: never;
         /**
          * Download a month of reports as Excel
-         * @description Admin only. A Report Dashboard sheet (title, then Churches, Status, Coordinator's Remark, Support Status) with every church account's status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout and styling (D-A6, D-A16, D-A17). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.
+         * @description Admin only. A Report Dashboard sheet (title, then Churches, Month, Year, Status, Coordinator's Remark, Support Status) with every church account's report month, year and status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout and styling (D-A6, D-A16, D-A17, D-A19). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.
          */
         post: {
             parameters: {
@@ -227,7 +227,7 @@ export interface paths {
         put?: never;
         /**
          * Preview an Excel export
-         * @description Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and cell text: A1:G42 for a report sheet, title, header and one row per account for the month's Report Dashboard. count is the number of report sheets. Writes no audit row (D-A15, D-A16, D-A17).
+         * @description Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and cell text: A1:G42 for a report sheet, title, header and one row per account (6 columns) for the month's Report Dashboard. count is the number of report sheets. Writes no audit row (D-A15, D-A16, D-A19).
          */
         post: {
             parameters: {

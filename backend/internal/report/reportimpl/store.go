@@ -316,7 +316,7 @@ func (r *store) SoftDelete(ctx context.Context, id int64) error {
 // account gives one row. Account status is not filtered (D-A16).
 func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report.DashboardRow, error) {
 	q, args, err := r.db.Builder.
-		Select("u.church_name", "r.completed").
+		Select("u.church_name", "r.month", "r.year", "r.completed").
 		From("users u").
 		LeftJoin("roles ro ON ro.id = u.role_id").
 		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND lower(r.month) = lower(?)", year, month).
@@ -336,9 +336,14 @@ func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report
 	out := []report.DashboardRow{}
 	for rows.Next() {
 		var row report.DashboardRow
-		var completed *bool // NULL: no report this month
-		if err := rows.Scan(&row.Church, &completed); err != nil {
+		var month *string // the report columns are NULL when there is no report this month
+		var year *int
+		var completed *bool
+		if err := rows.Scan(&row.Church, &month, &year, &completed); err != nil {
 			return nil, fmt.Errorf("scan dashboard: %w", err)
+		}
+		if month != nil && year != nil {
+			row.Month, row.Year = *month, *year
 		}
 		switch {
 		case completed == nil:

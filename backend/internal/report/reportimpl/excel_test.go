@@ -293,8 +293,8 @@ func TestPreviewSheets(t *testing.T) {
 
 func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	rows := []report.DashboardRow{
-		{Church: "=HYPERLINK(\"http://x\")", Status: report.StatusApproved},
-		{Church: "Bethel", Status: report.StatusPending},
+		{Church: "=HYPERLINK(\"http://x\")", Month: "May", Year: 2026, Status: report.StatusApproved},
+		{Church: "Bethel", Month: "May", Year: 2026, Status: report.StatusPending},
 		{Church: "Zion", Status: report.StatusNotFiled},
 	}
 	reps := []*report.Report{
@@ -304,50 +304,64 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	f, err := buildBulkWorkbook(rows, reps)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
-
 	assert.Equal(t, []string{"Report Dashboard", "Bethel", "report dashboard (2)"}, f.GetSheetList())
+
 	const sh = "Report Dashboard"
 	merges, err := f.GetMergeCells(sh)
 	require.NoError(t, err)
 	require.Len(t, merges, 1)
-	assert.Equal(t, []string{"A1", "C1", "Report Dashboard"}, []string{merges[0].GetStartAxis(), merges[0].GetEndAxis(), merges[0].GetCellValue()})
+	assert.Equal(t, []string{"A1", "F1", "Report Dashboard"}, []string{merges[0].GetStartAxis(), merges[0].GetEndAxis(), merges[0].GetCellValue()})
 	formula, err := f.GetCellFormula(sh, "A3")
 	require.NoError(t, err)
 	assert.Empty(t, formula, "a church name that looks like a formula stays text")
+	year, err := f.GetCellType(sh, "C3")
+	require.NoError(t, err)
+	// A number cell has no t attribute, which excelize reports as unset; text is a shared string.
+	assert.Contains(t, []excelize.CellType{excelize.CellTypeUnset, excelize.CellTypeNumber}, year, "the year is a number")
+
+	layout, err := f.GetPageLayout(sh)
+	require.NoError(t, err)
+	require.NotNil(t, layout.Orientation)
+	assert.Equal(t, "landscape", *layout.Orientation, "the six columns print on one page")
 
 	style := styleOf(t, f, sh)
-	fillOf := func(cell string) []string { return style(cell).Fill.Color }
 	title := style("A1")
 	assert.True(t, title.Font.Bold)
-	assert.Equal(t, "single", title.Font.Underline)
-	assert.Equal(t, "1155CC", title.Font.Color)
+	assert.Empty(t, title.Font.Underline)
+	assert.Equal(t, "0000FF", title.Font.Color)
+	assert.InDelta(t, 18, title.Font.Size, 0.01)
 	for cell, want := range map[string][]string{
-		"A1": {"D5A6BD"}, "D1": {"D5A6BD"}, "D2": {"FFF2CC"}, "A3": {"FCE5CD"},
-		"B3": {"0000FF"}, // Approved
-		"B4": {"FF0000"}, // Pending
-		"B5": {"FF0000"}, // Not Filed
+		"A1": {"DDDDFF"}, "F1": {"DDDDFF"}, "A2": {"E0E0E0"}, "F2": {"E0E0E0"},
+		"D3": {"00AA00"}, // Approved
+		"D4": {"FF0000"}, // Pending
+		"D5": {"FF0000"}, // Not Filed
 	} {
-		assert.Equal(t, want, fillOf(cell), cell)
+		assert.Equal(t, want, style(cell).Fill.Color, cell)
+	}
+	for _, cell := range []string{"A3", "B3", "C3", "E3", "F5"} {
+		assert.Empty(t, style(cell).Fill.Color, "%s: no fill", cell)
+		assert.Len(t, style(cell).Border, 4, "%s: thin borders on every side", cell)
 	}
 	assert.True(t, style("D2").Font.Bold)
-	assert.Equal(t, "FFFFFF", style("B4").Font.Color)
-	assert.Empty(t, style("A3").Border, "the dashboard has no borders, as in the template")
-	for _, cell := range []string{"C3", "D5"} {
-		assert.Empty(t, fillOf(cell), "%s: the remark cells stay unfilled", cell)
+	assert.Equal(t, "center", style("B3").Alignment.Horizontal)
+	assert.False(t, style("B3").Font.Bold, "the month is regular")
+	assert.True(t, style("C3").Font.Bold, "the year is bold")
+	assert.Equal(t, "FFFFFF", style("D4").Font.Color)
+	for _, cell := range []string{"E3", "F5"} {
 		v, err := f.GetCellValue(sh, cell)
 		require.NoError(t, err)
-		assert.Empty(t, v, cell)
+		assert.Empty(t, v, "%s: the remark cells stay blank", cell)
 	}
 
 	sheets, err := previewSheets(f, true)
 	require.NoError(t, err)
 	require.Len(t, sheets, 3)
 	assert.Equal(t, [][]string{
-		{"Report Dashboard", "", "", ""},
-		{"Churches", "Status", "Coordinator's Remark", "Support Status"},
-		{`=HYPERLINK("http://x")`, "Approved", "", ""},
-		{"Bethel", "Pending", "", ""},
-		{"Zion", "Not Filed", "", ""},
+		{"Report Dashboard", "", "", "", "", ""},
+		{"Churches", "Month", "Year", "Status", "Coordinator's Remark", "Support Status"},
+		{`=HYPERLINK("http://x")`, "May", "2026", "Approved", "", ""},
+		{"Bethel", "May", "2026", "Pending", "", ""},
+		{"Zion", "", "", "Not Filed", "", ""},
 	}, sheets[0].Rows)
 	assert.Len(t, sheets[1].Rows, 42)
 	assert.Len(t, sheets[1].Rows[0], 7)
@@ -360,8 +374,8 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 		sheets, err := previewSheets(f, true)
 		require.NoError(t, err)
 		assert.Equal(t, [][]string{
-			{"Report Dashboard", "", "", ""},
-			{"Churches", "Status", "Coordinator's Remark", "Support Status"},
+			{"Report Dashboard", "", "", "", "", ""},
+			{"Churches", "Month", "Year", "Status", "Coordinator's Remark", "Support Status"},
 		}, sheets[0].Rows)
 	})
 }

@@ -668,7 +668,7 @@ Not blocking (can follow the proposed default): week 5 validation, empty string 
 |---|----------|--------|-------------|---|
 | D-9 | Keep the current response convention, or unify the envelope (M-1)? Must be decided before the new handlers | Phase 3, M-1 | Owner + Frontend | Decided ([07](07-Reports-Decisions.md)) |
 | D-12 | Should login require a verified email? | H-3 | Owner | Open |
-| D-13 | Which email provider? Development mailer policy? | E-1, H-3, C-3 follow-up | Owner | Open |
+| D-13 | Which email provider? Development mailer policy? | E-1, H-3, C-3 follow-up | Owner | Deferred: E-1 skipped for now (D-A18) |
 | D-15 | Session policy: idle timeout value, revoke on reset/lock/role change, SameSite and domain layout (frontend and API same site?) | H-1, H-2, M-8 | Owner + DevOps | Open |
 | D-16 | Trusted proxy configuration for the hosting platform | H-4 | DevOps | Open |
 | D-17 | Should all authenticated users be able to list users? (privacy) | H-6 | Owner | Open |
