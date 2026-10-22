@@ -9,15 +9,16 @@ import { ErrorRetry } from "@/components/error-retry";
 
 // The numbers are text, so nothing here relies on colour. Counts only: the endpoint sends no report text.
 export function StatsCards() {
-  const { isAdmin } = useSession();
+  const { can } = useSession();
+  const allowed = can("tracker:read");
   const { data, error, isPending, refetch } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: getStats,
-    enabled: isAdmin,
+    enabled: allowed,
     staleTime: 30_000,
   });
 
-  if (!isAdmin) return null;
+  if (!allowed) return null;
   if (error) {
     return <ErrorRetry message={error.message} onRetry={() => refetch()} />;
   }

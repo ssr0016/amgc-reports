@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { resetCsrf, setOnUnauthorized } from "./api";
 import { queryClient } from "./query";
 import { getCurrentUser, login, logout, type Me } from "./auth";
-import type { Permission } from "./permissions";
+import { ADMIN_AREA, type Permission } from "./permissions";
 
 type Status = "loading" | "authenticated" | "unauthenticated";
 
@@ -15,6 +15,8 @@ type Session = {
   can: (permission: Permission) => boolean;
   // False while loading or signed out. Gates the admin screens; the server still enforces the role.
   isAdmin: boolean;
+  // The admin role, or any admin-area permission (37b): may open /admin.
+  canAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -68,9 +70,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const can = (permission: Permission) => !!user?.permissions.includes(permission);
   const isAdmin = user?.role === "admin";
+  const canAdmin = isAdmin || ADMIN_AREA.some(can);
 
   return (
-    <SessionContext.Provider value={{ user, status, can, isAdmin, signIn, signOut }}>
+    <SessionContext.Provider value={{ user, status, can, isAdmin, canAdmin, signIn, signOut }}>
       {children}
     </SessionContext.Provider>
   );

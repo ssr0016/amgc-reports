@@ -19,7 +19,7 @@ func NewStatsHandler(svc stats.Service) *StatsHandler { return &StatsHandler{svc
 
 // GetStats godoc
 // @Summary      Admin panel counts
-// @Description  Counts for one month: reports (total, approved, pending) and, regardless of month, all users and admins. Admin role only. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+// @Description  Counts for one month: reports (total, approved, pending) and, regardless of month, all users and admins. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
 // @Tags         admin/stats
 // @Produce      json
 // @Security     CookieAuth
@@ -48,7 +48,7 @@ func (h *StatsHandler) GetStats(c echo.Context) error {
 
 // GetTracker godoc
 // @Summary      Who has reported this month
-// @Description  Every account with the user role that is not deleted (any status: active, inactive, disciplinary, deceased), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Admin role and reports:read_any. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+// @Description  Every account with the user role that is not deleted (any status: active, inactive, disciplinary, deceased), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
 // @Tags         admin/stats
 // @Produce      json
 // @Security     CookieAuth

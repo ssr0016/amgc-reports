@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Audit log
-         * @description Admin role only. One page of the audit trail for one month in Asia/Manila, newest first, with the total. Optionally one action. Read-only: no endpoint changes or deletes a row. The IP address is never returned (D-A4). Details hold only the allow-listed keys of each action, never a password, token or report text.
+         * @description Needs audit:read. One page of the audit trail for one month in Asia/Manila, newest first, with the total. Optionally one action. Read-only: no endpoint changes or deletes a row. The IP address is never returned (D-A4). Details hold only the allow-listed keys of each action, never a password, token or report text.
          */
         get: {
             parameters: {
@@ -244,7 +244,7 @@ export interface paths {
         put?: never;
         /**
          * Download a month of reports as Excel
-         * @description Admin only. A Report Dashboard sheet (title, then Churches, Month, Year, Status, Coordinator's Remark, Support Status) with every church account's report month, year and status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout and styling (D-A6, D-A16, D-A17, D-A19). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.
+         * @description Needs reports:export. A Report Dashboard sheet (title, then Churches, Month, Year, Status, Coordinator's Remark, Support Status) with every church account's report month, year and status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout and styling (D-A6, D-A16, D-A17, D-A19). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.
          */
         post: {
             parameters: {
@@ -332,7 +332,7 @@ export interface paths {
         put?: never;
         /**
          * Preview an Excel export
-         * @description Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and cell text: A1:G42 for a report sheet, title, header and one row per account (6 columns) for the month's Report Dashboard. count is the number of report sheets. Writes no audit row (D-A15, D-A16, D-A19).
+         * @description Needs reports:export. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and cell text: A1:G42 for a report sheet, title, header and one row per account (6 columns) for the month's Report Dashboard. count is the number of report sheets. Writes no audit row (D-A15, D-A16, D-A19).
          */
         post: {
             parameters: {
@@ -431,7 +431,7 @@ export interface paths {
         put?: never;
         /**
          * Download one report as Excel
-         * @description Admin only. Returns the report in the legacy Church Growth Program Report layout (D-A6) and writes a DOWNLOAD_SINGLE_EXCEL audit row.
+         * @description Needs reports:export. Returns the report in the legacy Church Growth Program Report layout (D-A6) and writes a DOWNLOAD_SINGLE_EXCEL audit row.
          */
         post: {
             parameters: {
@@ -753,7 +753,7 @@ export interface paths {
         };
         /**
          * Admin panel counts
-         * @description Counts for one month: reports (total, approved, pending) and, regardless of month, all users and admins. Admin role only. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+         * @description Counts for one month: reports (total, approved, pending) and, regardless of month, all users and admins. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
          */
         get: {
             parameters: {
@@ -841,7 +841,7 @@ export interface paths {
         };
         /**
          * Who has reported this month
-         * @description Every account with the user role that is not deleted (any status: active, inactive, disciplinary, deceased), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Admin role and reports:read_any. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+         * @description Every account with the user role that is not deleted (any status: active, inactive, disciplinary, deceased), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
          */
         get: {
             parameters: {
@@ -2810,7 +2810,7 @@ export interface paths {
         };
         /**
          * List users
-         * @description Admin only. Returns paginated list of users
+         * @description Needs users:list. Returns paginated list of users
          */
         get: {
             parameters: {
@@ -2880,7 +2880,7 @@ export interface paths {
         };
         /**
          * Get user by ID
-         * @description Admin only. Returns a single user
+         * @description Needs users:list. Returns a single user
          */
         get: {
             parameters: {

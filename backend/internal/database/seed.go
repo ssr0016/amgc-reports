@@ -71,6 +71,11 @@ func SeedData(ctx context.Context, db *DB, log *slog.Logger, admin AdminSeed) er
 		{"reports:delete", "reports", "delete"},
 		{"reports:delete_any", "reports", "delete_any"},
 		{"reports:approve", "reports", "approve"},
+		// Admin-panel areas (37b): the admin and custom roles only, never editor or user.
+		{"reports:export", "reports", "export"},
+		{"tracker:read", "tracker", "read"},
+		{"audit:read", "audit", "read"},
+		{"users:list", "users", "list"},
 	}
 
 	for _, p := range permissions {

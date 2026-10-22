@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useSyncExternalStore } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ADMIN_AREA } from "@/lib/permissions";
 import { AdminPanel } from "./admin-panel";
 
 // The mock router behaves like Next's: replace() changes the URL, and the components reading it re-render.
@@ -9,6 +10,7 @@ const h = vi.hoisted(() => {
   const subs = new Set<() => void>();
   const state = {
     isAdmin: true,
+    perms: [] as string[], // a non-admin's permissions; the admin holds every one
     tab: null as string | null,
     replace: (() => {}) as (url: string) => void,
     subscribe: (fn: () => void) => (subs.add(fn), () => subs.delete(fn)),
@@ -27,7 +29,12 @@ vi.mock("next/navigation", () => ({
     return new URLSearchParams(tab ? { tab } : {});
   },
 }));
-vi.mock("@/lib/session", () => ({ useSession: () => ({ isAdmin: h.isAdmin }) }));
+vi.mock("@/lib/session", () => ({
+  useSession: () => {
+    const can = (p: string) => h.isAdmin || h.perms.includes(p);
+    return { isAdmin: h.isAdmin, can, canAdmin: ADMIN_AREA.some(can) };
+  },
+}));
 vi.mock("./stats-cards", () => ({ StatsCards: () => <p>stats</p> }));
 vi.mock("./admin-reports", () => ({ AdminReports: () => <p>admin reports</p> }));
 vi.mock("./users/users-list", () => ({ UsersPanel: () => <p>users panel</p> }));
@@ -37,6 +44,7 @@ vi.mock("./roles", () => ({ RolesPanel: () => <p>roles panel</p> }));
 
 describe("AdminPanel", () => {
   beforeEach(() => {
+    h.perms = [];
     h.tab = null;
     replace.mockClear();
   });
@@ -177,5 +185,59 @@ describe("AdminPanel", () => {
     h.isAdmin = false;
     render(<AdminPanel />);
     expect(screen.queryByText("admin reports")).not.toBeInTheDocument();
+  });
+
+  describe("a custom role (37b)", () => {
+    const tabNames = () => screen.getAllByRole("tab").map((t) => t.textContent);
+
+    it("sees every area its permissions allow, but never Roles", () => {
+      h.isAdmin = false;
+      h.perms = ["reports:read", "reports:approve", "reports:export", "tracker:read", "users:list", "audit:read", "roles:write", "users:write"];
+      render(<AdminPanel />);
+      expect(tabNames()).toEqual(["Reports", "Tracker", "Users", "Logs"]);
+      expect(screen.getByText("stats")).toBeInTheDocument();
+    });
+
+    it("with only tracker:read sees the Tracker tab and the cards, and lands on Tracker", () => {
+      h.isAdmin = false;
+      h.perms = ["tracker:read"];
+      render(<AdminPanel />);
+      expect(tabNames()).toEqual(["Tracker"]);
+      expect(screen.getByRole("tab", { name: "Tracker" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByText("stats")).toBeInTheDocument();
+      expect(screen.queryByText("admin reports")).not.toBeInTheDocument();
+    });
+
+    // The cards gate themselves on tracker:read (stats-cards.test.tsx).
+    it.each([["reports:approve"], ["reports:export"]])("with only %s sees the Reports tab", (perm) => {
+      h.isAdmin = false;
+      h.perms = [perm];
+      render(<AdminPanel />);
+      expect(tabNames()).toEqual(["Reports"]);
+    });
+
+    it("lands on the first allowed tab when ?tab= names one it may not open", () => {
+      h.isAdmin = false;
+      h.perms = ["reports:approve", "tracker:read"];
+      h.tab = "roles";
+      const { unmount } = render(<AdminPanel />);
+      expect(screen.getByRole("tab", { name: "Reports" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.queryByText("roles panel")).not.toBeInTheDocument();
+      unmount();
+
+      h.perms = ["tracker:read"];
+      h.tab = "logs";
+      render(<AdminPanel />);
+      expect(screen.getByRole("tab", { name: "Tracker" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.queryByText("audit logs")).not.toBeInTheDocument();
+    });
+
+    it("is not allowed in with only a plain user's permissions", () => {
+      h.isAdmin = false;
+      h.perms = ["users:read", "reports:read", "reports:read_any", "reports:write", "reports:delete"];
+      render(<AdminPanel />);
+      expect(screen.getByText("You are not allowed to view the admin panel.")).toBeInTheDocument();
+      expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    });
   });
 });

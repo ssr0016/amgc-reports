@@ -26,6 +26,15 @@ var reportPermissions = map[string]string{
 	"reports:delete":     "delete",
 	"reports:delete_any": "delete_any",
 	"reports:approve":    "approve",
+	"reports:export":     "export",
+}
+
+// adminAreaPermissions open the review parts of the admin panel (37b).
+var adminAreaPermissions = map[string][2]string{
+	"reports:export": {"reports", "export"},
+	"tracker:read":   {"tracker", "read"},
+	"audit:read":     {"audit", "read"},
+	"users:list":     {"users", "list"},
 }
 
 // seeded migrates, then seeds as app_user: the role the server uses.
@@ -78,10 +87,11 @@ func allReportPermissions() []string {
 	return out
 }
 
-func withoutApprove(perms []string) []string {
+// withoutAdminOnly drops the report permissions only the admin holds.
+func withoutAdminOnly(perms []string) []string {
 	out := make([]string, 0, len(perms))
 	for _, p := range perms {
-		if p != "reports:approve" {
+		if p != "reports:approve" && p != "reports:export" {
 			out = append(out, p)
 		}
 	}
@@ -115,9 +125,9 @@ func TestSeed_RoleDefaults(t *testing.T) {
 		[]string{"users:read", "reports:read", "reports:read_any", "reports:write", "reports:delete"},
 		permissionsOf(t, app, "user"))
 
-	// Only the admin approves.
+	// Only the admin approves and exports.
 	assert.ElementsMatch(t,
-		append([]string{"users:read", "users:write"}, withoutApprove(allReportPermissions())...),
+		append([]string{"users:read", "users:write"}, withoutAdminOnly(allReportPermissions())...),
 		permissionsOf(t, app, "editor"))
 
 	assert.ElementsMatch(t,
@@ -148,6 +158,25 @@ func TestSeed_OnlyAdminApproves(t *testing.T) {
 		JOIN permissions p ON p.id = rp.permission_id
 		WHERE p.name = 'reports:approve'`)
 	assert.Equal(t, []string{"admin"}, roles)
+}
+
+func TestSeed_AdminAreaPermissions(t *testing.T) {
+	app := seeded(t)
+
+	for name, want := range adminAreaPermissions {
+		var resource, action string
+		require.NoError(t, app.QueryRow(context.Background(),
+			`SELECT resource, action FROM permissions WHERE name = $1`, name).Scan(&resource, &action), name)
+		assert.Equal(t, want, [2]string{resource, action}, name)
+	}
+
+	// Only the admin holds them; custom roles get them through the Roles tab.
+	for _, role := range []string{"editor", "user"} {
+		for _, name := range permissionsOf(t, app, role) {
+			_, found := adminAreaPermissions[name]
+			assert.False(t, found, "%s holds %s", role, name)
+		}
+	}
 }
 
 func TestSeed_IdempotentWithReports(t *testing.T) {

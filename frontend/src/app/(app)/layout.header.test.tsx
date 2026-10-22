@@ -4,7 +4,7 @@ import AppLayout from "./layout";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports" }));
 vi.mock("@/lib/session", () => ({
-  useSession: () => ({ status: "authenticated", user: { name: "Ana", email: "a@b.c", role: "admin" }, isAdmin: true, signOut: vi.fn() }),
+  useSession: () => ({ status: "authenticated", user: { name: "Ana", email: "a@b.c", role: "admin" }, isAdmin: true, canAdmin: true, signOut: vi.fn() }),
 }));
 
 describe("app header", () => {

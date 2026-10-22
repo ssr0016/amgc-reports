@@ -24,7 +24,7 @@ func NewAuditHandler(svc audit.Service) *AuditHandler { return &AuditHandler{svc
 
 // List godoc
 // @Summary      Audit log
-// @Description  Admin role only. One page of the audit trail for one month in Asia/Manila, newest first, with the total. Optionally one action. Read-only: no endpoint changes or deletes a row. The IP address is never returned (D-A4). Details hold only the allow-listed keys of each action, never a password, token or report text.
+// @Description  Needs audit:read. One page of the audit trail for one month in Asia/Manila, newest first, with the total. Optionally one action. Read-only: no endpoint changes or deletes a row. The IP address is never returned (D-A4). Details hold only the allow-listed keys of each action, never a password, token or report text.
 // @Tags         admin/audit
 // @Produce      json
 // @Security     CookieAuth

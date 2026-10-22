@@ -148,18 +148,20 @@ export function AdminReports() {
             ))}
           </NativeSelect>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="ml-auto"
-          disabled={downloading.has("bulk") || !data?.data.length}
-          aria-busy={downloading.has("bulk")}
-          onClick={() =>
-            setPreview({ key: "bulk", target: { ...period }, run: () => exportReports(period.month, period.year) })
-          }
-        >
-          {downloading.has("bulk") ? "Downloading…" : "Download Bulk"}
-        </Button>
+        <Can permission="reports:export">
+          <Button
+            type="button"
+            variant="outline"
+            className="ml-auto"
+            disabled={downloading.has("bulk") || !data?.data.length}
+            aria-busy={downloading.has("bulk")}
+            onClick={() =>
+              setPreview({ key: "bulk", target: { ...period }, run: () => exportReports(period.month, period.year) })
+            }
+          >
+            {downloading.has("bulk") ? "Downloading…" : "Download Bulk"}
+          </Button>
+        </Can>
       </form>
 
       {isPending ? (
@@ -217,21 +219,23 @@ export function AdminReports() {
                       </Can>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={downloading.has(String(r.id))}
-                        aria-busy={downloading.has(String(r.id))}
-                        onClick={() =>
-                          setPreview({
-                            key: String(r.id),
-                            target: { reportId: r.id, label: r.church_name || `Report ${r.id}` },
-                            run: () => exportReport(r.id),
-                          })
-                        }
-                      >
-                        {downloading.has(String(r.id)) ? "Downloading…" : "Excel"} <span className="sr-only">{rowName(r)}</span>
-                      </Button>
+                      <Can permission="reports:export" fallback="—">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={downloading.has(String(r.id))}
+                          aria-busy={downloading.has(String(r.id))}
+                          onClick={() =>
+                            setPreview({
+                              key: String(r.id),
+                              target: { reportId: r.id, label: r.church_name || `Report ${r.id}` },
+                              run: () => exportReport(r.id),
+                            })
+                          }
+                        >
+                          {downloading.has(String(r.id)) ? "Downloading…" : "Excel"} <span className="sr-only">{rowName(r)}</span>
+                        </Button>
+                      </Can>
                     </TableCell>
                   </TableRow>
                 ))}

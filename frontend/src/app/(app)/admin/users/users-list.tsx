@@ -35,7 +35,9 @@ const LIMIT = 100;
 
 // The Users tab of /admin; it brings no landmark or heading of its own.
 export function UsersPanel() {
-  const { isAdmin, user } = useSession();
+  const { isAdmin, can, user } = useSession();
+  // users:list reads the list (37b); every change, and the roles it names, stay admin-only.
+  const allowed = can("users:list");
   const [search, setSearch] = useState("");
   // shortcut: the role filter only narrows the loaded rows (at most LIMIT), upgrade to a server-side filter when users outgrow LIMIT.
   const [role, setRole] = useState("");
@@ -74,17 +76,17 @@ export function UsersPanel() {
   const { data, error, isPending, refetch } = useQuery({
     queryKey: ["users", email, status],
     queryFn: () => listUsers(email, status),
-    enabled: isAdmin,
+    enabled: allowed,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
-  // If this fails the list still renders, with the role shown as #id.
+  // If this fails, or for a non-admin, the list still renders, with the role shown as #id.
   const roles = useQuery({ queryKey: ["roles"], queryFn: listRoles, enabled: isAdmin, staleTime: 5 * 60_000 });
   const roleName = new Map(roles.data?.map((r) => [r.id, r.name]));
   const rows = (data ?? []).filter((u) => !role || u.role_id === Number(role));
 
   let body: React.ReactNode;
-  if (!isAdmin || (error instanceof ApiError && error.status === 403)) {
+  if (!allowed || (error instanceof ApiError && error.status === 403)) {
     body = <p className="text-sm text-muted-foreground">You are not allowed to manage users.</p>;
   } else if (error) {
     body = <ErrorRetry message={error.message} onRetry={() => refetch()} />;
@@ -107,9 +109,11 @@ export function UsersPanel() {
               <TableHead>Status</TableHead>
               <TableHead>Area</TableHead>
               <TableHead>Church</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
+              {isAdmin && (
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -138,31 +142,33 @@ export function UsersPanel() {
                 </TableCell>
                 <TableCell>{u.area_assignment || "—"}</TableCell>
                 <TableCell>{u.church_name || "—"}</TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/admin/users/${u.id}/edit`}>
-                        Edit{" "}
-                        <span className="sr-only">{u.name}</span>
-                      </Link>
-                    </Button>
-                    {u.deleted_at ? (
-                      <Button variant="outline" size="sm" disabled={restoring === u.id} onClick={() => restore(u)}>
-                        Restore <span className="sr-only">{u.name}</span>
+                {isAdmin && (
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/admin/users/${u.id}/edit`}>
+                          Edit{" "}
+                          <span className="sr-only">{u.name}</span>
+                        </Link>
                       </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={u.id === user?.user_id}
-                        aria-describedby={u.id === user?.user_id ? "delete-self-note" : undefined}
-                        onClick={() => setDeleting(u)}
-                      >
-                        Delete <span className="sr-only">{u.name}</span>
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
+                      {u.deleted_at ? (
+                        <Button variant="outline" size="sm" disabled={restoring === u.id} onClick={() => restore(u)}>
+                          Restore <span className="sr-only">{u.name}</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={u.id === user?.user_id}
+                          aria-describedby={u.id === user?.user_id ? "delete-self-note" : undefined}
+                          onClick={() => setDeleting(u)}
+                        >
+                          Delete <span className="sr-only">{u.name}</span>
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -180,7 +186,7 @@ export function UsersPanel() {
 
   return (
     <div className="flex flex-col gap-6">
-      {isAdmin && (
+      {allowed && (
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex w-64 flex-col gap-2">
@@ -193,17 +199,19 @@ export function UsersPanel() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex w-40 flex-col gap-2">
-              <Label htmlFor="role-filter">Role</Label>
-              <NativeSelect id="role-filter" value={role} onChange={(e) => setRole(e.target.value)}>
-                <option value="">All roles</option>
-                {roles.data?.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
+            {isAdmin && (
+              <div className="flex w-40 flex-col gap-2">
+                <Label htmlFor="role-filter">Role</Label>
+                <NativeSelect id="role-filter" value={role} onChange={(e) => setRole(e.target.value)}>
+                  <option value="">All roles</option>
+                  {roles.data?.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+            )}
             <div className="flex w-44 flex-col gap-2">
               <Label htmlFor="status-filter">Status</Label>
               <NativeSelect id="status-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -217,9 +225,11 @@ export function UsersPanel() {
               </NativeSelect>
             </div>
           </div>
-          <Button asChild>
-            <Link href="/admin/users/new">New user</Link>
-          </Button>
+          {isAdmin && (
+            <Button asChild>
+              <Link href="/admin/users/new">New user</Link>
+            </Button>
+          )}
         </div>
       )}
       {body}

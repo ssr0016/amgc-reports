@@ -13,40 +13,40 @@ import { UsersPanel } from "./users/users-list";
 // The tab lives in ?tab= (old /admin/users links land on ?tab=users). A change replaces the entry instead of
 // pushing one, so Back leaves /admin rather than stepping through tabs. Keep the tab order.
 export function AdminPanel() {
-  const { isAdmin } = useSession();
+  const { isAdmin, can, canAdmin } = useSession();
   const router = useRouter();
   const param = useSearchParams().get("tab");
-  const tab = param === "tracker" || param === "users" || param === "roles" || param === "logs" ? param : "reports";
+
+  // Each tab shows only to those who may use it (37b); the server still enforces every route.
+  const tabs = [
+    { value: "reports", label: "Reports", allowed: can("reports:approve") || can("reports:export"), panel: <AdminReports /> },
+    { value: "tracker", label: "Tracker", allowed: can("tracker:read"), panel: <Tracker /> },
+    { value: "users", label: "Users", allowed: can("users:list"), panel: <UsersPanel /> },
+    { value: "roles", label: "Roles", allowed: isAdmin, panel: <RolesPanel /> },
+    { value: "logs", label: "Logs", allowed: can("audit:read"), panel: <AuditLogs /> },
+  ].filter((t) => t.allowed);
+  // A missing, unknown or not-allowed ?tab= lands on the first allowed tab.
+  const tab = tabs.find((t) => t.value === param)?.value ?? tabs[0]?.value;
 
   return (
     <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
       <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
-      {isAdmin ? (
+      {canAdmin && tab ? (
         <>
           <StatsCards />
           <Tabs value={tab} onValueChange={(v) => router.replace(`/admin?tab=${v}`)}>
             <TabsList>
-              <TabsTrigger value="reports">Reports</TabsTrigger>
-              <TabsTrigger value="tracker">Tracker</TabsTrigger>
-              <TabsTrigger value="users">Users</TabsTrigger>
-              <TabsTrigger value="roles">Roles</TabsTrigger>
-              <TabsTrigger value="logs">Logs</TabsTrigger>
+              {tabs.map((t) => (
+                <TabsTrigger key={t.value} value={t.value}>
+                  {t.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
-            <TabsContent value="reports">
-              <AdminReports />
-            </TabsContent>
-            <TabsContent value="tracker">
-              <Tracker />
-            </TabsContent>
-            <TabsContent value="users">
-              <UsersPanel />
-            </TabsContent>
-            <TabsContent value="roles">
-              <RolesPanel />
-            </TabsContent>
-            <TabsContent value="logs">
-              <AuditLogs />
-            </TabsContent>
+            {tabs.map((t) => (
+              <TabsContent key={t.value} value={t.value}>
+                {t.panel}
+              </TabsContent>
+            ))}
           </Tabs>
         </>
       ) : (

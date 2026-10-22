@@ -1,13 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
-import { deleteUser, listUsers, restoreUser } from "@/lib/users";
+import { deleteUser, listRoles, listUsers, restoreUser } from "@/lib/users";
 import { UsersPanel } from "./users-list";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
-vi.mock("@/lib/session", () => ({ useSession: () => ({ isAdmin: true, user: { user_id: 1 } }) }));
+const session = vi.hoisted(() => ({ isAdmin: true, perms: ["users:list"] as string[] }));
+vi.mock("@/lib/session", () => ({
+  useSession: () => ({ isAdmin: session.isAdmin, can: (p: string) => session.perms.includes(p), user: { user_id: 1 } }),
+}));
 vi.mock("@/lib/users", () => ({
   listUsers: vi.fn().mockResolvedValue([
     { id: 1, name: "Ana Cruz", email: "ana@x.com", role_id: 1, status: "active" },
@@ -28,6 +31,11 @@ const wrap = (ui: React.ReactNode) => {
   const invalidate = vi.spyOn(client, "invalidateQueries");
   return { ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>), invalidate };
 };
+
+beforeEach(() => {
+  session.isAdmin = true;
+  session.perms = ["users:list"];
+});
 
 describe("users list", () => {
   it("a failed load shows Retry, which asks again", async () => {
@@ -182,5 +190,30 @@ describe("users list", () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Cy Lim restored"));
     expect(vi.mocked(restoreUser)).toHaveBeenCalledWith(3);
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reports"] }));
+  });
+});
+
+describe("users list for a custom role (37b)", () => {
+  it("a users:list holder sees the list read-only: no Edit, Delete or New user, no role filter, no roles request", async () => {
+    session.isAdmin = false;
+    vi.mocked(listRoles).mockClear();
+    wrap(<UsersPanel />);
+    const row = (await screen.findByText("Ben Reyes")).closest("tr")!;
+    expect(within(row).getByText("#2")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Edit/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Delete/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New user" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Role")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(listRoles).not.toHaveBeenCalled();
+  });
+
+  it("without users:list it says so and never asks the API", () => {
+    session.isAdmin = false;
+    session.perms = ["users:read"];
+    vi.mocked(listUsers).mockClear();
+    wrap(<UsersPanel />);
+    expect(screen.getByText("You are not allowed to manage users.")).toBeInTheDocument();
+    expect(listUsers).not.toHaveBeenCalled();
   });
 });

@@ -77,18 +77,21 @@ func Setup(
 	// caller uses tokens. The lockout counter, not this limit, stops password guessing.
 	authProtected.POST("/change-password", authHandler.ChangePassword, limits.Write)
 
-	// Lists every account's email and name, so it is admin-only, like /admin/users.
-	// A permission gate would not do: the plain user role holds users:read.
-	users := api.Group("/users", authn, ourmiddleware.RequireAuth(), ourmiddleware.RequireRole(userRepo, "admin"))
-	users.GET("", userHandler.ListUsers)
-	users.GET("/:id", userHandler.GetUser)
+	// perm gates a route on the caller's role's permissions; adminOnly on the admin role.
+	perm := func(name string) echo.MiddlewareFunc {
+		return ourmiddleware.RequirePermission(roleRepo, userRepo, name)
+	}
+	adminOnly := ourmiddleware.RequireRole(userRepo, "admin")
+
+	// Lists every account's email and name, so it needs users:list (37b), never
+	// users:read: the plain user role holds users:read.
+	users := api.Group("/users", authn, ourmiddleware.RequireAuth())
+	users.GET("", userHandler.ListUsers, perm("users:list"))
+	users.GET("/:id", userHandler.GetUser, perm("users:list"))
 
 	// ============================================================
 	// Reports (permission-gated; the service applies the _any ownership scope)
 	// ============================================================
-	perm := func(name string) echo.MiddlewareFunc {
-		return ourmiddleware.RequirePermission(roleRepo, userRepo, name)
-	}
 	reports := api.Group("/reports", authn, ourmiddleware.RequireAuth())
 	reports.GET("", reportHandler.ListReports, perm("reports:read"), limits.Read)
 	// One shared bucket for all four writes (each costs a transaction and an audit
@@ -101,52 +104,49 @@ func Setup(
 	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, perm("reports:approve"), limits.Write)
 
 	// ============================================================
-	// Admin routes (RBAC-protected)
+	// Admin routes (37b): the review areas are permission-gated, so a custom
+	// role can use them; account and role management stay admin-only, because
+	// users:write includes resetting an admin's password.
 	// ============================================================
-	admin := api.Group("/admin",
-		authn, ourmiddleware.RequireAuth(),
-		ourmiddleware.RequireRole(userRepo, "admin"),
-	)
+	admin := api.Group("/admin", authn, ourmiddleware.RequireAuth())
 
 	// Roles (D-A21). Writes need roles:write on top of the admin role, and are audited;
 	// PUT replaces the whole permission set, so there are no per-permission routes.
-	admin.GET("/roles", roleHandler.List)
-	admin.POST("/roles", roleHandler.Create, perm("roles:write"), limits.Write)
-	admin.GET("/roles/:id", roleHandler.Get)
-	admin.PUT("/roles/:id", roleHandler.Update, perm("roles:write"), limits.Write)
-	admin.DELETE("/roles/:id", roleHandler.Delete, perm("roles:write"), limits.Write)
+	admin.GET("/roles", roleHandler.List, adminOnly)
+	admin.POST("/roles", roleHandler.Create, adminOnly, perm("roles:write"), limits.Write)
+	admin.GET("/roles/:id", roleHandler.Get, adminOnly)
+	admin.PUT("/roles/:id", roleHandler.Update, adminOnly, perm("roles:write"), limits.Write)
+	admin.DELETE("/roles/:id", roleHandler.Delete, adminOnly, perm("roles:write"), limits.Write)
 
 	// Permissions
-	admin.GET("/permissions", permissionHandler.List)
-	admin.POST("/permissions", permissionHandler.Create)
-	admin.GET("/permissions/:id", permissionHandler.Get)
-	admin.DELETE("/permissions/:id", permissionHandler.Delete)
+	admin.GET("/permissions", permissionHandler.List, adminOnly)
+	admin.POST("/permissions", permissionHandler.Create, adminOnly)
+	admin.GET("/permissions/:id", permissionHandler.Get, adminOnly)
+	admin.DELETE("/permissions/:id", permissionHandler.Delete, adminOnly)
 
 	// Users (admin management)
-	admin.GET("/users/:id", adminUserHandler.GetUser)
-	// The only way to create an account (there is no self-registration). The group
-	// already requires the admin role; users:write is a second, explicit gate.
-	admin.POST("/users", adminUserHandler.CreateUser, perm("users:write"))
-	admin.PUT("/users/:id", adminUserHandler.UpdateUser, perm("users:write"))
-	admin.PUT("/users/:id/status", adminUserHandler.ChangeStatus, perm("users:write"))
-	admin.PUT("/users/:id/role", adminUserHandler.ChangeRole, perm("users:write"), limits.Write)
-	admin.DELETE("/users/:id", adminUserHandler.DeleteUser, perm("users:write"))
-	admin.POST("/users/:id/restore", adminUserHandler.RestoreUser, perm("users:write"))
+	admin.GET("/users/:id", adminUserHandler.GetUser, adminOnly)
+	// The only way to create an account (there is no self-registration).
+	// users:write is a second, explicit gate after the admin role.
+	admin.POST("/users", adminUserHandler.CreateUser, adminOnly, perm("users:write"))
+	admin.PUT("/users/:id", adminUserHandler.UpdateUser, adminOnly, perm("users:write"))
+	admin.PUT("/users/:id/status", adminUserHandler.ChangeStatus, adminOnly, perm("users:write"))
+	admin.PUT("/users/:id/role", adminUserHandler.ChangeRole, adminOnly, perm("users:write"), limits.Write)
+	admin.DELETE("/users/:id", adminUserHandler.DeleteUser, adminOnly, perm("users:write"))
+	admin.POST("/users/:id/restore", adminUserHandler.RestoreUser, adminOnly, perm("users:write"))
 	// Sets another user's password (D-A12): a write, so it shares change-password's limiter.
-	admin.POST("/users/:id/reset-password", adminUserHandler.ResetPassword, perm("users:write"), limits.Write)
+	admin.POST("/users/:id/reset-password", adminUserHandler.ResetPassword, adminOnly, perm("users:write"), limits.Write)
 
 	// Excel downloads (D-A6). POST so the CSRF check covers the audit row they write.
-	admin.POST("/reports/excel", reportHandler.ExportReports, perm("reports:read_any"), limits.Write)
-	admin.POST("/reports/:id/excel", reportHandler.ExportReport, perm("reports:read_any"), limits.Write)
+	admin.POST("/reports/excel", reportHandler.ExportReports, perm("reports:export"), limits.Write)
+	admin.POST("/reports/:id/excel", reportHandler.ExportReport, perm("reports:export"), limits.Write)
 	// Preview of either download (D-A15): no side effects, so the read limiter.
-	admin.POST("/reports/excel/preview", reportHandler.PreviewExcel, perm("reports:read_any"), limits.Read)
+	admin.POST("/reports/excel/preview", reportHandler.PreviewExcel, perm("reports:export"), limits.Read)
 
-	// Counts for the admin panel cards. The group already requires the admin role.
-	admin.GET("/stats", statsHandler.GetStats, limits.Read)
-	admin.GET("/tracker", statsHandler.GetTracker, perm("reports:read_any"), limits.Read)
+	// Counts for the admin panel cards, and who has reported this month.
+	admin.GET("/stats", statsHandler.GetStats, perm("tracker:read"), limits.Read)
+	admin.GET("/tracker", statsHandler.GetTracker, perm("tracker:read"), limits.Read)
 
-	// The audit trail, read-only (no other method is routed). The group already requires the admin role.
-	admin.GET("/audit-logs", auditHandler.List, limits.Read)
-
-	_ = roleRepo // referenced in RequireRole
+	// The audit trail, read-only (no other method is routed).
+	admin.GET("/audit-logs", auditHandler.List, perm("audit:read"), limits.Read)
 }

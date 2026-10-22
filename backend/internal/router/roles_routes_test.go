@@ -98,6 +98,27 @@ func TestRoleWriteRoutes_Access(t *testing.T) {
 	}
 }
 
+// The Roles tab and the permission list stay admin-only (37b): a custom role
+// holding every admin-area permission and roles:write gets 403 on every route.
+func TestRoleAndPermissionRoutes_AdminOnly(t *testing.T) {
+	e, svc := rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: noLimit}, "Reviewer", reviewerPerms...)
+	for _, rt := range []struct{ method, path, body string }{
+		{http.MethodGet, "/api/v1/admin/roles", ""},
+		{http.MethodGet, "/api/v1/admin/roles/4", ""},
+		{http.MethodGet, "/api/v1/admin/permissions", ""},
+		{http.MethodGet, "/api/v1/admin/permissions/1", ""},
+		{http.MethodPost, "/api/v1/admin/permissions", `{"name":"x:y","resource":"x","action":"y"}`},
+		{http.MethodDelete, "/api/v1/admin/permissions/1", ""},
+	} {
+		if got := reportRequestAs(e, rt.method, rt.path, rt.body, "1"); got != http.StatusForbidden {
+			t.Errorf("%s %s = %d, want 403", rt.method, rt.path, got)
+		}
+	}
+	if svc.calls != 0 {
+		t.Error("a custom role reached the role service")
+	}
+}
+
 // Role writes share the write limiter, after the role and permission gates.
 func TestRoleWriteRoutes_AreRateLimited(t *testing.T) {
 	tooMany := func(echo.HandlerFunc) echo.HandlerFunc {

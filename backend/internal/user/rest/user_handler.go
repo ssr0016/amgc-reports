@@ -21,7 +21,7 @@ func NewUserHandler(repo user.Store) *UserHandler {
 
 // ListUsers godoc
 // @Summary      List users
-// @Description  Admin only. Returns paginated list of users
+// @Description  Needs users:list. Returns paginated list of users
 // @Tags         users
 // @Produce      json
 // @Security     CookieAuth
@@ -63,7 +63,7 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 
 // GetUser godoc
 // @Summary      Get user by ID
-// @Description  Admin only. Returns a single user
+// @Description  Needs users:list. Returns a single user
 // @Tags         users
 // @Produce      json
 // @Security     CookieAuth

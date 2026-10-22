@@ -121,6 +121,8 @@ func TestAdminUserRoutes_Access(t *testing.T) {
 		{"no session", "admin", []string{"users:write"}, "", func(int) int { return http.StatusUnauthorized }},
 		{"plain user", "user", []string{"users:read"}, "1", func(int) int { return http.StatusForbidden }},
 		{"editor holding users:write is still not an admin", "editor", []string{"users:read", "users:write"}, "1", func(int) int { return http.StatusForbidden }},
+		// users:write includes password reset: a custom role must never manage accounts (37b).
+		{"custom role holding users:write and every admin-area permission", "Reviewer", reviewerPerms, "1", func(int) int { return http.StatusForbidden }},
 		{"admin role without users:write", "admin", []string{"users:read"}, "1", func(int) int { return http.StatusForbidden }},
 		{"admin with users:write", "admin", []string{"users:read", "users:write"}, "1", func(ok int) int { return ok }},
 	}
@@ -141,27 +143,37 @@ func TestAdminUserRoutes_Access(t *testing.T) {
 }
 
 // GET /users and /users/:id expose every account's email and name, so they need
-// the admin role. The editor holds users:read and still gets 403: the role gates
-// the routes, not the permission.
-func TestUsersRoutes_AdminOnly(t *testing.T) {
+// users:list (37b). The plain user and the editor hold users:read and still get 403.
+func TestUsersRoutes_NeedUsersList(t *testing.T) {
 	tests := []struct {
 		name, role, user string // user "" = no session
+		perms            []string
 		want             int
 	}{
-		{"no session", "admin", "", http.StatusUnauthorized},
-		{"plain user", "user", "1", http.StatusForbidden},
-		{"editor holding users:read", "editor", "1", http.StatusForbidden},
-		{"admin", "admin", "1", http.StatusOK},
+		{"no session", "admin", "", []string{"users:list"}, http.StatusUnauthorized},
+		{"plain user", "user", "1", plainUserPerms, http.StatusForbidden},
+		{"editor holding users:read", "editor", "1", []string{"users:read", "users:write"}, http.StatusForbidden},
+		{"admin role without users:list", "admin", "1", []string{"users:read"}, http.StatusForbidden},
+		{"custom role with users:list", "Reviewer", "1", reviewerPerms, http.StatusOK},
+		{"admin", "admin", "1", []string{"users:list"}, http.StatusOK},
 	}
 	for _, tt := range tests {
 		for _, path := range []string{"/api/v1/users", "/api/v1/users/1"} {
 			t.Run(tt.name+path, func(t *testing.T) {
-				e, _ := adminUsersServer(tt.role, "users:read")
+				e, _ := adminUsersServer(tt.role, tt.perms...)
 				if got := reportRequestAs(e, http.MethodGet, path, "", tt.user); got != tt.want {
 					t.Errorf("status = %d, want %d", got, tt.want)
 				}
 			})
 		}
+	}
+}
+
+// The Edit User page's read stays admin-only, even for a users:list holder.
+func TestAdminUserGet_AdminOnly(t *testing.T) {
+	e, _ := adminUsersServer("Reviewer", reviewerPerms...)
+	if got := reportRequestAs(e, http.MethodGet, "/api/v1/admin/users/1", "", "1"); got != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", got)
 	}
 }
 

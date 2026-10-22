@@ -17,4 +17,11 @@ export type Permission =
   | "reports:write_any"
   | "reports:delete"
   | "reports:delete_any"
-  | "reports:approve";
+  | "reports:approve"
+  | "reports:export"
+  | "tracker:read"
+  | "audit:read"
+  | "users:list";
+
+// Any one of these opens /admin (37b); each opens its own tab. Keep in step with the tabs in admin-panel.tsx.
+export const ADMIN_AREA: Permission[] = ["reports:approve", "reports:export", "tracker:read", "users:list", "audit:read"];

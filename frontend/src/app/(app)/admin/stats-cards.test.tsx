@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { StatsCards } from "./stats-cards";
 
-const h = vi.hoisted(() => ({ isAdmin: true, getStats: vi.fn() }));
-vi.mock("@/lib/session", () => ({ useSession: () => ({ isAdmin: h.isAdmin }) }));
+const h = vi.hoisted(() => ({ perms: ["tracker:read"] as string[], getStats: vi.fn() }));
+vi.mock("@/lib/session", () => ({ useSession: () => ({ can: (p: string) => h.perms.includes(p) }) }));
 vi.mock("@/lib/stats", () => ({ getStats: h.getStats }));
 
 const stats = (over = {}) => ({
@@ -31,7 +31,7 @@ const renderCards = () =>
 const card = (label: string) => screen.getByText(label, { selector: "[data-slot=card-description]" }).closest("[data-slot=card]") as HTMLElement;
 
 beforeEach(() => {
-  h.isAdmin = true;
+  h.perms = ["tracker:read"];
   h.getStats.mockReset();
 });
 
@@ -86,8 +86,8 @@ describe("StatsCards", () => {
     expect(screen.queryByRole("region", { name: "Statistics" })).not.toBeInTheDocument();
   });
 
-  it("does not fetch, or render anything, for a non-admin", () => {
-    h.isAdmin = false;
+  it("does not fetch, or render anything, without tracker:read, even for a plain user who reads every report", () => {
+    h.perms = ["reports:read", "reports:read_any", "users:read"];
     const { container } = renderCards();
     expect(h.getStats).not.toHaveBeenCalled();
     expect(container).toBeEmptyDOMElement();

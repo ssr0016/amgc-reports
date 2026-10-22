@@ -41,7 +41,7 @@ In build-plan order. Done: 1-15, 21, 22, 27, and 20 except 20e.
 22. **Admin panel Phase C (done)** - 22a user status (D-A10), 22b soft delete and restore (D-A11), 22c owner badges on reports, 22d password confirm field, 22e admin reset password (D-A12), 22g Excel export in the legacy layout, 22f export preview (D-A15), 22h bulk Report Dashboard and approved-only sheets (D-A16).
 37. **Dynamic RBAC (next, D-A21)**
     - 37a Roles tab: custom roles with a grouped permission checklist, `roles:write`, no delete while users hold the role, built-in roles read-only, role dropdown on Create and Edit User with last-admin and self protection, audited, with a migration.
-    - 37b permission-gated admin panel (not specced).
+    - 37b permission-gated admin panel: `reports:export`, `tracker:read`, `audit:read` and `users:list` (seeded, admin only by default) open the review tabs to custom roles; account and role management stay admin-only.
 28-36. **Backlog (not specced)** - 28 password rules in the UI, 29 idle sign-out in the browser, 30 audit-log CSV export, 31 empty and loading states pass, 32 copy password on create-user, 33 avatars, 34 Neon backup and restore test, 35 Sentry alerts, 36 open P3 findings.
 16, 26. **Deferred** - 16 F0 domain setup (`amgcreports.com` chosen); 26 D-F7 Cloudflare proxy and IP limits.
 23-25. **Skipped (D-A18)** - E-1 email delivery, forgot-password flow, reset-password UI.

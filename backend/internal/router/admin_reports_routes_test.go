@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// The Excel exports and their preview need the admin role and reports:read_any (D-A6, D-A15).
+// The Excel exports and their preview need reports:export (D-A6, D-A15, 37b), not the admin role.
 func TestAdminReportExportRoutes_Access(t *testing.T) {
 	routes := []struct{ name, path, body string }{
 		{"one", "/api/v1/admin/reports/1/excel", ""},
@@ -18,10 +18,12 @@ func TestAdminReportExportRoutes_Access(t *testing.T) {
 		user       string // "" = no session
 		want       int
 	}{
-		{"no session", "admin", []string{"reports:read_any"}, "", http.StatusUnauthorized},
-		{"editor holding reports:read_any is still not an admin", "editor", []string{"reports:read", "reports:read_any"}, "1", http.StatusForbidden},
-		{"admin role without reports:read_any", "admin", []string{"reports:read"}, "1", http.StatusForbidden},
-		{"admin with reports:read_any", "admin", []string{"reports:read_any"}, "1", http.StatusOK},
+		{"no session", "admin", []string{"reports:export"}, "", http.StatusUnauthorized},
+		{"plain user who may read every report", "user", plainUserPerms, "1", http.StatusForbidden},
+		{"editor holding reports:read_any", "editor", []string{"reports:read", "reports:read_any"}, "1", http.StatusForbidden},
+		{"admin role without reports:export", "admin", []string{"reports:read_any"}, "1", http.StatusForbidden},
+		{"custom role with reports:export", "Reviewer", reviewerPerms, "1", http.StatusOK},
+		{"admin with reports:export", "admin", []string{"reports:export"}, "1", http.StatusOK},
 	}
 	for _, tt := range tests {
 		for _, rt := range routes {

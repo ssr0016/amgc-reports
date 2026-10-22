@@ -58,6 +58,23 @@ describe("SessionProvider", () => {
     await waitFor(() => expect(result.current.isAdmin).toBe(true));
   });
 
+  it("canAdmin is true for the admin role or any admin-area permission, never for a plain user's", async () => {
+    const cases: [string, string[], boolean][] = [
+      ["admin", [], true],
+      ["Reviewer", ["tracker:read"], true],
+      ["Reviewer", ["reports:approve"], true],
+      ["user", ["users:read", "reports:read", "reports:read_any", "reports:write", "reports:delete"], false],
+      ["editor", ["users:read", "users:write", "reports:read_any", "reports:write_any"], false],
+    ];
+    for (const [role, perms, want] of cases) {
+      stubApi({ "/auth/me": () => json(200, me(role, perms)) });
+      const { result, unmount } = renderHook(() => useSession(), { wrapper });
+      await waitFor(() => expect(result.current.status).toBe("authenticated"));
+      expect(result.current.canAdmin, `${role} ${perms}`).toBe(want);
+      unmount();
+    }
+  });
+
   it("signIn loads the user and signOut clears it, even if logout fails", async () => {
     let signedIn = false;
     stubApi({

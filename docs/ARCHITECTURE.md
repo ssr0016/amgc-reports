@@ -59,7 +59,7 @@ Frontend API types are generated from `backend/docs/swagger.json` (`npm run gen:
 | editor | users:read, users:write, reports:read, reports:write, reports:delete, reports:read_any, reports:write_any, reports:delete_any (no `reports:approve`; revoked by migration `20261014120000`) |
 | user | users:read, reports:read, reports:read_any, reports:write, reports:delete |
 
-These three are built in and read-only (D-A21). Admins holding `roles:write` add custom roles in the Roles tab, with any set of these permissions; the `/admin` area still requires the `admin` role (37b will gate it by permission).
+These three are built in and read-only (D-A21). Admins holding `roles:write` add custom roles in the Roles tab, with any set of these permissions. Since 37b, `/admin` opens for the admin role or any admin-area permission, and each review area has its own: `reports:approve` and `reports:export` (Reports tab), `tracker:read` (Tracker and stats cards), `users:list` (read-only users list, `GET /users`) and `audit:read` (Logs). Account management, the Roles tab and the permission list stay admin-only, because `users:write` includes resetting an admin's password. The seed adds these four permissions and gives them only to `admin`.
 
 `user` holds `reports:read_any`, so every signed-in user can list and open every report. D-18 limits what they see: without ownership, `write_any` or `delete_any`, the free text (`names`, `narrative_report`, `challenges`, `prayer_request`) and the `tithes_offering` metric are withheld.
 

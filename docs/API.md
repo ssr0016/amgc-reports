@@ -58,7 +58,7 @@ over-72-byte new password is a 422 on `new_password`. A missing `confirm_passwor
 
 ## Users
 
-### List Users (paginated, admin role only)
+### List Users (paginated, `users:list`)
 
 GET /users?page=1&limit=10&email=user&status=inactive
 
@@ -76,13 +76,13 @@ Response (200):
       }
     }
 
-### Get User (admin role only)
+### Get User (`users:list`)
 
 GET /users/:id
 
 ## Admin Endpoints
 
-Requires role: admin.
+Each route names its gate (37b). Account management (`/admin/users*`), roles and permissions require the `admin` role; the review areas (stats, Tracker, audit logs, Excel) need a permission instead, so a custom role can use them. The plain `user` role's `users:read` and `reports:read_any` open none of them.
 
 ### List Roles (paginated)
 
@@ -194,7 +194,7 @@ or **your own account** ("You cannot reset your own password. Use the Change Pas
 the own-account 403. Requires a session and a CSRF token. The new password is shown to the admin only in
 the browser, once; giving it to the worker is up to the admin (e-mail delivery is a later feature).
 
-### Admin Stats (admin role only)
+### Admin Stats (`tracker:read`)
 
 GET /admin/stats?month=September&year=2026
 
@@ -212,11 +212,11 @@ Counts for the admin panel cards. `month` (English name, case-insensitive) and `
 
 `users_total` and `admins_total` count every account whatever the month. Errors: 400 for a year that is not a positive number, 401 without a session, 403 for any role but admin, 422 when only one of month and year is sent or the month is not a month name.
 
-### Tracker (admin role and `reports:read_any`)
+### Tracker (`tracker:read`)
 
 GET /admin/tracker?month=September&year=2026
 
-Who has reported for one month (D-A3), for the admin panel's Tracker tab. One row per account with the `user` role that is not deleted, whatever its status (inactive, disciplinary and deceased accounts are included); admins and editors are not tracked. `status` comes from the account's active report for the month: `approved`, `for_review` (filed, not approved) or `not_submitted` (none). Rows are ordered by church name, then name. The period rules and errors are those of `/admin/stats`; 403 also without `reports:read_any`. Rate limited like report reads. No report text.
+Who has reported for one month (D-A3), for the admin panel's Tracker tab. One row per account with the `user` role that is not deleted, whatever its status (inactive, disciplinary and deceased accounts are included); admins and editors are not tracked. `status` comes from the account's active report for the month: `approved`, `for_review` (filed, not approved) or `not_submitted` (none). Rows are ordered by church name, then name. The period rules and errors are those of `/admin/stats`; 403 without `tracker:read`. Rate limited like report reads. No report text.
 
  {
  "month": "September",
@@ -228,7 +228,7 @@ Who has reported for one month (D-A3), for the admin panel's Tracker tab. One ro
 
 `church_name` is `""` when the account has none; `rows` is `[]` when nobody is tracked.
 
-### Audit Logs (admin role only)
+### Audit Logs (`audit:read`)
 
 GET /admin/audit-logs?month=October&year=2026&action=LOGIN_FAILED&page=1&limit=50
 
@@ -253,12 +253,12 @@ One page of the audit trail for one month in Asia/Manila, newest first. `month` 
 
 Actor name and role are what was stored when the action happened. A failed login has no actor; one for an unknown or deleted email has no target either. Errors: 400 for a year that is not a number, 401 without a session, 403 for any role but admin, 422 for a bad month or year (`details.month`) or an unknown action (`details.action`).
 
-### Export Reports to Excel (admin role only)
+### Export Reports to Excel (`reports:export`)
 
 POST /admin/reports/:id/excel
 POST /admin/reports/excel
 
-Both need the admin role, `reports:read_any` and the CSRF header (POST, because each download writes an audit row). The workbook uses the legacy "Church Growth Program Report" sheet layout and styling (D-A6, D-A17): one sheet per report with Month of, Worker, Area of Assignment, Church, the Week 1-5 metric grid with an `AVERAGE` column, Names, Narrative Report, Challenges and Prayer Request. Blank weeks stay blank; 0 is written as 0.
+Both need `reports:export` and the CSRF header (POST, because each download writes an audit row). The workbook uses the legacy "Church Growth Program Report" sheet layout and styling (D-A6, D-A17): one sheet per report with Month of, Worker, Area of Assignment, Church, the Week 1-5 metric grid with an `AVERAGE` column, Names, Narrative Report, Challenges and Prayer Request. Blank weeks stay blank; 0 is written as 0.
 
 The first returns one report, approved or not. The second takes a body and returns the month's bulk workbook (D-A16):
 
@@ -273,13 +273,13 @@ A month with no approved reports still returns the file, with the dashboard alon
 
 Response (200): the `.xlsx` bytes with `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment` (an ASCII `filename` and a UTF-8 `filename*`) and `Cache-Control: no-store`. Names: `<Church or "Report id"> <Month> <Year>.xlsx` and `Church Growth Program Report <Month> <Year>.xlsx`.
 
-Each successful download writes one `DOWNLOAD_SINGLE_EXCEL` or `DOWNLOAD_BULK_EXCEL` audit row with `details` `{month, year, count}`, where the bulk `count` is the number of report sheets (0 or more); a failed one writes none. Errors: 400 for a non-numeric id, 401 without a session, 403 for a non-admin or without `reports:read_any`, 404 for a missing or deleted report (single), 422 for a missing or invalid month or year (2000-2100) or more than 100 approved reports in the month. Both share the per-user write limit.
+Each successful download writes one `DOWNLOAD_SINGLE_EXCEL` or `DOWNLOAD_BULK_EXCEL` audit row with `details` `{month, year, count}`, where the bulk `count` is the number of report sheets (0 or more); a failed one writes none. Errors: 400 for a non-numeric id, 401 without a session, 403 without `reports:export`, 404 for a missing or deleted report (single), 422 for a missing or invalid month or year (2000-2100) or more than 100 approved reports in the month. Both share the per-user write limit.
 
-### Preview an Excel Export (admin role only)
+### Preview an Excel Export (`reports:export`)
 
 POST /admin/reports/excel/preview
 
-The admin Reports tab shows this before every download (D-A15). It builds the same workbook as the export and returns it as text. It writes no audit row. Same gate as the export (admin role, `reports:read_any`, CSRF header); it uses the per-user read limit. The body is exactly one of:
+The admin Reports tab shows this before every download (D-A15). It builds the same workbook as the export and returns it as text. It writes no audit row. Same gate as the export (`reports:export`, CSRF header); it uses the per-user read limit. The body is exactly one of:
 
 
 {"report_id":42}

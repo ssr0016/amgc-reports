@@ -6,7 +6,7 @@ import AppLayout from "./layout";
 const h = vi.hoisted(() => ({ status: "authenticated" }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports" }));
 vi.mock("@/lib/session", () => ({
-  useSession: () => ({ status: h.status, user: { name: "Ana", email: "a@b.c", role: "user" }, isAdmin: false, signOut: vi.fn() }),
+  useSession: () => ({ status: h.status, user: { name: "Ana", email: "a@b.c", role: "user" }, isAdmin: false, canAdmin: false, signOut: vi.fn() }),
 }));
 
 describe("app layout", () => {

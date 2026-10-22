@@ -87,7 +87,7 @@ describe("admin reports: table", () => {
   });
 
   it("has an Excel control named for its row", async () => {
-    renderReports("reports:read");
+    renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
     const excel = within(row("Worker 1")).getByRole("button", { name: /^Excel / });
     expect(excel).toBeEnabled();
@@ -211,7 +211,7 @@ describe("admin reports: filters", () => {
 
 describe("admin reports: Download Bulk", () => {
   it("is a button in the filter row", async () => {
-    renderReports("reports:read");
+    renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
     const bulk = screen.getByRole("button", { name: "Download Bulk" });
     expect(bulk).toBeEnabled();
@@ -220,7 +220,7 @@ describe("admin reports: Download Bulk", () => {
 
   // jsdom has no layout, so the right side is checked as the DOM order (last in the row) and the class that pushes it there.
   it("sits on the right of the filter row, after Month and Year", async () => {
-    renderReports("reports:read");
+    renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
     const form = screen.getByLabelText("Month").closest("form")!;
     const bulk = screen.getByRole("button", { name: "Download Bulk" });
@@ -232,9 +232,21 @@ describe("admin reports: Download Bulk", () => {
 
   it("is disabled when the period has no reports", async () => {
     h.listReports.mockResolvedValue(page([]));
-    renderReports("reports:read");
+    renderReports("reports:read", "reports:export");
     await screen.findByText("No reports match these filters.");
     expect(screen.getByRole("button", { name: "Download Bulk" })).toBeDisabled();
+  });
+});
+
+describe("admin reports: export gate (37b)", () => {
+  it("without reports:export there is no Excel or Download Bulk button, and no export call", async () => {
+    renderReports("reports:read", "reports:approve");
+    await screen.findByText("Church 1");
+    expect(screen.queryByRole("button", { name: /^Excel/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download Bulk" })).not.toBeInTheDocument();
+    expect(within(row("Church 1")).getAllByText("—").length).toBeGreaterThan(0);
+    expect(h.previewExcel).not.toHaveBeenCalled();
+    expect(h.exportReport).not.toHaveBeenCalled();
   });
 });
 
@@ -247,7 +259,7 @@ describe("admin reports: Excel preview and downloads", () => {
   });
 
   it("Download Bulk opens the month's preview and downloads nothing yet", async () => {
-    const { user } = renderReports("reports:read");
+    const { user } = renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
     await user.selectOptions(screen.getByLabelText("Month"), "May");
     await user.selectOptions(screen.getByLabelText("Year"), "2026");
@@ -262,7 +274,7 @@ describe("admin reports: Excel preview and downloads", () => {
   it("Download exports once, is busy until the file arrives, then closes", async () => {
     let resolve!: (v: typeof file) => void;
     h.exportReports.mockReturnValue(new Promise((r) => (resolve = r)));
-    const { user } = renderReports("reports:read");
+    const { user } = renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
     await user.click(screen.getByRole("button", { name: "Download Bulk" }));
     const dialog = await screen.findByRole("alertdialog");
@@ -284,7 +296,7 @@ describe("admin reports: Excel preview and downloads", () => {
 
   it("a row's Excel button previews that report; Cancel downloads nothing", async () => {
     h.previewExcel.mockResolvedValue({ count: 1, sheets: [sheet("Church 1")] });
-    const { user } = renderReports("reports:read");
+    const { user } = renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
     await user.click(within(row("Worker 1")).getByRole("button", { name: /^Excel / }));
 
@@ -300,7 +312,7 @@ describe("admin reports: Excel preview and downloads", () => {
 
   it("a failed download shows the server's message and keeps the preview open", async () => {
     h.exportReport.mockRejectedValue(new ApiError(404, "NOT_FOUND", "Report not found."));
-    const { user } = renderReports("reports:read");
+    const { user } = renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
     await user.click(within(row("Worker 2")).getByRole("button", { name: /^Excel / }));
     const dialog = await screen.findByRole("alertdialog");

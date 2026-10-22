@@ -286,7 +286,7 @@ func sendExport(c echo.Context, x *report.Export) error {
 
 // ExportReport godoc
 // @Summary      Download one report as Excel
-// @Description  Admin only. Returns the report in the legacy Church Growth Program Report layout (D-A6) and writes a DOWNLOAD_SINGLE_EXCEL audit row.
+// @Description  Needs reports:export. Returns the report in the legacy Church Growth Program Report layout (D-A6) and writes a DOWNLOAD_SINGLE_EXCEL audit row.
 // @Tags         admin
 // @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 // @Security     CookieAuth
@@ -315,7 +315,7 @@ func (h *ReportHandler) ExportReport(c echo.Context) error {
 
 // ExportReports godoc
 // @Summary      Download a month of reports as Excel
-// @Description  Admin only. A Report Dashboard sheet (title, then Churches, Month, Year, Status, Coordinator's Remark, Support Status) with every church account's report month, year and status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout and styling (D-A6, D-A16, D-A17, D-A19). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.
+// @Description  Needs reports:export. A Report Dashboard sheet (title, then Churches, Month, Year, Status, Coordinator's Remark, Support Status) with every church account's report month, year and status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout and styling (D-A6, D-A16, D-A17, D-A19). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.
 // @Tags         admin
 // @Accept       json
 // @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
@@ -348,7 +348,7 @@ func (h *ReportHandler) ExportReports(c echo.Context) error {
 
 // PreviewExcel godoc
 // @Summary      Preview an Excel export
-// @Description  Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and cell text: A1:G42 for a report sheet, title, header and one row per account (6 columns) for the month's Report Dashboard. count is the number of report sheets. Writes no audit row (D-A15, D-A16, D-A19).
+// @Description  Needs reports:export. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and cell text: A1:G42 for a report sheet, title, header and one row per account (6 columns) for the month's Report Dashboard. count is the number of report sheets. Writes no audit row (D-A15, D-A16, D-A19).
 // @Tags         admin
 // @Accept       json
 // @Produce      json
