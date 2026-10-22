@@ -28,6 +28,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A17 | Excel sheets follow the legacy workbook's styling | Decided 2026-10-22 | here |
 | D-A18 | Closed system: no self-registration, no email recovery for now | Decided 2026-10-22 | here |
 | D-A19 | Report Dashboard: Month and Year columns, owner's new reference styling | Decided 2026-10-22 | here |
+| D-A20 | Audit Logs UI and sign-in audit | Decided 2026-10-22; built in 21a | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -94,6 +95,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 
 #### D-A4 Login and logout audit, and the IP address
 - **Decided:** successful logins and logouts only; the IP is not shown.
+- **Amended (owner, 2026-10-22):** failed logins are logged too (`LOGIN_FAILED`, D-A20). The IP is still stored and still never shown, now also left out of the API response.
 - **Question:** log every login and logout, or logins only? Log failed logins? Show the IP address in the Logs tab?
 - **Recommendation:** successful logins and logouts, no failed logins (the rate limiter and lockout already cover them), IP address not shown in the table. The actions need a CHECK constraint migration.
 
@@ -286,6 +288,18 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Styling:** bold blue (`#0000FF`) 18 pt title, not underlined, on lavender (`#DDDDFF`); bold gray (`#E0E0E0`) header; white cells with thin borders on every side; Month centered, Year bold and centered. Approved is green (`#00AA00`, as in the reference; owner, 2026-10-22); Pending and Not Filed stay red (`#FF0000`, D-A17). Widths are converted from the screenshot. The sheet prints landscape so the six columns fit on one page (owner).
 - **Remark columns (owner, 2026-10-22):** an Approved row reads "Checked" in Coordinator's Remark and "Ready for Pick Up" in Support Status, both bold white on blue `#0000CC` and centered. Pending and Not Filed rows leave both blank, bordered and unfilled. The values come from the status alone; nothing is stored.
 - **Unchanged:** only approved reports get a metric sheet (D-A16); every church account stays on the dashboard.
+
+### D-A20 Audit Logs UI and sign-in audit
+**Date:** 2026-10-22 · **Status:** Decided by the owner; built in 21a · **Spec:** `.specify/specs/001-audit-logs-ui/`
+
+- **What is logged:** state-changing actions only. Reads, previews, the Logs tab itself and token refreshes write nothing. Three new actions: `LOGIN`, `LOGOUT`, `LOGIN_FAILED` (migration `20261022120000`, shipped in the same deploy as the code).
+- **Login:** the `LOGIN` row shares the transaction with the refresh token; if it cannot be written, the login answers 500 and no session is left.
+- **Logout:** `LOGOUT` only when the logout ends a live session (a token not yet revoked or expired).
+- **Failed login:** one `LOGIN_FAILED` row per refusal the rate limiter lets through, with `reason` (`unknown_account`, `wrong_password`, `locked`, or the status). No actor. An unknown or deleted email gets no target and the typed email is not stored: people type passwords into that box, and D-A11 needs a deleted account to look unknown. Best effort: a write failure is logged and the client gets the usual refusal, unchanged.
+- **Details allow-list:** `audit.DetailKeys` per action, checked in `Insert` (and the test mock), fail closed. Built from what the code wrote on 2026-10-22, so no existing write changed.
+- **Read API:** `GET /admin/audit-logs`, admin role, one Asia/Manila month (`month`, `year`), optional `action`, 50 per page by default, newest first with `id` breaking ties. No `ip_address` in the SELECT or the response; no actor ID. Amends D-10 ("No read API").
+- **Logs tab:** third tab of `/admin`; Month/Year default to the **current** Manila month (a log view must show today, unlike the Reports tab's previous month); Action filter; expandable rows with labelled details, never raw JSON. Read-only.
+- **Not done (backlog):** CSV export (item 30), retention (D-10), filtering by actor or target.
 
 ### D-AR1 Architecture alignment with the company codebase, and JWT auth
 **Date:** 2026-10-21 · **Status:** Decided; phases 0 to 3 built (JWT cutover and frontend refresh), not deployed

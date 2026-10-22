@@ -45,7 +45,7 @@ func newTestServer() *echo.Echo {
 		nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil),
 		authrest.NewPasswordResetHandler(nil),
-		nil, nil, noLimits,
+		nil, nil, nil, noLimits,
 	)
 	return e
 }
@@ -100,7 +100,7 @@ func resetServer() *echo.Echo {
 		nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil),
 		authrest.NewPasswordResetHandler(svc),
-		nil, nil, noLimits,
+		nil, nil, nil, noLimits,
 	)
 	return e
 }

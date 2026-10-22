@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"regexp"
 	"testing"
+	"time"
 )
 
 var snakeCase = regexp.MustCompile(`^[a-z]+(_[a-z]+)*$`)
@@ -30,6 +31,27 @@ func TestMetricKeys(t *testing.T) {
 func TestMonths(t *testing.T) {
 	if len(Months) != 12 || Months[0] != "January" || Months[11] != "December" {
 		t.Fatalf("Months = %v, want January..December", Months)
+	}
+}
+
+func TestParseMonth(t *testing.T) {
+	tests := []struct {
+		in     string
+		want   time.Month
+		wantOK bool
+	}{
+		{"January", time.January, true},
+		{"september", time.September, true},
+		{"DECEMBER", time.December, true},
+		{"Sept", 0, false},
+		{"", 0, false},
+		{"13", 0, false},
+	}
+	for _, tt := range tests {
+		got, ok := ParseMonth(tt.in)
+		if got != tt.want || ok != tt.wantOK {
+			t.Errorf("ParseMonth(%q) = %v, %v; want %v, %v", tt.in, got, ok, tt.want, tt.wantOK)
+		}
 	}
 }
 

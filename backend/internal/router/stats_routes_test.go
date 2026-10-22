@@ -47,7 +47,7 @@ func statsServer(roleName string) (*echo.Echo, *okStatsSvc) {
 	Setup(e, noAuthn, users, permRoles{},
 		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
-		nil, statsrest.NewStatsHandler(svc),
+		nil, statsrest.NewStatsHandler(svc), nil,
 		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},
 	)
 	return e, svc

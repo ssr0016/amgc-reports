@@ -55,12 +55,12 @@ type TokenPair struct {
 // refresh tokens, Me and ChangePassword.
 type Service interface {
 	Me(ctx context.Context, userID int64) (*MeResponse, error)
-	Login(ctx context.Context, email, password string) (*user.User, error)
+	Login(ctx context.Context, email, password, ip string) (*user.User, error)
 	ChangePassword(ctx context.Context, userID int64, ip, keepFamily, current, next string) error
 	StartSession(ctx context.Context, userID int64, ip, userAgent string) (*TokenPair, error)
 	RenewAccess(userID int64, family string) (string, time.Time, error)
 	Refresh(ctx context.Context, raw, ip, userAgent string) (*TokenPair, error)
-	EndSession(ctx context.Context, raw string) error
+	EndSession(ctx context.Context, raw, ip string) error
 }
 
 // VerificationService issues and redeems email verification tokens.

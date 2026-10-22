@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
@@ -28,16 +29,16 @@ func TestLogin_DeletedThenRestoredUser(t *testing.T) {
 	require.NoError(t, err)
 	u, err := users.CreateWithPassword(ctx, "ana@example.com", "Ana", string(hash))
 	require.NoError(t, err)
-	svc := newService(users, nil, nil, nil, db, slog.New(slog.DiscardHandler))
+	svc := newService(users, nil, nil, auditimpl.NewStore(db), db, slog.New(slog.DiscardHandler))
 
 	_, err = users.SoftDelete(ctx, u.ID, u.ID, "")
 	require.NoError(t, err)
-	_, err = svc.Login(ctx, "ana@example.com", testPassword)
+	_, err = svc.Login(ctx, "ana@example.com", testPassword, "ip")
 	assert.ErrorIs(t, err, auth.ErrInvalidCredentials)
 
 	_, err = users.Restore(ctx, u.ID)
 	require.NoError(t, err)
-	got, err := svc.Login(ctx, "ana@example.com", testPassword)
+	got, err := svc.Login(ctx, "ana@example.com", testPassword, "ip")
 	require.NoError(t, err)
 	assert.Equal(t, u.ID, got.ID)
 }

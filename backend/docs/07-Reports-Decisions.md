@@ -123,6 +123,7 @@ Three numbering schemes exist. This doc uses the plan's D-numbers.
 - **Depends on:** wire shape with D-4, D-6.
 
 ## D-10 audit_logs
+- **Amended 2026-10-22 (D-A20):** admins now read the trail through `GET /admin/audit-logs` (no IP in the response), and `Insert` enforces a per-action `details` allow-list.
 - **Decision:** Include `audit_logs`. The audit row is written in the same transaction as the mutation. No read API. `ip_address VARCHAR(64)`. Retention deferred. A migration per new `action` value is accepted.
 - **Rationale:** Docs 01 and 02 require audit logging, and a same-transaction write can't diverge from the mutation. `VARCHAR` can't abort the transaction on a malformed IP.
 - **Implications:**

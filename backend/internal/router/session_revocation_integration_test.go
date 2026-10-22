@@ -85,7 +85,7 @@ func newAuthEnv(t *testing.T, tokenTTL time.Duration) *authEnv {
 		nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil),
 		authrest.NewPasswordResetHandler(authimpl.NewPasswordResetService(env.users, env.resets, log)),
-		nil, nil, noLimits,
+		nil, nil, nil, noLimits,
 	)
 	env.h = e
 	return env

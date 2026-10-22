@@ -64,12 +64,17 @@ export const MONTHS = [
 // Reports are filed for the month that just ended, so that is the list default
 // (January shows December of the previous year). The server counts months in
 // Asia/Manila, so this does too, whatever the browser's time zone is.
-export function defaultPeriod(now = new Date()) {
+export const defaultPeriod = (now = new Date()) => manilaMonth(now, -1);
+
+// The month in progress in Asia/Manila: the Logs tab opens on it, so today's activity shows.
+export const currentPeriod = (now = new Date()) => manilaMonth(now, 0);
+
+function manilaMonth(now: Date, offset: number) {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", year: "numeric", month: "numeric" })
     .formatToParts(now);
   const get = (type: string) => Number(parts.find((p) => p.type === type)!.value);
-  const prev = new Date(Date.UTC(get("year"), get("month") - 2, 1));
-  return { month: MONTHS[prev.getUTCMonth()], year: prev.getUTCFullYear() };
+  const d = new Date(Date.UTC(get("year"), get("month") - 1 + offset, 1));
+  return { month: MONTHS[d.getUTCMonth()], year: d.getUTCFullYear() };
 }
 
 // The system started in 2026; earlier years are not offered.

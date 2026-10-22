@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/authimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
 	"github.com/ssr0016/pastoral-reports/backend/internal/config"
@@ -36,7 +38,7 @@ func serveLogin(t *testing.T, status string, lockedUntil *time.Time, password st
 	}
 	u.Status, u.LockedUntil = status, lockedUntil
 
-	svc := authimpl.NewService(users, nil, nil, nil, nil, nil, token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute}),
+	svc := authimpl.NewService(users, nil, nil, auditimpl.NewMockStore(), cpTx{}, slog.New(slog.DiscardHandler), token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute}),
 		authimpl.NewMockRefreshStore(), authimpl.TokenSettings{RefreshTTL: time.Hour})
 	h := NewAuthHandler(svc, NewCookies(config.AuthConfig{}, false))
 	e := echo.New()

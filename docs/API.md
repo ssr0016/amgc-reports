@@ -203,6 +203,31 @@ Counts for the admin panel cards. `month` (English name, case-insensitive) and `
 
 `users_total` and `admins_total` count every account whatever the month. Errors: 400 for a year that is not a positive number, 401 without a session, 403 for any role but admin, 422 when only one of month and year is sent or the month is not a month name.
 
+### Audit Logs (admin role only)
+
+GET /admin/audit-logs?month=October&year=2026&action=LOGIN_FAILED&page=1&limit=50
+
+One page of the audit trail for one month in Asia/Manila, newest first. `month` (English name, case-insensitive) and `year` (2000 to 2100) are required; `action` is optional and must be one of the 17 audit actions. `limit` defaults to 50 here (at most 100). Rate limited like report reads. Read-only: no other method is routed, and viewing writes no audit row. The IP address is never returned (D-A4), and `details` holds only the action's allow-listed keys (D-A20).
+
+ {
+ "data": [
+ {
+ "id": 42,
+ "performed_by_name": null,
+ "performed_by_role": null,
+ "action": "LOGIN_FAILED",
+ "target_type": "User",
+ "target_id": "7",
+ "target_name": "worker@example.com",
+ "details": {"reason": "wrong_password"},
+ "created_at": "2026-10-22T08:05:09Z"
+ }
+ ],
+ "meta": {"page": 1, "limit": 50, "total": 1, "total_pages": 1}
+ }
+
+Actor name and role are what was stored when the action happened. A failed login has no actor; one for an unknown or deleted email has no target either. Errors: 400 for a year that is not a number, 401 without a session, 403 for any role but admin, 422 for a bad month or year (`details.month`) or an unknown action (`details.action`).
+
 ### Export Reports to Excel (admin role only)
 
 POST /admin/reports/:id/excel

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
@@ -40,11 +41,11 @@ func seedUser(t *testing.T, repo *userimpl.MockStore, email, name string) *user.
 
 func TestAuthService_Login_Success(t *testing.T) {
 	repo := userimpl.NewMockStore()
-	svc := newService(repo, nil, nil, nil, nil, discardLog)
+	svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, discardLog)
 
 	registered := seedUser(t, repo, "login@example.com", "Login User")
 
-	user, err := svc.Login(context.Background(), "login@example.com", testPassword)
+	user, err := svc.Login(context.Background(), "login@example.com", testPassword, "ip")
 	if err != nil {
 		t.Fatalf("Login() failed: %v", err)
 	}
@@ -55,9 +56,9 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 func TestAuthService_Login_UserNotFound(t *testing.T) {
 	repo := userimpl.NewMockStore()
-	svc := newService(repo, nil, nil, nil, nil, discardLog)
+	svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, discardLog)
 
-	_, err := svc.Login(context.Background(), "nobody@example.com", testPassword)
+	_, err := svc.Login(context.Background(), "nobody@example.com", testPassword, "ip")
 	if !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Errorf("Login() error = %v, want auth.ErrInvalidCredentials", err)
 	}
@@ -65,11 +66,11 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 
 func TestAuthService_Login_WrongPassword(t *testing.T) {
 	repo := userimpl.NewMockStore()
-	svc := newService(repo, nil, nil, nil, nil, discardLog)
+	svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, discardLog)
 
 	seedUser(t, repo, "wrong@example.com", "Wrong User")
 
-	_, err := svc.Login(context.Background(), "wrong@example.com", "wrong-password")
+	_, err := svc.Login(context.Background(), "wrong@example.com", "wrong-password", "ip")
 	if !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Errorf("Login() error = %v, want auth.ErrInvalidCredentials", err)
 	}
@@ -80,9 +81,9 @@ func TestAuthService_Login_RepoError(t *testing.T) {
 	repo.GetByEmailFunc = func(ctx context.Context, email string) (*user.User, error) {
 		return nil, errors.New("db error")
 	}
-	svc := newService(repo, nil, nil, nil, nil, discardLog)
+	svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, discardLog)
 
-	_, err := svc.Login(context.Background(), "err@example.com", testPassword)
+	_, err := svc.Login(context.Background(), "err@example.com", testPassword, "ip")
 	if err == nil {
 		t.Fatal("Login() expected error, got nil")
 	}
@@ -118,12 +119,12 @@ func TestAuthService_Login_LogsTrackingFailures(t *testing.T) {
 			var buf bytes.Buffer
 			log := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 			repo := userimpl.NewMockStore()
-			svc := newService(repo, nil, nil, nil, nil, log)
+			svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, log)
 
 			registered := seedUser(t, repo, "track@example.com", "Track")
 			tt.configure(repo)
 
-			_, err := svc.Login(context.Background(), "track@example.com", tt.password)
+			_, err := svc.Login(context.Background(), "track@example.com", tt.password, "ip")
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Login() error = %v, want %v", err, tt.wantErr)
 			}
@@ -160,7 +161,7 @@ func TestAuthService_Login_RefusesANonActiveAccountAfterThePassword(t *testing.T
 	for _, tt := range tests {
 		t.Run(tt.status, func(t *testing.T) {
 			repo := userimpl.NewMockStore()
-			svc := newService(repo, nil, nil, nil, nil, discardLog)
+			svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, discardLog)
 			u := seedUser(t, repo, "s@example.com", "S")
 			u.Status = tt.status
 			repo.ResetLoginAttemptsFunc = func(context.Context, int64) error {
@@ -168,7 +169,7 @@ func TestAuthService_Login_RefusesANonActiveAccountAfterThePassword(t *testing.T
 				return nil
 			}
 
-			_, err := svc.Login(context.Background(), "s@example.com", testPassword)
+			_, err := svc.Login(context.Background(), "s@example.com", testPassword, "ip")
 
 			if !errors.Is(err, tt.want) {
 				t.Errorf("Login() error = %v, want %v", err, tt.want)
@@ -179,13 +180,13 @@ func TestAuthService_Login_RefusesANonActiveAccountAfterThePassword(t *testing.T
 
 func TestAuthService_Login_WrongPasswordOnANonActiveAccountIsGeneric(t *testing.T) {
 	repo := userimpl.NewMockStore()
-	svc := newService(repo, nil, nil, nil, nil, discardLog)
+	svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, discardLog)
 	u := seedUser(t, repo, "s@example.com", "S")
 	u.Status = user.UserStatusDeceased
 	recorded := false
 	repo.RecordFailedLoginFunc = func(context.Context, int64, int, time.Duration) error { recorded = true; return nil }
 
-	_, err := svc.Login(context.Background(), "s@example.com", "wrong-password")
+	_, err := svc.Login(context.Background(), "s@example.com", "wrong-password", "ip")
 
 	if !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Errorf("Login() error = %v, want auth.ErrInvalidCredentials (the status must not leak)", err)
@@ -199,7 +200,7 @@ func TestAuthService_Login_WrongPasswordOnANonActiveAccountIsGeneric(t *testing.
 // password and a lock in place: no lockout message, no failed attempt recorded.
 func TestAuthService_Login_DeletedUserIsAnUnknownEmail(t *testing.T) {
 	repo := userimpl.NewMockStore()
-	svc := newService(repo, nil, nil, nil, nil, discardLog)
+	svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, discardLog)
 	u := seedUser(t, repo, "d@example.com", "D")
 	now := time.Now()
 	u.DeletedAt = &now
@@ -211,7 +212,7 @@ func TestAuthService_Login_DeletedUserIsAnUnknownEmail(t *testing.T) {
 	}
 
 	for _, pw := range []string{testPassword, "wrong-password"} {
-		if _, err := svc.Login(context.Background(), "d@example.com", pw); !errors.Is(err, auth.ErrInvalidCredentials) {
+		if _, err := svc.Login(context.Background(), "d@example.com", pw, "ip"); !errors.Is(err, auth.ErrInvalidCredentials) {
 			t.Errorf("Login(%q) error = %v, want auth.ErrInvalidCredentials", pw, err)
 		}
 	}

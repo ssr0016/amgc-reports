@@ -18,7 +18,12 @@ type MockStore struct {
 
 func NewMockStore() *MockStore { return &MockStore{} }
 
+// Insert applies the same details allow-list as the real store, so a service
+// test fails when a writer adds a key the store would refuse.
 func (m *MockStore) Insert(ctx context.Context, e audit.Log) error {
+	if err := e.CheckDetails(); err != nil {
+		return err
+	}
 	if m.InsertFunc != nil {
 		return m.InsertFunc(ctx, e)
 	}

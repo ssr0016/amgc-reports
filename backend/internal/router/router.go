@@ -8,6 +8,7 @@ import (
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	acrest "github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol/rest"
+	auditrest "github.com/ssr0016/pastoral-reports/backend/internal/audit/rest"
 	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	reportrest "github.com/ssr0016/pastoral-reports/backend/internal/report/rest"
@@ -38,6 +39,7 @@ func Setup(
 	passwordResetHandler *authrest.PasswordResetHandler,
 	reportHandler *reportrest.ReportHandler,
 	statsHandler *statsrest.StatsHandler,
+	auditHandler *auditrest.AuditHandler,
 	limits Limiters,
 ) {
 	// authenticate only runs in the groups that need a user, so public routes never read a token.
@@ -142,6 +144,9 @@ func Setup(
 
 	// Counts for the admin panel cards. The group already requires the admin role.
 	admin.GET("/stats", statsHandler.GetStats, limits.Read)
+
+	// The audit trail, read-only (no other method is routed). The group already requires the admin role.
+	admin.GET("/audit-logs", auditHandler.List, limits.Read)
 
 	_ = roleRepo // referenced in RequireRole
 }

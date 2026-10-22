@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -27,7 +28,7 @@ type service struct {
 	userRepo            user.Store
 	roleRepo            accesscontrol.RoleStore // for Me; nil in callers that never call it
 	verificationService auth.VerificationService
-	audit               audit.Store       // for ChangePassword; nil in callers that never call it
+	audit               audit.Store       // for ChangePassword, Login, StartSession and EndSession; nil in callers that never call them
 	tx                  database.TxRunner // likewise
 	log                 *slog.Logger
 
@@ -102,19 +103,21 @@ func (s *service) Me(ctx context.Context, userID int64) (*auth.MeResponse, error
 	return me, nil
 }
 
-func (s *service) Login(ctx context.Context, email, password string) (*user.User, error) {
+func (s *service) Login(ctx context.Context, email, password, ip string) (*user.User, error) {
 	usr, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 	// A deleted user looks exactly like an unknown email (D-A11): no lockout
-	// message, no failed attempt recorded.
+	// message, no failed attempt recorded, and an audit row without a target.
 	if usr == nil || usr.DeletedAt != nil {
+		s.auditFailedLogin(ctx, nil, ip, audit.ReasonUnknownAccount)
 		return nil, auth.ErrInvalidCredentials
 	}
 
 	// Check if account is locked
 	if usr.LockedUntil != nil && usr.LockedUntil.After(time.Now()) {
+		s.auditFailedLogin(ctx, usr, ip, audit.ReasonLocked)
 		return nil, auth.ErrAccountLocked
 	}
 
@@ -126,12 +129,14 @@ func (s *service) Login(ctx context.Context, email, password string) (*user.User
 			// toward lockout, so make that visible.
 			s.log.Warn("failed to record failed login", "user_id", usr.ID, "error", err)
 		}
+		s.auditFailedLogin(ctx, usr, ip, audit.ReasonWrongPassword)
 		return nil, auth.ErrInvalidCredentials
 	}
 
 	// Only now, with the right password, is the status told. A refused login does
 	// not reset the failed-attempt counter and starts no session.
 	if !usr.CanSignIn() {
+		s.auditFailedLogin(ctx, usr, ip, usr.Status)
 		return nil, statusError(usr.Status)
 	}
 
@@ -142,6 +147,25 @@ func (s *service) Login(ctx context.Context, email, password string) (*user.User
 	}
 
 	return usr, nil
+}
+
+// auditFailedLogin writes a LOGIN_FAILED row. Nobody signed in, so there is no
+// actor; target is nil for an unknown or deleted email, whose typed text is never
+// stored. The write is best effort: there is no change to roll back, and the
+// refusal the client sees must not change, so a failure only goes to the log.
+func (s *service) auditFailedLogin(ctx context.Context, target *user.User, ip, reason string) {
+	e := audit.Log{Action: audit.ActionLoginFailed, TargetType: audit.TargetTypeUser,
+		Details: map[string]any{"reason": reason}}
+	if target != nil {
+		id := strconv.FormatInt(target.ID, 10)
+		e.TargetID, e.TargetName = &id, &target.Email
+	}
+	if ip != "" {
+		e.IPAddress = &ip
+	}
+	if err := s.audit.Insert(ctx, e); err != nil {
+		s.log.Warn("failed to audit failed login", "reason", reason, "error", err)
+	}
 }
 
 // ChangePassword changes the signed-in user's own password. keepFamily is the

@@ -99,17 +99,17 @@ func TestUserService_ResetPassword_LockedOutUserSignsInWithTheNewPasswordOnly(t 
 	ctx := context.Background()
 	actor := env.newAdmin(t, "actor@example.com", env.adminRole(t))
 	target := env.resetTarget(t)
-	authSvc := authimpl.NewService(env.users, nil, nil, nil, nil, slog.New(slog.DiscardHandler), nil, nil, authimpl.TokenSettings{})
+	authSvc := authimpl.NewService(env.users, nil, nil, auditimpl.NewMockStore(), nil, slog.New(slog.DiscardHandler), nil, nil, authimpl.TokenSettings{})
 
-	_, err := authSvc.Login(ctx, target.Email, oldResetPassword)
+	_, err := authSvc.Login(ctx, target.Email, oldResetPassword, "ip")
 	require.ErrorIs(t, err, auth.ErrAccountLocked, "setup: locked before the reset")
 
 	svc := env.service(auditimpl.NewStore(&database.DB{Pool: env.tdb.Pool, Builder: database.NewStatementBuilder()}))
 	require.NoError(t, svc.ResetPassword(ctx, actor.ID, "", target.ID, resetPassword))
 
-	_, err = authSvc.Login(ctx, target.Email, oldResetPassword)
+	_, err = authSvc.Login(ctx, target.Email, oldResetPassword, "ip")
 	assert.ErrorIs(t, err, auth.ErrInvalidCredentials, "the old password still signs in")
-	got, err := authSvc.Login(ctx, target.Email, resetPassword)
+	got, err := authSvc.Login(ctx, target.Email, resetPassword, "ip")
 	require.NoError(t, err, "the new password must sign in once the lockout is cleared")
 	assert.Equal(t, target.ID, got.ID)
 }

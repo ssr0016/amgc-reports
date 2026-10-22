@@ -25,7 +25,7 @@ func globalServer(burst int) *echo.Echo {
 	Setup(e, noAuthn, nil, nil,
 		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
-		nil, nil, Limiters{Global: ourmiddleware.RateLimit(rate.Limit(0.0001), burst), Read: noLimit, Write: noLimit},
+		nil, nil, nil, Limiters{Global: ourmiddleware.RateLimit(rate.Limit(0.0001), burst), Read: noLimit, Write: noLimit},
 	)
 	return e
 }

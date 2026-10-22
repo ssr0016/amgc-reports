@@ -3,7 +3,6 @@ package statsimpl
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
@@ -44,24 +43,15 @@ func (s *service) Get(ctx context.Context, q stats.GetStatsQuery) (stats.AdminSt
 		prev := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, s.loc).AddDate(0, -1, 0)
 		m, y = report.Months[prev.Month()-1], prev.Year()
 	} else {
-		canonical, ok := canonicalMonth(*month)
+		parsed, ok := report.ParseMonth(*month)
 		if !ok {
 			return stats.AdminStats{}, stats.ErrPeriod
 		}
-		m, y = canonical, *year
+		m, y = report.Months[parsed-1], *year
 	}
 	out, err := s.store.Counts(ctx, m, y)
 	if err != nil {
 		return stats.AdminStats{}, fmt.Errorf("stats for %s %d: %w", m, y, err)
 	}
 	return out, nil
-}
-
-func canonicalMonth(name string) (string, bool) {
-	for _, m := range report.Months {
-		if strings.EqualFold(m, name) {
-			return m, true
-		}
-	}
-	return "", false
 }

@@ -19,6 +19,112 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/audit-logs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Admin role only. One page of the audit trail for one month in Asia/Manila, newest first, with the total. Optionally one action. Read-only: no endpoint changes or deletes a row. The IP address is never returned (D-A4). Details hold only the allow-listed keys of each action, never a password, token or report text.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/audit"
+                ],
+                "summary": "Audit log",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Month name, case-insensitive",
+                        "name": "month",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year, 2000 to 2100",
+                        "name": "year",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "One audit action, e.g. LOGIN_FAILED",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page, from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Rows per page, at most 100",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_AuditLogResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/admin/permissions": {
             "get": {
                 "security": [
@@ -2432,6 +2538,39 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.AuditLogResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "performed_by_name": {
+                    "type": "string"
+                },
+                "performed_by_role": {
+                    "type": "string"
+                },
+                "target_id": {
+                    "type": "string"
+                },
+                "target_name": {
+                    "type": "string"
+                },
+                "target_type": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ChangePasswordRequest": {
             "type": "object",
             "required": [
@@ -3040,6 +3179,20 @@ const docTemplate = `{
                 },
                 "total_pages": {
                     "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_AuditLogResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.AuditLogResponse"
+                    }
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"
                 }
             }
         },

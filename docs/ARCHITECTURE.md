@@ -80,17 +80,18 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 ## Audit actions
 
-12 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it.
+17 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it. `details` is an allow-list per action (`audit.DetailKeys`): `Insert` refuses any other key, so the audited change rolls back rather than store a password, token or report text (D-A20). Admins read the trail through `GET /admin/audit-logs` and the Logs tab; the IP address is stored but never returned (D-A4).
 
 | Group | Actions |
 |---|---|
 | Reports | `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT` |
-| Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS`, `ADMIN_RESET_PASSWORD` |
+| Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS`, `ADMIN_RESET_PASSWORD`, `DELETE_USER`, `RESTORE_USER` |
+| Sign-in | `LOGIN` (same transaction as the session's refresh token), `LOGOUT` (only when a live session ends), `LOGIN_FAILED` (best effort, `details` `{reason}`; no actor, and no target or typed email for an unknown or deleted account) |
 | Exports | `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL`: one row per Excel download, written server-side by `POST /admin/reports/:id/excel` and `POST /admin/reports/excel` (D-10, D-A6). `details` is `{month, year, count}` only |
 
 ## Migration history
 
-goose, in `backend/internal/database/migrations/`. 22 migrations.
+goose, in `backend/internal/database/migrations/`. 25 migrations.
 
 | Era | Migrations |
 |---|---|
@@ -102,7 +103,9 @@ goose, in `backend/internal/database/migrations/`. 22 migrations.
 | Users and audit, 2026-10-14 | `20261014100000_add_user_profile_fields`, `…100100_extend_audit_actions_users`, `…110000_drop_user_worker`, `…120000_revoke_editor_approve` |
 | 2026-10-15 | `20261015100000_allow_change_password_audit_action` |
 | 2026-10-16 | `20261016120000_add_user_status` (`users.status`, `CHANGE_USER_STATUS`) |
-| Latest, 2026-10-17 | `20261017120000_allow_admin_reset_password_audit_action` (`ADMIN_RESET_PASSWORD`) |
+| 2026-10-17 | `20261017120000_allow_admin_reset_password_audit_action` (`ADMIN_RESET_PASSWORD`) |
+| 2026-10-21 | `20261021100000_create_refresh_tokens`, `…120000_add_user_soft_delete` (`DELETE_USER`, `RESTORE_USER`) |
+| Latest, 2026-10-22 | `20261022120000_allow_login_audit_actions` (`LOGIN`, `LOGOUT`, `LOGIN_FAILED`) |
 
 ## CI
 

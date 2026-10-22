@@ -293,8 +293,8 @@ Scope: `/admin` with four statistics cards and the tabs Reports, Tracker, Users 
 
 **What does not exist.**
 - No statistics endpoint and no tracker query.
-- No audit log read: `AuditRepository` has `Insert` only. The table is written for report and user actions. `DOWNLOAD_SINGLE_EXCEL` and `DOWNLOAD_BULK_EXCEL` are allowed by the CHECK constraint but nothing writes them.
-- No login or logout audit: the actions are not in the CHECK constraint (a migration) and the auth service does not write audit rows.
+- No audit log read (built since in 21a, D-A20): `AuditRepository` has `Insert` only. The table is written for report and user actions. `DOWNLOAD_SINGLE_EXCEL` and `DOWNLOAD_BULK_EXCEL` are allowed by the CHECK constraint but nothing writes them.
+- No login or logout audit (built since in 21a, D-A20): the actions are not in the CHECK constraint (a migration) and the auth service does not write audit rows.
 - No Excel export: no library, no template in the repo, no code.
 - No username on users (email and name only), no active or inactive flag, no user delete.
 - No average anywhere. The preview's Avg column needs a rule: D-5 (whether an absent week counts as 0) was deferred and this forces it.
@@ -313,8 +313,8 @@ Scope: `/admin` with four statistics cards and the tabs Reports, Tracker, Users 
 | Worker as name and `@username` | No username: show the email (D-A2) |
 | Users: Active or Inactive filter and status | New column, login check and session revocation (D-A1) |
 | Users: Delete | No endpoint (D-A1) |
-| Logs: filter, table, "X total logs" | New read endpoint; action badges map to the audit actions |
-| Logs: Logged In, Logged Out | New audit actions (D-A4) |
+| Logs: filter, table, "X total logs" | Built in 21a (D-A20): `GET /admin/audit-logs`, Month/Year and Action filters, expandable details |
+| Logs: Logged In, Logged Out | Built in 21a: `LOGIN`, `LOGOUT` and `LOGIN_FAILED` (D-A4 amended, D-A20) |
 
 **Modules (hours include tests, axe and docs; estimates, not commitments).**
 

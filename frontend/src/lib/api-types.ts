@@ -4,6 +4,111 @@
  */
 
 export interface paths {
+    "/admin/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit log
+         * @description Admin role only. One page of the audit trail for one month in Asia/Manila, newest first, with the total. Optionally one action. Read-only: no endpoint changes or deletes a row. The IP address is never returned (D-A4). Details hold only the allow-listed keys of each action, never a password, token or report text.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Month name, case-insensitive */
+                    month: string;
+                    /** @description Year, 2000 to 2100 */
+                    year: number;
+                    /** @description One audit action, e.g. LOGIN_FAILED */
+                    action?: string;
+                    /** @description Page, from 1 */
+                    page?: number;
+                    /** @description Rows per page, at most 100 */
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_AuditLogResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/permissions": {
         parameters: {
             query?: never;
@@ -2722,6 +2827,19 @@ export interface components {
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AssignPermissionRequest": {
             permission_id: number;
         };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.AuditLogResponse": {
+            action?: string;
+            created_at?: string;
+            details?: {
+                [key: string]: unknown;
+            };
+            id?: number;
+            performed_by_name?: string;
+            performed_by_role?: string;
+            target_id?: string;
+            target_name?: string;
+            target_type?: string;
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ChangePasswordRequest": {
             /**
              * @description ConfirmPassword must equal NewPassword exactly. It is checked before any service
@@ -2895,6 +3013,10 @@ export interface components {
             page?: number;
             total?: number;
             total_pages?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_AuditLogResponse": {
+            data?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.AuditLogResponse"][];
+            meta?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"];
         };
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse": {
             data?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse"][];

@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 )
 
 // refreshGrace is how long after a rotation the old token is only refused. Two
@@ -33,14 +35,33 @@ func (s *service) withTokens(issuer *token.Manager, refresh auth.RefreshStore, s
 }
 
 // StartSession opens a sign-in for a user whose credentials Login has accepted:
-// a new family with its first refresh token, and an access token for it.
+// a new family with its first refresh token, and an access token for it. The
+// refresh token and the LOGIN audit row share one transaction (D-10), so a login
+// whose row cannot be written leaves no session behind.
 func (s *service) StartSession(ctx context.Context, userID int64, ip, userAgent string) (*auth.TokenPair, error) {
 	family, err := token.Random(16)
 	if err != nil {
 		return nil, err
 	}
 	now := time.Now()
-	return s.issuePair(ctx, userID, family, now.Add(s.tokenSet.RefreshTTL), now, ip, userAgent)
+	var pair *auth.TokenPair
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
+		usr, err := s.userRepo.GetWithRole(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("get user: %w", err)
+		}
+		if usr == nil {
+			return auth.ErrUnauthorized
+		}
+		if pair, err = s.issuePair(ctx, userID, family, now.Add(s.tokenSet.RefreshTTL), now, ip, userAgent); err != nil {
+			return err
+		}
+		return s.audit.Insert(ctx, user.AuditLog(usr, ip, audit.ActionLogin, usr, nil))
+	})
+	if err != nil {
+		return nil, fmt.Errorf("start session: %w", err)
+	}
+	return pair, nil
 }
 
 // issuePair stores a new refresh token in family and signs an access token.
@@ -182,12 +203,23 @@ func (s *service) handleSpent(ctx context.Context, old *auth.RefreshToken, now t
 
 // EndSession signs out: it revokes the family of a refresh token. An unknown
 // token is not an error, so logging out twice, or after the token expired, works.
-func (s *service) EndSession(ctx context.Context, raw string) error {
+// Only a logout that ends a live session (the token not yet revoked or expired)
+// writes a LOGOUT row, in the same transaction as the revoke.
+func (s *service) EndSession(ctx context.Context, raw, ip string) error {
 	return s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		t, err := s.refresh.GetForUpdate(ctx, token.Hash(raw))
 		if err != nil || t == nil {
 			return err
 		}
-		return s.refresh.RevokeFamily(ctx, t.FamilyID, time.Now())
+		now := time.Now()
+		live := t.RevokedAt == nil && t.ExpiresAt.After(now)
+		if err := s.refresh.RevokeFamily(ctx, t.FamilyID, now); err != nil || !live {
+			return err
+		}
+		usr, err := s.userRepo.GetWithRole(ctx, t.UserID)
+		if err != nil || usr == nil {
+			return err
+		}
+		return s.audit.Insert(ctx, user.AuditLog(usr, ip, audit.ActionLogout, usr, nil))
 	})
 }

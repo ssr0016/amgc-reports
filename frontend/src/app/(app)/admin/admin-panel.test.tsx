@@ -31,6 +31,7 @@ vi.mock("@/lib/session", () => ({ useSession: () => ({ isAdmin: h.isAdmin }) }))
 vi.mock("./stats-cards", () => ({ StatsCards: () => <p>stats</p> }));
 vi.mock("./admin-reports", () => ({ AdminReports: () => <p>admin reports</p> }));
 vi.mock("./users/users-list", () => ({ UsersPanel: () => <p>users panel</p> }));
+vi.mock("./audit-logs", () => ({ AuditLogs: () => <p>audit logs</p> }));
 
 describe("AdminPanel", () => {
   beforeEach(() => {
@@ -58,12 +59,12 @@ describe("AdminPanel", () => {
     expect(screen.getByRole("tab", { name: "Users" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("shows an admin the Reports and Users tabs, Reports first", () => {
+  it("shows an admin the Reports, Users and Logs tabs, Reports first", () => {
     h.isAdmin = true;
     render(<AdminPanel />);
     expect(screen.getByRole("heading", { level: 1, name: "Admin" })).toBeInTheDocument();
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["Reports", "Users"]);
+    expect(tabs.map((t) => t.textContent)).toEqual(["Reports", "Users", "Logs"]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Reports");
   });
@@ -84,7 +85,7 @@ describe("AdminPanel", () => {
     h.isAdmin = true;
     const user = userEvent.setup();
     render(<AdminPanel />);
-    const [reports, users] = screen.getAllByRole("tab");
+    const [reports, users, logs] = screen.getAllByRole("tab");
 
     await user.tab();
     expect(reports).toHaveFocus();
@@ -95,7 +96,8 @@ describe("AdminPanel", () => {
     await user.keyboard("{ArrowLeft}");
     expect(reports).toHaveFocus();
     await user.keyboard("{End}");
-    expect(users).toHaveFocus();
+    expect(logs).toHaveFocus();
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Logs");
     await user.keyboard("{Home}");
     expect(reports).toHaveFocus();
   });
@@ -126,6 +128,15 @@ describe("AdminPanel", () => {
     await user.click(screen.getByRole("tab", { name: "Users" }));
     expect(screen.queryByText("admin reports")).not.toBeInTheDocument();
     expect(within(screen.getByRole("tabpanel")).getByText("users panel")).toBeInTheDocument();
+  });
+
+  it("opens the Logs tab for ?tab=logs", () => {
+    h.isAdmin = true;
+    h.tab = "logs";
+    render(<AdminPanel />);
+    expect(screen.getByRole("tab", { name: "Logs" })).toHaveAttribute("aria-selected", "true");
+    expect(within(screen.getByRole("tabpanel")).getByText("audit logs")).toBeInTheDocument();
+    h.tab = null;
   });
 
   it("opens the Users tab for ?tab=users, and Reports for anything else", () => {

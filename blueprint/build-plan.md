@@ -40,6 +40,8 @@
   - [ ] 20e. Preview modal: metadata, the two metric tables, Avg per D-A5 (~4h)
   - [x] 20f. Sidebar navigation and profile menu: left sidebar on every signed-in page (Reports for everyone; Admin for admins only, the Users list is the Admin Users tab; Tracker and Logs hidden until Phase B); top bar with only the app name, the avatar with name and Sign out; "Change password" moves into the avatar menu; the sidebar collapses behind a "Menu" button below `md` (768 px)
 - [ ] 21. Phase B (~21h)
+  - [ ] 21a. Audit Logs UI, built on branch `feature/audit-logs-ui`, not yet deployed (D-A20; spec, plan and tickets T1-T7 in `.specify/specs/001-audit-logs-ui/`): `LOGIN`, `LOGOUT` and `LOGIN_FAILED` audit with their migration (same deploy), details allow-list enforced at `Insert`, admin-only `GET /admin/audit-logs` (Manila month and year, action filter, 50 per page, no IP), read-only Logs tab with expandable details; amends D-A4 (failed logins now logged) and D-10 (read API)
+  - [ ] 21b. Tracker tab (D-A3)
 - [x] 22. Phase C (~49h), including exports and user status
   - [x] 22a. User status (D-A10): `status` column (active, inactive, disciplinary, deceased), login check after the password, session revoke in the same transaction, `PUT /admin/users/:id/status`, status badge, filter and Edit dropdown, `CHANGE_USER_STATUS` audit with its migration, self and last-admin protection (~9-10h)
   - [x] 22b. Soft delete and restore of users (D-A11): reason, confirmation dialog, Deleted filter, email stays reserved, audit with its migration (~6h)
@@ -51,6 +53,32 @@
   - [x] 22h. Bulk export dashboard and approved-only sheets (D-A16): the bulk export and its preview start with a "Report Dashboard" sheet listing every church with Approved, Pending or Not Filed for the month; metric sheets only for approved reports, in the existing layout; single export unchanged (~6h)
 
 > Phase contents are in `backend/docs/06-Implementation-Plan.md` (commit `a18b572`). `TODO (confirm)`: split them into tasks when you start Phase A.
+
+## Backlog (owner, 2026-10-22)
+
+Future features, not yet specced. Notes say what already exists, so a spec starts from the gap.
+
+### Security and account management
+
+- [ ] 28. Password policy enforced in the UI: show the `strongpass` rules on every password form and check them as the user types (the API already enforces them, L-3 and 22d)
+- [ ] 29. Session timeout after 30 minutes idle: the server already ends a sign-in after 30 minutes without a refresh (`REFRESH_IDLE_TTL`, default 30m), but an open tab keeps refreshing; the gap is the browser's idle detection, a warning, and sign-out on idle
+- [ ] 30. CSV export of the audit logs (a non-goal of 21a; needs its own audit action and migration if the export itself is audited)
+
+### UX and error handling
+
+- [ ] 31. Empty states and loading spinners: a consistent pass across pages (the Reports, Users and Logs tabs already have empty and loading states)
+- [ ] 32. "Copy to clipboard" for admin-managed passwords: already on the admin reset-password dialog (22e); the gap is the create-user form
+- [ ] 33. User profile pictures (avatars): upload, storage and display (the header avatar shows initials today)
+
+### DevOps and infrastructure
+
+- [ ] 34. Neon database backups: confirm the plan's retention and point-in-time restore window, and test a restore
+- [ ] 35. Sentry error alerts to Slack or email
+- [ ] 16. F0: domain setup (already listed under Deferred)
+
+### Codebase health
+
+- [ ] 36. Fix the open P3 findings in `blueprint/context/findings.md`: F-01, F-02, F-03, F-04, F-06, F-07, F-08, F-10 and F-11 (F-05 and F-09 are no longer open: F-05 was fixed in `d9e32a3`; F-09 was a P2, closed in 22h)
 
 ## Deferred
 

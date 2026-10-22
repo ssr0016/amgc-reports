@@ -67,7 +67,7 @@ func changePasswordServer(t *testing.T, write func() echo.MiddlewareFunc) *echo.
 	})
 	Setup(e, noAuthn, users, permRoles{}, authrest.NewAuthHandler(svc, authrest.NewCookies(config.AuthConfig{}, false)), nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
-		reportrest.NewReportHandler(okReportSvc{}), nil,
+		reportrest.NewReportHandler(okReportSvc{}), nil, nil,
 		Limiters{Global: noLimit, Read: noLimit, Write: write()},
 	)
 	return e

@@ -16,6 +16,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol/acimpl"
 	acrest "github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
+	auditrest "github.com/ssr0016/pastoral-reports/backend/internal/audit/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/authimpl"
 	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
@@ -139,6 +140,7 @@ func run() error {
 	passwordResetHandler := authrest.NewPasswordResetHandler(passwordResetService)
 	reportHandler := reportrest.NewReportHandler(reportService)
 	statsHandler := statsrest.NewStatsHandler(statsService)
+	auditHandler := auditrest.NewAuditHandler(auditimpl.NewService(auditimpl.NewReader(db)))
 	healthHandler := router.NewHealthHandler(db.Pool)
 
 	e := newEcho(cfg, log)
@@ -160,6 +162,7 @@ func run() error {
 		passwordResetHandler,
 		reportHandler,
 		statsHandler,
+		auditHandler,
 		router.Limiters{
 			Global: ourmiddleware.RateLimit(rate.Limit(globalRatePerMinute/60.0), globalBurst),
 			Read:   ourmiddleware.RateLimitByUser(rate.Limit(readRatePerMinute/60.0), readBurst),

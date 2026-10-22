@@ -43,7 +43,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return err
 	}
 
-	user, err := h.authService.Login(c.Request().Context(), req.Email, req.Password)
+	user, err := h.authService.Login(c.Request().Context(), req.Email, req.Password, c.RealIP())
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			return apperror.Unauthorized("invalid email or password")
@@ -81,7 +81,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 func (h *AuthHandler) Logout(c echo.Context) error {
 	h.cookies.clear(c) // before the body: cookies cannot be set once it is written
 	if raw := refreshCookie(c); raw != "" {
-		if err := h.authService.EndSession(c.Request().Context(), raw); err != nil {
+		if err := h.authService.EndSession(c.Request().Context(), raw, c.RealIP()); err != nil {
 			return apperror.Internal("logout failed").WithError(err)
 		}
 	}

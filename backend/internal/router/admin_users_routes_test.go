@@ -85,7 +85,7 @@ func adminUsersServerWith(limits Limiters, roleName string, perms ...string) (*e
 		userrest.NewAdminUserHandler(users, nil, svc),
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		reportrest.NewReportHandler(okReportSvc{}), nil,
-		limits,
+		nil, limits,
 	)
 	return e, svc
 }

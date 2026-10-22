@@ -1,9 +1,24 @@
 package report
 
+import (
+	"strings"
+	"time"
+)
+
 // Months are the English month names allowed by chk_reports_month (exact casing).
 var Months = []string{
 	"January", "February", "March", "April", "May", "June",
 	"July", "August", "September", "October", "November", "December",
+}
+
+// ParseMonth reads an English month name in any case.
+func ParseMonth(name string) (time.Month, bool) {
+	for i, m := range Months {
+		if strings.EqualFold(m, name) {
+			return time.Month(i + 1), true
+		}
+	}
+	return 0, false
 }
 
 // MetricKeys are the 21 snake_case metric keys of chk_report_metrics_metric (D-6).

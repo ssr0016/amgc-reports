@@ -57,6 +57,14 @@ for (const scheme of ["light", "dark"] as const) {
         await scan(page);
       });
 
+      test("admin panel, Logs tab, with a row expanded", async ({ page }) => {
+        await page.goto("/admin?tab=logs");
+        const panel = page.getByRole("tabpanel", { name: "Logs" });
+        await expect(panel.getByText(/total logs$/)).toBeVisible(); // the setup's own sign-ins are always there
+        await panel.getByRole("button", { name: /View details/ }).first().click();
+        await scan(page);
+      });
+
       test("admin panel, Users tab", async ({ page }) => {
         await page.goto("/admin");
         await page.getByRole("tab", { name: "Users" }).click();
@@ -259,6 +267,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
       ["new report", "/reports/new", /New report/],
       ["admin", "/admin", /Admin/],
       ["users tab", "/admin?tab=users", /Admin/],
+      ["logs tab", "/admin?tab=logs", /Admin/],
       ["new user", "/admin/users/new", /New user/],
     ] as const) {
       test(name, async ({ page }) => {
@@ -269,6 +278,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
           await expect(page.getByRole("region", { name: "Statistics" })).toBeVisible();
           await expect(page.getByText("Loading…")).toHaveCount(0); // the reports list too
         }
+        if (path === "/admin?tab=logs") await expect(page.getByText(/total logs$/)).toBeVisible();
         expect(await noSidewaysScroll(page)).toBe(true);
         await scan(page); // wide tables scroll inside their container, which must be reachable by keyboard
       });

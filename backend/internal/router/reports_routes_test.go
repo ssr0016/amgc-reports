@@ -100,7 +100,7 @@ func reportsServerWith(mk func() Limiters, perms ...string) *echo.Echo {
 	Setup(e, noAuthn, users, permRoles{perms: perms},
 		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
-		reportrest.NewReportHandler(okReportSvc{}), nil, limits,
+		reportrest.NewReportHandler(okReportSvc{}), nil, nil, limits,
 	)
 	return e
 }

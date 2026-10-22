@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
@@ -27,7 +28,7 @@ func newRefreshEnv(t *testing.T) (*service, *testutil.TestDB, int64) {
 	users := userimpl.NewStore(db)
 	u, err := users.CreateWithPassword(context.Background(), "ana@example.com", "Ana", "hash")
 	require.NoError(t, err)
-	svc := newService(users, nil, nil, nil, db, slog.New(slog.DiscardHandler)).withTokens(token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute}),
+	svc := newService(users, nil, nil, auditimpl.NewStore(db), db, slog.New(slog.DiscardHandler)).withTokens(token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute}),
 		NewRefreshStore(db), TokenSettings{RefreshTTL: time.Hour, RefreshIdleTTL: time.Hour})
 	return svc, tdb, u.ID
 }
@@ -125,8 +126,8 @@ func TestRefresh_RevocationDuringRotationEndsTheNewToken(t *testing.T) {
 	mgr := token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute})
 	set := TokenSettings{RefreshTTL: time.Hour, RefreshIdleTTL: time.Hour}
 	log := slog.New(slog.DiscardHandler)
-	start := newService(users, nil, nil, nil, db, log).withTokens(mgr, NewRefreshStore(db), set)
-	svc := newService(users, nil, nil, nil, db, log).withTokens(mgr, pause, set)
+	start := newService(users, nil, nil, auditimpl.NewStore(db), db, log).withTokens(mgr, NewRefreshStore(db), set)
+	svc := newService(users, nil, nil, auditimpl.NewStore(db), db, log).withTokens(mgr, pause, set)
 
 	p, err := start.StartSession(ctx, u.ID, "ip", "ua")
 	require.NoError(t, err)
