@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xuri/excelize/v2"
+
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
@@ -331,14 +333,15 @@ func (s *service) ExportOne(ctx context.Context, userID int64, ip string, id int
 	return &report.Export{Filename: exportFilename(label, rep.Month, int(rep.Year)), Data: data}, nil
 }
 
-// ExportMonth builds one workbook with a sheet per report of the month, in
-// monthForExport's order.
+// ExportMonth builds the month's workbook: the Report Dashboard, then a sheet
+// per approved report in monthForExport's order (D-A16). The audit count is
+// the number of report sheets, which may be 0.
 func (s *service) ExportMonth(ctx context.Context, userID int64, ip string, req report.ExportReportsRequest) (*report.Export, error) {
-	a, reps, err := s.monthForExport(ctx, userID, req.Month, req.Year)
+	a, rows, reps, err := s.monthForExport(ctx, userID, req.Month, req.Year)
 	if err != nil {
 		return nil, err
 	}
-	data, err := workbookBytes(reps)
+	data, err := bulkWorkbookBytes(rows, reps)
 	if err != nil {
 		return nil, err
 	}
@@ -355,24 +358,29 @@ func (s *service) ExportMonth(ctx context.Context, userID int64, ip string, req 
 // only the download does (D-A15).
 func (s *service) Preview(ctx context.Context, userID int64, req report.ExcelPreviewRequest) (*report.ExcelPreview, error) {
 	var reps []*report.Report
+	var f *excelize.File
 	if req.ReportID != 0 {
 		_, rep, err := s.oneForExport(ctx, userID, req.ReportID)
 		if err != nil {
 			return nil, err
 		}
 		reps = []*report.Report{rep}
+		f, err = buildWorkbook(reps)
+		if err != nil {
+			return nil, fmt.Errorf("build workbook: %w", err)
+		}
 	} else {
-		var err error
-		if _, reps, err = s.monthForExport(ctx, userID, req.Month, req.Year); err != nil {
+		_, rows, monthReps, err := s.monthForExport(ctx, userID, req.Month, req.Year)
+		if err != nil {
 			return nil, err
 		}
-	}
-	f, err := buildWorkbook(reps)
-	if err != nil {
-		return nil, fmt.Errorf("build workbook: %w", err)
+		reps = monthReps
+		if f, err = buildBulkWorkbook(rows, reps); err != nil {
+			return nil, fmt.Errorf("build workbook: %w", err)
+		}
 	}
 	defer func() { _ = f.Close() }()
-	sheets, err := previewSheets(f)
+	sheets, err := previewSheets(f, req.ReportID == 0)
 	if err != nil {
 		return nil, fmt.Errorf("preview workbook: %w", err)
 	}
@@ -392,32 +400,39 @@ func (s *service) oneForExport(ctx context.Context, userID, id int64) (*actor, *
 	return a, rep, nil
 }
 
-// monthForExport lists the reports of a bulk export or preview, ordered by
-// church name (case-insensitive), then id. Without reports:read_any it holds
-// only the caller's own reports, as List does.
-func (s *service) monthForExport(ctx context.Context, userID int64, month string, year int) (*actor, []*report.Report, error) {
+// monthForExport returns the Report Dashboard rows and the approved reports of
+// a bulk export or preview, ordered by church name (case-insensitive), then id
+// (D-A16). Without reports:read_any the reports are only the caller's own, as
+// List does, and the dashboard is empty. More than MaxExportReports approved reports is ErrTooManyReports.
+func (s *service) monthForExport(ctx context.Context, userID int64, month string, year int) (*actor, []report.DashboardRow, []*report.Report, error) {
 	a, err := s.actor(ctx, userID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	p := report.ListReportsParams{Month: month, Year: year}
+	approved := true
+	p := report.ListReportsParams{Month: month, Year: year, Completed: &approved}
 	if !a.perms["reports:read_any"] {
 		p.CreatedBy = userID
 	}
 	reps, total, err := s.reports.List(ctx, p, pagination.Params{Page: 1, Limit: report.MaxExportReports})
 	if err != nil {
-		return nil, nil, fmt.Errorf("list reports: %w", err)
+		return nil, nil, nil, fmt.Errorf("list reports: %w", err)
 	}
-	switch {
-	case total == 0:
-		return nil, nil, report.ErrNoReports
-	case total > report.MaxExportReports:
-		return nil, nil, report.ErrTooManyReports
+	if total > report.MaxExportReports {
+		return nil, nil, nil, report.ErrTooManyReports
 	}
 	slices.SortFunc(reps, func(x, y *report.Report) int {
 		return cmp.Or(cmp.Compare(strings.ToLower(deref(x.ChurchName)), strings.ToLower(deref(y.ChurchName))), cmp.Compare(x.ID, y.ID))
 	})
-	return a, reps, nil
+	// The dashboard covers every account, so it follows the same _any scope as
+	// the reports: without reports:read_any it is the header alone.
+	rows := []report.DashboardRow{}
+	if a.perms["reports:read_any"] {
+		if rows, err = s.reports.Dashboard(ctx, month, year); err != nil {
+			return nil, nil, nil, fmt.Errorf("dashboard: %w", err)
+		}
+	}
+	return a, rows, reps, nil
 }
 
 func workbookBytes(reps []*report.Report) ([]byte, error) {
@@ -425,6 +440,18 @@ func workbookBytes(reps []*report.Report) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build workbook: %w", err)
 	}
+	return fileBytes(f)
+}
+
+func bulkWorkbookBytes(rows []report.DashboardRow, reps []*report.Report) ([]byte, error) {
+	f, err := buildBulkWorkbook(rows, reps)
+	if err != nil {
+		return nil, fmt.Errorf("build workbook: %w", err)
+	}
+	return fileBytes(f)
+}
+
+func fileBytes(f *excelize.File) ([]byte, error) {
 	defer func() { _ = f.Close() }() // only removes temp files; the bytes are already in buf
 	buf, err := f.WriteToBuffer()
 	if err != nil {

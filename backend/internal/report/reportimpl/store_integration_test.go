@@ -14,6 +14,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
@@ -272,4 +273,82 @@ func TestReportRepo_OwnerState(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, total)
 	require.Len(t, rows, 1)
+}
+
+func TestReportRepo_Dashboard(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
+	repo := NewStore(db)
+	users := userimpl.NewStore(db)
+	ctx := context.Background()
+
+	account := func(email, name, church, area string) int64 {
+		t.Helper()
+		u, err := users.CreateWithPassword(ctx, email, name, "hash")
+		require.NoError(t, err)
+		_, err = users.UpdateProfile(ctx, u.ID, user.UserProfile{Name: name, AreaAssignment: area, ChurchName: church})
+		require.NoError(t, err)
+		return u.ID
+	}
+	file := func(owner int64, month string, year int, approve bool) *report.Report {
+		t.Helper()
+		rep, err := repo.Create(ctx, owner, year, report.CreateReportRequest{Month: month})
+		require.NoError(t, err)
+		if approve {
+			rep, err = repo.ToggleComplete(ctx, rep.ID, owner)
+			require.NoError(t, err)
+		}
+		return rep
+	}
+
+	approved := account("zion@example.com", "Ana", "zion", "Leyte")
+	pending := account("bethel@example.com", "Ben", "Bethel", "Cebu")
+	notFiled := account("abba@example.com", "Cora", "Abba", "")
+	gone := account("gone@example.com", "Dan", "Gone Church", "x")
+	deceased := account("deceased@example.com", "Eva", "Calvary", "y")
+	account("blank@example.com", "Fe", "  ", "z")
+	admin := account("admin-dash@example.com", "Gil", "Admin Church", "w")
+	deletedReport := account("redo@example.com", "Hal", "Redo", "v")
+
+	file(approved, "May", 2026, true)
+	file(pending, "May", 2026, false)
+	file(notFiled, "April", 2026, true) // another month
+	file(notFiled, "May", 2025, true)   // another year
+	file(deceased, "May", 2026, true)
+	file(admin, "May", 2026, true)
+	require.NoError(t, repo.SoftDelete(ctx, file(deletedReport, "May", 2026, true).ID))
+
+	_, err := tdb.Pool.Exec(ctx, "UPDATE users SET status='deceased' WHERE id=$1", deceased)
+	require.NoError(t, err)
+	// Roles are seed data (seed.go), not migrations, so the admin role is added here.
+	_, err = tdb.Pool.Exec(ctx, "INSERT INTO roles (name) VALUES ('admin') ON CONFLICT (name) DO NOTHING")
+	require.NoError(t, err)
+	_, err = tdb.Pool.Exec(ctx, "UPDATE users SET role_id=(SELECT id FROM roles WHERE name='admin') WHERE id=$1", admin)
+	require.NoError(t, err)
+	_, err = users.SoftDelete(ctx, gone, approved, "")
+	require.NoError(t, err)
+
+	rows, err := repo.Dashboard(ctx, "May", 2026)
+	require.NoError(t, err)
+	assert.Equal(t, []report.DashboardRow{
+		{Church: "Abba", Worker: "Cora", Area: "", Status: report.StatusNotFiled},
+		{Church: "Bethel", Worker: "Ben", Area: "Cebu", Status: report.StatusPending},
+		{Church: "Calvary", Worker: "Eva", Area: "y", Status: report.StatusApproved},
+		{Church: "Redo", Worker: "Hal", Area: "v", Status: report.StatusNotFiled},
+		{Church: "zion", Worker: "Ana", Area: "Leyte", Status: report.StatusApproved},
+	}, rows)
+
+	t.Run("Completed filters List", func(t *testing.T) {
+		yes, no := true, false
+		approvedReps, total, err := repo.List(ctx, report.ListReportsParams{Month: "May", Year: 2026, Completed: &yes}, pagination.Params{Page: 1, Limit: 100})
+		require.NoError(t, err)
+		assert.EqualValues(t, 3, total) // zion, Calvary, the admin's
+		for _, r := range approvedReps {
+			assert.True(t, r.Completed)
+		}
+		_, total, err = repo.List(ctx, report.ListReportsParams{Month: "May", Year: 2026, Completed: &no}, pagination.Params{Page: 1, Limit: 100})
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, total) // Bethel
+	})
 }

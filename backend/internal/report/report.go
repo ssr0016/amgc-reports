@@ -20,9 +20,8 @@ var (
 	// ErrPeriodNotAllowed is returned when a caller without reports:write_any
 	// files a report for any month but the previous one. The handler maps it to 422.
 	ErrPeriodNotAllowed = errors.New("reports can only be created for the previous month")
-	// ErrNoReports is returned by a bulk export of a month with no reports (404).
-	ErrNoReports = errors.New("no reports for that month")
-	// ErrTooManyReports is returned when a bulk export would exceed MaxExportReports (422).
+	// ErrTooManyReports is returned when a bulk export would hold more than
+	// MaxExportReports approved reports (422, D-A16).
 	ErrTooManyReports = errors.New("a bulk export holds at most 100 reports")
 )
 
@@ -58,4 +57,7 @@ type Store interface {
 	Update(ctx context.Context, id int64, year int, req UpdateReportRequest) (*Report, error)
 	SoftDelete(ctx context.Context, id int64) error
 	ToggleComplete(ctx context.Context, id, approverID int64) (*Report, error)
+	// Dashboard lists every church account (a church_name, not deleted, not an
+	// admin) with its report status for the month, by church name then id (D-A16).
+	Dashboard(ctx context.Context, month string, year int) ([]DashboardRow, error)
 }

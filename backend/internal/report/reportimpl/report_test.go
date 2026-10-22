@@ -449,29 +449,67 @@ func TestReportService_ExportOne(t *testing.T) {
 	})
 }
 
-func TestReportService_ExportMonth(t *testing.T) {
+// monthFixture files reports for May 2026 and returns the fixture with church
+// accounts for the dashboard: zion and both Bethels approved, dave's "bethel"
+// pending.
+func monthFixture(t *testing.T) fixture {
+	t.Helper()
 	ctx := context.Background()
 	f := newFixture()
-	may := report.ExportReportsRequest{Month: "May", Year: 2026}
 	for _, c := range []struct {
-		user   int64
-		church string
-	}{{alice, "zion"}, {bob, "Bethel"}, {dave, "bethel"}} {
+		user     int64
+		church   string
+		approved bool
+	}{{alice, "zion", true}, {bob, "Bethel", true}, {dave, "bethel", false}, {carol, "Report Dashboard", true}} {
 		r := req("May")
 		y := 2026
 		r.Year, r.ChurchName = &y, c.church
-		_, err := f.reports.Create(ctx, c.user, 2026, r)
+		rep, err := f.reports.Create(ctx, c.user, 2026, r)
 		require.NoError(t, err)
+		if c.approved {
+			_, err = f.reports.ToggleComplete(ctx, rep.ID, bob)
+			require.NoError(t, err)
+		}
+	}
+	f.reports.Accounts = []MockAccount{
+		{ID: dave, Church: "bethel", Worker: "Dave", Area: "Cebu"},
+		{ID: carol, Church: "Report Dashboard", Worker: "Carol"},
+		{ID: alice, Church: "zion", Worker: "Alice", Area: "Leyte"},
+		{ID: 77, Church: "Abba", Worker: "Nobody"},
+	}
+	return f
+}
+
+var wantDashboard = [][]string{
+	{"Church", "Worker", "Area", "Status"},
+	{"bethel", "Dave", "Cebu", "Pending"},
+	{"Report Dashboard", "Carol", "", "Approved"},
+	{"zion", "Alice", "Leyte", "Approved"},
+	{"Abba", "Nobody", "", "Not Filed"},
+}
+
+func TestReportService_ExportMonth(t *testing.T) {
+	ctx := context.Background()
+	may := report.ExportReportsRequest{Month: "May", Year: 2026}
+	open := func(t *testing.T, x *report.Export) *excelize.File {
+		t.Helper()
+		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = wb.Close() })
+		return wb
 	}
 
-	t.Run("one sheet per report, by church then id, one audit row", func(t *testing.T) {
+	t.Run("dashboard first, then approved reports only, one audit row counting them", func(t *testing.T) {
+		f := monthFixture(t)
 		x, err := f.svc.ExportMonth(ctx, bob, "10.0.0.3", may)
 		require.NoError(t, err)
 		assert.Equal(t, "Church Growth Program Report May 2026.xlsx", x.Filename)
-		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
+		wb := open(t, x)
+		// dave's "bethel" is pending: no sheet. carol's church may not take the dashboard's name.
+		assert.Equal(t, []string{"Report Dashboard", "Bethel", "Report Dashboard (2)", "zion"}, wb.GetSheetList())
+		rows, err := wb.GetRows("Report Dashboard")
 		require.NoError(t, err)
-		defer func() { _ = wb.Close() }()
-		assert.Equal(t, []string{"Bethel", "bethel (2)", "zion"}, wb.GetSheetList())
+		assert.Equal(t, wantDashboard, rows)
 
 		entries := f.audit.Entries()
 		require.Len(t, entries, 1)
@@ -481,23 +519,36 @@ func TestReportService_ExportMonth(t *testing.T) {
 		assert.Equal(t, map[string]any{"month": "May", "year": 2026, "count": 3}, e.Details)
 	})
 
-	t.Run("without read_any only the caller's reports", func(t *testing.T) {
+	t.Run("without read_any only the caller's approved reports, and no other accounts", func(t *testing.T) {
+		f := monthFixture(t)
 		x, err := f.svc.ExportMonth(ctx, alice, "", may)
 		require.NoError(t, err)
-		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
+		wb := open(t, x)
+		assert.Equal(t, []string{"Report Dashboard", "zion"}, wb.GetSheetList())
+		rows, err := wb.GetRows("Report Dashboard")
 		require.NoError(t, err)
-		defer func() { _ = wb.Close() }()
-		assert.Equal(t, []string{"zion"}, wb.GetSheetList())
+		assert.Equal(t, wantDashboard[:1], rows, "the dashboard is the header alone")
 	})
 
-	t.Run("empty month is ErrNoReports and not audited", func(t *testing.T) {
-		n := len(f.audit.Entries())
-		_, err := f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "June", Year: 2026})
-		require.ErrorIs(t, err, report.ErrNoReports)
-		assert.Len(t, f.audit.Entries(), n)
+	t.Run("no approved reports gives the dashboard alone, audited with count 0", func(t *testing.T) {
+		f := monthFixture(t)
+		x, err := f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "June", Year: 2026})
+		require.NoError(t, err)
+		wb := open(t, x)
+		assert.Equal(t, []string{"Report Dashboard"}, wb.GetSheetList())
+		rows, err := wb.GetRows("Report Dashboard")
+		require.NoError(t, err)
+		require.Len(t, rows, 5)
+		for _, r := range rows[1:] {
+			assert.Equal(t, "Not Filed", r[3])
+		}
+		entries := f.audit.Entries()
+		require.Len(t, entries, 1)
+		assert.Equal(t, 0, entries[0].Details["count"])
 	})
 
 	t.Run("an emoji church name still exports every sheet", func(t *testing.T) {
+		f := newFixture()
 		for _, c := range []struct {
 			user   int64
 			church string
@@ -505,26 +556,32 @@ func TestReportService_ExportMonth(t *testing.T) {
 			r := req("July")
 			y := 2026
 			r.Year, r.ChurchName = &y, c.church
-			_, err := f.reports.Create(ctx, c.user, 2026, r)
+			rep, err := f.reports.Create(ctx, c.user, 2026, r)
+			require.NoError(t, err)
+			_, err = f.reports.ToggleComplete(ctx, rep.ID, bob)
 			require.NoError(t, err)
 		}
 		x, err := f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "July", Year: 2026})
 		require.NoError(t, err)
-		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
-		require.NoError(t, err)
-		defer func() { _ = wb.Close() }()
-		assert.Equal(t, []string{"Bethel", strings.Repeat("🙏", 15)}, wb.GetSheetList())
+		assert.Equal(t, []string{"Report Dashboard", "Bethel", strings.Repeat("🙏", 15)}, open(t, x).GetSheetList())
 	})
 
-	t.Run("more than the cap is ErrTooManyReports and not audited", func(t *testing.T) {
+	t.Run("the cap counts approved reports only", func(t *testing.T) {
+		f := newFixture()
 		for u := int64(100); u < 100+report.MaxExportReports; u++ {
-			_, err := f.reports.Create(ctx, u, 2025, req("March"))
+			rep, err := f.reports.Create(ctx, u, 2025, req("March"))
+			require.NoError(t, err)
+			_, err = f.reports.ToggleComplete(ctx, rep.ID, bob)
 			require.NoError(t, err)
 		}
+		_, err := f.reports.Create(ctx, 998, 2025, req("March")) // pending: not counted
+		require.NoError(t, err)
 		n := len(f.audit.Entries())
-		_, err := f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "March", Year: 2025})
-		require.NoError(t, err, "exactly the cap is allowed")
-		_, err = f.reports.Create(ctx, 999, 2025, req("March"))
+		_, err = f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "March", Year: 2025})
+		require.NoError(t, err, "exactly the cap of approved reports is allowed")
+		rep, err := f.reports.Create(ctx, 999, 2025, req("March"))
+		require.NoError(t, err)
+		_, err = f.reports.ToggleComplete(ctx, rep.ID, bob)
 		require.NoError(t, err)
 		_, err = f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "March", Year: 2025})
 		require.ErrorIs(t, err, report.ErrTooManyReports)
@@ -534,22 +591,6 @@ func TestReportService_ExportMonth(t *testing.T) {
 
 func TestReportService_Preview(t *testing.T) {
 	ctx := context.Background()
-	f := newFixture()
-	for _, c := range []struct {
-		user   int64
-		church string
-	}{{alice, "zion"}, {bob, "Bethel"}, {dave, "bethel"}} {
-		r := req("May")
-		y := 2026
-		r.Year, r.ChurchName = &y, c.church
-		_, err := f.reports.Create(ctx, c.user, 2026, r)
-		require.NoError(t, err)
-	}
-	r := req("April")
-	r.ChurchName = "Gospel Bearer"
-	rep, err := f.svc.Create(ctx, alice, "", r)
-	require.NoError(t, err)
-	before := len(f.audit.Entries())
 	names := func(p *report.ExcelPreview) []string {
 		var out []string
 		for _, s := range p.Sheets {
@@ -557,46 +598,67 @@ func TestReportService_Preview(t *testing.T) {
 		}
 		return out
 	}
+	// preview runs one Preview call and fails if it wrote an audit row (D-A15).
+	preview := func(t *testing.T, f fixture, r report.ExcelPreviewRequest) (*report.ExcelPreview, error) {
+		t.Helper()
+		n := len(f.audit.Entries())
+		p, err := f.svc.Preview(ctx, bob, r)
+		assert.Len(t, f.audit.Entries(), n, "a preview never writes an audit row")
+		return p, err
+	}
 
-	t.Run("one report", func(t *testing.T) {
-		p, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{ReportID: rep.ID})
+	t.Run("one report, pending or not, has no dashboard", func(t *testing.T) {
+		f := newFixture()
+		r := req("April")
+		r.ChurchName = "Gospel Bearer"
+		rep, err := f.svc.Create(ctx, alice, "", r)
+		require.NoError(t, err)
+		p, err := preview(t, f, report.ExcelPreviewRequest{ReportID: rep.ID})
 		require.NoError(t, err)
 		assert.Equal(t, 1, p.Count)
 		assert.Equal(t, []string{"Gospel Bearer"}, names(p))
 		assert.Equal(t, "Gospel Bearer", p.Sheets[0].Rows[6][1]) // B7
+		assert.Len(t, p.Sheets[0].Rows, 42)
 	})
 
-	t.Run("a month, in the export's sheet order", func(t *testing.T) {
-		p, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{Month: "May", Year: 2026})
+	t.Run("a month: the dashboard, then the export's approved sheets", func(t *testing.T) {
+		f := monthFixture(t)
+		p, err := preview(t, f, report.ExcelPreviewRequest{Month: "May", Year: 2026})
 		require.NoError(t, err)
 		assert.Equal(t, 3, p.Count)
-		assert.Equal(t, []string{"Bethel", "bethel (2)", "zion"}, names(p))
+		assert.Equal(t, []string{"Report Dashboard", "Bethel", "Report Dashboard (2)", "zion"}, names(p))
+		assert.Equal(t, wantDashboard, p.Sheets[0].Rows)
+		assert.Len(t, p.Sheets[1].Rows, 42)
+	})
+
+	t.Run("a month with no approved reports is the dashboard alone", func(t *testing.T) {
+		f := monthFixture(t)
+		p, err := preview(t, f, report.ExcelPreviewRequest{Month: "June", Year: 2026})
+		require.NoError(t, err)
+		assert.Equal(t, 0, p.Count)
+		assert.Equal(t, []string{"Report Dashboard"}, names(p))
 	})
 
 	t.Run("a missing or deleted report is not found", func(t *testing.T) {
-		_, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{ReportID: 9999})
+		f := newFixture()
+		_, err := preview(t, f, report.ExcelPreviewRequest{ReportID: 9999})
 		require.ErrorIs(t, err, report.ErrReportNotFound)
 		gone, err := f.svc.Create(ctx, bob, "", req("January"))
 		require.NoError(t, err)
 		require.NoError(t, f.svc.Delete(ctx, bob, "", gone.ID))
-		_, err = f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{ReportID: gone.ID})
+		_, err = preview(t, f, report.ExcelPreviewRequest{ReportID: gone.ID})
 		require.ErrorIs(t, err, report.ErrReportNotFound)
-		before = len(f.audit.Entries())
 	})
 
-	t.Run("an empty month is ErrNoReports", func(t *testing.T) {
-		_, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{Month: "June", Year: 2026})
-		require.ErrorIs(t, err, report.ErrNoReports)
-	})
-
-	t.Run("more than the cap is ErrTooManyReports", func(t *testing.T) {
+	t.Run("more than the cap of approved reports is ErrTooManyReports", func(t *testing.T) {
+		f := newFixture()
 		for u := int64(100); u <= 100+report.MaxExportReports; u++ {
-			_, err := f.reports.Create(ctx, u, 2025, req("March"))
+			rep, err := f.reports.Create(ctx, u, 2025, req("March"))
+			require.NoError(t, err)
+			_, err = f.reports.ToggleComplete(ctx, rep.ID, bob)
 			require.NoError(t, err)
 		}
-		_, err := f.svc.Preview(ctx, bob, report.ExcelPreviewRequest{Month: "March", Year: 2025})
+		_, err := preview(t, f, report.ExcelPreviewRequest{Month: "March", Year: 2025})
 		require.ErrorIs(t, err, report.ErrTooManyReports)
 	})
-
-	assert.Len(t, f.audit.Entries(), before, "a preview never writes an audit row")
 }

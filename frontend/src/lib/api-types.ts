@@ -139,7 +139,7 @@ export interface paths {
         put?: never;
         /**
          * Download a month of reports as Excel
-         * @description Admin only. One sheet per report of the month (at most 100), in the legacy layout (D-A6). Writes a DOWNLOAD_BULK_EXCEL audit row.
+         * @description Admin only. A Report Dashboard sheet with every church account's status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout (D-A6, D-A16). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.
          */
         post: {
             parameters: {
@@ -197,17 +197,6 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
-                            [key: string]: string;
-                        };
-                    };
-                };
                 /** @description Unprocessable Entity */
                 422: {
                     headers: {
@@ -238,7 +227,7 @@ export interface paths {
         put?: never;
         /**
          * Preview an Excel export
-         * @description Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and A1:G42 cell text. Writes no audit row (D-A15).
+         * @description Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and cell text: A1:G42 for a report sheet, header plus one row per account for the month's Report Dashboard. count is the number of report sheets. Writes no audit row (D-A15, D-A16).
          */
         post: {
             parameters: {

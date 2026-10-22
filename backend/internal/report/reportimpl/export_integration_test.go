@@ -27,8 +27,9 @@ func (failingAudit) Insert(context.Context, audit.Log) error {
 	return errors.New("audit insert failed")
 }
 
-// Exports write exactly one audit row each, include reports of deleted and
-// deceased owners, and leave soft-deleted reports out (D-A6, D-10).
+// Exports write exactly one audit row each, include approved reports of deleted
+// and deceased owners, and leave soft-deleted and pending reports out of the
+// bulk file (D-A6, D-10, D-A16).
 func TestReportService_Export_Integration(t *testing.T) {
 	tdb := testutil.SetupPostgres(t)
 	tdb.MigrateWithGoose(t)
@@ -43,18 +44,23 @@ func TestReportService_Export_Integration(t *testing.T) {
 	svc := NewService(reports, auditimpl.NewStore(db), db, users, roles)
 	failing := NewService(reports, failingAudit{}, db, users, roles)
 
-	file := func(email, church string) *report.Report {
+	file := func(email, church string, approve bool) *report.Report {
 		t.Helper()
 		u, err := users.CreateWithPassword(ctx, email, church, "hash")
 		require.NoError(t, err)
 		rep, err := reports.Create(ctx, u.ID, 2026, report.CreateReportRequest{Month: "May", ChurchName: church,
 			Metrics: map[string]report.MetricWeeks{"worship_service": {Week1: num("12")}}})
 		require.NoError(t, err)
+		if approve {
+			rep, err = reports.ToggleComplete(ctx, rep.ID, admin.ID)
+			require.NoError(t, err)
+		}
 		return rep
 	}
-	zion := file("zion@example.com", "Zion")
-	bethel := file("bethel@example.com", "Bethel")
-	gone := file("gone@example.com", "Gone")
+	zion := file("zion@example.com", "Zion", true)
+	bethel := file("bethel@example.com", "Bethel", true)
+	gone := file("gone@example.com", "Gone", true)
+	file("pending@example.com", "Pending", false)
 	require.NoError(t, reports.SoftDelete(ctx, gone.ID))
 	_, err = tdb.Pool.Exec(ctx, "UPDATE users SET status = 'deceased' WHERE id = $1", bethel.CreatedBy)
 	require.NoError(t, err)
@@ -86,7 +92,7 @@ func TestReportService_Export_Integration(t *testing.T) {
 		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
 		require.NoError(t, err)
 		defer func() { _ = wb.Close() }()
-		assert.Equal(t, []string{"Bethel", "Zion"}, wb.GetSheetList())
+		assert.Equal(t, []string{"Report Dashboard", "Bethel", "Zion"}, wb.GetSheetList())
 		v, err := wb.GetCellValue("Zion", "B10")
 		require.NoError(t, err)
 		assert.Equal(t, "12", v)
@@ -114,9 +120,19 @@ func TestReportService_Export_Integration(t *testing.T) {
 		require.Error(t, err)
 		_, err = failing.ExportMonth(ctx, admin.ID, "", report.ExportReportsRequest{Month: "May", Year: 2026})
 		require.Error(t, err)
-		_, err = svc.ExportMonth(ctx, admin.ID, "", report.ExportReportsRequest{Month: "June", Year: 2026})
-		require.ErrorIs(t, err, report.ErrNoReports)
 		assert.Len(t, rows(audit.ActionDownloadSingle), 1)
 		assert.Len(t, rows(audit.ActionDownloadBulk), 1)
+	})
+
+	t.Run("a month with no approved reports is the dashboard alone, audited with count 0", func(t *testing.T) {
+		x, err := svc.ExportMonth(ctx, admin.ID, "", report.ExportReportsRequest{Month: "June", Year: 2026})
+		require.NoError(t, err)
+		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
+		require.NoError(t, err)
+		defer func() { _ = wb.Close() }()
+		assert.Equal(t, []string{"Report Dashboard"}, wb.GetSheetList())
+		got := rows(audit.ActionDownloadBulk)
+		require.Len(t, got, 2)
+		assert.JSONEq(t, `{"month":"June","year":2026,"count":0}`, got[1].details)
 	})
 }

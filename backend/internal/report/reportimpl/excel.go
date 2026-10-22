@@ -40,7 +40,7 @@ var rowLabels = map[int]string{
 var weekCols = [5]string{"B", "C", "D", "E", "F"}
 
 type excelStyles struct {
-	title, heading, label, header, cell, money, month, text, wrapped int
+	title, heading, label, header, cell, money, month, text, wrapped, dashHeader int
 }
 
 func newExcelStyles(f *excelize.File) (excelStyles, error) {
@@ -60,6 +60,7 @@ func newExcelStyles(f *excelize.File) (excelStyles, error) {
 		{Font: font, Border: thin, CustomNumFmt: &monthFmt, Alignment: &excelize.Alignment{Horizontal: "left"}},
 		{Font: font, Border: thin},
 		{Font: font, Border: thin, Alignment: &excelize.Alignment{Vertical: "top", WrapText: true}},
+		{Font: &excelize.Font{Family: "Helvetica Neue", Size: 12, Bold: true}, Border: thin},
 	}
 	ids := make([]int, len(specs))
 	for i, s := range specs {
@@ -69,20 +70,48 @@ func newExcelStyles(f *excelize.File) (excelStyles, error) {
 		}
 		ids[i] = id
 	}
-	return excelStyles{ids[0], ids[1], ids[2], ids[3], ids[4], ids[5], ids[6], ids[7], ids[8]}, nil
+	return excelStyles{ids[0], ids[1], ids[2], ids[3], ids[4], ids[5], ids[6], ids[7], ids[8], ids[9]}, nil
 }
+
+// dashboardSheet is the bulk export's first sheet (D-A16).
+const dashboardSheet = "Report Dashboard"
 
 // buildWorkbook renders one sheet per report, in order, into a new workbook.
 // Metrics must be loaded. Every value is written as a string or a number, never
 // as a formula, so report text that starts with "=" stays text.
 func buildWorkbook(reps []*report.Report) (*excelize.File, error) {
+	return renderWorkbook(nil, reps)
+}
+
+// buildBulkWorkbook is the bulk export: the Report Dashboard sheet, then one
+// sheet per report (D-A16). reps may be empty.
+func buildBulkWorkbook(rows []report.DashboardRow, reps []*report.Report) (*excelize.File, error) {
+	if rows == nil {
+		rows = []report.DashboardRow{}
+	}
+	return renderWorkbook(rows, reps)
+}
+
+// renderWorkbook writes the dashboard first when rows is non-nil, then the
+// report sheets, whose names never reuse the dashboard's.
+func renderWorkbook(rows []report.DashboardRow, reps []*report.Report) (*excelize.File, error) {
 	f := excelize.NewFile()
 	st, err := newExcelStyles(f)
 	if err != nil {
 		return nil, err
 	}
-	for i, name := range sheetNames(reps) {
-		if i == 0 {
+	var reserved []string
+	if rows != nil {
+		if err := f.SetSheetName("Sheet1", dashboardSheet); err != nil {
+			return nil, fmt.Errorf("add sheet: %w", err)
+		}
+		if err := writeDashboard(f, rows, st); err != nil {
+			return nil, fmt.Errorf("write sheet %q: %w", dashboardSheet, err)
+		}
+		reserved = []string{dashboardSheet}
+	}
+	for i, name := range sheetNames(reserved, reps) {
+		if i == 0 && rows == nil {
 			err = f.SetSheetName("Sheet1", name)
 		} else {
 			_, err = f.NewSheet(name)
@@ -95,6 +124,39 @@ func buildWorkbook(reps []*report.Report) (*excelize.File, error) {
 		}
 	}
 	return f, nil
+}
+
+// dashboardHeader is the Report Dashboard's header row.
+var dashboardHeader = []string{"Church", "Worker", "Area", "Status"}
+
+// writeDashboard writes the header and one row per church account, all as text.
+func writeDashboard(f *excelize.File, rows []report.DashboardRow, st excelStyles) error {
+	sh := dashboardSheet
+	last := strconv.Itoa(len(rows) + 1)
+	steps := []error{
+		f.SetColWidth(sh, "A", "A", 34),
+		f.SetColWidth(sh, "B", "C", 24),
+		f.SetColWidth(sh, "D", "D", 12),
+		f.SetCellStyle(sh, "A1", "D1", st.dashHeader),
+	}
+	if len(rows) > 0 {
+		steps = append(steps, f.SetCellStyle(sh, "A2", "D"+last, st.text))
+	}
+	for i, h := range dashboardHeader {
+		steps = append(steps, f.SetCellStr(sh, previewCols[i]+"1", h))
+	}
+	for i, r := range rows {
+		n := strconv.Itoa(i + 2)
+		for j, v := range []string{r.Church, r.Worker, r.Area, r.Status} {
+			steps = append(steps, f.SetCellStr(sh, previewCols[j]+n, v))
+		}
+	}
+	for _, err := range steps {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func writeSheet(f *excelize.File, sh string, r *report.Report, st excelStyles) error {
@@ -198,10 +260,19 @@ var previewCols = [7]string{"A", "B", "C", "D", "E", "F", "G"}
 // previewSheets reads every sheet's A1:G42 as the text Excel shows (D-A15).
 // The Average formulas are not cached in a new workbook, so column G is
 // calculated. excelize repeats a merged range's value in every cell it covers;
-// only the top-left cell keeps it here.
-func previewSheets(f *excelize.File) ([]report.PreviewSheet, error) {
+// only the top-left cell keeps it here. With dashboard, the first sheet is the
+// Report Dashboard and is read as its header plus one row per account, 4 wide.
+func previewSheets(f *excelize.File, dashboard bool) ([]report.PreviewSheet, error) {
 	sheets := make([]report.PreviewSheet, 0, f.SheetCount)
-	for _, sh := range f.GetSheetList() {
+	for i, sh := range f.GetSheetList() {
+		if dashboard && i == 0 {
+			rows, err := dashboardRows(f, sh)
+			if err != nil {
+				return nil, err
+			}
+			sheets = append(sheets, report.PreviewSheet{Name: sh, Rows: rows})
+			continue
+		}
 		covered, err := mergedTails(f, sh)
 		if err != nil {
 			return nil, err
@@ -230,6 +301,19 @@ func previewSheets(f *excelize.File) ([]report.PreviewSheet, error) {
 		sheets = append(sheets, report.PreviewSheet{Name: sh, Rows: rows})
 	}
 	return sheets, nil
+}
+
+// dashboardRows reads the dashboard as written: every row has a church, so
+// GetRows ends at the last account; short rows are padded to the 4 columns.
+func dashboardRows(f *excelize.File, sh string) ([][]string, error) {
+	rows, err := f.GetRows(sh)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", sh, err)
+	}
+	for i, r := range rows {
+		rows[i] = append(r, make([]string, len(dashboardHeader)-len(r))...)
+	}
+	return rows, nil
 }
 
 // mergedTails returns the cells of sh's merged ranges other than their top-left cell.
@@ -283,13 +367,17 @@ func sheetLabel(r *report.Report) string {
 	return "Report " + strconv.FormatInt(r.ID, 10)
 }
 
-// sheetNames returns a valid, unique Excel sheet name for each report: the
+// sheetNames returns a valid, unique Excel sheet name for each report, never
+// one of reserved (any case): the
 // characters []:*?/\ become "-", names are cut to 31 UTF-16 units with no '
 // at either end, and repeats get " (2)", " (3)"… (the base is cut so the
 // suffix still fits).
-func sheetNames(reps []*report.Report) []string {
+func sheetNames(reserved []string, reps []*report.Report) []string {
 	clean := strings.NewReplacer("[", "-", "]", "-", ":", "-", "*", "-", "?", "-", "/", "-", `\`, "-")
 	seen := map[string]bool{}
+	for _, name := range reserved {
+		seen[strings.ToLower(name)] = true
+	}
 	out := make([]string, 0, len(reps))
 	for _, r := range reps {
 		base := strings.Trim(clean.Replace(sheetLabel(r)), "'")

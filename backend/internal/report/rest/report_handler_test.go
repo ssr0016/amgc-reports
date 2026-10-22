@@ -331,8 +331,7 @@ func TestReportHandler_ExportReports(t *testing.T) {
 		status int
 		msg    string
 	}{
-		{report.ErrNoReports, 404, "No reports for that month."},
-		{report.ErrTooManyReports, 422, "A bulk export holds at most 100 reports."},
+		{report.ErrTooManyReports, 422, "A bulk export holds at most 100 approved reports."},
 	} {
 		rec, body := serveReport(t, &fakeReportSvc{err: tc.err}, 5, http.MethodPost, "/admin/reports/excel", may)
 		if rec.Code != tc.status || body.Message != tc.msg {
@@ -396,7 +395,7 @@ func TestReportHandler_PreviewExcel(t *testing.T) {
 	for _, tc := range []struct {
 		err    error
 		status int
-	}{{report.ErrReportNotFound, 404}, {report.ErrNoReports, 404}, {report.ErrTooManyReports, 422}} {
+	}{{report.ErrReportNotFound, 404}, {report.ErrTooManyReports, 422}} {
 		if rec, _ := serveReport(t, &fakeReportSvc{err: tc.err}, 5, http.MethodPost, path, `{"report_id":7}`); rec.Code != tc.status {
 			t.Errorf("%v: got %d, want %d", tc.err, rec.Code, tc.status)
 		}

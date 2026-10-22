@@ -210,7 +210,12 @@ POST /admin/reports/excel
 
 Both need the admin role, `reports:read_any` and the CSRF header (POST, because each download writes an audit row). The workbook uses the legacy "Church Growth Program Report" sheet layout (D-A6): one sheet per report with Month of, Worker, Area of Assignment, Church, the Week 1-5 metric grid with an `AVERAGE` column, Names, Narrative Report, Challenges and Prayer Request. Blank weeks stay blank; 0 is written as 0.
 
-The first returns one report. The second takes a body and returns every report of that month (not soft-deleted, including those whose owner is deleted or deceased), one sheet each, ordered by church name:
+The first returns one report, approved or not. The second takes a body and returns the month's bulk workbook (D-A16):
+
+- Sheet 1, "Report Dashboard": a header row (Church, Worker, Area, Status) and one row per church account (an account with a church name that is not deleted and not an admin; inactive, disciplinary and deceased accounts are included), ordered by church name. Worker is the account's name. Status is "Approved", "Pending" or "Not Filed" for that month.
+- Then one sheet per **approved** report of the month (not soft-deleted, including those whose owner is deleted or deceased), ordered by church name. Pending reports get no sheet. A church sheet named "Report Dashboard" gets " (2)".
+
+A month with no approved reports still returns the file, with the dashboard alone:
 
 
 {"month":"September","year":2026}
@@ -218,7 +223,7 @@ The first returns one report. The second takes a body and returns every report o
 
 Response (200): the `.xlsx` bytes with `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment` (an ASCII `filename` and a UTF-8 `filename*`) and `Cache-Control: no-store`. Names: `<Church or "Report id"> <Month> <Year>.xlsx` and `Church Growth Program Report <Month> <Year>.xlsx`.
 
-Each successful download writes one `DOWNLOAD_SINGLE_EXCEL` or `DOWNLOAD_BULK_EXCEL` audit row with `details` `{month, year, count}`; a failed one writes none. Errors: 400 for a non-numeric id, 401 without a session, 403 for a non-admin or without `reports:read_any`, 404 for a missing or deleted report or "No reports for that month.", 422 for a missing or invalid month or year (2000-2100) or more than 100 reports in the month. Both share the per-user write limit.
+Each successful download writes one `DOWNLOAD_SINGLE_EXCEL` or `DOWNLOAD_BULK_EXCEL` audit row with `details` `{month, year, count}`, where the bulk `count` is the number of report sheets (0 or more); a failed one writes none. Errors: 400 for a non-numeric id, 401 without a session, 403 for a non-admin or without `reports:read_any`, 404 for a missing or deleted report (single), 422 for a missing or invalid month or year (2000-2100) or more than 100 approved reports in the month. Both share the per-user write limit.
 
 ### Preview an Excel Export (admin role only)
 
@@ -231,9 +236,9 @@ The admin Reports tab shows this before every download (D-A15). It builds the sa
 {"month":"September","year":2026}
 
 
-Response (200), `Cache-Control: no-store`: `{"count":2,"sheets":[{"name":"Bethel","rows":[["ANG MANANAMPALATAYANG GUMAWA","","","","","",""], ...]}]}`. Sheets come in the export's order with the export's sheet names. `rows` is always A1:G42 (42 rows of 7 strings) as Excel shows them: the month as "September 2026", tithes as "1,810.50" and the Average column calculated. A merged range's text is in its top-left cell only.
+Response (200), `Cache-Control: no-store`: `{"count":1,"sheets":[{"name":"Report Dashboard","rows":[["Church","Worker","Area","Status"],["Bethel","Ana","Cebu","Approved"], ...]},{"name":"Bethel","rows":[["ANG MANANAMPALATAYANG GUMAWA","","","","","",""], ...]}]}`. Sheets come in the export's order with the export's sheet names; a month starts with the Report Dashboard (4 columns, header plus one row per account), and `count` is the number of report sheets. A report sheet's `rows` is always A1:G42 (42 rows of 7 strings) as Excel shows them: the month as "September 2026", tithes as "1,810.50" and the Average column calculated. A merged range's text is in its top-left cell only.
 
-Errors: 400 for a malformed body, 401, 403 as above, 404 for a missing or deleted report or "No reports for that month.", 422 when neither or both shapes are sent, for an invalid id, month or year (2000-2100), or more than 100 reports in the month.
+Errors: 400 for a malformed body, 401, 403 as above, 404 for a missing or deleted report, 422 when neither or both shapes are sent, for an invalid id, month or year (2000-2100), or more than 100 approved reports in the month.
 
 ## Reports
 

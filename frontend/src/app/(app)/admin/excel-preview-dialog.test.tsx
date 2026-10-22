@@ -25,11 +25,14 @@ function renderDialog(target: PreviewTarget = { month: "May", year: 2026 }) {
   return { user, onDownload, onClose };
 }
 
+const dashboard = (...rows: string[][]) => ({ name: "Report Dashboard", rows: [["Church", "Worker", "Area", "Status"], ...rows] });
+
 beforeEach(() => {
   vi.clearAllMocks();
   h.previewExcel.mockResolvedValue({
     count: 2,
     sheets: [
+      dashboard(["Bethel", "Ana", "Cebu", "Approved"], ["Abba", "Cora", "", "Not Filed"]),
       { name: "Bethel", rows: grid("Bethel title") },
       { name: "Zion", rows: grid("Zion title") },
     ],
@@ -63,10 +66,30 @@ describe("Excel preview dialog", () => {
     expect(screen.queryByLabelText("Sheet")).not.toBeInTheDocument();
   });
 
-  it("bulk shows one sheet at a time, chosen with Sheet, and the report count", async () => {
+  it("bulk opens on the Report Dashboard, four columns wide", async () => {
+    renderDialog();
+    const table = await screen.findByRole("table", { name: "Sheet Report Dashboard" });
+    expect(screen.getByLabelText("Sheet")).toHaveDisplayValue("Report Dashboard");
+    expect(within(table).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Row", "A", "B", "C", "D"]);
+    expect(within(table).getByText("Not Filed")).toBeInTheDocument();
+    expect(screen.getByText("2 approved")).toBeInTheDocument();
+  });
+
+  it("a month with no approved reports shows the dashboard alone and can still download", async () => {
+    h.previewExcel.mockResolvedValue({ count: 0, sheets: [dashboard(["Abba", "Cora", "", "Not Filed"])] });
+    renderDialog();
+    await screen.findByRole("table", { name: "Sheet Report Dashboard" });
+    expect(screen.getByText("0 approved")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Sheet")).getAllByRole("option").map((o) => o.textContent)).toEqual(["Report Dashboard"]);
+    expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
+  });
+
+  it("bulk shows one sheet at a time, chosen with Sheet, seven columns for a report", async () => {
     const { user } = renderDialog();
-    await screen.findByRole("table", { name: "Sheet Bethel" });
-    expect(screen.getByText("2 reports")).toBeInTheDocument();
+    await screen.findByRole("table", { name: "Sheet Report Dashboard" });
+    await user.selectOptions(screen.getByLabelText("Sheet"), "Bethel");
+    const bethel = screen.getByRole("table", { name: "Sheet Bethel" });
+    expect(within(bethel).getAllByRole("columnheader")).toHaveLength(8);
     await user.selectOptions(screen.getByLabelText("Sheet"), "Zion");
     expect(screen.getByRole("table", { name: "Sheet Zion" })).toBeInTheDocument();
     expect(screen.getByText("Zion title")).toBeInTheDocument();

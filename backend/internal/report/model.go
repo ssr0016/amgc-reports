@@ -155,12 +155,31 @@ type ExcelPreview struct {
 	Sheets []PreviewSheet `json:"sheets"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ExcelPreview
 
-// PreviewSheet is one sheet's name and its A1:G42 cell text, row by row. A
-// merged range's text is in its top-left cell.
+// PreviewSheet is one sheet's name and its cell text, row by row, as shown. A
+// report sheet is always A1:G42 (42 × 7) and a merged range's text is in its
+// top-left cell; the bulk Report Dashboard is its header plus one row per
+// account, 4 columns wide (D-A16).
 type PreviewSheet struct {
 	Name string     `json:"name"`
 	Rows [][]string `json:"rows"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.PreviewSheet
+
+// The Report Dashboard statuses (D-A16).
+const (
+	StatusApproved = "Approved"
+	StatusPending  = "Pending"
+	StatusNotFiled = "Not Filed"
+)
+
+// DashboardRow is one church account on the bulk export's Report Dashboard
+// sheet (D-A16): the account's church, name and area, and its report status
+// for the month.
+type DashboardRow struct {
+	Church string
+	Worker string
+	Area   string
+	Status string
+}
 
 // Export is a generated .xlsx file and its download name.
 type Export struct {
@@ -178,6 +197,9 @@ type ListReportsParams struct {
 
 	// CreatedBy limits the list to one owner (D-1); 0 = any owner.
 	CreatedBy int64
+
+	// Completed limits the list to approved (true) or pending (false) reports; nil = any.
+	Completed *bool
 }
 
 // ToResponse converts a report to its API form. A NUMERIC value is emitted in

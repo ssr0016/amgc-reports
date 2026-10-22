@@ -290,8 +290,8 @@ describe("downloadFile", () => {
   it("throws the server's error", async () => {
     stubFetch(
       () => json(200, { csrf_token: "t" }),
-      () => json(404, { error: "NOT_FOUND", message: "No reports for that month." }),
+      () => json(404, { error: "NOT_FOUND", message: "Report not found." }),
     );
-    await expect(downloadFile("/admin/reports/excel", {})).rejects.toMatchObject({ status: 404, message: "No reports for that month." });
+    await expect(downloadFile("/admin/reports/4/excel")).rejects.toMatchObject({ status: 404, message: "Report not found." });
   });
 });

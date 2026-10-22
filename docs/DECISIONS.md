@@ -24,6 +24,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A11 | Soft delete and restore of users | Decided 2026-10-16; built in 22b | here |
 | D-A12 | Admin reset password | Decided 2026-10-17; built in 22e | here |
 | D-A15 | Excel export preview before download | Decided 2026-10-22; built in 22f | here |
+| D-A16 | Bulk export: Report Dashboard sheet and approved-only metric sheets | Decided 2026-10-22; built in 22h | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -235,6 +236,19 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Bulk (owner, 2026-10-22):** a sheet selector shows one sheet at a time, with the report count. The 100-report cap (D-A6) applies to the preview too.
 - **Not the 20e modal:** 20e (report preview with Avg, D-A5) stays as planned and is separate.
 - **Built (22f):** the body is exactly one of `{report_id}` or `{month, year}` (422 otherwise). The response is each sheet's A1:G42 as displayed text, with the Average column calculated and a merged range's text in its top-left cell only. The preview uses the per-user read limiter, because a preview comes before every download and the write limiter would halve the export budget. It answers with `Cache-Control: no-store`. The modal is the house `AlertDialog`; it closes after a successful download and stays open after a failed one.
+
+### D-A16 Bulk export dashboard and approved-only sheets
+**Date:** 2026-10-22 · **Status:** Decided; built in 22h
+
+- **Decision (owner, 2026-10-22):** the bulk export and its preview start with a sheet named "Report Dashboard", followed by one metric sheet per **approved** report of the month, in the existing D-A6 layout. Pending reports get no metric sheet. The single-report export is unchanged. This amends D-A6, which left the template's "Report Dashboard" sheet out.
+- **Dashboard rows (owner):** one row per account that has a `church_name`, is not soft-deleted, and does not hold the admin role. Inactive, disciplinary and deceased accounts are included. There is no churches table: the account is the church. Columns: Church, Worker (the account's name), Area, Status.
+- **Status (owner):** for the selected month and year, "Approved" when the account's report is approved, "Pending" when it exists but is not approved, and "Not Filed" when there is none. The database allows one active report per account per month, so each row has at most one report.
+- **Month (owner):** the month and year selected in the admin Reports tab, the same as the bulk export today.
+- **No approved reports (owner):** the file still downloads with the dashboard alone. No 404.
+- **Cap and audit (owner):** the 100-report cap counts approved reports only. The `DOWNLOAD_BULK_EXCEL` audit row's `count` is the number of approved sheets.
+- **Name clash (owner):** a church sheet named "Report Dashboard" gets the existing duplicate suffix, "Report Dashboard (2)".
+- **Consequence:** an approved report whose owner is an admin or a deleted account still gets a metric sheet, but its owner has no dashboard row.
+- **Built (22h):** one query joins accounts to their report of the month, so the dashboard has no page cap. Pending reports are filtered in the database, so the cap counts approved reports only. The bulk 404 "No reports for that month." is gone, and the 422 message reads "A bulk export holds at most 100 approved reports." The preview returns the dashboard at its real size (4 columns, header plus one row per account); report sheets stay 42 × 7. The modal labels the count "N approved". The service lists dashboard accounts only for a caller with `reports:read_any`, the same scope as the reports; the admin route always has it.
 
 ### D-AR1 Architecture alignment with the company codebase, and JWT auth
 **Date:** 2026-10-21 · **Status:** Decided; phases 0 to 3 built (JWT cutover and frontend refresh), not deployed

@@ -174,9 +174,8 @@ func (r *store) Get(ctx context.Context, id int64) (*report.Report, error) {
 	return rep, nil
 }
 
-// List returns one page of reports (newest first) with metrics, and the total
-// count of matching reports.
-func (r *store) List(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error) {
+// listWhere is List's filter: not deleted, then each set parameter.
+func listWhere(p report.ListReportsParams) sq.And {
 	where := sq.And{sq.Eq{"r.deleted_at": nil}}
 	if p.Year != 0 {
 		where = append(where, sq.Eq{"r.year": p.Year})
@@ -187,6 +186,9 @@ func (r *store) List(ctx context.Context, p report.ListReportsParams, pg paginat
 	if p.Month != "" {
 		where = append(where, sq.Expr("lower(r.month) = lower(?)", p.Month))
 	}
+	if p.Completed != nil {
+		where = append(where, sq.Eq{"r.completed": *p.Completed})
+	}
 	if p.Worker != "" {
 		where = append(where, sq.ILike{"r.worker": "%" + escapeLike(p.Worker) + "%"})
 	}
@@ -196,6 +198,13 @@ func (r *store) List(ctx context.Context, p report.ListReportsParams, pg paginat
 	if p.Church != "" {
 		where = append(where, sq.ILike{"r.church_name": "%" + escapeLike(p.Church) + "%"})
 	}
+	return where
+}
+
+// List returns one page of reports (newest first) with metrics, and the total
+// count of matching reports.
+func (r *store) List(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error) {
+	where := listWhere(p)
 
 	countQ, countArgs, err := r.db.Builder.Select("COUNT(*)").From("reports r").Where(where).ToSql()
 	if err != nil {
@@ -300,6 +309,51 @@ func (r *store) SoftDelete(ctx context.Context, id int64) error {
 		return fmt.Errorf("report: %w", database.ErrNotFound)
 	}
 	return nil
+}
+
+// Dashboard joins each church account to its active report of the month.
+// idx_reports_unique_per_user allows one such report per account, so each
+// account gives one row. Account status is not filtered (D-A16).
+func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report.DashboardRow, error) {
+	q, args, err := r.db.Builder.
+		Select("u.church_name", "u.name", "COALESCE(u.area_assignment, '')", "r.completed").
+		From("users u").
+		LeftJoin("roles ro ON ro.id = u.role_id").
+		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND lower(r.month) = lower(?)", year, month).
+		Where("u.deleted_at IS NULL").
+		Where("btrim(COALESCE(u.church_name, '')) <> ''").
+		Where("ro.name IS DISTINCT FROM 'admin'").
+		OrderBy("lower(u.church_name)", "u.id").
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build dashboard query: %w", err)
+	}
+	rows, err := r.db.Querier(ctx).Query(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard: %w", err)
+	}
+	defer rows.Close()
+	out := []report.DashboardRow{}
+	for rows.Next() {
+		var row report.DashboardRow
+		var completed *bool // NULL: no report this month
+		if err := rows.Scan(&row.Church, &row.Worker, &row.Area, &completed); err != nil {
+			return nil, fmt.Errorf("scan dashboard: %w", err)
+		}
+		switch {
+		case completed == nil:
+			row.Status = report.StatusNotFiled
+		case *completed:
+			row.Status = report.StatusApproved
+		default:
+			row.Status = report.StatusPending
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dashboard: %w", err)
+	}
+	return out, nil
 }
 
 // ToggleComplete flips completed in one statement and returns the report; the

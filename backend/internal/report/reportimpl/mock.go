@@ -30,6 +30,16 @@ type MockStore struct {
 	UpdateFunc         func(ctx context.Context, id int64, year int, req report.UpdateReportRequest) (*report.Report, error)
 	SoftDeleteFunc     func(ctx context.Context, id int64) error
 	ToggleCompleteFunc func(ctx context.Context, id, approverID int64) (*report.Report, error)
+
+	// Accounts are the church accounts Dashboard lists, in order; their status
+	// comes from the account's report of the month in the mock.
+	Accounts []MockAccount
+}
+
+// MockAccount is a church account for the mock Dashboard.
+type MockAccount struct {
+	ID                   int64
+	Church, Worker, Area string
 }
 
 // NewMockStore creates a new mock repository.
@@ -157,13 +167,33 @@ func (m *MockStore) List(ctx context.Context, p report.ListReportsParams, pg pag
 	return pageOf(all, pg), int64(len(all)), nil
 }
 
+func (m *MockStore) Dashboard(_ context.Context, month string, year int) ([]report.DashboardRow, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := []report.DashboardRow{}
+	for _, acc := range m.Accounts {
+		row := report.DashboardRow{Church: acc.Church, Worker: acc.Worker, Area: acc.Area, Status: report.StatusNotFiled}
+		for _, r := range m.reports {
+			if r.DeletedAt == nil && r.CreatedBy == acc.ID && int(r.Year) == year && strings.EqualFold(r.Month, month) {
+				row.Status = report.StatusPending
+				if r.Completed {
+					row.Status = report.StatusApproved
+				}
+			}
+		}
+		out = append(out, row)
+	}
+	return out, nil
+}
+
 // matchesReport applies the list filters: not deleted, owner, year, month
 // (case-insensitive) and partial case-insensitive worker, area and church.
 func matchesReport(r *report.Report, p report.ListReportsParams) bool {
 	if r.DeletedAt != nil ||
 		(p.CreatedBy != 0 && r.CreatedBy != p.CreatedBy) ||
 		(p.Year != 0 && int(r.Year) != p.Year) ||
-		(p.Month != "" && !strings.EqualFold(r.Month, p.Month)) {
+		(p.Month != "" && !strings.EqualFold(r.Month, p.Month)) ||
+		(p.Completed != nil && r.Completed != *p.Completed) {
 		return false
 	}
 	return containsFold(r.Worker, p.Worker) && containsFold(r.AreaAssignment, p.Area) && containsFold(r.ChurchName, p.Church)

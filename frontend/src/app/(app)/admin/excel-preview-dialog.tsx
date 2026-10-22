@@ -22,7 +22,8 @@ import { previewExcel } from "@/lib/reports";
 // One report (the row's Excel button) or one month (Download Bulk).
 export type PreviewTarget = { reportId: number; label: string } | { month: string; year: number };
 
-const COLUMNS = ["A", "B", "C", "D", "E", "F", "G"];
+// Column letters for a sheet's width: 7 for a report sheet, 4 for the Report Dashboard (D-A16).
+const columns = (rows: string[][]) => Array.from({ length: rows[0]?.length ?? 0 }, (_, i) => String.fromCharCode(65 + i));
 
 // Shows the workbook an export would build before it is downloaded (D-A15). The
 // preview writes no audit row; only Download does, through the real export.
@@ -90,9 +91,7 @@ export function ExcelPreviewDialog({
                     ))}
                   </NativeSelect>
                 </div>
-                <p className="pb-1.5 text-sm text-muted-foreground">
-                  {data.count} {data.count === 1 ? "report" : "reports"}
-                </p>
+                <p className="pb-1.5 text-sm text-muted-foreground">{data.count} approved</p>
               </div>
             )}
             {shown && (
@@ -110,7 +109,7 @@ export function ExcelPreviewDialog({
                       <TableHead>
                         <span className="sr-only">Row</span>
                       </TableHead>
-                      {COLUMNS.map((c) => (
+                      {columns(shown.rows).map((c) => (
                         <TableHead key={c} scope="col">
                           {c}
                         </TableHead>

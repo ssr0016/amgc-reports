@@ -63,18 +63,18 @@
 **Suggested fix:** Add a Vitest case with fake timers that stubs `URL.createObjectURL`/`revokeObjectURL` and checks the click, the download name, and the revoke.
 **Resolution:**
 
-### F-09 [P2] open - Preview's no-audit assertion skips every successful preview
-
-**File:** backend/internal/report/reportimpl/report_test.go:584
-**Found:** 2026-10-22 by /audit independent (scope: current; lens: tests)
-**Why it matters:** Spec step 3 says the audit mock records zero entries in every case. `TestReportService_Preview` takes `before` at the start, then resets it with `before = len(f.audit.Entries())` inside the "missing or deleted" subtest. The reset is needed because that subtest's `Create` and `Delete` write audit rows, but it also hides any row written by the "one report" and "a month" previews that ran first. The final check at line 601 therefore covers only the empty-month and over-cap error paths, which return before any audit code could run. Today `Preview` never touches `s.audit`, so the code is correct. The test just wouldn't catch a regression that adds an audit write to the success path, which is the D-A15 contract.
-**Suggested fix:** Assert `assert.Len(t, f.audit.Entries(), n)` around each `Preview` call (or snapshot before and after the call in each subtest) instead of using one shared `before`.
-**Resolution:**
-
 ### F-10 [P3] open - The dialog test doesn't show that Escape alone closes it
 
 **File:** frontend/src/app/(app)/admin/excel-preview-dialog.test.tsx:93
 **Found:** 2026-10-22 by /audit independent (scope: current; lens: tests)
 **Why it matters:** "Cancel and Escape close without downloading" clicks Cancel, then presses Escape, then checks `onClose` was called at least once. The Cancel click already satisfies that, so the Escape path (`onOpenChange(false)` while not downloading) is never shown on its own. Nothing checks that Escape is ignored while a download is in flight either. The behavior is plain Radix and looks right, so this is a coverage gap only.
 **Suggested fix:** Split it into two cases, Cancel then `onClose` once, and Escape then `onClose` once, each with `onDownload` not called. Optionally add one that checks Escape during "Downloading…" leaves the dialog open.
+**Resolution:**
+
+### F-11 [P3] open - The dashboard order test can't tell case-insensitive order or the id tiebreak
+
+**File:** backend/internal/report/reportimpl/store_integration_test.go:334-340
+**Found:** 2026-10-22 by /audit independent (scope: current; lens: tests)
+**Why it matters:** Spec step 1 asks the integration test to cover the order (`lower(u.church_name), u.id`). The fixture's churches are Abba, Bethel, Calvary, Redo and zion. The only lowercase one, "zion", also sorts last by byte order and by a locale collation, so dropping `lower()` from `OrderBy` would still pass. No two accounts share a church name, so the `u.id` tiebreak is never exercised either. The query is correct today; this is a coverage gap only.
+**Suggested fix:** Add an account whose lowercase church sorts before an uppercase one by bytes (e.g. "abel" next to "Bethel"), and two accounts with the same church name in different case, then assert their order by id.
 **Resolution:**

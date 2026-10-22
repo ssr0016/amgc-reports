@@ -172,7 +172,7 @@ func TestSheetNames(t *testing.T) {
 		{ID: 13, ChurchName: strPtr(strings.Repeat("c", 26) + "'dddd")},
 		{ID: 14, ChurchName: strPtr(strings.Repeat("c", 26) + "'dddd")},
 	}
-	got := sheetNames(reps)
+	got := sheetNames(nil, reps)
 	assert.Equal(t, []string{
 		"San Isidro", "san isidro (2)", "Ptr. Ana", "Report 4", "A-B- -C----",
 		strings.Repeat("x", 31), strings.Repeat("x", 27) + " (2)", "Report 8",
@@ -213,7 +213,7 @@ func TestPreviewSheets(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 
-	sheets, err := previewSheets(f)
+	sheets, err := previewSheets(f, false)
 	require.NoError(t, err)
 	require.Len(t, sheets, 2)
 	assert.Equal(t, "Gospel Bearer", sheets[0].Name)
@@ -240,4 +240,56 @@ func TestPreviewSheets(t *testing.T) {
 	} {
 		assert.Equal(t, want, at(ref), ref)
 	}
+}
+
+func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
+	rows := []report.DashboardRow{
+		{Church: "=HYPERLINK(\"http://x\")", Worker: "Ana", Area: "Leyte", Status: report.StatusApproved},
+		{Church: "Bethel", Worker: "Ben", Status: report.StatusPending},
+		{Church: "Zion", Worker: "Cora", Area: "Cebu", Status: report.StatusNotFiled},
+	}
+	reps := []*report.Report{
+		{ID: 1, Month: "May", Year: 2026, ChurchName: strPtr("Bethel")},
+		{ID: 2, Month: "May", Year: 2026, ChurchName: strPtr("report dashboard")},
+	}
+	f, err := buildBulkWorkbook(rows, reps)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+
+	assert.Equal(t, []string{"Report Dashboard", "Bethel", "report dashboard (2)"}, f.GetSheetList())
+	got, err := f.GetRows("Report Dashboard")
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{
+		{"Church", "Worker", "Area", "Status"},
+		{`=HYPERLINK("http://x")`, "Ana", "Leyte", "Approved"},
+		{"Bethel", "Ben", "", "Pending"},
+		{"Zion", "Cora", "Cebu", "Not Filed"},
+	}, got)
+	formula, err := f.GetCellFormula("Report Dashboard", "A2")
+	require.NoError(t, err)
+	assert.Empty(t, formula, "a church name that looks like a formula stays text")
+	head, err := f.GetCellStyle("Report Dashboard", "A1")
+	require.NoError(t, err)
+	hs, err := f.GetStyle(head)
+	require.NoError(t, err)
+	assert.True(t, hs.Font.Bold)
+
+	sheets, err := previewSheets(f, true)
+	require.NoError(t, err)
+	require.Len(t, sheets, 3)
+	assert.Equal(t, got[:2], sheets[0].Rows[:2])
+	assert.Equal(t, []string{"Bethel", "Ben", "", "Pending"}, sheets[0].Rows[2], "a blank area is padded")
+	assert.Len(t, sheets[0].Rows, 4)
+	assert.Len(t, sheets[1].Rows, 42)
+	assert.Len(t, sheets[1].Rows[0], 7)
+
+	t.Run("no reports and no accounts is the header alone", func(t *testing.T) {
+		f, err := buildBulkWorkbook(nil, nil)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = f.Close() })
+		assert.Equal(t, []string{"Report Dashboard"}, f.GetSheetList())
+		sheets, err := previewSheets(f, true)
+		require.NoError(t, err)
+		assert.Equal(t, [][]string{{"Church", "Worker", "Area", "Status"}}, sheets[0].Rows)
+	})
 }
