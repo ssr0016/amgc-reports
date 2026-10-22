@@ -90,6 +90,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 
 #### D-A3 Tracker denominator
 - **Decided:** the `user` role; "For Review" is submitted and not approved.
+- **Confirmed by the owner (2026-10-22), built in 21b:** inactive, disciplinary and deceased `user` accounts are tracked (with their status badge; no report counts as Not Submitted); deleted accounts are not. Editors are excluded, so the Tracker's set differs from the Excel Report Dashboard's (D-A16, every non-admin account with a church). `GET /admin/tracker` (admin role and `reports:read_any`), Tracker tab between Reports and Users.
 - **Question:** who counts as expected to submit (role `user` only, or anyone with `reports:write`), and is "For Review" simply submitted and not approved?
 - **Recommendation:** the `user` role; "For Review" as stated, with no new status.
 
@@ -344,3 +345,4 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Update (2026-10-22, owner checked the Render dashboard):** the Pre-Deploy Command is `/app/api migrate`. It runs on the **new** image before traffic switches, and a failed migration stops the deploy. Migrations are embedded in the binary, so Render Shell on the running instance cannot apply a migration that is not deployed yet. Auto-deploy, Wait-for-CI and the health check path are still unrecorded.
 - Older entries and history that mention Railway are left as written.
 - **Update (2026-10-21):** `TRUSTED_PROXY_CIDRS=100.64.0.0/10` is set in Render. In production the server now refuses to start when `TRUSTED_PROXY_CIDRS` is unset or contains a `/0` range (`Config.ValidateProxy`, server only, so `api migrate` is unaffected). Outside production the `0.0.0.0/0` default remains. This replaces the open-default trade-off above.
+- **Update (2026-10-22, owner, supersedes the Pre-Deploy note above):** the API is on Render's **Free** tier, where the Pre-Deploy Command and Render Shell do not run. Production migrations are run **by hand from a local machine against Neon** (`make migrate-up` with `DATABASE_URL` set to the Neon URL) **before** pushing to `main`. A migration must therefore be backward compatible with the code still running until the push deploys. Confirmed on the 21a deploy: the local migration, then the push, gave a working sign-in and Logs tab.

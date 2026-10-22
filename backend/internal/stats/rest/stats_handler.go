@@ -32,25 +32,66 @@ func NewStatsHandler(svc stats.Service) *StatsHandler { return &StatsHandler{svc
 // @Failure      422 {object} map[string]string
 // @Router       /admin/stats [get]
 func (h *StatsHandler) GetStats(c echo.Context) error {
-	var month *string
-	var year *int
-	if m := c.QueryParam("month"); m != "" {
-		month = &m
+	q, err := periodQuery(c)
+	if err != nil {
+		return err
 	}
-	if y := c.QueryParam("year"); y != "" {
-		n, err := strconv.Atoi(y)
-		if err != nil || n <= 0 {
-			return apperror.BadRequest("invalid year")
-		}
-		year = &n
-	}
-	out, err := h.svc.Get(c.Request().Context(), stats.GetStatsQuery{Month: month, Year: year})
+	out, err := h.svc.Get(c.Request().Context(), q)
 	switch {
 	case errors.Is(err, stats.ErrPeriod):
-		msg := stats.ErrPeriod.Error()
-		return apperror.Validation(msg).WithDetails(map[string]string{"month": msg})
+		return periodError()
 	case err != nil:
 		return apperror.Internal("failed to get stats").WithError(err)
 	}
 	return c.JSON(http.StatusOK, out)
+}
+
+// GetTracker godoc
+// @Summary      Who has reported this month
+// @Description  Every account with the user role that is not deleted (any status: active, inactive, disciplinary, deceased), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Admin role and reports:read_any. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+// @Tags         admin/stats
+// @Produce      json
+// @Security     CookieAuth
+// @Param        month query string false "Month name, case-insensitive; requires year"
+// @Param        year query int false "Year; requires month"
+// @Success      200 {object} stats.Tracker
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      422 {object} map[string]string
+// @Router       /admin/tracker [get]
+func (h *StatsHandler) GetTracker(c echo.Context) error {
+	q, err := periodQuery(c)
+	if err != nil {
+		return err
+	}
+	out, err := h.svc.Tracker(c.Request().Context(), q)
+	switch {
+	case errors.Is(err, stats.ErrPeriod):
+		return periodError()
+	case err != nil:
+		return apperror.Internal("failed to get tracker").WithError(err)
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+// periodQuery reads ?month= and ?year=; an empty value is the same as none.
+func periodQuery(c echo.Context) (stats.GetStatsQuery, error) {
+	var q stats.GetStatsQuery
+	if m := c.QueryParam("month"); m != "" {
+		q.Month = &m
+	}
+	if y := c.QueryParam("year"); y != "" {
+		n, err := strconv.Atoi(y)
+		if err != nil || n <= 0 {
+			return q, apperror.BadRequest("invalid year")
+		}
+		q.Year = &n
+	}
+	return q, nil
+}
+
+func periodError() error {
+	msg := stats.ErrPeriod.Error()
+	return apperror.Validation(msg).WithDetails(map[string]string{"month": msg})
 }

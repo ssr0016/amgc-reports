@@ -78,3 +78,11 @@
 **Why it matters:** Spec step 1 asks the integration test to cover the order (`lower(u.church_name), u.id`). The fixture's churches are Abba, Bethel, Calvary, Redo and zion. The only lowercase one, "zion", also sorts last by byte order and by a locale collation, so dropping `lower()` from `OrderBy` would still pass. No two accounts share a church name, so the `u.id` tiebreak is never exercised either. The query is correct today; this is a coverage gap only.
 **Suggested fix:** Add an account whose lowercase church sorts before an uppercase one by bytes (e.g. "abel" next to "Bethel"), and two accounts with the same church name in different case, then assert their order by id.
 **Resolution:**
+
+### F-12 [P3] open - Migration-procedure doc change leaves SETUP.md and project-overview.md saying pre-deploy
+
+**File:** AGENTS.md:48, docs/ARCHITECTURE.md:25, backend/SETUP.md:157-158, backend/SETUP.md:186-190, blueprint/context/project-overview.md:107
+**Found:** 2026-10-22 by /audit independent (scope: current; lens: quality)
+**Why it matters:** The delta rewrites the production-migration rule in `AGENTS.md`, `docs/ARCHITECTURE.md` and `docs/DECISIONS.md` (Render Free tier runs neither Pre-Deploy nor Shell; run `make migrate-up` against Neon before pushing). That change is outside the Tracker spec's Files / areas. `backend/SETUP.md` (the runbook ARCHITECTURE links to) still tells the reader to set `/app/api migrate` as the Pre-Deploy Command, and `blueprint/context/project-overview.md` still says "run `/app/api migrate` as a separate pre-deploy step". So a deployer gets two different procedures. No code is affected and this feature has no migration, so it is P3.
+**Suggested fix:** Update SETUP.md section 1 and section 3, and project-overview.md line 107, to match the D-H1 update of 2026-10-22. Or move the whole doc change out of the feature commit into its own docs commit.
+**Resolution:**

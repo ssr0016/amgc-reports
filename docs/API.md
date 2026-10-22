@@ -203,6 +203,22 @@ Counts for the admin panel cards. `month` (English name, case-insensitive) and `
 
 `users_total` and `admins_total` count every account whatever the month. Errors: 400 for a year that is not a positive number, 401 without a session, 403 for any role but admin, 422 when only one of month and year is sent or the month is not a month name.
 
+### Tracker (admin role and `reports:read_any`)
+
+GET /admin/tracker?month=September&year=2026
+
+Who has reported for one month (D-A3), for the admin panel's Tracker tab. One row per account with the `user` role that is not deleted, whatever its status (inactive, disciplinary and deceased accounts are included); admins and editors are not tracked. `status` comes from the account's active report for the month: `approved`, `for_review` (filed, not approved) or `not_submitted` (none). Rows are ordered by church name, then name. The period rules and errors are those of `/admin/stats`; 403 also without `reports:read_any`. Rate limited like report reads. No report text.
+
+ {
+ "month": "September",
+ "year": 2026,
+ "rows": [
+ { "user_id": 7, "name": "Juan Cruz", "email": "juan@example.org", "church_name": "Cavite", "user_status": "active", "status": "for_review" }
+ ]
+ }
+
+`church_name` is `""` when the account has none; `rows` is `[]` when nobody is tracked.
+
 ### Audit Logs (admin role only)
 
 GET /admin/audit-logs?month=October&year=2026&action=LOGIN_FAILED&page=1&limit=50

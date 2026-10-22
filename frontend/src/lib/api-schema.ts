@@ -35,3 +35,6 @@ export type AuditLog = Always<Model<"AuditLogResponse">, "id" | "action" | "targ
 // The generated list response is typed for reports only, so Page<T> stays generic.
 export type PageMeta = Required<Schemas["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"]>;
 export type Page<T> = { data: T[]; meta: PageMeta };
+
+export type TrackerRow = Required<Model<"TrackerRow">>;
+export type Tracker = { month: string; year: number; rows: TrackerRow[] };

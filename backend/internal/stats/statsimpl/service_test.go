@@ -21,6 +21,11 @@ func (r *recordingStats) Counts(_ context.Context, month string, year int) (stat
 	return stats.AdminStats{Month: month, Year: year, ReportsTotal: 3, ReportsApproved: 1, ReportsPending: 2}, r.err
 }
 
+func (r *recordingStats) Tracker(_ context.Context, month string, year int) ([]stats.TrackerRow, error) {
+	r.month, r.year = month, year
+	return []stats.TrackerRow{{UserID: 1, Name: "Ana", Status: stats.TrackerForReview}}, r.err
+}
+
 func TestService_Get(t *testing.T) {
 	manila, err := time.LoadLocation("Asia/Manila")
 	if err != nil {
@@ -82,6 +87,69 @@ func TestService_Get(t *testing.T) {
 		boom := errors.New("boom")
 		svc := newService(&recordingStats{err: boom})
 		if _, err := svc.Get(context.Background(), stats.GetStatsQuery{}); !errors.Is(err, boom) {
+			t.Fatalf("error = %v, want it to wrap boom", err)
+		}
+	})
+}
+
+// TestService_Tracker checks Tracker shares Get's period rule; the rule itself is covered above.
+func TestService_Tracker(t *testing.T) {
+	manila, err := time.LoadLocation("Asia/Manila")
+	if err != nil {
+		t.Fatal(err)
+	}
+	str := func(s string) *string { return &s }
+	num := func(n int) *int { return &n }
+	newSvc := func(repo *recordingStats) *service {
+		svc := newService(repo)
+		svc.now = func() time.Time { return time.Date(2026, time.January, 5, 12, 0, 0, 0, manila) }
+		return svc
+	}
+
+	t.Run("no period is the previous Manila month", func(t *testing.T) {
+		repo := &recordingStats{}
+		got, err := newSvc(repo).Tracker(context.Background(), stats.GetStatsQuery{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if repo.month != "December" || repo.year != 2025 || got.Month != "December" || got.Year != 2025 {
+			t.Errorf("queried %s %d, got %s %d; want December 2025", repo.month, repo.year, got.Month, got.Year)
+		}
+		if len(got.Rows) != 1 || got.Rows[0].Status != stats.TrackerForReview {
+			t.Errorf("rows = %+v", got.Rows)
+		}
+	})
+
+	t.Run("a lower-case month gets its canonical name", func(t *testing.T) {
+		repo := &recordingStats{}
+		got, err := newSvc(repo).Tracker(context.Background(), stats.GetStatsQuery{Month: str("march"), Year: num(2024)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if repo.month != "March" || got.Month != "March" || got.Year != 2024 {
+			t.Errorf("queried %s, got %s %d", repo.month, got.Month, got.Year)
+		}
+	})
+
+	for name, q := range map[string]stats.GetStatsQuery{
+		"month without year": {Month: str("March")},
+		"year without month": {Year: num(2024)},
+		"an unknown month":   {Month: str("Smarch"), Year: num(2024)},
+	} {
+		t.Run(name+" is ErrPeriod", func(t *testing.T) {
+			repo := &recordingStats{}
+			if _, err := newSvc(repo).Tracker(context.Background(), q); !errors.Is(err, stats.ErrPeriod) {
+				t.Fatalf("error = %v, want ErrPeriod", err)
+			}
+			if repo.month != "" {
+				t.Errorf("the repository was queried (%q) for an invalid period", repo.month)
+			}
+		})
+	}
+
+	t.Run("a repository error is returned wrapped", func(t *testing.T) {
+		boom := errors.New("boom")
+		if _, err := newSvc(&recordingStats{err: boom}).Tracker(context.Background(), stats.GetStatsQuery{}); !errors.Is(err, boom) {
 			t.Fatalf("error = %v, want it to wrap boom", err)
 		}
 	})

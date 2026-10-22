@@ -65,6 +65,13 @@ for (const scheme of ["light", "dark"] as const) {
         await scan(page);
       });
 
+      test("admin panel, Tracker tab", async ({ page }) => {
+        await page.goto("/admin?tab=tracker");
+        const panel = page.getByRole("tabpanel", { name: "Tracker" });
+        await expect(panel.getByText(/of \d+ workers$/)).toBeVisible(); // the setup's e2e user is always tracked
+        await scan(page);
+      });
+
       test("admin panel, Users tab", async ({ page }) => {
         await page.goto("/admin");
         await page.getByRole("tab", { name: "Users" }).click();
@@ -266,6 +273,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
       ["reports list", `/reports?month=&year=${earlierPeriod(3).year}`, /Reports/],
       ["new report", "/reports/new", /New report/],
       ["admin", "/admin", /Admin/],
+      ["tracker tab", "/admin?tab=tracker", /Admin/],
       ["users tab", "/admin?tab=users", /Admin/],
       ["logs tab", "/admin?tab=logs", /Admin/],
       ["new user", "/admin/users/new", /New user/],
@@ -279,6 +287,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
           await expect(page.getByText("Loading…")).toHaveCount(0); // the reports list too
         }
         if (path === "/admin?tab=logs") await expect(page.getByText(/total logs$/)).toBeVisible();
+        if (path === "/admin?tab=tracker") await expect(page.getByText(/of \d+ workers$/)).toBeVisible();
         expect(await noSidewaysScroll(page)).toBe(true);
         await scan(page); // wide tables scroll inside their container, which must be reachable by keyboard
       });

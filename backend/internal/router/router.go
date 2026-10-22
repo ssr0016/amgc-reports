@@ -144,6 +144,7 @@ func Setup(
 
 	// Counts for the admin panel cards. The group already requires the admin role.
 	admin.GET("/stats", statsHandler.GetStats, limits.Read)
+	admin.GET("/tracker", statsHandler.GetTracker, perm("reports:read_any"), limits.Read)
 
 	// The audit trail, read-only (no other method is routed). The group already requires the admin role.
 	admin.GET("/audit-logs", auditHandler.List, limits.Read)

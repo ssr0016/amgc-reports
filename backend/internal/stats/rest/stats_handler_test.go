@@ -35,11 +35,20 @@ func (f *fakeStatsSvc) Get(_ context.Context, q stats.GetStatsQuery) (stats.Admi
 	return stats.AdminStats{Month: "September", Year: 2026, ReportsTotal: 3, ReportsApproved: 1, ReportsPending: 2, UsersTotal: 7, AdminsTotal: 2}, f.err
 }
 
+func (f *fakeStatsSvc) Tracker(_ context.Context, q stats.GetStatsQuery) (stats.Tracker, error) {
+	f.calls++
+	f.month, f.year = q.Month, q.Year
+	rows := []stats.TrackerRow{{UserID: 4, Name: "Ana", Email: "ana@example.com", ChurchName: "Bethel", UserStatus: "active", Status: stats.TrackerApproved}}
+	return stats.Tracker{Month: "September", Year: 2026, Rows: rows}, f.err
+}
+
 func serveStats(t *testing.T, svc stats.Service, target string) *httptest.ResponseRecorder {
 	t.Helper()
 	e := echo.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	e.GET("/admin/stats", NewStatsHandler(svc).GetStats)
+	h := NewStatsHandler(svc)
+	e.GET("/admin/stats", h.GetStats)
+	e.GET("/admin/tracker", h.GetTracker)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil))
 	return rec
@@ -115,6 +124,64 @@ func TestStatsHandler_GetStats(t *testing.T) {
 	t.Run("any other error is a 500", func(t *testing.T) {
 		rec := serveStats(t, &fakeStatsSvc{err: errors.New("connection refused to 10.0.0.5")}, "/admin/stats")
 		if rec.Code != http.StatusInternalServerError {
+			t.Errorf("status = %d, want 500", rec.Code)
+		}
+	})
+}
+
+// The period parsing is shared with GetStats and covered there; these check the wiring.
+func TestStatsHandler_GetTracker(t *testing.T) {
+	t.Run("answers the rows as snake_case JSON", func(t *testing.T) {
+		svc := &fakeStatsSvc{}
+		rec := serveStats(t, svc, "/admin/tracker?month=september&year=2026")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, body %s", rec.Code, rec.Body)
+		}
+		if svc.month == nil || *svc.month != "september" || svc.year == nil || *svc.year != 2026 {
+			t.Errorf("period = %v %v", svc.month, svc.year)
+		}
+		var got map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		want := map[string]any{
+			"month": "September", "year": 2026.0,
+			"rows": []any{map[string]any{
+				"user_id": 4.0, "name": "Ana", "email": "ana@example.com", "church_name": "Bethel",
+				"user_status": "active", "status": "approved",
+			}},
+		}
+		if fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Errorf("body = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("a bad year is 400", func(t *testing.T) {
+		svc := &fakeStatsSvc{}
+		if rec := serveStats(t, svc, "/admin/tracker?month=March&year=abc"); rec.Code != http.StatusBadRequest {
+			t.Errorf("status = %d, want 400", rec.Code)
+		}
+		if svc.calls != 0 {
+			t.Error("the service was called with a bad year")
+		}
+	})
+
+	t.Run("a month without a year is 422 on month", func(t *testing.T) {
+		rec := serveStats(t, &fakeStatsSvc{err: stats.ErrPeriod}, "/admin/tracker?month=March")
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("status = %d, want 422", rec.Code)
+		}
+		var body struct {
+			Error   string            `json:"error"`
+			Details map[string]string `json:"details"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Error != "VALIDATION_ERROR" || body.Details["month"] == "" {
+			t.Errorf("body = %s (%v)", rec.Body, err)
+		}
+	})
+
+	t.Run("any other error is a 500", func(t *testing.T) {
+		if rec := serveStats(t, &fakeStatsSvc{err: errors.New("boom")}, "/admin/tracker"); rec.Code != http.StatusInternalServerError {
 			t.Errorf("status = %d, want 500", rec.Code)
 		}
 	})

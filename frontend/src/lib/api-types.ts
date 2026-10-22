@@ -828,6 +828,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/tracker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who has reported this month
+         * @description Every account with the user role that is not deleted (any status: active, inactive, disciplinary, deceased), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Admin role and reports:read_any. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Month name, case-insensitive; requires year */
+                    month?: string;
+                    /** @description Year; requires month */
+                    year?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.Tracker"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users": {
         parameters: {
             query?: never;
@@ -2970,6 +3058,20 @@ export interface components {
             name?: string;
             permissions?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"][];
             updated_at?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.Tracker": {
+            month?: string;
+            rows?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.TrackerRow"][];
+            year?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.TrackerRow": {
+            church_name?: string;
+            email?: string;
+            name?: string;
+            /** @enum {string} */
+            status?: "approved" | "for_review" | "not_submitted";
+            user_id?: number;
+            user_status?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateReportRequest": {
             area_assignment?: string;

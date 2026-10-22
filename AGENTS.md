@@ -45,7 +45,7 @@ Frontend (`cd frontend`):
 
 - Never commit `.env` files or secrets.
 - A new audit action needs a migration (CHECK constraint) shipped in the same deploy as the code that writes it.
-- Production does not auto-migrate on startup; run `/app/api migrate` as a separate step (Render Pre-Deploy Command or by hand: verify in the Render dashboard). Whether a push to `main` deploys immediately or waits for CI: verify in the Render dashboard.
+- Production does not auto-migrate on startup; Render's Free tier runs neither the Pre-Deploy Command nor Shell, so always run migrations locally against Neon (`make migrate-up` with the Neon `DATABASE_URL`) before pushing to `main` (H-1). Whether a push to `main` deploys immediately or waits for CI: verify in the Render dashboard.
 - Do not commit or push unless asked.
 
 ## Pointers

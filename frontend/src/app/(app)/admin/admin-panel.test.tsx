@@ -32,6 +32,7 @@ vi.mock("./stats-cards", () => ({ StatsCards: () => <p>stats</p> }));
 vi.mock("./admin-reports", () => ({ AdminReports: () => <p>admin reports</p> }));
 vi.mock("./users/users-list", () => ({ UsersPanel: () => <p>users panel</p> }));
 vi.mock("./audit-logs", () => ({ AuditLogs: () => <p>audit logs</p> }));
+vi.mock("./tracker", () => ({ Tracker: () => <p>tracker</p> }));
 
 describe("AdminPanel", () => {
   beforeEach(() => {
@@ -59,12 +60,12 @@ describe("AdminPanel", () => {
     expect(screen.getByRole("tab", { name: "Users" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("shows an admin the Reports, Users and Logs tabs, Reports first", () => {
+  it("shows an admin the Reports, Tracker, Users and Logs tabs, Reports first", () => {
     h.isAdmin = true;
     render(<AdminPanel />);
     expect(screen.getByRole("heading", { level: 1, name: "Admin" })).toBeInTheDocument();
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["Reports", "Users", "Logs"]);
+    expect(tabs.map((t) => t.textContent)).toEqual(["Reports", "Tracker", "Users", "Logs"]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Reports");
   });
@@ -85,14 +86,14 @@ describe("AdminPanel", () => {
     h.isAdmin = true;
     const user = userEvent.setup();
     render(<AdminPanel />);
-    const [reports, users, logs] = screen.getAllByRole("tab");
+    const [reports, tracker, , logs] = screen.getAllByRole("tab");
 
     await user.tab();
     expect(reports).toHaveFocus();
     await user.keyboard("{ArrowRight}");
-    expect(users).toHaveFocus();
-    expect(users).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Users");
+    expect(tracker).toHaveFocus();
+    expect(tracker).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Tracker");
     await user.keyboard("{ArrowLeft}");
     expect(reports).toHaveFocus();
     await user.keyboard("{End}");
@@ -136,6 +137,15 @@ describe("AdminPanel", () => {
     render(<AdminPanel />);
     expect(screen.getByRole("tab", { name: "Logs" })).toHaveAttribute("aria-selected", "true");
     expect(within(screen.getByRole("tabpanel")).getByText("audit logs")).toBeInTheDocument();
+    h.tab = null;
+  });
+
+  it("opens the Tracker tab for ?tab=tracker", () => {
+    h.isAdmin = true;
+    h.tab = "tracker";
+    render(<AdminPanel />);
+    expect(screen.getByRole("tab", { name: "Tracker" })).toHaveAttribute("aria-selected", "true");
+    expect(within(screen.getByRole("tabpanel")).getByText("tracker")).toBeInTheDocument();
     h.tab = null;
   });
 

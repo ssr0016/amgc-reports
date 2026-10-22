@@ -22,7 +22,7 @@ Frontend API types are generated from `backend/docs/swagger.json` (`npm run gen:
 ## Deployment
 
 - **Render** builds `backend/` from its Dockerfile. Root Directory is `backend`. Health check: `/health` (verify in the Render dashboard).
-- **Migrations in production** are not run on startup. `/app/api migrate` is Render's Pre-Deploy Command (owner, 2026-10-22, H-1): it runs on the new image before traffic switches, so a migration and the code that needs it ship in one deploy, migration first.
+- **Migrations in production** are not run on startup. Render's Free tier runs neither the Pre-Deploy Command nor Shell (owner, 2026-10-22, H-1), so migrations are applied from a local machine against Neon (`make migrate-up` with the Neon `DATABASE_URL`) before pushing to `main`.
   - Auto-deploy on push to `main`, and whether it waits for CI: verify in the Render dashboard.
   - `TRUSTED_PROXY_CIDRS` is required in production (`100.64.0.0/10` on Render); the server refuses to start without it or with a `/0` range (H-1).
 - Runbook and environment variables: [backend/SETUP.md](../backend/SETUP.md).

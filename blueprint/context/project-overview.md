@@ -1,6 +1,6 @@
 # AMGCReports - Project Overview
 
-<!-- blueprint:source-hash ae85b80f7310696e56018bad6c81aa7d7c482266deef9b100fd2d8a2d949aba2 -->
+<!-- blueprint:source-hash 6b6934f80cba2b5b33588158bed6e3d5941c541a24fd22c019db95c575f808df -->
 
 > Pastoral reports management for 24 churches: workers file weekly reports, admins review and approve.
 

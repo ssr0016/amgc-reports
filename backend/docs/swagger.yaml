@@ -380,6 +380,36 @@ definitions:
       updated_at:
         type: string
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.Tracker:
+    properties:
+      month:
+        type: string
+      rows:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.TrackerRow'
+        type: array
+      year:
+        type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.TrackerRow:
+    properties:
+      church_name:
+        type: string
+      email:
+        type: string
+      name:
+        type: string
+      status:
+        enum:
+        - approved
+        - for_review
+        - not_submitted
+        type: string
+      user_id:
+        type: integer
+      user_status:
+        type: string
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateReportRequest:
     properties:
       area_assignment:
@@ -1071,6 +1101,59 @@ paths:
       security:
       - CookieAuth: []
       summary: Admin panel counts
+      tags:
+      - admin/stats
+  /admin/tracker:
+    get:
+      description: 'Every account with the user role that is not deleted (any status:
+        active, inactive, disciplinary, deceased), with its report status for one
+        month: approved, for_review (filed, not approved) or not_submitted (D-A3).
+        Ordered by church name, then name. No report text. Admin role and reports:read_any.
+        Without month and year the period is the previous month in Asia/Manila. Month
+        and year go together; the month is an English month name, case-insensitive.'
+      parameters:
+      - description: Month name, case-insensitive; requires year
+        in: query
+        name: month
+        type: string
+      - description: Year; requires month
+        in: query
+        name: year
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.Tracker'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Who has reported this month
       tags:
       - admin/stats
   /admin/users:

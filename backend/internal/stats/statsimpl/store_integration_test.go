@@ -16,6 +16,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/report/reportimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 )
 
@@ -98,5 +99,90 @@ func TestStore_Counts(t *testing.T) {
 		require.NoError(t, err)
 		assert.EqualValues(t, 3, got.UsersTotal)
 		assert.EqualValues(t, 1, got.AdminsTotal)
+	})
+}
+
+func TestStore_Tracker(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
+	store := NewStore(db)
+	reports := reportimpl.NewStore(db)
+	users := userimpl.NewStore(db)
+	roles := acimpl.NewRoleStore(db)
+	ctx := context.Background()
+
+	t.Run("no accounts is an empty list, not nil", func(t *testing.T) {
+		got, err := store.Tracker(ctx, "January", 2026)
+		require.NoError(t, err)
+		assert.NotNil(t, got)
+		assert.Empty(t, got)
+	})
+
+	// account creates a user-role account with a church ("" leaves it NULL).
+	account := func(email, name, church string) int64 {
+		t.Helper()
+		u, err := users.CreateWithPassword(ctx, email, name, "hash")
+		require.NoError(t, err)
+		if church != "" {
+			_, err = users.UpdateProfile(ctx, u.ID, user.UserProfile{Name: name, ChurchName: church})
+			require.NoError(t, err)
+		}
+		return u.ID
+	}
+	file := func(userID int64, month string, year int) *report.Report {
+		t.Helper()
+		rep, err := reports.Create(ctx, userID, year, report.CreateReportRequest{Month: month, NarrativeReport: "n"})
+		require.NoError(t, err)
+		return rep
+	}
+
+	adminRole, err := roles.Create(ctx, accesscontrol.CreateRoleRequest{Name: "admin"})
+	require.NoError(t, err)
+	editorRole, err := roles.Create(ctx, accesscontrol.CreateRoleRequest{Name: "editor"})
+	require.NoError(t, err)
+
+	ana := account("ana@example.com", "Ana", "Bethel")     // approved
+	bob := account("bob@example.com", "Bob", "antioch")    // pending
+	cora := account("cora@example.com", "Cora", "Antioch") // no report; inactive
+	dan := account("dan@example.com", "Dan", "")           // no church; deleted report, other month
+	gone := account("gone@example.com", "Gone", "Calvary") // soft-deleted account
+	boss := account("boss@example.com", "Boss", "HQ")      // admin
+	ed := account("ed@example.com", "Ed", "Berea")         // editor
+	require.NoError(t, users.UpdateRole(ctx, boss, adminRole.ID))
+	require.NoError(t, users.UpdateRole(ctx, ed, editorRole.ID))
+	_, err = users.UpdateStatus(ctx, cora, "inactive")
+	require.NoError(t, err)
+	_, err = users.SoftDelete(ctx, gone, boss, "left")
+	require.NoError(t, err)
+
+	_, err = reports.ToggleComplete(ctx, file(ana, "January", 2026).ID, boss)
+	require.NoError(t, err)
+	file(bob, "January", 2026)
+	require.NoError(t, reports.SoftDelete(ctx, file(dan, "January", 2026).ID))
+	file(dan, "February", 2026)
+	file(dan, "January", 2025)
+	file(gone, "January", 2026)
+	file(boss, "January", 2026)
+	file(ed, "January", 2026)
+
+	t.Run("user-role accounts only, with their status, by church then name", func(t *testing.T) {
+		got, err := store.Tracker(ctx, "january", 2026)
+		require.NoError(t, err)
+		assert.Equal(t, []stats.TrackerRow{
+			{UserID: dan, Name: "Dan", Email: "dan@example.com", ChurchName: "", UserStatus: "active", Status: stats.TrackerNotSubmitted},
+			{UserID: bob, Name: "Bob", Email: "bob@example.com", ChurchName: "antioch", UserStatus: "active", Status: stats.TrackerForReview},
+			{UserID: cora, Name: "Cora", Email: "cora@example.com", ChurchName: "Antioch", UserStatus: "inactive", Status: stats.TrackerNotSubmitted},
+			{UserID: ana, Name: "Ana", Email: "ana@example.com", ChurchName: "Bethel", UserStatus: "active", Status: stats.TrackerApproved},
+		}, got)
+	})
+
+	t.Run("a month with no reports lists everyone as not submitted", func(t *testing.T) {
+		got, err := store.Tracker(ctx, "March", 2030)
+		require.NoError(t, err)
+		require.Len(t, got, 4)
+		for _, row := range got {
+			assert.Equal(t, stats.TrackerNotSubmitted, row.Status, row.Name)
+		}
 	})
 }

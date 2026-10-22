@@ -26,9 +26,14 @@ func (s *okStatsSvc) Get(context.Context, stats.GetStatsQuery) (stats.AdminStats
 	return stats.AdminStats{Month: "September", Year: 2026}, nil
 }
 
+func (s *okStatsSvc) Tracker(context.Context, stats.GetStatsQuery) (stats.Tracker, error) {
+	s.calls++
+	return stats.Tracker{Month: "September", Year: 2026, Rows: []stats.TrackerRow{}}, nil
+}
+
 // statsServer wires the real routes. A request is user 1 when it carries
-// X-Test-User; that user has the named role.
-func statsServer(roleName string) (*echo.Echo, *okStatsSvc) {
+// X-Test-User; that user has the named role and permissions.
+func statsServer(roleName string, perms ...string) (*echo.Echo, *okStatsSvc) {
 	users := userimpl.NewMockStore()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
 		return &user.User{ID: id, RoleID: 9, Role: &accesscontrol.Role{Name: roleName}}, nil
@@ -44,7 +49,7 @@ func statsServer(roleName string) (*echo.Echo, *okStatsSvc) {
 			return next(c)
 		}
 	})
-	Setup(e, noAuthn, users, permRoles{},
+	Setup(e, noAuthn, users, permRoles{perms: perms},
 		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		nil, statsrest.NewStatsHandler(svc), nil,
@@ -73,6 +78,32 @@ func TestStatsRoute_AdminOnly(t *testing.T) {
 			}
 			if (svc.calls == 1) != tt.reaches {
 				t.Errorf("service calls = %d: only an admin may reach it", svc.calls)
+			}
+		})
+	}
+}
+
+// The tracker needs the admin role and reports:read_any: names and report status, but no report text.
+func TestTrackerRoute_AdminWithReadAny(t *testing.T) {
+	tests := []struct {
+		name, role, user string // user "" = no session
+		perms            []string
+		want             int
+	}{
+		{"no session", "admin", "", []string{"reports:read_any"}, http.StatusUnauthorized},
+		{"plain user", "user", "1", nil, http.StatusForbidden},
+		{"editor who may read every report", "editor", "1", []string{"reports:read_any"}, http.StatusForbidden},
+		{"admin without reports:read_any", "admin", "1", nil, http.StatusForbidden},
+		{"admin", "admin", "1", []string{"reports:read_any"}, http.StatusOK},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e, svc := statsServer(tt.role, tt.perms...)
+			if got := reportRequestAs(e, http.MethodGet, "/api/v1/admin/tracker", "", tt.user); got != tt.want {
+				t.Fatalf("status = %d, want %d", got, tt.want)
+			}
+			if (svc.calls == 1) != (tt.want == http.StatusOK) {
+				t.Errorf("service calls = %d", svc.calls)
 			}
 		})
 	}
