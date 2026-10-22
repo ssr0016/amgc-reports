@@ -157,8 +157,8 @@ type ExcelPreview struct {
 
 // PreviewSheet is one sheet's name and its cell text, row by row, as shown. A
 // report sheet is always A1:G42 (42 × 7) and a merged range's text is in its
-// top-left cell; the bulk Report Dashboard is its header plus one row per
-// account, 4 columns wide (D-A16).
+// top-left cell; the bulk Report Dashboard is its title, header and one row
+// per account, 4 columns wide (D-A16, D-A17).
 type PreviewSheet struct {
 	Name string     `json:"name"`
 	Rows [][]string `json:"rows"`
@@ -172,12 +172,9 @@ const (
 )
 
 // DashboardRow is one church account on the bulk export's Report Dashboard
-// sheet (D-A16): the account's church, name and area, and its report status
-// for the month.
+// sheet (D-A16, D-A17): the account's church and its report status for the month.
 type DashboardRow struct {
 	Church string
-	Worker string
-	Area   string
 	Status string
 }
 

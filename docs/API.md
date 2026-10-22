@@ -208,11 +208,11 @@ Counts for the admin panel cards. `month` (English name, case-insensitive) and `
 POST /admin/reports/:id/excel
 POST /admin/reports/excel
 
-Both need the admin role, `reports:read_any` and the CSRF header (POST, because each download writes an audit row). The workbook uses the legacy "Church Growth Program Report" sheet layout (D-A6): one sheet per report with Month of, Worker, Area of Assignment, Church, the Week 1-5 metric grid with an `AVERAGE` column, Names, Narrative Report, Challenges and Prayer Request. Blank weeks stay blank; 0 is written as 0.
+Both need the admin role, `reports:read_any` and the CSRF header (POST, because each download writes an audit row). The workbook uses the legacy "Church Growth Program Report" sheet layout and styling (D-A6, D-A17): one sheet per report with Month of, Worker, Area of Assignment, Church, the Week 1-5 metric grid with an `AVERAGE` column, Names, Narrative Report, Challenges and Prayer Request. Blank weeks stay blank; 0 is written as 0.
 
 The first returns one report, approved or not. The second takes a body and returns the month's bulk workbook (D-A16):
 
-- Sheet 1, "Report Dashboard": a header row (Church, Worker, Area, Status) and one row per church account (an account with a church name that is not deleted and not an admin; inactive, disciplinary and deceased accounts are included), ordered by church name. Worker is the account's name. Status is "Approved", "Pending" or "Not Filed" for that month.
+- Sheet 1, "Report Dashboard" (D-A17): the title "Report Dashboard" merged over A1:C1, a header row (Churches, Status, Coordinator's Remark, Support Status), then one row per church account (an account with a church name that is not deleted and not an admin; inactive, disciplinary and deceased accounts are included), ordered by church name. Status is "Approved" (blue), "Pending" or "Not Filed" (red) for that month. The two remark columns are blank.
 - Then one sheet per **approved** report of the month (not soft-deleted, including those whose owner is deleted or deceased), ordered by church name. Pending reports get no sheet. A church sheet named "Report Dashboard" gets " (2)".
 
 A month with no approved reports still returns the file, with the dashboard alone:
@@ -236,7 +236,7 @@ The admin Reports tab shows this before every download (D-A15). It builds the sa
 {"month":"September","year":2026}
 
 
-Response (200), `Cache-Control: no-store`: `{"count":1,"sheets":[{"name":"Report Dashboard","rows":[["Church","Worker","Area","Status"],["Bethel","Ana","Cebu","Approved"], ...]},{"name":"Bethel","rows":[["ANG MANANAMPALATAYANG GUMAWA","","","","","",""], ...]}]}`. Sheets come in the export's order with the export's sheet names; a month starts with the Report Dashboard (4 columns, header plus one row per account), and `count` is the number of report sheets. A report sheet's `rows` is always A1:G42 (42 rows of 7 strings) as Excel shows them: the month as "September 2026", tithes as "1,810.50" and the Average column calculated. A merged range's text is in its top-left cell only.
+Response (200), `Cache-Control: no-store`: `{"count":1,"sheets":[{"name":"Report Dashboard","rows":[["Report Dashboard","","",""],["Churches","Status","Coordinator's Remark","Support Status"],["Bethel","Approved","",""], ...]},{"name":"Bethel","rows":[["ANG MANANAMPALATAYANG GUMAWA","","","","","",""], ...]}]}`. Sheets come in the export's order with the export's sheet names; a month starts with the Report Dashboard (4 columns, header plus one row per account), and `count` is the number of report sheets. A report sheet's `rows` is always A1:G42 (42 rows of 7 strings) as Excel shows them: the month as "September 2026", tithes as "1,810.50" and the Average column calculated. A merged range's text is in its top-left cell only.
 
 Errors: 400 for a malformed body, 401, 403 as above, 404 for a missing or deleted report, 422 when neither or both shapes are sent, for an invalid id, month or year (2000-2100), or more than 100 approved reports in the month.
 

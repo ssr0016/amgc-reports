@@ -149,9 +149,58 @@ func TestBuildWorkbook_Layout(t *testing.T) {
 	width, err := f.GetColWidth(sh, "A")
 	require.NoError(t, err)
 	assert.InDelta(t, 26, width, 0.01)
-	height, err := f.GetRowHeight(sh, 40)
-	require.NoError(t, err)
-	assert.InDelta(t, 43.5, height, 0.01)
+	for row, want := range map[int]float64{40: 56.25, 41: 29.25, 42: 45} {
+		height, err := f.GetRowHeight(sh, row)
+		require.NoError(t, err)
+		assert.InDelta(t, want, height, 0.01, "row %d", row)
+	}
+}
+
+// TestBuildWorkbook_LegacyStyles checks the metric sheet's look against the
+// legacy workbook's styles (D-A17).
+func TestBuildWorkbook_LegacyStyles(t *testing.T) {
+	f := openWorkbook(t, &report.Report{ID: 1, Month: "May", Year: 2026, ChurchName: strPtr("Zion")})
+	style := styleOf(t, f, "Zion")
+
+	title := style("A1")
+	assert.Equal(t, "Times New Roman", title.Font.Family)
+	assert.InDelta(t, 18, title.Font.Size, 0.01)
+	assert.Equal(t, "0000FF", title.Font.Color)
+	assert.False(t, title.Font.Bold)
+
+	for _, ref := range []string{"A8", "B8", "A29", "G29"} {
+		assert.Equal(t, []string{"000000"}, style(ref).Fill.Color, ref)
+	}
+	assert.Equal(t, "FFFFFF", style("A8").Font.Color, "the band label stays readable")
+
+	assert.Equal(t, "Helvetica Neue", style("A20").Font.Family)
+	assert.InDelta(t, 12, style("A20").Font.Size, 0.01)
+	assert.Equal(t, "Arial", style("A21").Font.Family, "sub-items are the smaller Arial")
+	assert.InDelta(t, 10, style("A21").Font.Size, 0.01)
+	assert.True(t, style("B9").Font.Bold)
+	assert.False(t, style("B30").Font.Bold, "the second week header is not bold")
+
+	borderSides := func(ref string) []string {
+		var out []string
+		for _, b := range style(ref).Border {
+			out = append(out, b.Type)
+		}
+		return out
+	}
+	assert.ElementsMatch(t, []string{"right", "bottom"}, borderSides("B10"))
+	assert.ElementsMatch(t, []string{"left", "right", "bottom"}, borderSides("A10"))
+}
+
+// styleOf returns a reader of a cell's style on sheet sh.
+func styleOf(t *testing.T, f *excelize.File, sh string) func(ref string) *excelize.Style {
+	return func(ref string) *excelize.Style {
+		t.Helper()
+		id, err := f.GetCellStyle(sh, ref)
+		require.NoError(t, err)
+		s, err := f.GetStyle(id)
+		require.NoError(t, err)
+		return s
+	}
 }
 
 func TestSheetNames(t *testing.T) {
@@ -244,9 +293,9 @@ func TestPreviewSheets(t *testing.T) {
 
 func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	rows := []report.DashboardRow{
-		{Church: "=HYPERLINK(\"http://x\")", Worker: "Ana", Area: "Leyte", Status: report.StatusApproved},
-		{Church: "Bethel", Worker: "Ben", Status: report.StatusPending},
-		{Church: "Zion", Worker: "Cora", Area: "Cebu", Status: report.StatusNotFiled},
+		{Church: "=HYPERLINK(\"http://x\")", Status: report.StatusApproved},
+		{Church: "Bethel", Status: report.StatusPending},
+		{Church: "Zion", Status: report.StatusNotFiled},
 	}
 	reps := []*report.Report{
 		{ID: 1, Month: "May", Year: 2026, ChurchName: strPtr("Bethel")},
@@ -257,39 +306,62 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	t.Cleanup(func() { _ = f.Close() })
 
 	assert.Equal(t, []string{"Report Dashboard", "Bethel", "report dashboard (2)"}, f.GetSheetList())
-	got, err := f.GetRows("Report Dashboard")
+	const sh = "Report Dashboard"
+	merges, err := f.GetMergeCells(sh)
 	require.NoError(t, err)
-	assert.Equal(t, [][]string{
-		{"Church", "Worker", "Area", "Status"},
-		{`=HYPERLINK("http://x")`, "Ana", "Leyte", "Approved"},
-		{"Bethel", "Ben", "", "Pending"},
-		{"Zion", "Cora", "Cebu", "Not Filed"},
-	}, got)
-	formula, err := f.GetCellFormula("Report Dashboard", "A2")
+	require.Len(t, merges, 1)
+	assert.Equal(t, []string{"A1", "C1", "Report Dashboard"}, []string{merges[0].GetStartAxis(), merges[0].GetEndAxis(), merges[0].GetCellValue()})
+	formula, err := f.GetCellFormula(sh, "A3")
 	require.NoError(t, err)
 	assert.Empty(t, formula, "a church name that looks like a formula stays text")
-	head, err := f.GetCellStyle("Report Dashboard", "A1")
-	require.NoError(t, err)
-	hs, err := f.GetStyle(head)
-	require.NoError(t, err)
-	assert.True(t, hs.Font.Bold)
+
+	style := styleOf(t, f, sh)
+	fillOf := func(cell string) []string { return style(cell).Fill.Color }
+	title := style("A1")
+	assert.True(t, title.Font.Bold)
+	assert.Equal(t, "single", title.Font.Underline)
+	assert.Equal(t, "1155CC", title.Font.Color)
+	for cell, want := range map[string][]string{
+		"A1": {"D5A6BD"}, "D1": {"D5A6BD"}, "D2": {"FFF2CC"}, "A3": {"FCE5CD"},
+		"B3": {"0000FF"}, // Approved
+		"B4": {"FF0000"}, // Pending
+		"B5": {"FF0000"}, // Not Filed
+	} {
+		assert.Equal(t, want, fillOf(cell), cell)
+	}
+	assert.True(t, style("D2").Font.Bold)
+	assert.Equal(t, "FFFFFF", style("B4").Font.Color)
+	assert.Empty(t, style("A3").Border, "the dashboard has no borders, as in the template")
+	for _, cell := range []string{"C3", "D5"} {
+		assert.Empty(t, fillOf(cell), "%s: the remark cells stay unfilled", cell)
+		v, err := f.GetCellValue(sh, cell)
+		require.NoError(t, err)
+		assert.Empty(t, v, cell)
+	}
 
 	sheets, err := previewSheets(f, true)
 	require.NoError(t, err)
 	require.Len(t, sheets, 3)
-	assert.Equal(t, got[:2], sheets[0].Rows[:2])
-	assert.Equal(t, []string{"Bethel", "Ben", "", "Pending"}, sheets[0].Rows[2], "a blank area is padded")
-	assert.Len(t, sheets[0].Rows, 4)
+	assert.Equal(t, [][]string{
+		{"Report Dashboard", "", "", ""},
+		{"Churches", "Status", "Coordinator's Remark", "Support Status"},
+		{`=HYPERLINK("http://x")`, "Approved", "", ""},
+		{"Bethel", "Pending", "", ""},
+		{"Zion", "Not Filed", "", ""},
+	}, sheets[0].Rows)
 	assert.Len(t, sheets[1].Rows, 42)
 	assert.Len(t, sheets[1].Rows[0], 7)
 
-	t.Run("no reports and no accounts is the header alone", func(t *testing.T) {
+	t.Run("no reports and no accounts is the title and header alone", func(t *testing.T) {
 		f, err := buildBulkWorkbook(nil, nil)
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = f.Close() })
 		assert.Equal(t, []string{"Report Dashboard"}, f.GetSheetList())
 		sheets, err := previewSheets(f, true)
 		require.NoError(t, err)
-		assert.Equal(t, [][]string{{"Church", "Worker", "Area", "Status"}}, sheets[0].Rows)
+		assert.Equal(t, [][]string{
+			{"Report Dashboard", "", "", ""},
+			{"Churches", "Status", "Coordinator's Remark", "Support Status"},
+		}, sheets[0].Rows)
 	})
 }

@@ -315,7 +315,7 @@ func (h *ReportHandler) ExportReport(c echo.Context) error {
 
 // ExportReports godoc
 // @Summary      Download a month of reports as Excel
-// @Description  Admin only. A Report Dashboard sheet with every church account's status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout (D-A6, D-A16). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.
+// @Description  Admin only. A Report Dashboard sheet (title, then Churches, Status, Coordinator's Remark, Support Status) with every church account's status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout and styling (D-A6, D-A16, D-A17). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.
 // @Tags         admin
 // @Accept       json
 // @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
@@ -348,7 +348,7 @@ func (h *ReportHandler) ExportReports(c echo.Context) error {
 
 // PreviewExcel godoc
 // @Summary      Preview an Excel export
-// @Description  Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and cell text: A1:G42 for a report sheet, header plus one row per account for the month's Report Dashboard. count is the number of report sheets. Writes no audit row (D-A15, D-A16).
+// @Description  Admin only. Builds the workbook the export would build, for one report (report_id) or one month (month and year), and returns each sheet's name and cell text: A1:G42 for a report sheet, title, header and one row per account for the month's Report Dashboard. count is the number of report sheets. Writes no audit row (D-A15, D-A16, D-A17).
 // @Tags         admin
 // @Accept       json
 // @Produce      json

@@ -25,6 +25,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A12 | Admin reset password | Decided 2026-10-17; built in 22e | here |
 | D-A15 | Excel export preview before download | Decided 2026-10-22; built in 22f | here |
 | D-A16 | Bulk export: Report Dashboard sheet and approved-only metric sheets | Decided 2026-10-22; built in 22h | here |
+| D-A17 | Excel sheets follow the legacy workbook's styling | Decided 2026-10-22 | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -250,6 +251,22 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Consequence:** an approved report whose owner is an admin or a deleted account still gets a metric sheet, but its owner has no dashboard row.
 - **Built (22h):** one query joins accounts to their report of the month, so the dashboard has no page cap. Pending reports are filtered in the database, so the cap counts approved reports only. The bulk 404 "No reports for that month." is gone, and the 422 message reads "A bulk export holds at most 100 approved reports." The preview returns the dashboard at its real size (4 columns, header plus one row per account); report sheets stay 42 × 7. The modal labels the count "N approved". The service lists dashboard accounts only for a caller with `reports:read_any`, the same scope as the reports; the admin route always has it.
 
+### D-A17 Excel sheets follow the legacy workbook's styling
+**Date:** 2026-10-22 · **Status:** Decided
+
+- **Decision (owner, 2026-10-22):** the Report Dashboard and the metric sheets look like the legacy workbook (`blueprint/reference/`, kept out of Git). Fonts, fills, borders and column widths are read from its `styles.xml` and sheet XML. This amends D-A16's dashboard columns. Cell positions, labels, merges and formulas stay as D-A6 set them.
+- **Dashboard:** the title "Report Dashboard" is merged over A1:C1 (bold, underlined, 18 pt, blue on pink). The header row reads Churches, Status, Coordinator's Remark, Support Status (yellow), and church cells are peach. There are no borders, as in the template.
+- **Worker and Area dropped (owner):** the template has no such columns. `DashboardRow` and its query no longer read them.
+- **Colors (owner):** Approved is the template's blue (`#0000FF`). Pending and Not Filed are its red (`#FF0000`). Both use bold white text.
+- **Remark columns:** Coordinator's Remark and Support Status are written blank and unstyled until a later feature fills them, so anything an admin types stays readable.
+- **Metric sheets:**
+  - The title is Times New Roman 18 in blue.
+  - Rows 8 and 29 are black bands with white labels; "Other Statistics" stays visible.
+  - Labels are Helvetica Neue 12, values and sub-items Arial 10.
+  - Each cell has a right and bottom border, plus a left border on column A.
+  - The second week header row is not bold.
+- **Row heights:** the dashboard title row is 23.25 pt, and rows 40, 41 and 42 are 56.25, 29.25 and 45 pt. These are measured from the screenshot, because Google Sheets grows rows that the file stores at 15.75 pt and Excel does not.
+- **Kept:** "Baptism" on row 19 uses the main label style (D-A6). The averages keep their number format; the template's `0` would round them (D-A5).
 ### D-AR1 Architecture alignment with the company codebase, and JWT auth
 **Date:** 2026-10-21 · **Status:** Decided; phases 0 to 3 built (JWT cutover and frontend refresh), not deployed
 **Spec:** `blueprint/context/current-feature.md`

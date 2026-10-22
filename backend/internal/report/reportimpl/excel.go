@@ -39,38 +39,79 @@ var rowLabels = map[int]string{
 
 var weekCols = [5]string{"B", "C", "D", "E", "F"}
 
+// excelStyles are the legacy workbook's cell styles (D-A17), read from its
+// styles.xml: Helvetica Neue 12 for labels, Arial 10 for values, borders on
+// the right and bottom of each cell, and a left border on column A.
 type excelStyles struct {
-	title, heading, label, header, cell, money, month, text, wrapped, dashHeader int
+	// Metric sheet.
+	title, subtitle, label, month, value, bandLabel, band, headerLabel, header,
+	weekHeader, mainLabel, subLabel, cell, money, names, textLabel, text int
+	// Report Dashboard.
+	dashTitle, dashTitleEnd, dashHeader, dashChurch, dashApproved, dashOpen int
+}
+
+// sides returns thin black borders on the named sides: l, r, t and b.
+func sides(names string) []excelize.Border {
+	types := map[rune]string{'l': "left", 'r': "right", 't': "top", 'b': "bottom"}
+	out := make([]excelize.Border, 0, len(names))
+	for _, n := range names {
+		out = append(out, excelize.Border{Type: types[n], Color: "000000", Style: 1})
+	}
+	return out
+}
+
+func fill(color string) excelize.Fill {
+	return excelize.Fill{Type: "pattern", Pattern: 1, Color: []string{color}}
 }
 
 func newExcelStyles(f *excelize.File) (excelStyles, error) {
-	thin := []excelize.Border{
-		{Type: "left", Color: "000000", Style: 1}, {Type: "right", Color: "000000", Style: 1},
-		{Type: "top", Color: "000000", Style: 1}, {Type: "bottom", Color: "000000", Style: 1},
+	helv := func(bold bool, color string) *excelize.Font {
+		return &excelize.Font{Family: "Helvetica Neue", Size: 12, Bold: bold, Color: color}
 	}
-	font := &excelize.Font{Family: "Helvetica Neue", Size: 12}
+	arial := func(bold bool, color string) *excelize.Font {
+		return &excelize.Font{Family: "Arial", Size: 10, Bold: bold, Color: color}
+	}
+	white, black := fill("FFFFFF"), fill("000000")
+	top, bottom := &excelize.Alignment{Vertical: "top"}, &excelize.Alignment{Vertical: "bottom"}
+	wrap := &excelize.Alignment{Vertical: "top", WrapText: true}
 	monthFmt, moneyFmt := "mmmm yyyy", 4 // 4 is the built-in #,##0.00
-	specs := []*excelize.Style{
-		{Font: &excelize.Font{Family: "Times New Roman", Size: 18}, Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"}},
-		{Font: &excelize.Font{Family: "Helvetica Neue", Size: 12, Bold: true}, Alignment: &excelize.Alignment{Horizontal: "center"}},
-		{Font: font, Border: thin},
-		{Font: font, Border: thin, Alignment: &excelize.Alignment{Horizontal: "center"}},
-		{Border: thin},
-		{Border: thin, NumFmt: moneyFmt},
-		{Font: font, Border: thin, CustomNumFmt: &monthFmt, Alignment: &excelize.Alignment{Horizontal: "left"}},
-		{Font: font, Border: thin},
-		{Font: font, Border: thin, Alignment: &excelize.Alignment{Vertical: "top", WrapText: true}},
-		{Font: &excelize.Font{Family: "Helvetica Neue", Size: 12, Bold: true}, Border: thin},
-	}
-	ids := make([]int, len(specs))
-	for i, s := range specs {
-		id, err := f.NewStyle(s)
+
+	var st excelStyles
+	for _, s := range []struct {
+		id    *int
+		style *excelize.Style
+	}{
+		{&st.title, &excelize.Style{Font: &excelize.Font{Family: "Times New Roman", Size: 18, Color: "0000FF"}, Fill: white, Border: sides("rb"), Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "bottom"}}},
+		{&st.subtitle, &excelize.Style{Font: helv(true, ""), Fill: white, Border: sides("lrb"), Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "bottom"}}},
+		{&st.label, &excelize.Style{Font: helv(false, ""), Fill: white, Border: sides("lrb"), Alignment: bottom}},
+		{&st.month, &excelize.Style{Font: arial(true, ""), Fill: white, Border: sides("lrtb"), CustomNumFmt: &monthFmt, Alignment: &excelize.Alignment{Horizontal: "left"}}},
+		{&st.value, &excelize.Style{Font: arial(false, ""), Fill: white, Border: sides("lrtb")}},
+		{&st.bandLabel, &excelize.Style{Font: helv(true, "FFFFFF"), Fill: black, Border: sides("lrb"), Alignment: bottom}},
+		{&st.band, &excelize.Style{Fill: black, Border: sides("rb")}},
+		{&st.headerLabel, &excelize.Style{Font: helv(true, ""), Border: sides("lrb"), Alignment: top}},
+		{&st.header, &excelize.Style{Font: helv(true, ""), Border: sides("rb"), Alignment: top}},
+		{&st.weekHeader, &excelize.Style{Font: helv(false, ""), Border: sides("rb"), Alignment: top}},
+		{&st.mainLabel, &excelize.Style{Font: helv(false, ""), Border: sides("lrb"), Alignment: top}},
+		{&st.subLabel, &excelize.Style{Font: arial(false, ""), Border: sides("lrb"), Alignment: bottom}},
+		{&st.cell, &excelize.Style{Font: arial(false, ""), Border: sides("rb"), Alignment: bottom}},
+		{&st.money, &excelize.Style{Font: arial(false, ""), Border: sides("rb"), Alignment: bottom, NumFmt: moneyFmt}},
+		{&st.names, &excelize.Style{Font: arial(false, ""), Fill: white, Border: sides("rb"), Alignment: wrap}},
+		{&st.textLabel, &excelize.Style{Font: helv(false, "000000"), Fill: white, Border: sides("lrb"), Alignment: wrap}},
+		{&st.text, &excelize.Style{Font: helv(false, "000000"), Fill: white, Border: sides("rb"), Alignment: wrap}},
+		{&st.dashTitle, &excelize.Style{Font: &excelize.Font{Family: "Arial", Size: 18, Bold: true, Underline: "single", Color: "1155CC"}, Fill: fill("D5A6BD"), Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "bottom"}}},
+		{&st.dashTitleEnd, &excelize.Style{Fill: fill("D5A6BD")}},
+		{&st.dashHeader, &excelize.Style{Font: arial(true, ""), Fill: fill("FFF2CC")}},
+		{&st.dashChurch, &excelize.Style{Font: arial(false, ""), Fill: fill("FCE5CD")}},
+		{&st.dashApproved, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("0000FF"), Alignment: bottom}},
+		{&st.dashOpen, &excelize.Style{Font: arial(true, "FFFFFF"), Fill: fill("FF0000"), Alignment: bottom}},
+	} {
+		id, err := f.NewStyle(s.style)
 		if err != nil {
 			return excelStyles{}, fmt.Errorf("new style: %w", err)
 		}
-		ids[i] = id
+		*s.id = id
 	}
-	return excelStyles{ids[0], ids[1], ids[2], ids[3], ids[4], ids[5], ids[6], ids[7], ids[8], ids[9]}, nil
+	return st, nil
 }
 
 // dashboardSheet is the bulk export's first sheet (D-A16).
@@ -96,6 +137,9 @@ func buildBulkWorkbook(rows []report.DashboardRow, reps []*report.Report) (*exce
 // report sheets, whose names never reuse the dashboard's.
 func renderWorkbook(rows []report.DashboardRow, reps []*report.Report) (*excelize.File, error) {
 	f := excelize.NewFile()
+	if err := f.SetDefaultFont("Arial"); err != nil {
+		return nil, fmt.Errorf("default font: %w", err)
+	}
 	st, err := newExcelStyles(f)
 	if err != nil {
 		return nil, err
@@ -126,30 +170,43 @@ func renderWorkbook(rows []report.DashboardRow, reps []*report.Report) (*exceliz
 	return f, nil
 }
 
-// dashboardHeader is the Report Dashboard's header row.
-var dashboardHeader = []string{"Church", "Worker", "Area", "Status"}
+// dashboardHeader is the Report Dashboard's header row, under its merged title.
+// The remark columns stay blank for the coordinator to fill in (D-A17).
+var dashboardHeader = []string{"Churches", "Status", "Coordinator's Remark", "Support Status"}
 
-// writeDashboard writes the header and one row per church account, all as text.
+// writeDashboard writes the legacy layout (D-A17): a title merged over A1:C1,
+// the header in row 2, then one row per church account, all as text.
+// Approved is blue and Pending or Not Filed red; the remark columns are left
+// blank and unstyled, as in the template.
 func writeDashboard(f *excelize.File, rows []report.DashboardRow, st excelStyles) error {
 	sh := dashboardSheet
-	last := strconv.Itoa(len(rows) + 1)
 	steps := []error{
-		f.SetColWidth(sh, "A", "A", 34),
-		f.SetColWidth(sh, "B", "C", 24),
-		f.SetColWidth(sh, "D", "D", 12),
-		f.SetCellStyle(sh, "A1", "D1", st.dashHeader),
-	}
-	if len(rows) > 0 {
-		steps = append(steps, f.SetCellStyle(sh, "A2", "D"+last, st.text))
+		f.SetColWidth(sh, "A", "A", 21.88),
+		f.SetColWidth(sh, "B", "B", 12.63),
+		f.SetColWidth(sh, "C", "C", 20.38),
+		f.SetColWidth(sh, "D", "D", 12.63),
+		f.SetRowHeight(sh, 1, 23.25), // the template's 15.75 clips 18 pt text in Excel
+		f.MergeCell(sh, "A1", "C1"),
+		f.SetCellStyle(sh, "A1", "C1", st.dashTitle),
+		f.SetCellStyle(sh, "D1", "D1", st.dashTitleEnd),
+		f.SetCellStr(sh, "A1", dashboardSheet),
+		f.SetCellStyle(sh, "A2", "D2", st.dashHeader),
 	}
 	for i, h := range dashboardHeader {
-		steps = append(steps, f.SetCellStr(sh, previewCols[i]+"1", h))
+		steps = append(steps, f.SetCellStr(sh, previewCols[i]+"2", h))
 	}
 	for i, r := range rows {
-		n := strconv.Itoa(i + 2)
-		for j, v := range []string{r.Church, r.Worker, r.Area, r.Status} {
-			steps = append(steps, f.SetCellStr(sh, previewCols[j]+n, v))
+		n := strconv.Itoa(i + 3)
+		status := st.dashOpen
+		if r.Status == report.StatusApproved {
+			status = st.dashApproved
 		}
+		steps = append(steps,
+			f.SetCellStyle(sh, "A"+n, "A"+n, st.dashChurch),
+			f.SetCellStyle(sh, "B"+n, "B"+n, status),
+			f.SetCellStr(sh, "A"+n, r.Church),
+			f.SetCellStr(sh, "B"+n, r.Status),
+		)
 	}
 	for _, err := range steps {
 		if err != nil {
@@ -157,6 +214,12 @@ func writeDashboard(f *excelize.File, rows []report.DashboardRow, st excelStyles
 		}
 	}
 	return nil
+}
+
+// styleRange applies one style to the cells from:to.
+type styleRange struct {
+	from, to string
+	id       int
 }
 
 func writeSheet(f *excelize.File, sh string, r *report.Report, st excelStyles) error {
@@ -177,14 +240,19 @@ func writeSheet(f *excelize.File, sh string, r *report.Report, st excelStyles) e
 	for row, label := range rowLabels {
 		strs["A"+strconv.Itoa(row)] = label
 	}
-	styles := []struct {
-		from, to string
-		id       int
-	}{
-		{"A1", "G2", st.title}, {"A3", "G3", st.heading},
-		{"A4", "A9", st.label}, {"B5", "G7", st.text}, {"B4", "G4", st.month},
-		{"B9", "G9", st.header}, {"A29", "A29", st.label}, {"B30", "G30", st.header},
-		{"A37", "A42", st.wrapped}, {"B37", "G42", st.wrapped},
+	styles := []styleRange{
+		{"A1", "G2", st.title}, {"A3", "G3", st.subtitle},
+		{"A4", "A7", st.label}, {"B4", "G4", st.month}, {"B5", "G7", st.value},
+		{"A8", "A8", st.bandLabel}, {"B8", "G8", st.band}, {"A9", "A9", st.headerLabel}, {"B9", "G9", st.header},
+		{"A10", "A28", st.mainLabel}, {"B10", "G28", st.cell}, {"B27", "G27", st.money},
+		{"A29", "A29", st.bandLabel}, {"B29", "G29", st.band}, {"A30", "A30", st.subLabel}, {"B30", "G30", st.weekHeader},
+		{"A31", "A37", st.mainLabel}, {"B31", "G36", st.cell}, {"B37", "G39", st.names}, {"A38", "A39", st.subLabel},
+		{"A40", "A42", st.textLabel}, {"B40", "G42", st.text},
+	}
+	// The template's smaller Arial rows: sub-items and spacers. Row 19 keeps the
+	// main style because D-A6 gave it the "Baptism" label.
+	for _, row := range []string{"21", "22", "23", "25", "26", "28"} {
+		styles = append(styles, styleRange{"A" + row, "A" + row, st.subLabel})
 	}
 	merges := [][2]string{
 		{"A1", "G2"}, {"A3", "G3"}, {"B4", "G4"}, {"B5", "G5"}, {"B6", "G6"}, {"B7", "G7"},
@@ -195,7 +263,10 @@ func writeSheet(f *excelize.File, sh string, r *report.Report, st excelStyles) e
 		f.SetSheetProps(sh, &excelize.SheetPropsOptions{DefaultRowHeight: &height}),
 		f.SetColWidth(sh, "A", "A", 26),
 		f.SetColWidth(sh, "B", "G", 12.63),
-		f.SetRowHeight(sh, 40, 43.5),
+		// Measured from the legacy screenshot: Sheets grows these rows, Excel does not.
+		f.SetRowHeight(sh, 40, 56.25),
+		f.SetRowHeight(sh, 41, 29.25),
+		f.SetRowHeight(sh, 42, 45),
 		f.SetPageLayout(sh, &excelize.PageLayoutOptions{Orientation: ptrTo("portrait")}),
 		f.SetPageMargins(sh, &excelize.PageLayoutMarginsOptions{Horizontally: ptrTo(true)}),
 	}
@@ -211,7 +282,7 @@ func writeSheet(f *excelize.File, sh string, r *report.Report, st excelStyles) e
 	if i := slices.Index(report.Months, r.Month); i >= 0 {
 		steps = append(steps, f.SetCellValue(sh, "B4", time.Date(int(r.Year), time.Month(i+1), 1, 0, 0, 0, 0, time.UTC)))
 	}
-	steps = append(steps, writeMetrics(f, sh, r, st)...)
+	steps = append(steps, writeMetrics(f, sh, r)...)
 	for _, err := range steps {
 		if err != nil {
 			return err
@@ -220,21 +291,13 @@ func writeSheet(f *excelize.File, sh string, r *report.Report, st excelStyles) e
 	return nil
 }
 
-// writeMetrics styles every metric row, adds its Average formula and writes the
+// writeMetrics adds each metric row's Average formula and writes the
 // reported weeks as numbers. An absent week stays blank: not reported (D-5).
-func writeMetrics(f *excelize.File, sh string, r *report.Report, st excelStyles) []error {
+func writeMetrics(f *excelize.File, sh string, r *report.Report) []error {
 	var steps []error
 	for row := range rowLabels {
 		n := strconv.Itoa(row)
-		style := st.cell
-		if row == metricRows["tithes_offering"] {
-			style = st.money
-		}
-		steps = append(steps,
-			f.SetCellStyle(sh, "A"+n, "A"+n, st.label),
-			f.SetCellStyle(sh, "B"+n, "G"+n, style),
-			f.SetCellFormula(sh, "G"+n, `IFERROR(AVERAGE(B`+n+`:F`+n+`),"")`),
-		)
+		steps = append(steps, f.SetCellFormula(sh, "G"+n, `IFERROR(AVERAGE(B`+n+`:F`+n+`),"")`))
 	}
 	for key, weeks := range r.Metrics {
 		row, ok := metricRows[key]
@@ -261,7 +324,7 @@ var previewCols = [7]string{"A", "B", "C", "D", "E", "F", "G"}
 // The Average formulas are not cached in a new workbook, so column G is
 // calculated. excelize repeats a merged range's value in every cell it covers;
 // only the top-left cell keeps it here. With dashboard, the first sheet is the
-// Report Dashboard and is read as its header plus one row per account, 4 wide.
+// Report Dashboard and is read as its title, header and one row per account, 4 wide.
 func previewSheets(f *excelize.File, dashboard bool) ([]report.PreviewSheet, error) {
 	sheets := make([]report.PreviewSheet, 0, f.SheetCount)
 	for i, sh := range f.GetSheetList() {
@@ -304,14 +367,25 @@ func previewSheets(f *excelize.File, dashboard bool) ([]report.PreviewSheet, err
 }
 
 // dashboardRows reads the dashboard as written: every row has a church, so
-// GetRows ends at the last account; short rows are padded to the 4 columns.
+// GetRows ends at the last account; short rows are padded to the 4 columns and
+// the merged title keeps its text in A1 only.
 func dashboardRows(f *excelize.File, sh string) ([][]string, error) {
 	rows, err := f.GetRows(sh)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", sh, err)
 	}
+	covered, err := mergedTails(f, sh)
+	if err != nil {
+		return nil, err
+	}
 	for i, r := range rows {
-		rows[i] = append(r, make([]string, len(dashboardHeader)-len(r))...)
+		r = append(r, make([]string, len(dashboardHeader)-len(r))...)
+		for j := range r {
+			if covered[previewCols[j]+strconv.Itoa(i+1)] {
+				r[j] = ""
+			}
+		}
+		rows[i] = r
 	}
 	return rows, nil
 }

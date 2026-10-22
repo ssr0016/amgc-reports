@@ -38,8 +38,8 @@ type MockStore struct {
 
 // MockAccount is a church account for the mock Dashboard.
 type MockAccount struct {
-	ID                   int64
-	Church, Worker, Area string
+	ID     int64
+	Church string
 }
 
 // NewMockStore creates a new mock repository.
@@ -172,7 +172,7 @@ func (m *MockStore) Dashboard(_ context.Context, month string, year int) ([]repo
 	defer m.mu.Unlock()
 	out := []report.DashboardRow{}
 	for _, acc := range m.Accounts {
-		row := report.DashboardRow{Church: acc.Church, Worker: acc.Worker, Area: acc.Area, Status: report.StatusNotFiled}
+		row := report.DashboardRow{Church: acc.Church, Status: report.StatusNotFiled}
 		for _, r := range m.reports {
 			if r.DeletedAt == nil && r.CreatedBy == acc.ID && int(r.Year) == year && strings.EqualFold(r.Month, month) {
 				row.Status = report.StatusPending

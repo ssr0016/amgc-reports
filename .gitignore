@@ -12,3 +12,6 @@ company-architecture-reference.md.save
 
 # Legacy report workbooks hold real worker data; the repo is public.
 blueprint/reference/*.xlsx
+# Visual reference screenshots show real church names; the repo is public.
+blueprint/reference/image.png
+blueprint/reference/image-report.png

@@ -25,14 +25,17 @@ function renderDialog(target: PreviewTarget = { month: "May", year: 2026 }) {
   return { user, onDownload, onClose };
 }
 
-const dashboard = (...rows: string[][]) => ({ name: "Report Dashboard", rows: [["Church", "Worker", "Area", "Status"], ...rows] });
+const dashboard = (...rows: string[][]) => ({
+  name: "Report Dashboard",
+  rows: [["Report Dashboard", "", "", ""], ["Churches", "Status", "Coordinator's Remark", "Support Status"], ...rows],
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
   h.previewExcel.mockResolvedValue({
     count: 2,
     sheets: [
-      dashboard(["Bethel", "Ana", "Cebu", "Approved"], ["Abba", "Cora", "", "Not Filed"]),
+      dashboard(["Bethel", "Approved", "", ""], ["Abba", "Not Filed", "", ""]),
       { name: "Bethel", rows: grid("Bethel title") },
       { name: "Zion", rows: grid("Zion title") },
     ],
@@ -76,7 +79,7 @@ describe("Excel preview dialog", () => {
   });
 
   it("a month with no approved reports shows the dashboard alone and can still download", async () => {
-    h.previewExcel.mockResolvedValue({ count: 0, sheets: [dashboard(["Abba", "Cora", "", "Not Filed"])] });
+    h.previewExcel.mockResolvedValue({ count: 0, sheets: [dashboard(["Abba", "Not Filed", "", ""])] });
     renderDialog();
     await screen.findByRole("table", { name: "Sheet Report Dashboard" });
     expect(screen.getByText("0 approved")).toBeInTheDocument();

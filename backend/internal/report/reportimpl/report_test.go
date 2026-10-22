@@ -472,20 +472,29 @@ func monthFixture(t *testing.T) fixture {
 		}
 	}
 	f.reports.Accounts = []MockAccount{
-		{ID: dave, Church: "bethel", Worker: "Dave", Area: "Cebu"},
-		{ID: carol, Church: "Report Dashboard", Worker: "Carol"},
-		{ID: alice, Church: "zion", Worker: "Alice", Area: "Leyte"},
-		{ID: 77, Church: "Abba", Worker: "Nobody"},
+		{ID: dave, Church: "bethel"},
+		{ID: carol, Church: "Report Dashboard"},
+		{ID: alice, Church: "zion"},
+		{ID: 77, Church: "Abba"},
 	}
 	return f
 }
 
 var wantDashboard = [][]string{
-	{"Church", "Worker", "Area", "Status"},
-	{"bethel", "Dave", "Cebu", "Pending"},
-	{"Report Dashboard", "Carol", "", "Approved"},
-	{"zion", "Alice", "Leyte", "Approved"},
-	{"Abba", "Nobody", "", "Not Filed"},
+	{"Report Dashboard", "", "", ""},
+	{"Churches", "Status", "Coordinator's Remark", "Support Status"},
+	{"bethel", "Pending", "", ""},
+	{"Report Dashboard", "Approved", "", ""},
+	{"zion", "Approved", "", ""},
+	{"Abba", "Not Filed", "", ""},
+}
+
+// dashboardOf reads a workbook's Report Dashboard as the preview shows it.
+func dashboardOf(t *testing.T, wb *excelize.File) [][]string {
+	t.Helper()
+	sheets, err := previewSheets(wb, true)
+	require.NoError(t, err)
+	return sheets[0].Rows
 }
 
 func TestReportService_ExportMonth(t *testing.T) {
@@ -507,9 +516,7 @@ func TestReportService_ExportMonth(t *testing.T) {
 		wb := open(t, x)
 		// dave's "bethel" is pending: no sheet. carol's church may not take the dashboard's name.
 		assert.Equal(t, []string{"Report Dashboard", "Bethel", "Report Dashboard (2)", "zion"}, wb.GetSheetList())
-		rows, err := wb.GetRows("Report Dashboard")
-		require.NoError(t, err)
-		assert.Equal(t, wantDashboard, rows)
+		assert.Equal(t, wantDashboard, dashboardOf(t, wb))
 
 		entries := f.audit.Entries()
 		require.Len(t, entries, 1)
@@ -525,9 +532,7 @@ func TestReportService_ExportMonth(t *testing.T) {
 		require.NoError(t, err)
 		wb := open(t, x)
 		assert.Equal(t, []string{"Report Dashboard", "zion"}, wb.GetSheetList())
-		rows, err := wb.GetRows("Report Dashboard")
-		require.NoError(t, err)
-		assert.Equal(t, wantDashboard[:1], rows, "the dashboard is the header alone")
+		assert.Equal(t, wantDashboard[:2], dashboardOf(t, wb), "the dashboard is the title and header alone")
 	})
 
 	t.Run("no approved reports gives the dashboard alone, audited with count 0", func(t *testing.T) {
@@ -536,11 +541,10 @@ func TestReportService_ExportMonth(t *testing.T) {
 		require.NoError(t, err)
 		wb := open(t, x)
 		assert.Equal(t, []string{"Report Dashboard"}, wb.GetSheetList())
-		rows, err := wb.GetRows("Report Dashboard")
-		require.NoError(t, err)
-		require.Len(t, rows, 5)
-		for _, r := range rows[1:] {
-			assert.Equal(t, "Not Filed", r[3])
+		rows := dashboardOf(t, wb)
+		require.Len(t, rows, 6)
+		for _, r := range rows[2:] {
+			assert.Equal(t, "Not Filed", r[1])
 		}
 		entries := f.audit.Entries()
 		require.Len(t, entries, 1)

@@ -332,11 +332,11 @@ func TestReportRepo_Dashboard(t *testing.T) {
 	rows, err := repo.Dashboard(ctx, "May", 2026)
 	require.NoError(t, err)
 	assert.Equal(t, []report.DashboardRow{
-		{Church: "Abba", Worker: "Cora", Area: "", Status: report.StatusNotFiled},
-		{Church: "Bethel", Worker: "Ben", Area: "Cebu", Status: report.StatusPending},
-		{Church: "Calvary", Worker: "Eva", Area: "y", Status: report.StatusApproved},
-		{Church: "Redo", Worker: "Hal", Area: "v", Status: report.StatusNotFiled},
-		{Church: "zion", Worker: "Ana", Area: "Leyte", Status: report.StatusApproved},
+		{Church: "Abba", Status: report.StatusNotFiled},
+		{Church: "Bethel", Status: report.StatusPending},
+		{Church: "Calvary", Status: report.StatusApproved},
+		{Church: "Redo", Status: report.StatusNotFiled},
+		{Church: "zion", Status: report.StatusApproved},
 	}, rows)
 
 	t.Run("Completed filters List", func(t *testing.T) {
