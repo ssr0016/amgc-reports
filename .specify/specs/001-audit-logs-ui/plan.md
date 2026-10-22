@@ -48,7 +48,7 @@ A deny-list test also asserts that no allowed key contains `password`, `hash`, `
   - **Wrong password:** the target is the user, `reason=wrong_password`.
   - **Refused by status:** the target is the user, `reason=<status>`.
 - **`StartSession(ctx, userID, ip, ua)`** keeps its signature (built differently from the first draft, which passed the user in): inside one `s.tx.InTransaction` it loads the user with `GetWithRole` (the row needs the name and role), stores the refresh token and inserts `LOGIN` (`user.AuditLog`, actor and target the user). If the audit row fails, no refresh token survives and the handler answers 500 (spec behavior 6). No caller changed.
-- **`EndSession(ctx, raw, ip)`**: inside the existing transaction, once `t != nil`, it loads the user and inserts `LOGOUT`. An unknown or already-revoked token writes nothing. `GetForUpdate` must return revoked tokens as "no live session": check this in T3.
+- **`EndSession(ctx, raw, ip)`**: revokes the family in its own transaction; then, only if the token was live (not revoked, not expired), loads the user and writes `LOGOUT` best effort, logging a failure. Changed after the security review: in one transaction, a failed audit insert rolled back the revoke and left the signed-out token valid.
 - **Not touched:** `Refresh` and `rotate` (the spec's non-goals).
 
 ### Frontend (`frontend/src/`)

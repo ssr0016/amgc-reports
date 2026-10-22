@@ -204,22 +204,29 @@ func (s *service) handleSpent(ctx context.Context, old *auth.RefreshToken, now t
 // EndSession signs out: it revokes the family of a refresh token. An unknown
 // token is not an error, so logging out twice, or after the token expired, works.
 // Only a logout that ends a live session (the token not yet revoked or expired)
-// writes a LOGOUT row, in the same transaction as the revoke.
+// writes a LOGOUT row. That write is best effort, after the revoke commits: a
+// failed audit must never leave a signed-out token valid.
 func (s *service) EndSession(ctx context.Context, raw, ip string) error {
-	return s.tx.InTransaction(ctx, func(ctx context.Context) error {
+	var live bool
+	var userID int64
+	err := s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		t, err := s.refresh.GetForUpdate(ctx, token.Hash(raw))
 		if err != nil || t == nil {
 			return err
 		}
 		now := time.Now()
-		live := t.RevokedAt == nil && t.ExpiresAt.After(now)
-		if err := s.refresh.RevokeFamily(ctx, t.FamilyID, now); err != nil || !live {
-			return err
-		}
-		usr, err := s.userRepo.GetWithRole(ctx, t.UserID)
-		if err != nil || usr == nil {
-			return err
-		}
-		return s.audit.Insert(ctx, user.AuditLog(usr, ip, audit.ActionLogout, usr, nil))
+		live, userID = t.RevokedAt == nil && t.ExpiresAt.After(now), t.UserID
+		return s.refresh.RevokeFamily(ctx, t.FamilyID, now)
 	})
+	if err != nil || !live {
+		return err
+	}
+	usr, err := s.userRepo.GetWithRole(ctx, userID)
+	if err == nil && usr != nil {
+		err = s.audit.Insert(ctx, user.AuditLog(usr, ip, audit.ActionLogout, usr, nil))
+	}
+	if err != nil {
+		s.log.Warn("failed to audit logout", "user_id", userID, "error", err)
+	}
+	return nil
 }

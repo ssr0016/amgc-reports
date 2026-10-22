@@ -69,6 +69,21 @@ func TestStartSession_AuditFailureLeavesNoSession(t *testing.T) {
 	assert.Zero(t, n)
 }
 
+// A logout whose audit row fails still revokes the family in the database.
+func TestEndSession_AuditFailureStillRevokes(t *testing.T) {
+	svc, tdb, userID := newRefreshEnv(t)
+	ctx := context.Background()
+	p, err := svc.StartSession(ctx, userID, "ip", "ua")
+	require.NoError(t, err)
+	svc.audit = failingAudit{}
+
+	require.NoError(t, svc.EndSession(ctx, p.Refresh, "ip"))
+
+	var live int
+	require.NoError(t, tdb.Pool.QueryRow(ctx, `SELECT count(*) FROM refresh_tokens WHERE revoked_at IS NULL`).Scan(&live))
+	assert.Zero(t, live)
+}
+
 func TestLogin_FailedLoginRowForUnknownEmail(t *testing.T) {
 	svc, tdb, _ := newRefreshEnv(t)
 	ctx := context.Background()

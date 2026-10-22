@@ -86,7 +86,7 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 |---|---|
 | Reports | `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT` |
 | Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS`, `ADMIN_RESET_PASSWORD`, `DELETE_USER`, `RESTORE_USER` |
-| Sign-in | `LOGIN` (same transaction as the session's refresh token), `LOGOUT` (only when a live session ends), `LOGIN_FAILED` (best effort, `details` `{reason}`; no actor, and no target or typed email for an unknown or deleted account) |
+| Sign-in | `LOGIN` (same transaction as the session's refresh token), `LOGOUT` (only when a live session ends; best effort after the revoke commits, so a failed audit never undoes a sign-out), `LOGIN_FAILED` (best effort, `details` `{reason}`; no actor, and no target or typed email for an unknown or deleted account) |
 | Exports | `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL`: one row per Excel download, written server-side by `POST /admin/reports/:id/excel` and `POST /admin/reports/excel` (D-10, D-A6). `details` is `{month, year, count}` only |
 
 ## Migration history

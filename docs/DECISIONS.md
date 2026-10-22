@@ -294,7 +294,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 
 - **What is logged:** state-changing actions only. Reads, previews, the Logs tab itself and token refreshes write nothing. Three new actions: `LOGIN`, `LOGOUT`, `LOGIN_FAILED` (migration `20261022120000`, shipped in the same deploy as the code).
 - **Login:** the `LOGIN` row shares the transaction with the refresh token; if it cannot be written, the login answers 500 and no session is left.
-- **Logout:** `LOGOUT` only when the logout ends a live session (a token not yet revoked or expired).
+- **Logout:** `LOGOUT` only when the logout ends a live session (a token not yet revoked or expired). Best effort, written after the revoke commits: an audit failure must never leave a signed-out refresh token valid (security review, 2026-10-22).
 - **Failed login:** one `LOGIN_FAILED` row per refusal the rate limiter lets through, with `reason` (`unknown_account`, `wrong_password`, `locked`, or the status). No actor. An unknown or deleted email gets no target and the typed email is not stored: people type passwords into that box, and D-A11 needs a deleted account to look unknown. Best effort: a write failure is logged and the client gets the usual refusal, unchanged.
 - **Details allow-list:** `audit.DetailKeys` per action, checked in `Insert` (and the test mock), fail closed. Built from what the code wrote on 2026-10-22, so no existing write changed.
 - **Read API:** `GET /admin/audit-logs`, admin role, one Asia/Manila month (`month`, `year`), optional `action`, 50 per page by default, newest first with `id` breaking ties. No `ip_address` in the SELECT or the response; no actor ID. Amends D-10 ("No read API").

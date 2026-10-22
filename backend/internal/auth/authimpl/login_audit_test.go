@@ -145,3 +145,18 @@ func TestEndSession_AuditsOnlyALiveSession(t *testing.T) {
 	assert.Equal(t, f.userID, *logouts[0].PerformedBy)
 	assert.Equal(t, strconv.FormatInt(f.userID, 10), *logouts[0].TargetID)
 }
+
+// Signing out is a security action: an audit failure must not undo the revoke,
+// or the cleared cookie's refresh token would stay valid on the server.
+func TestEndSession_RevokesEvenWhenTheAuditFails(t *testing.T) {
+	f := newTokenFixture(t, defaultSet)
+	ctx := context.Background()
+	p, err := f.svc.StartSession(ctx, f.userID, "ip", "ua")
+	require.NoError(t, err)
+	f.audit.InsertFunc = func(context.Context, audit.Log) error { return errors.New("check violation") }
+
+	require.NoError(t, f.svc.EndSession(ctx, p.Refresh, "ip"), "logout succeeds without its audit row")
+
+	_, err = f.svc.Refresh(ctx, p.Refresh, "ip", "ua")
+	assert.ErrorIs(t, err, auth.ErrInvalidRefresh, "the family must be revoked")
+}
