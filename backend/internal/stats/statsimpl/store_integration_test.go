@@ -45,6 +45,16 @@ func TestStore_Counts(t *testing.T) {
 	boss, err := users.CreateWithPassword(ctx, "boss@example.com", "Boss", "hash")
 	require.NoError(t, err)
 	require.NoError(t, users.UpdateRole(ctx, boss.ID, adminRole.ID))
+	// Soft-deleted accounts, one of them an admin, are not counted (D-A24).
+	gone, err := users.CreateWithPassword(ctx, "gone@example.com", "Gone", "hash")
+	require.NoError(t, err)
+	exBoss, err := users.CreateWithPassword(ctx, "exboss@example.com", "Ex Boss", "hash")
+	require.NoError(t, err)
+	require.NoError(t, users.UpdateRole(ctx, exBoss.ID, adminRole.ID))
+	_, err = users.SoftDelete(ctx, gone.ID, boss.ID, "left")
+	require.NoError(t, err)
+	_, err = users.SoftDelete(ctx, exBoss.ID, boss.ID, "left")
+	require.NoError(t, err)
 
 	file := func(userID int64, month string, year int) *report.Report {
 		t.Helper()
@@ -94,7 +104,7 @@ func TestStore_Counts(t *testing.T) {
 		assert.EqualValues(t, 3, got.UsersTotal)
 	})
 
-	t.Run("admins are counted by role name, users are all accounts", func(t *testing.T) {
+	t.Run("admins are counted by role name, users are all accounts, deleted ones aside", func(t *testing.T) {
 		got, err := store.Counts(ctx, "January", 2026)
 		require.NoError(t, err)
 		assert.EqualValues(t, 3, got.UsersTotal)
@@ -145,7 +155,7 @@ func TestStore_Tracker(t *testing.T) {
 	ana := account("ana@example.com", "Ana", "Bethel")     // approved
 	bob := account("bob@example.com", "Bob", "antioch")    // pending
 	cora := account("cora@example.com", "Cora", "Antioch") // no report; inactive
-	dan := account("dan@example.com", "Dan", "")           // no church; deleted report, other month
+	dan := account("dan@example.com", "Dan", "")           // no church, so not a church account
 	gone := account("gone@example.com", "Gone", "Calvary") // soft-deleted account
 	boss := account("boss@example.com", "Boss", "HQ")      // admin
 	ed := account("ed@example.com", "Ed", "Berea")         // editor
@@ -166,11 +176,10 @@ func TestStore_Tracker(t *testing.T) {
 	file(boss, "January", 2026)
 	file(ed, "January", 2026)
 
-	t.Run("user-role accounts only, with their status, by church then name", func(t *testing.T) {
+	t.Run("church accounts only, with their status, by church then name", func(t *testing.T) {
 		got, err := store.Tracker(ctx, "january", 2026)
 		require.NoError(t, err)
 		assert.Equal(t, []stats.TrackerRow{
-			{UserID: dan, Name: "Dan", Email: "dan@example.com", ChurchName: "", UserStatus: "active", Status: stats.TrackerNotSubmitted},
 			{UserID: bob, Name: "Bob", Email: "bob@example.com", ChurchName: "antioch", UserStatus: "active", Status: stats.TrackerForReview},
 			{UserID: cora, Name: "Cora", Email: "cora@example.com", ChurchName: "Antioch", UserStatus: "inactive", Status: stats.TrackerNotSubmitted},
 			{UserID: ana, Name: "Ana", Email: "ana@example.com", ChurchName: "Bethel", UserStatus: "active", Status: stats.TrackerApproved},
@@ -180,7 +189,7 @@ func TestStore_Tracker(t *testing.T) {
 	t.Run("a month with no reports lists everyone as not submitted", func(t *testing.T) {
 		got, err := store.Tracker(ctx, "March", 2030)
 		require.NoError(t, err)
-		require.Len(t, got, 4)
+		require.Len(t, got, 3)
 		for _, row := range got {
 			assert.Equal(t, stats.TrackerNotSubmitted, row.Status, row.Name)
 		}

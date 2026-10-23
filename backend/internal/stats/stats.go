@@ -18,7 +18,7 @@ type Service interface {
 // Store is the read side: one query per answer, for one month.
 type Store interface {
 	Counts(ctx context.Context, month string, year int) (AdminStats, error)
-	// Tracker lists every user-role account that is not deleted, whatever its
+	// Tracker lists every church account (report.ChurchAccount), whatever its
 	// status, with its report status for the month, by church then name.
 	Tracker(ctx context.Context, month string, year int) ([]TrackerRow, error)
 }

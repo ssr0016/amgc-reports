@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 )
 
 // Swagger names are pinned (@name) to the ones these types had in package model,
@@ -170,6 +172,11 @@ const (
 	StatusPending  = "Pending"
 	StatusNoReport = "No Report Submitted"
 )
+
+// ChurchAccount is the SQL condition for a church account (D-A24), over users u
+// inner-joined to its role ro: the user role, not deleted, with a church name.
+// Account status is not filtered. The Tracker and the Report Dashboard share it.
+const ChurchAccount = "ro.name = '" + accesscontrol.DefaultRoleName + "' AND u.deleted_at IS NULL AND btrim(COALESCE(u.church_name, '')) <> ''"
 
 // DashboardRow is one church account on the bulk export's Report Dashboard
 // sheet (D-A16, D-A19): the account's church, its report's month and year, and

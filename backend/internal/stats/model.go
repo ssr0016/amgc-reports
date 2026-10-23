@@ -37,14 +37,14 @@ const (
 )
 
 // Tracker is the body of GET /admin/tracker: every account expected to report
-// (the user role, not deleted) and its report status for one month. No report text.
+// (a church account, D-A24) and its report status for one month. No report text.
 type Tracker struct {
 	Month string       `json:"month"`
 	Year  int          `json:"year"`
 	Rows  []TrackerRow `json:"rows"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.Tracker
 
-// TrackerRow is one account. ChurchName is "" when the account has none;
+// TrackerRow is one church account; ChurchName is never blank.
 // UserStatus is the account status (active, inactive, disciplinary, deceased).
 type TrackerRow struct {
 	UserID     int64  `json:"user_id"`

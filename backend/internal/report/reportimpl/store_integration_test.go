@@ -310,6 +310,7 @@ func TestReportRepo_Dashboard(t *testing.T) {
 	account("blank@example.com", "Fe", "  ", "z")
 	admin := account("admin-dash@example.com", "Gil", "Admin Church", "w")
 	deletedReport := account("redo@example.com", "Hal", "Redo", "v")
+	editor := account("editor-dash@example.com", "Ivy", "Berea", "u") // not the user role (D-A24)
 
 	file(approved, "May", 2026, true)
 	file(pending, "May", 2026, false)
@@ -317,6 +318,7 @@ func TestReportRepo_Dashboard(t *testing.T) {
 	file(notFiled, "May", 2025, true)   // another year
 	file(deceased, "May", 2026, true)
 	file(admin, "May", 2026, true)
+	file(editor, "May", 2026, true)
 	require.NoError(t, repo.SoftDelete(ctx, file(deletedReport, "May", 2026, true).ID))
 
 	_, err := tdb.Pool.Exec(ctx, "UPDATE users SET status='deceased' WHERE id=$1", deceased)
@@ -325,6 +327,10 @@ func TestReportRepo_Dashboard(t *testing.T) {
 	_, err = tdb.Pool.Exec(ctx, "INSERT INTO roles (name) VALUES ('admin') ON CONFLICT (name) DO NOTHING")
 	require.NoError(t, err)
 	_, err = tdb.Pool.Exec(ctx, "UPDATE users SET role_id=(SELECT id FROM roles WHERE name='admin') WHERE id=$1", admin)
+	require.NoError(t, err)
+	_, err = tdb.Pool.Exec(ctx, "INSERT INTO roles (name) VALUES ('editor') ON CONFLICT (name) DO NOTHING")
+	require.NoError(t, err)
+	_, err = tdb.Pool.Exec(ctx, "UPDATE users SET role_id=(SELECT id FROM roles WHERE name='editor') WHERE id=$1", editor)
 	require.NoError(t, err)
 	_, err = users.SoftDelete(ctx, gone, approved, "")
 	require.NoError(t, err)
@@ -343,7 +349,7 @@ func TestReportRepo_Dashboard(t *testing.T) {
 		yes, no := true, false
 		approvedReps, total, err := repo.List(ctx, report.ListReportsParams{Month: "May", Year: 2026, Completed: &yes}, pagination.Params{Page: 1, Limit: 100})
 		require.NoError(t, err)
-		assert.EqualValues(t, 3, total) // zion, Calvary, the admin's
+		assert.EqualValues(t, 4, total) // zion, Calvary, the admin's, the editor's
 		for _, r := range approvedReps {
 			assert.True(t, r.Completed)
 		}

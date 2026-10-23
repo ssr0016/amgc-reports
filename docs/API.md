@@ -213,13 +213,13 @@ Counts for the admin panel cards. `month` (English name, case-insensitive) and `
  "admins_total": 2
  }
 
-`users_total` and `admins_total` count every account whatever the month. Errors: 400 for a year that is not a positive number, 401 without a session, 403 for any role but admin, 422 when only one of month and year is sent or the month is not a month name.
+`users_total` and `admins_total` count every account that is not deleted, whatever the month (D-A24). Errors: 400 for a year that is not a positive number, 401 without a session, 403 for any role but admin, 422 when only one of month and year is sent or the month is not a month name.
 
 ### Tracker (`tracker:read`)
 
 GET /admin/tracker?month=September&year=2026
 
-Who has reported for one month (D-A3), for the admin panel's Tracker tab. One row per account with the `user` role that is not deleted, whatever its status (inactive, disciplinary and deceased accounts are included); admins and editors are not tracked. `status` comes from the account's active report for the month: `approved`, `for_review` (filed, not approved) or `not_submitted` (none). Rows are ordered by church name, then name. The period rules and errors are those of `/admin/stats`; 403 without `tracker:read`. Rate limited like report reads. No report text.
+Who has reported for one month (D-A3), for the admin panel's Tracker tab. One row per church account (D-A24): the `user` role, not deleted, with a church name, whatever its status (inactive, disciplinary and deceased accounts are included). Admins, editors, custom roles and accounts with no church name are not tracked. `status` comes from the account's active report for the month: `approved`, `for_review` (filed, not approved) or `not_submitted` (none). Rows are ordered by church name, then name. The period rules and errors are those of `/admin/stats`; 403 without `tracker:read`. Rate limited like report reads. No report text.
 
  {
  "month": "September",
@@ -265,7 +265,7 @@ Both need `reports:export` and the CSRF header (POST, because each download writ
 
 The first returns one report, approved or not. The second takes a body and returns the month's bulk workbook (D-A16):
 
-- Sheet 1, "Report Dashboard" (D-A19): the title "Report Dashboard" merged over A1:F1, a header row (Churches, Month, Year, Status, Coordinator's Remark, Support Status), then one row per church account (an account with a church name that is not deleted and not an admin; inactive, disciplinary and deceased accounts are included), ordered by church name. Month and Year are the account's report's (blank when it has not filed); the year is a number. Status is "Approved" (green), "Pending" or "No Report Submitted" (red) for that month. An Approved row reads "Checked" and "Ready for Pick Up" in the two remark columns (white on blue); other rows leave them blank.
+- Sheet 1, "Report Dashboard" (D-A19): the title "Report Dashboard" merged over A1:F1, a header row (Churches, Month, Year, Status, Coordinator's Remark, Support Status), then one row per church account (D-A24: the `user` role, not deleted, with a church name; inactive, disciplinary and deceased accounts are included), ordered by church name. Month and Year are the account's report's (blank when it has not filed); the year is a number. Status is "Approved" (green), "Pending" or "No Report Submitted" (red) for that month. An Approved row reads "Checked" and "Ready for Pick Up" in the two remark columns (white on blue); other rows leave them blank.
 - Then one sheet per **approved** report of the month (not soft-deleted, including those whose owner is deleted or deceased), ordered by church name. Pending reports get no sheet. A church sheet named "Report Dashboard" gets " (2)".
 
 A month with no approved reports still returns the file, with the dashboard alone:

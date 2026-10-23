@@ -6,7 +6,6 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
@@ -18,7 +17,7 @@ type store struct{ db *database.DB }
 func NewStore(db *database.DB) stats.Store { return &store{db: db} }
 
 // Counts returns the admin dashboard numbers for one month in a single read.
-// Soft-deleted reports are not counted. The month matches case-insensitively, as
+// Soft-deleted reports and accounts are not counted (D-A24). The month matches case-insensitively, as
 // in the reports repository; month and year are echoed back as given.
 func (r *store) Counts(ctx context.Context, month string, year int) (stats.AdminStats, error) {
 	inPeriod := "FROM reports WHERE deleted_at IS NULL AND year = ? AND month = ?"
@@ -26,8 +25,8 @@ func (r *store) Counts(ctx context.Context, month string, year int) (stats.Admin
 	query, args, err := r.db.Builder.Select().
 		Column(sq.Expr("(SELECT COUNT(*) "+inPeriod+")", year, stored)).
 		Column(sq.Expr("(SELECT COUNT(*) "+inPeriod+" AND completed)", year, stored)).
-		Column("(SELECT COUNT(*) FROM users)").
-		Column(sq.Expr("(SELECT COUNT(*) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE ro.name = ?)", "admin")).
+		Column("(SELECT COUNT(*) FROM users WHERE deleted_at IS NULL)").
+		Column(sq.Expr("(SELECT COUNT(*) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE u.deleted_at IS NULL AND ro.name = ?)", "admin")).
 		ToSql()
 	if err != nil {
 		return stats.AdminStats{}, fmt.Errorf("build stats query: %w", err)
@@ -40,16 +39,16 @@ func (r *store) Counts(ctx context.Context, month string, year int) (stats.Admin
 	return s, nil
 }
 
-// Tracker reads each expected account and its one active report for the month
+// Tracker reads each church account (report.ChurchAccount) and its one active report for the month
 // (a unique index allows one per account and period) in a single query (D-A3).
 func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.TrackerRow, error) {
 	query, args, err := r.db.Builder.
 		Select("u.id", "u.name", "u.email", "COALESCE(u.church_name, '')", "u.status", "r.completed").
 		From("users u").
-		Join("roles ro ON ro.id = u.role_id AND ro.name = ?", accesscontrol.DefaultRoleName).
+		Join("roles ro ON ro.id = u.role_id").
 		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
-		Where("u.deleted_at IS NULL").
-		OrderBy("lower(COALESCE(u.church_name, ''))", "lower(u.name)", "u.id").
+		Where(report.ChurchAccount).
+		OrderBy("lower(u.church_name)", "lower(u.name)", "u.id").
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build tracker query: %w", err)

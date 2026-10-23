@@ -57,7 +57,7 @@ type Store interface {
 	Update(ctx context.Context, id int64, year int, req UpdateReportRequest) (*Report, error)
 	SoftDelete(ctx context.Context, id int64) error
 	ToggleComplete(ctx context.Context, id, approverID int64) (*Report, error)
-	// Dashboard lists every church account (a church_name, not deleted, not an
-	// admin) with its report status for the month, by church name then id (D-A16).
+	// Dashboard lists every church account (ChurchAccount) with its report
+	// status for the month, by church name then id (D-A16, D-A24).
 	Dashboard(ctx context.Context, month string, year int) ([]DashboardRow, error)
 }

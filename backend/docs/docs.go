@@ -811,7 +811,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Every account with the user role that is not deleted (any status: active, inactive, disciplinary, deceased), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.",
+                "description": "Every church account: the user role, not deleted, with a church name (any status: active, inactive, disciplinary, deceased; D-A24), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.",
                 "produces": [
                     "application/json"
                 ],

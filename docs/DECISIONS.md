@@ -93,7 +93,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 
 #### D-A3 Tracker denominator
 - **Decided:** the `user` role; "For Review" is submitted and not approved.
-- **Confirmed by the owner (2026-10-22), built in 21b:** inactive, disciplinary and deceased `user` accounts are tracked (with their status badge; no report counts as Not Submitted); deleted accounts are not. Editors are excluded, so the Tracker's set differs from the Excel Report Dashboard's (D-A16, every non-admin account with a church). `GET /admin/tracker` (admin role and `reports:read_any`), Tracker tab between Reports and Users.
+- **Confirmed by the owner (2026-10-22), built in 21b:** inactive, disciplinary and deceased `user` accounts are tracked (with their status badge; no report counts as Not Submitted); deleted accounts are not. Editors are excluded, so the Tracker's set differed from the Excel Report Dashboard's (D-A16) until D-A24 unified them. `GET /admin/tracker` (admin role and `reports:read_any`), Tracker tab between Reports and Users.
 - **Wording (owner, 2026-10-22):** the Tracker displays the filed-not-approved state as "Pending", the word the Reports tab, the stats cards and the Excel dashboard use. The API code stays `for_review`.
 - **Question:** who counts as expected to submit (role `user` only, or anyone with `reports:write`), and is "For Review" simply submitted and not approved?
 - **Recommendation:** the `user` role; "For Review" as stated, with no new status.
@@ -392,3 +392,9 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Roles tab:** custom roles come first under "Custom roles", then the built-in ones under "System roles", each its own table with an h2. A system role carries a "System" badge with a lock icon (replacing "Built-in") and offers View only, as before (D-A21).
 - **Dashboard status (amends D-A16, D-A17, D-A19):** an account with no report for the month reads "No Report Submitted" instead of "Not Filed", still red, with Month and Year blank. The row stays: every church account is listed so the admin sees who is missing. The Status column widens from 13 to 20.
 - **Not a bug:** the bulk export did not fail. A dashboard row for an account whose church name is "toast" read as an error. The export builds in milliseconds; the 15 s `WriteTimeout` is unchanged. Clean up test accounts by deleting them (deleted accounts get no row).
+
+### D-A24 One church account definition; deleted accounts not counted
+**Date:** 2026-10-23 · **Status:** Decided by the owner; built, not deployed
+
+- **Church account (amends D-A3, D-A16):** the `user` role, not deleted, with a church name that is not blank; account status is not filtered. The Tracker and the Excel Report Dashboard now list the same set, from one SQL condition (`report.ChurchAccount`). The Tracker drops accounts with no church name; the Dashboard drops editors and custom roles (D-A3's editor exclusion stands).
+- **Stats cards:** `users_total` and `admins_total` leave out soft-deleted accounts, as the Users list does by default.

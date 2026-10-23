@@ -313,16 +313,14 @@ func (r *store) SoftDelete(ctx context.Context, id int64) error {
 
 // Dashboard joins each church account to its active report of the month.
 // idx_reports_unique_per_user allows one such report per account, so each
-// account gives one row. Account status is not filtered (D-A16).
+// account gives one row (D-A16, D-A24).
 func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report.DashboardRow, error) {
 	q, args, err := r.db.Builder.
 		Select("u.church_name", "r.month", "r.year", "r.completed").
 		From("users u").
-		LeftJoin("roles ro ON ro.id = u.role_id").
+		Join("roles ro ON ro.id = u.role_id").
 		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
-		Where("u.deleted_at IS NULL").
-		Where("btrim(COALESCE(u.church_name, '')) <> ''").
-		Where("ro.name IS DISTINCT FROM 'admin'").
+		Where(report.ChurchAccount).
 		OrderBy("lower(u.church_name)", "u.id").
 		ToSql()
 	if err != nil {
