@@ -30,6 +30,11 @@ export function retryText(err: ApiError) {
   return err.message + (err.retryAfter ? ` Try again in ${err.retryAfter}s.` : "");
 }
 
+// What a failed request shows: the server's message (with the wait on a 429), else fallback.
+export function errorText(err: unknown, fallback: string) {
+  return err instanceof ApiError ? retryText(err) : fallback;
+}
+
 // Counts down from the seconds it is given; 0 means idle.
 export function useCountdown() {
   const [left, setLeft] = useState(0);

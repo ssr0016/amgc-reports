@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
@@ -22,7 +22,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
-import { retryText } from "@/lib/auth-form";
+import { errorText } from "@/lib/auth-form";
 import {
   defaultPeriod,
   deleteReport,
@@ -83,37 +83,26 @@ function ReportsList() {
   // The report the delete dialog is asking about, if any.
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<{ id: number; period: string } | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
   // The dialog is controlled and has no trigger element, so Radix cannot return focus
   // by itself: remember the Delete button that opened it (WCAG 2.4.3).
   const opener = useRef<HTMLElement | null>(null);
 
-  async function confirmDelete() {
-    if (!target) return;
-    setDeleting(true);
-    setDeleteError("");
-    try {
-      await deleteReport(target.id);
-    } catch (err) {
-      setDeleting(false);
-      // 404: it was already deleted elsewhere, so the list below is just stale.
-      if (!(err instanceof ApiError && err.status === 404)) {
-        setDeleteError(
-          err instanceof ApiError
-            ? retryText(err)
-            : "Could not delete the report. Try again.",
-        );
-        return;
-      }
-    }
-    setDeleting(false);
-    setTarget(null);
-    // Deleting the last row of a later page would leave an empty page behind.
-    const lastOnPage = (filters.page ?? 1) > 1 && data?.data.length === 1;
-    await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
-    if (lastOnPage) goToPage((filters.page ?? 1) - 1);
-  }
+  const del = useMutation({
+    mutationFn: (id: number) =>
+      deleteReport(id).catch((err) => {
+        // 404: it was already deleted elsewhere, so the list below is just stale.
+        if (!(err instanceof ApiError && err.status === 404)) throw err;
+      }),
+    onSuccess: async () => {
+      setTarget(null);
+      // Deleting the last row of a later page would leave an empty page behind.
+      const lastOnPage = (filters.page ?? 1) > 1 && data?.data.length === 1;
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
+      if (lastOnPage) goToPage((filters.page ?? 1) - 1);
+    },
+  });
+  const deleting = del.isPending;
+  const deleteError = del.error ? errorText(del.error, "Could not delete the report. Try again.") : "";
 
   // Another user's report is readable (read_any) but only its owner, or someone with the _any permission, may change it.
   const mine = (r: Report) => r.created_by === user?.user_id;
@@ -278,7 +267,7 @@ function ReportsList() {
                             size="sm"
                             onClick={(e) => {
                               opener.current = e.currentTarget;
-                              setDeleteError("");
+                              del.reset();
                               setTarget({ id: r.id, period: `${r.month} ${r.year}` });
                             }}
                           >
@@ -335,7 +324,7 @@ function ReportsList() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             {/* A plain Button, not AlertDialogAction: that one closes the dialog on click, and a failed delete must keep it open. */}
-            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+            <Button variant="destructive" onClick={() => target && del.mutate(target.id)} disabled={deleting}>
               {deleting ? "Deleting…" : "Delete"}
             </Button>
           </AlertDialogFooter>

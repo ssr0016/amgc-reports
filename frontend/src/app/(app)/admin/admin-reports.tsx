@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, saveFile } from "@/lib/api";
-import { retryText } from "@/lib/auth-form";
+import { errorText } from "@/lib/auth-form";
 import {
   defaultPeriod,
   exportReport,
@@ -26,7 +26,7 @@ import { useSession } from "@/lib/session";
 import { ExcelPreviewDialog, type PreviewTarget } from "./excel-preview-dialog";
 import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
-import { refreshAdminViews } from "@/lib/query";
+import { refreshAdminViews, usePendingVariables } from "@/lib/query";
 
 // Which report a row control is for, so a screen reader user can tell the rows apart.
 const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
@@ -49,59 +49,41 @@ export function AdminReports() {
     staleTime: 30_000,
   });
 
-  // Rows whose approve or unapprove is in flight. The endpoint toggles, so a second click before the answer would undo the first.
-  const queryClient = useQueryClient();
-  const [busy, setBusy] = useState<Set<number>>(new Set());
-
   // The endpoint toggles: the button says which way the row goes, and the server has the last word.
-  async function approve(r: Report) {
-    const when = `${r.month} ${r.year}`;
-    setBusy((s) => new Set(s).add(r.id));
-    try {
-      const meta = await toggleComplete(r.id);
+  // A row stays busy until the list refetches, because a second click before the answer would undo the first.
+  const queryClient = useQueryClient();
+  const approve = useMutation({
+    mutationKey: ["toggle-complete"],
+    mutationFn: (r: Report) => toggleComplete(r.id),
+    onSuccess: (meta, r) => {
       // The server decides (another admin may have approved it first, and this click undid that), so say what it did.
-      toast.success(`Report ${meta.completed ? "approved" : "unapproved"}: ${when}`);
+      toast.success(`Report ${meta.completed ? "approved" : "unapproved"}: ${r.month} ${r.year}`);
       refreshAdminViews(queryClient); // the cards above and the Tracker count these reports
-      await queryClient.invalidateQueries({ queryKey: ["reports"] }); // the row only changes once this answers, so hold the button
-    } catch (err) {
+      return queryClient.invalidateQueries({ queryKey: ["reports"] });
+    },
+    onError: (err, r) => {
       if (err instanceof ApiError && err.status === 404) {
-        toast.error(`${when} no longer exists.`);
-        await queryClient.invalidateQueries({ queryKey: ["reports"] });
-      } else {
-        toast.error(err instanceof ApiError ? retryText(err) : "Could not update the report. Try again.");
+        toast.error(`${r.month} ${r.year} no longer exists.`);
+        return queryClient.invalidateQueries({ queryKey: ["reports"] });
       }
-    } finally {
-      setBusy((s) => {
-        const n = new Set(s);
-        n.delete(r.id);
-        return n;
-      });
-    }
-  }
+      toast.error(errorText(err, "Could not update the report. Try again."));
+    },
+  });
+  const busy = usePendingVariables<Report>(["toggle-complete"]).map((r) => r.id);
 
-  // Excel downloads in flight: "bulk" or a row's id. Each button waits for its own file.
-  const [downloading, setDownloading] = useState<Set<string>>(new Set());
-  // The open Excel preview (D-A15): its target, and the download its Download button runs.
-  const [preview, setPreview] = useState<{ key: string; target: PreviewTarget; run: () => ReturnType<typeof exportReport> } | null>(null);
-
-  async function download(key: string, run: () => ReturnType<typeof exportReport>): Promise<boolean> {
-    setDownloading((s) => new Set(s).add(key));
-    try {
-      const file = await run();
+  // Excel downloads, keyed "bulk" or by a row's id, so each button waits for its own file.
+  const download = useMutation({
+    mutationKey: ["excel-download"],
+    mutationFn: ({ run }: { key: string; run: () => ReturnType<typeof exportReport> }) => run(),
+    onSuccess: (file) => {
       saveFile(file);
       toast.success(`Downloaded ${file.filename}`);
-      return true;
-    } catch (err) {
-      toast.error(err instanceof ApiError ? retryText(err) : "Could not download the file. Try again.");
-      return false;
-    } finally {
-      setDownloading((s) => {
-        const n = new Set(s);
-        n.delete(key);
-        return n;
-      });
-    }
-  }
+    },
+    onError: (err) => toast.error(errorText(err, "Could not download the file. Try again.")),
+  });
+  const downloading = usePendingVariables<{ key: string }>(["excel-download"]).map((d) => d.key);
+  // The open Excel preview (D-A15): its target, and the download its Download button runs.
+  const [preview, setPreview] = useState<{ key: string; target: PreviewTarget; run: () => ReturnType<typeof exportReport> } | null>(null);
 
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
@@ -153,13 +135,13 @@ export function AdminReports() {
             type="button"
             variant="outline"
             className="ml-auto"
-            disabled={downloading.has("bulk") || !data?.data.length}
-            aria-busy={downloading.has("bulk")}
+            disabled={downloading.includes("bulk") || !data?.data.length}
+            aria-busy={downloading.includes("bulk")}
             onClick={() =>
               setPreview({ key: "bulk", target: { ...period }, run: () => exportReports(period.month, period.year) })
             }
           >
-            {downloading.has("bulk") ? "Downloading…" : "Download Bulk"}
+            {downloading.includes("bulk") ? "Downloading…" : "Download Bulk"}
           </Button>
         </Can>
       </form>
@@ -211,8 +193,8 @@ export function AdminReports() {
                           size="sm"
                           variant={r.completed ? "outline" : "default"}
                           className={r.completed ? undefined : "bg-green-700 text-white hover:bg-green-800"}
-                          disabled={busy.has(r.id)}
-                          onClick={() => approve(r)}
+                          disabled={busy.includes(r.id)}
+                          onClick={() => approve.mutate(r)}
                         >
                           {r.completed ? "Unapprove" : "Approve"} <span className="sr-only">{rowName(r)}</span>
                         </Button>
@@ -223,8 +205,8 @@ export function AdminReports() {
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={downloading.has(String(r.id))}
-                          aria-busy={downloading.has(String(r.id))}
+                          disabled={downloading.includes(String(r.id))}
+                          aria-busy={downloading.includes(String(r.id))}
                           onClick={() =>
                             setPreview({
                               key: String(r.id),
@@ -233,7 +215,7 @@ export function AdminReports() {
                             })
                           }
                         >
-                          {downloading.has(String(r.id)) ? "Downloading…" : "Excel"} <span className="sr-only">{rowName(r)}</span>
+                          {downloading.includes(String(r.id)) ? "Downloading…" : "Excel"} <span className="sr-only">{rowName(r)}</span>
                         </Button>
                       </Can>
                     </TableCell>
@@ -262,7 +244,7 @@ export function AdminReports() {
       {preview && (
         <ExcelPreviewDialog
           target={preview.target}
-          onDownload={() => download(preview.key, preview.run)}
+          onDownload={() => download.mutateAsync(preview).then(() => true, () => false)}
           onClose={() => setPreview(null)}
         />
       )}

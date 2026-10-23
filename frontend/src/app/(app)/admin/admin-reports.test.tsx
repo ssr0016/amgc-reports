@@ -437,6 +437,25 @@ describe("admin reports: approve", () => {
     expect(within(row("Worker 1")).queryByRole("button", { name: /Approve/ })).not.toBeInTheDocument();
   });
 
+  it("holds each row on its own while two approvals are in flight", async () => {
+    const resolves: ((v: unknown) => void)[] = [];
+    h.toggleComplete.mockImplementation(() => new Promise((r) => resolves.push(r)));
+    const { user } = renderReports("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+    await user.click(approve("Worker 1"));
+    await user.click(approve("Worker 2"));
+    expect(approve("Worker 1")).toBeDisabled();
+    expect(approve("Worker 2")).toBeDisabled();
+
+    resolves[1]({ id: 2, completed: true }); // the second answers first
+    await waitFor(() => expect(approve("Worker 2")).toBeEnabled());
+    expect(approve("Worker 1")).toBeDisabled();
+
+    resolves[0]({ id: 1, completed: true });
+    await waitFor(() => expect(approve("Worker 1")).toBeEnabled());
+    expect(h.toast.success).toHaveBeenCalledTimes(2);
+  });
+
   it("tells the truth when the server unapproved it instead (it was already approved elsewhere)", async () => {
     h.toggleComplete.mockResolvedValue({ id: 1, completed: false });
     const { user } = renderReports("reports:read", "reports:approve");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ErrorRetry } from "@/components/error-retry";
 import { Loading } from "@/components/loading";
 import { ApiError } from "@/lib/api";
+import { errorText } from "@/lib/auth-form";
 import { deleteRole, isBuiltIn, type RoleDetail } from "@/lib/roles";
 import { useSession } from "@/lib/session";
 import { listRoles } from "@/lib/users";
@@ -145,28 +146,20 @@ function DeleteRoleDialog({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const del = useMutation({
+    mutationFn: (r: RoleDetail) => deleteRole(r.id),
+    onSuccess: (_, r) => {
+      toast.success(`Deleted role ${r.name}`);
+      onClose();
+      return queryClient.invalidateQueries({ queryKey: ["roles"] });
+    },
+  });
+  const pending = del.isPending;
+  const error = del.error ? errorText(del.error, "Could not delete the role. Try again.") : "";
 
   function close() {
-    setError("");
+    del.reset();
     onClose();
-  }
-
-  async function confirm() {
-    if (!role) return;
-    setPending(true);
-    setError("");
-    try {
-      await deleteRole(role.id);
-      toast.success(`Deleted role ${role.name}`);
-      close();
-      await queryClient.invalidateQueries({ queryKey: ["roles"] });
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not delete the role. Try again.");
-    } finally {
-      setPending(false);
-    }
   }
 
   return (
@@ -189,7 +182,7 @@ function DeleteRoleDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <Button onClick={confirm} disabled={pending}>
+          <Button onClick={() => role && del.mutate(role)} disabled={pending}>
             {pending ? "Deleting…" : "Delete role"}
           </Button>
         </AlertDialogFooter>

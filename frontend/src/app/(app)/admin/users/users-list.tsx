@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,7 +28,8 @@ import { deleteUser, listRoles, listUsers, restoreUser, type User } from "@/lib/
 import { STATUS_LABEL, USER_STATUSES } from "@/lib/user-status";
 import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
-import { refreshAdminViews } from "@/lib/query";
+import { errorText } from "@/lib/auth-form";
+import { refreshAdminViews, usePendingVariables } from "@/lib/query";
 
 // The list endpoint has no pages, so it returns at most this many.
 const LIMIT = 100;
@@ -45,27 +46,24 @@ export function UsersPanel() {
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
   const [deleting, setDeleting] = useState<User | null>(null);
-  const [restoring, setRestoring] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
-  // Restore is reversible, so it does not ask first.
-  async function restore(u: User) {
-    setRestoring(u.id);
-    try {
-      await restoreUser(u.id);
+  // Restore is reversible, so it does not ask first. A row stays busy until the lists refetch.
+  const restore = useMutation({
+    mutationKey: ["restore-user"],
+    mutationFn: (u: User) => restoreUser(u.id),
+    onSuccess: (_, u) => {
       toast.success(`${u.name} restored`);
-      await Promise.all([
+      return Promise.all([
         queryClient.invalidateQueries({ queryKey: ["users"] }),
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
         queryClient.invalidateQueries({ queryKey: ["user", u.id] }),
         refreshAdminViews(queryClient),
       ]);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not restore the user. Try again.");
-    } finally {
-      setRestoring(null);
-    }
-  }
+    },
+    onError: (err) => toast.error(errorText(err, "Could not restore the user. Try again.")),
+  });
+  const restoring = usePendingVariables<User>(["restore-user"]).map((u) => u.id);
 
   // The box waits 300 ms after the last key, so typing does not spend the read rate limit one request per letter.
   useEffect(() => {
@@ -152,7 +150,7 @@ export function UsersPanel() {
                         </Link>
                       </Button>
                       {u.deleted_at ? (
-                        <Button variant="outline" size="sm" disabled={restoring === u.id} onClick={() => restore(u)}>
+                        <Button variant="outline" size="sm" disabled={restoring.includes(u.id)} onClick={() => restore.mutate(u)}>
                           Restore <span className="sr-only">{u.name}</span>
                         </Button>
                       ) : (
@@ -241,34 +239,27 @@ export function UsersPanel() {
 function DeleteUserDialog({ user, onClose }: { user: User | null; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [reason, setReason] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const del = useMutation({
+    mutationFn: (u: User) => deleteUser(u.id, reason),
+    onSuccess: (_, u) => {
+      toast.success(`${u.name} deleted`);
+      setReason("");
+      onClose();
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["users"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
+        queryClient.invalidateQueries({ queryKey: ["user", u.id] }),
+        refreshAdminViews(queryClient),
+      ]);
+    },
+  });
+  const pending = del.isPending;
+  const error = del.error ? errorText(del.error, "Could not delete the user. Try again.") : "";
 
   function close() {
     setReason("");
-    setError("");
+    del.reset();
     onClose();
-  }
-
-  async function confirm() {
-    if (!user) return;
-    setPending(true);
-    setError("");
-    try {
-      await deleteUser(user.id, reason);
-      toast.success(`${user.name} deleted`);
-      close();
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["users"] }),
-        queryClient.invalidateQueries({ queryKey: ["reports"] }),
-        queryClient.invalidateQueries({ queryKey: ["user", user.id] }),
-        refreshAdminViews(queryClient),
-      ]);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not delete the user. Try again.");
-    } finally {
-      setPending(false);
-    }
   }
 
   return (
@@ -298,7 +289,7 @@ function DeleteUserDialog({ user, onClose }: { user: User | null; onClose: () =>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <Button onClick={confirm} disabled={pending}>
+          <Button onClick={() => user && del.mutate(user)} disabled={pending}>
             {pending ? "Deleting…" : "Delete user"}
           </Button>
         </AlertDialogFooter>
