@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { HOME } from "@/lib/auth-form";
 import { useSession } from "@/lib/session";
@@ -16,12 +16,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { status, signOut } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  // A chosen sign-out gets no ?next=: the next person to sign in may be someone else (a user sent to /admin).
+  const signingOut = useRef(false);
 
   useEffect(() => {
     if (status !== "unauthenticated") return;
     const path = location.pathname + location.search;
+    const keepPath = !signingOut.current && path !== HOME;
+    signingOut.current = false;
     // Landing on the home page after signing in is the default, so no ?next= for it.
-    router.replace(path === HOME ? "/login" : `/login?next=${encodeURIComponent(path)}`);
+    router.replace(keepPath ? `/login?next=${encodeURIComponent(path)}` : "/login");
   }, [status, router]);
 
   if (status !== "authenticated") {
@@ -54,7 +58,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <ProfileMenu />
-            <Button variant="outline" size="sm" onClick={signOut}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                signingOut.current = true;
+                void signOut();
+              }}
+            >
               Sign out
             </Button>
           </div>

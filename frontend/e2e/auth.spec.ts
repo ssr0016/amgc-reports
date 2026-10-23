@@ -95,4 +95,22 @@ test.describe("signed in", () => {
     await expect(page.getByRole("tab", { name: "Users" })).toBeVisible();
     await expect(page.getByText("You are not allowed to view the admin panel.")).toHaveCount(0);
   });
+
+  test("signing out from /admin does not send the next person back there", async ({ page }) => {
+    const signIn = async (who: (typeof ACCOUNTS)[keyof typeof ACCOUNTS]) => {
+      await page.getByLabel("Email").fill(who.email);
+      await page.getByLabel("Password", { exact: true }).fill(who.password);
+      await page.getByRole("button", { name: "Sign in" }).click();
+    };
+    await page.goto("/login?next=/admin");
+    await signIn(ACCOUNTS.admin);
+    await expect(page.getByRole("tab", { name: "Users" })).toBeVisible();
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/login$/);
+
+    await signIn(ACCOUNTS.user);
+    await expect(page).toHaveURL(/\/reports$/);
+    await expect(page.getByText(`${ACCOUNTS.user.name} · user`)).toBeVisible();
+    await expect(page.getByText("You are not allowed to view the admin panel.")).toHaveCount(0);
+  });
 });
