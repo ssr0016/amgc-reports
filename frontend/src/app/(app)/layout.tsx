@@ -9,8 +9,9 @@ import { useSession } from "@/lib/session";
 import { ProfileMenu } from "./profile-menu";
 import { Sidebar } from "./sidebar";
 
-// Client-side guard: the session cookie is not visible to Server Components or
-// proxy.ts (plan section 1.2), so nothing private renders until /auth/me answers.
+// Client-side guard: the API's session cookies cannot tell proxy.ts whether a session is
+// live (plan section 1.2), so nothing private renders until /auth/me answers. proxy.ts
+// only turns away visitors without the session's signed_in hint.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { status, signOut } = useSession();

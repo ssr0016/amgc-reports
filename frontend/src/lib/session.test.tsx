@@ -4,6 +4,9 @@ import { resetCsrf } from "./api";
 import { QueryProvider } from "./query";
 import { SessionProvider, useSession } from "./session";
 
+const toast = vi.hoisted(() => ({ success: vi.fn(), info: vi.fn(), error: vi.fn() }));
+vi.mock("sonner", () => ({ toast }));
+
 const me = (role: string, permissions: string[]) => ({ id: 1, name: "Ana", role, permissions });
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
 
@@ -27,7 +30,10 @@ function stubApi(routes: Record<string, () => Response>) {
 
 const wrapper = ({ children }: { children: React.ReactNode }) => <SessionProvider>{children}</SessionProvider>;
 
-beforeEach(() => resetCsrf());
+beforeEach(() => {
+  resetCsrf();
+  vi.clearAllMocks();
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("SessionProvider", () => {
@@ -93,10 +99,14 @@ describe("SessionProvider", () => {
     await act(() => result.current.signIn("a@b.c", "pw"));
     expect(result.current.status).toBe("authenticated");
     expect(result.current.user?.name).toBe("Ana");
+    expect(toast.success).toHaveBeenCalledWith("Welcome back, Ana!");
+    await waitFor(() => expect(document.cookie).toContain("signed_in=1"));
 
     await act(() => result.current.signOut().catch(() => {}));
     expect(result.current.status).toBe("unauthenticated");
     expect(result.current.user).toBeNull();
+    expect(toast.info).toHaveBeenCalledWith("You have been logged out.");
+    await waitFor(() => expect(document.cookie).not.toContain("signed_in"));
   });
 
   it("a 401 mid-session signs the user out", async () => {
@@ -110,6 +120,7 @@ describe("SessionProvider", () => {
     const { api } = await import("./api");
     await act(() => api("/reports").catch(() => {}));
     expect(result.current.status).toBe("unauthenticated");
+    expect(toast.error).toHaveBeenCalledWith("Your session has expired. Please log in again.", { id: "session-expired" });
   });
 
   it("useSession outside a provider is an error", () => {

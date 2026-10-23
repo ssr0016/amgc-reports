@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { UserForm } from "@/components/user-form";
 import { useSession } from "@/lib/session";
 import { createUser, listRoles } from "@/lib/users";
@@ -36,6 +37,7 @@ export function NewUser() {
             area_assignment: v.area_assignment.trim(),
             church_name: v.church_name.trim(),
           });
+          toast.success(`Created user ${v.name.trim()}`);
           await Promise.all([queryClient.invalidateQueries({ queryKey: ["users"] }), refreshAdminViews(queryClient)]);
           router.replace("/admin?tab=users");
         }}

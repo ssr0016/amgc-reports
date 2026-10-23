@@ -358,6 +358,13 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Behaviour note:** an unknown path under a gated group now loads the caller before its 404, and a revoked caller gets 401 there instead of 404.
 
 
+### D-AR3 proxy.ts turns away signed-out visitors by a hint cookie
+**Date:** 2026-10-23 · **Status:** Built, not deployed
+
+- **Decision:** `frontend/src/proxy.ts` redirects `/reports`, `/admin` and `/account` to `/login` (with `?next=`, as the client guard does) when the request has no `signed_in` cookie. The session sets that cookie (`signed_in=1`, not HttpOnly, 24 h, `Secure` on https) after `/auth/me` or a sign-in succeeds and clears it on sign-out or a 401. The login page sends a signed-in visitor back to `?next=`.
+- **Why:** a signed-out visitor saw "Loading…" until `/auth/me` answered. The API's own cookies cannot drive the proxy, even though the `/api/v1` rewrite makes them first-party: `access_token` expires after 10 minutes, so a live session would be sent to `/login`, and `refresh_token` is scoped to `/api/v1/auth`, so the proxy never sees it. D-F1 does not change that.
+- **Not a credential:** the cookie is a hint, set by the browser itself. The API still checks every request, and the `(app)` layout still redirects when `/auth/me` says the session is gone. A stale hint shows "Loading…" and then redirects, as before; a missing hint costs one bounce through `/login`. That bounce is expected once for every user who signed in before this shipped.
+
 ### H-1 Hosting moves from Railway to Render and Neon
 **Date:** 2026-10-21 · **Status:** Decided
 

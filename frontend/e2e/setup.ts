@@ -1,5 +1,18 @@
-import { expect, test as setup } from "@playwright/test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+import { expect, test as setup, type APIRequestContext } from "@playwright/test";
 import { ACCOUNTS, API, authFile, clientIp, type Role } from "./support";
+
+// The session sets signed_in on the app after /auth/me; an API-only sign-in must add it, or proxy.ts sends every page to /login.
+async function saveSession(ctx: APIRequestContext, role: Role) {
+  const state = await ctx.storageState();
+  state.cookies.push({
+    name: "signed_in", value: "1", domain: "localhost", path: "/",
+    expires: -1, httpOnly: false, secure: false, sameSite: "Lax",
+  });
+  mkdirSync(dirname(authFile(role)), { recursive: true });
+  writeFileSync(authFile(role), JSON.stringify(state));
+}
 
 // Signs in as the seeded admin, creates the editor and user accounts through the
 // admin API, then signs each role in once and saves its session for the specs.
@@ -31,12 +44,12 @@ setup("create accounts and save one session per role", async ({ playwright }) =>
     });
     expect(res.status(), `create ${role}: ${await res.text()}`).toBe(201);
   }
-  await admin.ctx.storageState({ path: authFile("admin") });
+  await saveSession(admin.ctx, "admin");
   await admin.ctx.dispose();
 
   for (const role of ["editor", "user"] as const) {
     const { ctx } = await signIn(role);
-    await ctx.storageState({ path: authFile(role) });
+    await saveSession(ctx, role);
     await ctx.dispose();
   }
 });

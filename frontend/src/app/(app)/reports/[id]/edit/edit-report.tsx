@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { ReportForm } from "@/components/report-form";
 import { ApiError } from "@/lib/api";
 import { fromReport, isRestricted } from "@/lib/report-form";
@@ -54,6 +55,7 @@ export function EditReport() {
         restricted={isRestricted(data, user?.user_id, can)}
         onSubmit={async (input) => {
           await updateReport(reportId, input);
+          toast.success("Report saved");
           await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
           router.replace("/reports");
         }}

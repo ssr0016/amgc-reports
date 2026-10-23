@@ -1,19 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ApiError } from "@/lib/api";
 import { safeNext, toFormError, useCountdown, type FormError } from "@/lib/auth-form";
 import { useSession } from "@/lib/session";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn } = useSession();
+  const { signIn, status } = useSession();
   const [error, setError] = useState<FormError | null>(null);
   const [pending, setPending] = useState(false);
   const [wait, setWait] = useCountdown();
+
+  // Already signed in (proxy.ts sent a session without its marker cookie here): go back.
+  useEffect(() => {
+    if (status === "authenticated") router.replace(safeNext(new URLSearchParams(location.search).get("next")));
+  }, [status, router]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -22,11 +29,11 @@ export default function LoginPage() {
     setPending(true);
     try {
       await signIn(String(form.get("email")), String(form.get("password")));
-      router.replace(safeNext(new URLSearchParams(location.search).get("next")));
     } catch (err) {
       // A 403 is the server's own sentence: locked, inactive, under review or closed.
       const formError = toFormError(err, { 401: "Invalid email or password." });
       setError(formError);
+      if (err instanceof ApiError && err.status === 401) toast.error("Invalid credentials. Please try again.");
       setWait(formError.retryAfter ?? 0);
       setPending(false);
     }

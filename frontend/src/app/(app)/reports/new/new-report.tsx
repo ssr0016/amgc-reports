@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { ReportForm } from "@/components/report-form";
 import { emptyForm } from "@/lib/report-form";
 import { createReport, defaultPeriod } from "@/lib/reports";
@@ -34,6 +35,7 @@ export function NewReport() {
           lockedPeriod={period}
           onSubmit={async (input) => {
             await createReport(input);
+            toast.success("Report submitted");
             await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
             router.replace("/reports");
           }}

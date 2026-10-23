@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
 import { ReportOwnerBadges } from "@/components/report-owner-badges";
@@ -95,6 +96,7 @@ function ReportsList() {
       }),
     onSuccess: async () => {
       setTarget(null);
+      toast.success("Report deleted");
       // Deleting the last row of a later page would leave an empty page behind.
       const lastOnPage = (filters.page ?? 1) > 1 && data?.data.length === 1;
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);

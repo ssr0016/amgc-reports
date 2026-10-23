@@ -26,7 +26,7 @@ Backend configuration only:
 
 The session cookie has no `Domain`, so it belongs to `api.<domain>` only. The Next.js server on `app.<domain>` never receives it. Consequences:
 - Authenticated data is fetched from the browser (`fetch` with `credentials: "include"`), not in Server Components.
-- `proxy.ts` (formerly middleware) cannot see the session, so it cannot gate pages. Route protection is client-side: a layout checks the session and redirects to `/login`. Expect a brief loading state, not a flash of private content, because the pages hold no data until the API answers.
+- `proxy.ts` (formerly middleware) cannot see the session, so it cannot gate pages on it. (Since D-AR3 it turns away visitors without the frontend's `signed_in` hint cookie; the client guard below still decides.) Route protection is client-side: a layout checks the session and redirects to `/login`. Expect a brief loading state, not a flash of private content, because the pages hold no data until the API answers.
 - Optional later change (backend): set `Domain=.<domain>` on the session cookie. Then Server Components and `proxy.ts` could use it. That is a security-relevant change (the cookie goes to every subdomain), so it is not in v1. Record it as D-F1.
 
 ### 1.3 Framework

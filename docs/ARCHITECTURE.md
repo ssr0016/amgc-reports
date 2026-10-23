@@ -40,6 +40,7 @@ Frontend API types are generated from `backend/docs/swagger.json` (`npm run gen:
 - Lockout: 5 failed logins lock the account for 15 minutes.
 - No self-registration: an admin creates every account.
 - Session cookie `Domain=.<domain>` is planned (D-F1).
+- Page guard: `frontend/src/proxy.ts` sends a visitor without the session's `signed_in` hint cookie to `/login` before the page renders; the `(app)` layout still checks `/auth/me` (D-AR3).
 - ADRs: [0001](../backend/docs/adr/0001-session-auth.md) to [0005](../backend/docs/adr/0005-account-lockout.md).
 
 ## Permissions

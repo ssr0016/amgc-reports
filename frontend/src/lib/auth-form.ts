@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "./api";
+import { HOME } from "./routes";
 
-// Where a signed-in user lands when there is no (safe) ?next=.
-export const HOME = "/reports";
+export { HOME };
 
 // Only same-site paths: "/reports" is fine, "//evil.com" and "/\evil.com" are not.
 // Browsers drop tabs and newlines inside a URL, so "/\t/evil.com" would become
