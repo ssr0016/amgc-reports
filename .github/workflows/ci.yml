@@ -243,6 +243,10 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -253,7 +257,6 @@ jobs:
           args: '-no-fail -fmt sarif -out results.sarif ./backend/...'
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
-        continue-on-error: true
