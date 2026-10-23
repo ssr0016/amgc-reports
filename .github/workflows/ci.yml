@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -32,7 +32,7 @@ jobs:
         run: go mod download
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.13.2
           args: --timeout=5m
@@ -43,10 +43,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -68,9 +68,9 @@ jobs:
         run: go tool cover -func=coverage.out
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
-          file: ./backend/coverage.out
+          files: ./backend/coverage.out
           flags: unittests
           fail_ci_if_error: false
         continue-on-error: true
@@ -80,10 +80,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -105,10 +105,10 @@ jobs:
         working-directory: frontend
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -162,17 +162,17 @@ jobs:
           --health-retries 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
           cache-dependency-path: backend/go.sum
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -186,7 +186,7 @@ jobs:
       # they are installed either way.
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
@@ -204,7 +204,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: |
@@ -218,10 +218,10 @@ jobs:
     needs: [lint, test, integration]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -234,7 +234,7 @@ jobs:
         run: CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/api ./cmd/api
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: api-binary
           path: backend/bin/api
@@ -249,7 +249,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
