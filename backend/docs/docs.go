@@ -675,7 +675,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Admin role and roles:write. Audits DELETE_ROLE. A built-in role, or one any account holds (deleted ones included), answers 409.",
+                "description": "Admin role and roles:write. Audits DELETE_ROLE. A built-in role answers 409, as does one any account holds (deleted ones included) unless reassign_to is given: those accounts then move to that role first, each audited as CHANGE_USER_ROLE.",
                 "tags": [
                     "admin/roles"
                 ],
@@ -687,6 +687,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Role ID to move the role's users to",
+                        "name": "reassign_to",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -704,6 +710,15 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2475,6 +2490,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Filter by email",
                         "name": "email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by role ID",
+                        "name": "role_id",
                         "in": "query"
                     },
                     {

@@ -29,7 +29,7 @@ func TestUserHandler_ListUsers_StatusFilter(t *testing.T) {
 	var gotStatus string
 	calls := 0
 	repo := userimpl.NewMockStore()
-	repo.ListFunc = func(_ context.Context, _ string, status string, _ int) ([]user.User, error) {
+	repo.ListFunc = func(_ context.Context, _ string, status string, _ int64, _ int) ([]user.User, error) {
 		calls++
 		gotStatus = status
 		return []user.User{{ID: 1, Email: "a@example.com", Name: "A", Status: user.UserStatusInactive}}, nil
@@ -54,7 +54,7 @@ func TestUserHandler_ListUsers_StatusFilter(t *testing.T) {
 
 func TestUserHandler_ListUsers_UnknownStatusIs422(t *testing.T) {
 	repo := userimpl.NewMockStore()
-	repo.ListFunc = func(context.Context, string, string, int) ([]user.User, error) {
+	repo.ListFunc = func(context.Context, string, string, int64, int) ([]user.User, error) {
 		t.Error("the repository was called with an invalid status")
 		return nil, nil
 	}

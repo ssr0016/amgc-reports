@@ -20,7 +20,9 @@ export const createRole = (input: RoleInput) => api<RoleDetail>("/admin/roles", 
 export const updateRole = (id: number, input: RoleInput) =>
   api<RoleDetail>(`/admin/roles/${id}`, { method: "PUT", body: input });
 
-export const deleteRole = (id: number) => api<void>(`/admin/roles/${id}`, { method: "DELETE" });
+// reassignTo moves the role's users there first, in the same transaction; without it a role in use is refused.
+export const deleteRole = (id: number, reassignTo?: number) =>
+  api<void>(`/admin/roles/${id}${reassignTo ? `?reassign_to=${reassignTo}` : ""}`, { method: "DELETE" });
 
 export const changeUserRole = (userId: number, roleId: number) =>
   api<User>(`/admin/users/${userId}/role`, { method: "PUT", body: { role_id: roleId } });

@@ -28,6 +28,7 @@ func NewUserHandler(repo user.Store) *UserHandler {
 // @Param        page query int false "Page number (default 1)"
 // @Param        limit query int false "Limit (default 20, max 100)"
 // @Param        email query string false "Filter by email"
+// @Param        role_id query int false "Filter by role ID"
 // @Param        status query string false "Filter by status; all or empty means every status. deleted returns only deleted users; every other value leaves them out" Enums(all, active, inactive, disciplinary, deceased, deleted)
 // @Success      200 {array} user.UserResponse
 // @Failure      401 {object} map[string]string
@@ -42,6 +43,13 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 	if status != "" && status != "deleted" && !slices.Contains(user.UserStatuses, status) {
 		return apperror.Validation("invalid status").WithDetails(map[string]string{"status": "invalid status"})
 	}
+	var roleID int64
+	if r := c.QueryParam("role_id"); r != "" {
+		var err error
+		if roleID, err = strconv.ParseInt(r, 10, 64); err != nil || roleID <= 0 {
+			return apperror.Validation("invalid role_id").WithDetails(map[string]string{"role_id": "invalid role id"})
+		}
+	}
 	limit := 20
 	if l := c.QueryParam("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
@@ -49,7 +57,7 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 		}
 	}
 
-	users, err := h.repo.List(c.Request().Context(), emailFilter, status, limit)
+	users, err := h.repo.List(c.Request().Context(), emailFilter, status, roleID, limit)
 	if err != nil {
 		return apperror.Internal("failed to list users").WithError(err)
 	}

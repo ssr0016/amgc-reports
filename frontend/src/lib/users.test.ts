@@ -32,6 +32,9 @@ describe("users", () => {
     f = stub([]);
     await listUsers("", "");
     expect(call(f)[0]).toBe("/users?limit=100");
+    f = stub([]);
+    await listUsers("", "deleted", 4);
+    expect(call(f)[0]).toBe("/users?limit=100&role_id=4&status=deleted");
   });
 
   it("listRoles unwraps the { data } envelope", async () => {

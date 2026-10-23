@@ -58,7 +58,7 @@ func TestUserRepo_Create_Profile(t *testing.T) {
 			withRole, err := repo.GetWithRole(ctx, got.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.church, withRole.ChurchName)
-			list, err := repo.List(ctx, tt.in.Email, "", 10)
+			list, err := repo.List(ctx, tt.in.Email, "", 0, 10)
 			require.NoError(t, err)
 			require.Len(t, list, 1)
 			assert.Equal(t, tt.area, list[0].AreaAssignment)

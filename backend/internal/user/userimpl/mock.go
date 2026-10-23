@@ -23,7 +23,7 @@ type MockStore struct {
 	CreateWithPasswordFunc        func(ctx context.Context, email, name, hash string) (*user.User, error)
 	CreateFunc                    func(ctx context.Context, n user.NewUser) (*user.User, error)
 	UpdateProfileFunc             func(ctx context.Context, id int64, p user.UserProfile) (*user.User, error)
-	ListFunc                      func(ctx context.Context, emailFilter, status string, limit int) ([]user.User, error)
+	ListFunc                      func(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]user.User, error)
 	UpdateRoleFunc                func(ctx context.Context, userID, roleID int64) error
 	GetWithRoleFunc               func(ctx context.Context, id int64) (*user.User, error)
 	ListWithPaginationFunc        func(ctx context.Context, emailFilter string, page, limit int) ([]user.User, int64, error)
@@ -141,9 +141,9 @@ func (m *MockStore) UpdateProfile(ctx context.Context, id int64, p user.UserProf
 	return usr, nil
 }
 
-func (m *MockStore) List(ctx context.Context, emailFilter, status string, limit int) ([]user.User, error) {
+func (m *MockStore) List(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]user.User, error) {
 	if m.ListFunc != nil {
-		return m.ListFunc(ctx, emailFilter, status, limit)
+		return m.ListFunc(ctx, emailFilter, status, roleID, limit)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -153,6 +153,21 @@ func (m *MockStore) List(ctx context.Context, emailFilter, status string, limit 
 		result = append(result, *u)
 	}
 	return result, nil
+}
+
+// ReassignRole moves every user holding from to to (mock).
+func (m *MockStore) ReassignRole(_ context.Context, from, to int64) ([]user.User, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var moved []user.User
+	for _, u := range m.users {
+		if u.RoleID == from {
+			u.RoleID = to
+			moved = append(moved, *u)
+		}
+	}
+	return moved, nil
 }
 
 // UpdateRole changes a user's role (mock).

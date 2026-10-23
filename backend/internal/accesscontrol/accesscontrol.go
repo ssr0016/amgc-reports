@@ -22,6 +22,9 @@ var (
 	ErrUnknownPermission = errors.New("unknown permission")
 	// ErrRoleInUse is matched by every *RoleInUseError.
 	ErrRoleInUse = errors.New("role in use")
+	// ErrInvalidReassignRole is returned when the role to move users to is the
+	// role being deleted or does not exist.
+	ErrInvalidReassignRole = errors.New("invalid role to reassign users to")
 )
 
 // RoleInUseError is returned when a role still held by Users accounts (deleted
@@ -38,7 +41,9 @@ func (e *RoleInUseError) Is(target error) bool { return target == ErrRoleInUse }
 type RoleService interface {
 	Create(ctx context.Context, actorID int64, ip string, req CreateRoleRequest) (*Role, error)
 	Update(ctx context.Context, actorID int64, ip string, id int64, req UpdateRoleRequest) (*Role, error)
-	Delete(ctx context.Context, actorID int64, ip string, id int64) error
+	// Delete removes a custom role. Its users are first moved to reassignTo; a zero
+	// reassignTo refuses a role anyone holds.
+	Delete(ctx context.Context, actorID int64, ip string, id, reassignTo int64) error
 }
 
 // ErrDefaultRoleMissing is returned (wrapped) when the default role Register

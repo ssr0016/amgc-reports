@@ -62,7 +62,7 @@ over-72-byte new password is a 422 on `new_password`. A missing `confirm_passwor
 
 GET /users?page=1&limit=10&email=user&status=inactive
 
-Optional `status`: `all` or empty for every account, otherwise `active`, `inactive`, `disciplinary` or `deceased` (anything else is 422 on `status`). Every user carries its `status`.
+Optional `role_id` keeps only the accounts holding that role (422 on `role_id` when it is not a positive integer). Optional `status`: `all` or empty for every account, otherwise `active`, `inactive`, `disciplinary` or `deceased` (anything else is 422 on `status`). Every user carries its `status`.
 
 Response (200):
 
@@ -106,9 +106,12 @@ PUT /admin/roles/:id → 200, the same body as a full replace (`permission_ids` 
 
 DELETE /admin/roles/:id → 204
 
+DELETE /admin/roles/:id?reassign_to=4 → 204: every account holding the role (deleted ones included) moves to role 4 first, in the same transaction, each audited as `CHANGE_USER_ROLE` (D-A22).
+
 - `name` 2-50 characters and unique; `description` up to 255; `permission_ids` unique and existing (422 on `permission_ids` otherwise).
 - 409: "role name already exists", "built-in roles cannot be changed" (`admin`, `editor`, `user`), "role is assigned to N users; reassign them first".
 - 404 for a missing role.
+- 422 on `reassign_to` when it is the role being deleted or does not exist; 400 when it is not a positive integer.
 
 The old `POST /admin/roles/:id/permissions` and `DELETE /admin/roles/:id/permissions/:pid` are removed.
 

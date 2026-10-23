@@ -53,9 +53,10 @@ type Store interface {
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*User, error)
 	Create(ctx context.Context, n NewUser) (*User, error)
 	UpdateProfile(ctx context.Context, id int64, p UserProfile) (*User, error)
-	// List returns users newest first; an empty status means every status. Deleted
-	// users are left out unless status is "deleted", which returns only them.
-	List(ctx context.Context, emailFilter, status string, limit int) ([]User, error)
+	// List returns users newest first; an empty status means every status and a
+	// zero roleID every role. Deleted users are left out unless status is "deleted",
+	// which returns only them.
+	List(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]User, error)
 	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]User, int64, error)
 	MarkEmailVerified(ctx context.Context, userID int64) error
 	UpdatePassword(ctx context.Context, userID int64, hash string) error
@@ -66,6 +67,9 @@ type Store interface {
 	// do it in the same transaction as the password change. A missing user is ErrNotFound.
 	ClearLockout(ctx context.Context, userID int64) error
 	UpdateRole(ctx context.Context, userID, roleID int64) error
+	// ReassignRole moves every account holding from, deleted ones included, to to
+	// and returns them.
+	ReassignRole(ctx context.Context, from, to int64) ([]User, error)
 	GetWithRole(ctx context.Context, id int64) (*User, error)
 	// GetCaller is GetWithRole plus the role's permission names, in one query.
 	// A missing user is nil, nil.

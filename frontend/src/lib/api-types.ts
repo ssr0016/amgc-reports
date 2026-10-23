@@ -694,11 +694,14 @@ export interface paths {
         post?: never;
         /**
          * Delete a role
-         * @description Admin role and roles:write. Audits DELETE_ROLE. A built-in role, or one any account holds (deleted ones included), answers 409.
+         * @description Admin role and roles:write. Audits DELETE_ROLE. A built-in role answers 409, as does one any account holds (deleted ones included) unless reassign_to is given: those accounts then move to that role first, each audited as CHANGE_USER_ROLE.
          */
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Role ID to move the role's users to */
+                    reassign_to?: number;
+                };
                 header?: never;
                 path: {
                     /** @description Role ID */
@@ -728,6 +731,17 @@ export interface paths {
                 };
                 /** @description Conflict */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2821,6 +2835,8 @@ export interface paths {
                     limit?: number;
                     /** @description Filter by email */
                     email?: string;
+                    /** @description Filter by role ID */
+                    role_id?: number;
                     /** @description Filter by status; all or empty means every status. deleted returns only deleted users; every other value leaves them out */
                     status?: "all" | "active" | "inactive" | "disciplinary" | "deceased" | "deleted";
                 };

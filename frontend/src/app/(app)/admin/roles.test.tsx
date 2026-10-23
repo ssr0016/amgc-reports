@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { deleteRole } from "@/lib/roles";
-import { listRoles } from "@/lib/users";
+import { listRoles, listUsers } from "@/lib/users";
 import { RolesPanel } from "./roles";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -13,7 +13,7 @@ vi.mock("sonner", () => ({ toast }));
 vi.mock("@/lib/session", () => ({
   useSession: () => ({ isAdmin: session.isAdmin, can: (p: string) => session.perms.includes(p) }),
 }));
-vi.mock("@/lib/users", () => ({ listRoles: vi.fn() }));
+vi.mock("@/lib/users", () => ({ listRoles: vi.fn(), listUsers: vi.fn() }));
 vi.mock("@/lib/roles", async (orig) => ({ ...(await orig<typeof import("@/lib/roles")>()), deleteRole: vi.fn() }));
 
 const roles = [
@@ -48,6 +48,7 @@ describe("Roles tab", () => {
     session.perms = ["roles:write"];
     vi.mocked(listRoles).mockReset().mockResolvedValue(roles as never);
     vi.mocked(deleteRole).mockReset();
+    vi.mocked(listUsers).mockReset();
   });
 
   it("loading is a status message", () => {
@@ -99,11 +100,40 @@ describe("Roles tab", () => {
     expect(screen.getByRole("link", { name: "New role" })).toHaveAttribute("href", "/admin/roles/new");
   });
 
-  it("disables Delete for a role in use and says why", async () => {
+  it("a role in use needs a role to move its users to before Delete is allowed", async () => {
+    vi.mocked(deleteRole).mockResolvedValueOnce(undefined);
+    const { invalidate } = wrap();
+    fireEvent.click(within(await row("Reviewer")).getByRole("button", { name: "Delete Reviewer" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("3 users hold this role");
+    const confirm = within(dialog).getByRole("button", { name: "Move users and delete" });
+    expect(confirm).toBeDisabled();
+
+    const select = within(dialog).getByLabelText("Move 3 users to");
+    const options = within(select).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["Choose a role…", "Unused"]);
+    fireEvent.change(select, { target: { value: "5" } });
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(deleteRole).toHaveBeenCalledWith(4, 5));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Moved 3 users to Unused and deleted role Reviewer"));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["users"] });
+  });
+
+  it("the user count opens the role's users, deleted ones marked", async () => {
+    vi.mocked(listUsers).mockImplementation(async (_e, status) =>
+      (status === "deleted"
+        ? [{ id: 9, name: "Gone", email: "gone@x.com", deleted_at: "2026-01-01T00:00:00Z" }]
+        : [{ id: 8, name: "Ann", email: "ann@x.com" }]) as never,
+    );
     wrap();
-    const button = within(await row("Reviewer")).getByRole("button", { name: "Delete Reviewer" });
-    expect(button).toBeDisabled();
-    expect(button).toHaveAccessibleDescription("Reassign its 3 users first");
+    expect(within(await row("Unused")).queryByRole("button", { name: /Show/ })).not.toBeInTheDocument();
+    fireEvent.click(within(await row("Reviewer")).getByRole("button", { name: "Show the 3 users with role Reviewer" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(await within(dialog).findByText("ann@x.com")).toBeInTheDocument();
+    expect(within(dialog).getByText("Gone").closest("li")).toHaveTextContent("Deleted");
+    expect(listUsers).toHaveBeenCalledWith("", "", 4);
+    expect(listUsers).toHaveBeenCalledWith("", "deleted", 4);
   });
 
   it("deletes an unused role after confirming, and refreshes the roles", async () => {
@@ -113,7 +143,7 @@ describe("Roles tab", () => {
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete role" }));
 
-    await waitFor(() => expect(deleteRole).toHaveBeenCalledWith(5));
+    await waitFor(() => expect(deleteRole).toHaveBeenCalledWith(5, undefined));
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Deleted role Unused"));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["roles"] });
   });

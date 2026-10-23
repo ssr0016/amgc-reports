@@ -59,6 +59,8 @@ describe("requests", () => {
     expect(api).toHaveBeenLastCalledWith("/admin/roles/4", { method: "PUT", body });
     await deleteRole(4);
     expect(api).toHaveBeenLastCalledWith("/admin/roles/4", { method: "DELETE" });
+    await deleteRole(4, 2);
+    expect(api).toHaveBeenLastCalledWith("/admin/roles/4?reassign_to=2", { method: "DELETE" });
     await changeUserRole(7, 4);
     expect(api).toHaveBeenLastCalledWith("/admin/users/7/role", { method: "PUT", body: { role_id: 4 } });
   });

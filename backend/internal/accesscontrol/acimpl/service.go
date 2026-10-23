@@ -143,9 +143,10 @@ func diffPermissions(held []accesscontrol.Permission, want map[int64]string) (ad
 	return added, removed
 }
 
-// Delete removes a role no account holds. The role's row is locked first, which
-// also holds off a user being given the role until the delete commits.
-func (s *service) Delete(ctx context.Context, actorID int64, ip string, id int64) error {
+// Delete removes a role, first moving any account holding it to reassignTo. The
+// role's row is locked first, which also holds off a user being given the role
+// until the delete commits; the target is locked so it cannot vanish meanwhile.
+func (s *service) Delete(ctx context.Context, actorID int64, ip string, id, reassignTo int64) error {
 	actor, err := s.actor(ctx, actorID)
 	if err != nil {
 		return err
@@ -166,19 +167,52 @@ func (s *service) Delete(ctx context.Context, actorID int64, ip string, id int64
 		if err != nil {
 			return err
 		}
+		details := map[string]any{"name": role.Name}
 		if n > 0 {
-			return &accesscontrol.RoleInUseError{Users: n}
+			if reassignTo == 0 {
+				return &accesscontrol.RoleInUseError{Users: n}
+			}
+			to, err := s.reassign(ctx, actor, ip, role, reassignTo)
+			if err != nil {
+				return err
+			}
+			details["reassigned_to"] = to
 		}
 		if err := s.roles.Delete(ctx, id); err != nil {
 			return err
 		}
-		return s.audit.Insert(ctx, roleAuditLog(actor, ip, audit.ActionDeleteRole, role,
-			map[string]any{"name": role.Name}))
+		return s.audit.Insert(ctx, roleAuditLog(actor, ip, audit.ActionDeleteRole, role, details))
 	})
 	if err != nil {
 		return roleError(err, "delete role")
 	}
 	return nil
+}
+
+// reassign moves every holder of from to the role toID, with a CHANGE_USER_ROLE
+// row each, and returns that role's name.
+func (s *service) reassign(ctx context.Context, actor *user.User, ip string, from *accesscontrol.Role, toID int64) (string, error) {
+	if toID == from.ID {
+		return "", accesscontrol.ErrInvalidReassignRole
+	}
+	to, err := s.roles.GetForUpdate(ctx, toID)
+	if err != nil {
+		return "", err
+	}
+	if to == nil {
+		return "", accesscontrol.ErrInvalidReassignRole
+	}
+	moved, err := s.users.ReassignRole(ctx, from.ID, to.ID)
+	if err != nil {
+		return "", err
+	}
+	for i := range moved {
+		if err := s.audit.Insert(ctx, user.AuditLog(actor, ip, audit.ActionChangeUserRole, &moved[i],
+			map[string]any{"from": from.Name, "to": to.Name})); err != nil {
+			return "", err
+		}
+	}
+	return to.Name, nil
 }
 
 // permissionNames maps each id to its permission's name; an id that does not
@@ -243,6 +277,7 @@ func roleError(err error, op string) error {
 		return accesscontrol.ErrRoleNotFound
 	case errors.Is(err, accesscontrol.ErrRoleNotFound), errors.Is(err, accesscontrol.ErrProtectedRole),
 		errors.Is(err, accesscontrol.ErrRoleInUse), errors.Is(err, accesscontrol.ErrUnknownPermission),
+		errors.Is(err, accesscontrol.ErrInvalidReassignRole),
 		errors.Is(err, auth.ErrUnauthorized):
 		return err
 	}

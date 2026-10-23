@@ -82,7 +82,7 @@ var DetailKeys = map[string][]string{
 	ActionLoginFailed:        {"reason"},
 	ActionCreateRole:         {"name", "permissions"},
 	ActionUpdateRole:         {"from", "to", "added", "removed"},
-	ActionDeleteRole:         {"name"},
+	ActionDeleteRole:         {"name", "reassigned_to"},
 	ActionChangeUserRole:     {"from", "to"},
 }
 

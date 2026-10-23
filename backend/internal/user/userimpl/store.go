@@ -130,7 +130,7 @@ func (r *store) UpdateProfile(ctx context.Context, id int64, p user.UserProfile)
 	return u, nil
 }
 
-func (r *store) List(ctx context.Context, emailFilter, status string, limit int) ([]user.User, error) {
+func (r *store) List(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]user.User, error) {
 	// Validate limit to prevent overflow and DoS
 	if limit <= 0 {
 		limit = 20
@@ -147,6 +147,9 @@ func (r *store) List(ctx context.Context, emailFilter, status string, limit int)
 
 	if emailFilter != "" {
 		q = q.Where(sq.ILike{"email": "%" + emailFilter + "%"})
+	}
+	if roleID != 0 {
+		q = q.Where(sq.Eq{"role_id": roleID})
 	}
 	// "deleted" is a list filter, not a status (D-A11): every other value hides deleted users.
 	switch {
@@ -206,6 +209,28 @@ func (r *store) UpdateRole(ctx context.Context, userID, roleID int64) error {
 		return fmt.Errorf("users: %w", database.ErrNotFound)
 	}
 	return nil
+}
+
+// ReassignRole moves every account holding from to to, deleted ones included.
+func (r *store) ReassignRole(ctx context.Context, from, to int64) ([]user.User, error) {
+	rows, err := r.db.Querier(ctx).Query(ctx,
+		`UPDATE users SET role_id = $2, updated_at = NOW() WHERE role_id = $1 RETURNING `+userColumns, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("reassign role: %w", err)
+	}
+	defer rows.Close()
+	var users []user.User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, *u)
+	}
+	if database.IsForeignKeyViolation(rows.Err()) {
+		return nil, fmt.Errorf("reassign role: %w: %w", database.ErrForeignKeyViolation, rows.Err())
+	}
+	return users, rows.Err()
 }
 
 // GetWithRole returns a user with their role loaded.

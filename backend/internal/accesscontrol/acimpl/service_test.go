@@ -102,6 +102,7 @@ func (memPerms) List(context.Context) ([]accesscontrol.Permission, error) { retu
 
 type roleFixture struct {
 	roles *memRoles
+	users *userimpl.MockStore
 	audit *auditimpl.MockStore
 	svc   accesscontrol.RoleService
 }
@@ -125,7 +126,7 @@ func newRoleFixture() roleFixture {
 		}
 		return nil, nil
 	}
-	f := roleFixture{roles: roles, audit: auditimpl.NewMockStore()}
+	f := roleFixture{roles: roles, users: users, audit: auditimpl.NewMockStore()}
 	f.svc = NewService(roles, memPerms{}, users, f.audit, fakeTx{})
 	return f
 }
@@ -257,7 +258,7 @@ func TestRoleService_Delete(t *testing.T) {
 
 	t.Run("deletes an unused custom role with one audit row", func(t *testing.T) {
 		f := newRoleFixture()
-		require.NoError(t, f.svc.Delete(ctx, adminID, "", 5))
+		require.NoError(t, f.svc.Delete(ctx, adminID, "", 5, 0))
 
 		assert.NotContains(t, f.roles.roles, int64(5))
 		entries := f.audit.Entries()
@@ -270,7 +271,7 @@ func TestRoleService_Delete(t *testing.T) {
 	t.Run("a role with users is refused with the count", func(t *testing.T) {
 		f := newRoleFixture()
 		f.roles.users[5] = 2
-		err := f.svc.Delete(ctx, adminID, "", 5)
+		err := f.svc.Delete(ctx, adminID, "", 5, 0)
 
 		var inUse *accesscontrol.RoleInUseError
 		require.ErrorAs(t, err, &inUse)
@@ -280,14 +281,43 @@ func TestRoleService_Delete(t *testing.T) {
 		assert.Empty(t, f.audit.Entries())
 	})
 
+	t.Run("reassign_to moves the users, audits each move, then deletes", func(t *testing.T) {
+		f := newRoleFixture()
+		u, err := f.users.Create(ctx, user.NewUser{Email: "m@example.com", Name: "M", RoleID: 5})
+		require.NoError(t, err)
+		f.roles.users[5] = 1
+		require.NoError(t, f.svc.Delete(ctx, adminID, "", 5, 1))
+
+		got, err := f.users.GetByID(ctx, u.ID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), got.RoleID)
+		assert.NotContains(t, f.roles.roles, int64(5))
+		entries := f.audit.Entries()
+		require.Len(t, entries, 2)
+		assert.Equal(t, audit.ActionChangeUserRole, entries[0].Action)
+		assert.Equal(t, "m@example.com", *entries[0].TargetName)
+		assert.Equal(t, map[string]any{"from": "Reviewer", "to": "admin"}, entries[0].Details)
+		assert.Equal(t, map[string]any{"name": "Reviewer", "reassigned_to": "admin"}, entries[1].Details)
+	})
+
+	t.Run("reassign_to the role itself or a missing role is refused", func(t *testing.T) {
+		for _, to := range []int64{5, 404} {
+			f := newRoleFixture()
+			f.roles.users[5] = 1
+			require.ErrorIs(t, f.svc.Delete(ctx, adminID, "", 5, to), accesscontrol.ErrInvalidReassignRole, to)
+			assert.Contains(t, f.roles.roles, int64(5))
+			assert.Empty(t, f.audit.Entries())
+		}
+	})
+
 	t.Run("a built-in role is refused", func(t *testing.T) {
 		f := newRoleFixture()
-		require.ErrorIs(t, f.svc.Delete(ctx, adminID, "", 1), accesscontrol.ErrProtectedRole)
+		require.ErrorIs(t, f.svc.Delete(ctx, adminID, "", 1, 0), accesscontrol.ErrProtectedRole)
 		assert.Zero(t, f.roles.writes)
 	})
 
 	t.Run("a missing role is ErrRoleNotFound", func(t *testing.T) {
 		f := newRoleFixture()
-		require.ErrorIs(t, f.svc.Delete(ctx, adminID, "", 404), accesscontrol.ErrRoleNotFound)
+		require.ErrorIs(t, f.svc.Delete(ctx, adminID, "", 404, 0), accesscontrol.ErrRoleNotFound)
 	})
 }

@@ -967,13 +967,19 @@ paths:
       - admin/roles
   /admin/roles/{id}:
     delete:
-      description: Admin role and roles:write. Audits DELETE_ROLE. A built-in role,
-        or one any account holds (deleted ones included), answers 409.
+      description: 'Admin role and roles:write. Audits DELETE_ROLE. A built-in role
+        answers 409, as does one any account holds (deleted ones included) unless
+        reassign_to is given: those accounts then move to that role first, each audited
+        as CHANGE_USER_ROLE.'
       parameters:
       - description: Role ID
         in: path
         name: id
         required: true
+        type: integer
+      - description: Role ID to move the role's users to
+        in: query
+        name: reassign_to
         type: integer
       responses:
         "204":
@@ -986,6 +992,12 @@ paths:
             type: object
         "409":
           description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
           schema:
             additionalProperties:
               type: string
@@ -2255,6 +2267,10 @@ paths:
         in: query
         name: email
         type: string
+      - description: Filter by role ID
+        in: query
+        name: role_id
+        type: integer
       - description: Filter by status; all or empty means every status. deleted returns
           only deleted users; every other value leaves them out
         enum:

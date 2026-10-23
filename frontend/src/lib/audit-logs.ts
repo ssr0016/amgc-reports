@@ -80,6 +80,7 @@ export function detailRows(action: string, details: Record<string, unknown>): [s
     else rows.push(["Status", `${capitalize(String(d.from))} → ${capitalize(String(d.to))}`]);
   }
   if (d.name !== undefined) rows.push(["Role", text(d.name)]);
+  if (d.reassigned_to !== undefined) rows.push(["Users moved to", text(d.reassigned_to)]);
   if (d.permissions !== undefined) rows.push(["Permissions", list(d.permissions)]);
   if (d.added !== undefined) rows.push(["Permissions added", list(d.added)]);
   if (d.removed !== undefined) rows.push(["Permissions removed", list(d.removed)]);

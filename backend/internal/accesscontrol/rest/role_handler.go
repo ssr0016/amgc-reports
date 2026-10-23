@@ -35,6 +35,9 @@ func roleError(err error, msg string) error {
 		return apperror.Conflict(fmt.Sprintf("role is assigned to %d users; reassign them first", inUse.Users))
 	case errors.Is(err, accesscontrol.ErrRoleInUse):
 		return apperror.Conflict("role is assigned to users; reassign them first")
+	case errors.Is(err, accesscontrol.ErrInvalidReassignRole):
+		return apperror.Validation("validation failed").
+			WithDetails(map[string]string{"reassign_to": "choose another existing role"})
 	case errors.Is(err, accesscontrol.ErrRoleNameTaken):
 		return apperror.Conflict("role name already exists")
 	case errors.Is(err, accesscontrol.ErrProtectedRole):
@@ -198,13 +201,15 @@ func (h *RoleHandler) Update(c echo.Context) error {
 
 // Delete godoc
 // @Summary      Delete a role
-// @Description  Admin role and roles:write. Audits DELETE_ROLE. A built-in role, or one any account holds (deleted ones included), answers 409.
+// @Description  Admin role and roles:write. Audits DELETE_ROLE. A built-in role answers 409, as does one any account holds (deleted ones included) unless reassign_to is given: those accounts then move to that role first, each audited as CHANGE_USER_ROLE.
 // @Tags         admin/roles
 // @Security     CookieAuth
 // @Param        id path int true "Role ID"
+// @Param        reassign_to query int false "Role ID to move the role's users to"
 // @Success      204
 // @Failure      404 {object} map[string]string
 // @Failure      409 {object} map[string]string
+// @Failure      422 {object} map[string]string
 // @Router       /admin/roles/{id} [delete]
 func (h *RoleHandler) Delete(c echo.Context) error {
 	actor, err := actorID(c)
@@ -216,7 +221,14 @@ func (h *RoleHandler) Delete(c echo.Context) error {
 		return apperror.BadRequest("invalid role id")
 	}
 
-	if err := h.svc.Delete(c.Request().Context(), actor, c.RealIP(), id); err != nil {
+	var reassignTo int64
+	if r := c.QueryParam("reassign_to"); r != "" {
+		if reassignTo, err = strconv.ParseInt(r, 10, 64); err != nil || reassignTo <= 0 {
+			return apperror.BadRequest("invalid reassign_to")
+		}
+	}
+
+	if err := h.svc.Delete(c.Request().Context(), actor, c.RealIP(), id, reassignTo); err != nil {
 		return roleError(err, "failed to delete role")
 	}
 	return c.NoContent(http.StatusNoContent)

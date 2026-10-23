@@ -64,7 +64,7 @@ func TestRoleService_Postgres(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, svc.Delete(ctx, actor.ID, "", role.ID))
+		require.NoError(t, svc.Delete(ctx, actor.ID, "", role.ID, 0))
 		assert.Equal(t, 1, auditCount(audit.ActionCreateRole))
 		assert.Equal(t, 1, auditCount(audit.ActionUpdateRole), "the no-op update writes no row")
 		assert.Equal(t, 1, auditCount(audit.ActionDeleteRole))
@@ -100,7 +100,7 @@ func TestRoleService_Postgres(t *testing.T) {
 		require.NoError(t, err)
 
 		var inUse *accesscontrol.RoleInUseError
-		require.ErrorAs(t, svc.Delete(ctx, actor.ID, "", role.ID), &inUse)
+		require.ErrorAs(t, svc.Delete(ctx, actor.ID, "", role.ID, 0), &inUse)
 		assert.Equal(t, int64(1), inUse.Users)
 
 		list, _, err := roles.ListWithPagination(ctx, 1, 100)
@@ -110,6 +110,31 @@ func TestRoleService_Postgres(t *testing.T) {
 				assert.Equal(t, int64(1), r.UserCount)
 			}
 		}
+	})
+
+	t.Run("reassign_to moves every holder, deleted ones included, then deletes", func(t *testing.T) {
+		from, err := svc.Create(ctx, actor.ID, "", accesscontrol.CreateRoleRequest{Name: "Leaving"})
+		require.NoError(t, err)
+		to, err := svc.Create(ctx, actor.ID, "", accesscontrol.CreateRoleRequest{Name: "Staying"})
+		require.NoError(t, err)
+		for _, email := range []string{"move1@example.com", "move2@example.com"} {
+			u, err := users.CreateWithPassword(ctx, email, "Move", "hash")
+			require.NoError(t, err)
+			require.NoError(t, users.UpdateRole(ctx, u.ID, from.ID))
+			if email == "move2@example.com" {
+				_, err = users.SoftDelete(ctx, u.ID, actor.ID, "")
+				require.NoError(t, err)
+			}
+		}
+
+		require.NoError(t, svc.Delete(ctx, actor.ID, "", from.ID, to.ID))
+
+		gone, err := roles.GetByID(ctx, from.ID)
+		require.NoError(t, err)
+		assert.Nil(t, gone)
+		n, err := roles.CountUsers(ctx, to.ID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), n)
 	})
 
 	t.Run("the store refuses to change any built-in role", func(t *testing.T) {

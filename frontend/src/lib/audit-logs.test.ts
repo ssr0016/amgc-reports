@@ -68,6 +68,7 @@ describe("detailRows", () => {
       [["Name", "Reviewer → Senior reviewer"], ["Permissions added", "users:read"], ["Permissions removed", "—"]]],
     ["UPDATE_ROLE", { added: [], removed: ["reports:approve"] }, [["Permissions added", "—"], ["Permissions removed", "reports:approve"]]],
     ["DELETE_ROLE", { name: "Reviewer" }, [["Role", "Reviewer"]]],
+    ["DELETE_ROLE", { name: "Reviewer", reassigned_to: "user" }, [["Role", "Reviewer"], ["Users moved to", "user"]]],
     ["CHANGE_USER_ROLE", { from: "user", to: "CGP Coordinator" }, [["Role", "user → CGP Coordinator"]]],
     ["LOGIN", {}, []],
   ] as const)("%s %j", (action, details, want) => {

@@ -122,7 +122,7 @@ func TestUserRepo_List_DeletedFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	emails := func(status string) []string {
-		list, err := env.users.List(ctx, "", status, 100)
+		list, err := env.users.List(ctx, "", status, 0, 100)
 		require.NoError(t, err)
 		var out []string
 		for _, u := range list {

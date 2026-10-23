@@ -39,18 +39,18 @@ test.describe("as admin", () => {
       await expect(page.getByText(`${ACCOUNTS.user.name} now has the ${ROLE} role`)).toBeVisible();
 
       await page.goto("/admin?tab=roles");
-      await expect(row.getByRole("button", { name: `Delete ${ROLE}` })).toBeDisabled();
-      await expect(row).toContainText("Reassign its 1 user first");
+      await row.getByRole("button", { name: `Show the 1 user with role ${ROLE}` }).click();
+      await expect(page.getByRole("alertdialog")).toContainText(ACCOUNTS.user.email);
+      await page.getByRole("alertdialog").getByRole("button", { name: "Close" }).click();
 
-      await page.goto(`/admin/users/${user.id}/edit`);
-      await section.getByLabel("Role").selectOption({ label: "user" });
-      await section.getByRole("button", { name: "Update role" }).click();
-      await expect(page.getByText(`${ACCOUNTS.user.name} now has the user role`)).toBeVisible();
-
-      await page.goto("/admin?tab=roles");
+      // Deleting a role in use moves its users to the chosen role first.
       await row.getByRole("button", { name: `Delete ${ROLE}` }).click();
-      await page.getByRole("alertdialog").getByRole("button", { name: "Delete role" }).click();
-      await expect(page.getByText(`Deleted role ${ROLE}`)).toBeVisible();
+      const dialog = page.getByRole("alertdialog");
+      await expect(dialog).toContainText("1 user holds this role");
+      await expect(dialog.getByRole("button", { name: "Move users and delete" })).toBeDisabled();
+      await dialog.getByLabel("Move 1 user to").selectOption({ label: "user" });
+      await dialog.getByRole("button", { name: "Move users and delete" }).click();
+      await expect(page.getByText(`Moved 1 user to user and deleted role ${ROLE}`)).toBeVisible();
       await expect(row).toHaveCount(0);
 
       await page.goto("/admin?tab=logs");

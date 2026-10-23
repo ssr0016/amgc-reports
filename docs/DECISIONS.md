@@ -30,6 +30,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A19 | Report Dashboard: Month and Year columns, owner's new reference styling | Decided 2026-10-22 | here |
 | D-A20 | Audit Logs UI and sign-in audit | Decided 2026-10-22; built in 21a | here |
 | D-A21 | Dynamic RBAC: Roles tab, custom roles, audited role changes | Decided 2026-10-22; built in 37a | here |
+| D-A22 | Delete a role in use by moving its users; list a role's users | Decided 2026-10-23 | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -375,3 +376,11 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - Older entries and history that mention Railway are left as written.
 - **Update (2026-10-21):** `TRUSTED_PROXY_CIDRS=100.64.0.0/10` is set in Render. In production the server now refuses to start when `TRUSTED_PROXY_CIDRS` is unset or contains a `/0` range (`Config.ValidateProxy`, server only, so `api migrate` is unaffected). Outside production the `0.0.0.0/0` default remains. This replaces the open-default trade-off above.
 - **Update (2026-10-22, owner, supersedes the Pre-Deploy note above):** the API is on Render's **Free** tier, where the Pre-Deploy Command and Render Shell do not run. Production migrations are run **by hand from a local machine against Neon** (`make migrate-up` with `DATABASE_URL` set to the Neon URL) **before** pushing to `main`. A migration must therefore be backward compatible with the code still running until the push deploys. Confirmed on the 21a deploy: the local migration, then the push, gave a working sign-in and Logs tab.
+
+### D-A22 Delete a role in use by moving its users
+**Date:** 2026-10-23 · **Status:** Decided; built, not deployed
+
+- **Amends D-A21 (2):** a custom role that accounts hold can now be deleted once the admin picks a role to move them to. `DELETE /admin/roles/:id?reassign_to=N` moves every holder (deleted accounts included, they keep the foreign key) and deletes the role in one transaction. Both roles' rows are locked first. Without `reassign_to` a role in use is still 409; the role itself or a missing role as `reassign_to` is 422.
+- **Audit:** one `CHANGE_USER_ROLE` `{from, to}` per moved account, then `DELETE_ROLE` `{name, reassigned_to}`. No new action, so no migration (details keys are checked in Go, not by the CHECK constraint).
+- **Safety:** built-in roles stay undeletable (D-A21), so `admin` can never be the role deleted and the last-admin guard is not reachable from here. The dropdown leaves out `admin` (owner, 2026-10-23), so one mis-pick can't promote a whole role; the server still accepts it as `reassign_to`. The dialog warns that the users get the chosen role's permissions at once.
+- **Who holds a role:** `GET /users` takes `role_id`. The Roles tab's user count opens a list of the holders (names, emails, deleted ones marked), fetched as the non-deleted and the deleted lists, each capped at 100.

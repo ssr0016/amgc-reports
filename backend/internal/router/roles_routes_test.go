@@ -30,7 +30,7 @@ func (s *okRoleSvc) Update(context.Context, int64, string, int64, accesscontrol.
 	return &accesscontrol.Role{ID: 4, Name: "Reviewer"}, nil
 }
 
-func (s *okRoleSvc) Delete(context.Context, int64, string, int64) error {
+func (s *okRoleSvc) Delete(context.Context, int64, string, int64, int64) error {
 	s.calls++
 	return nil
 }

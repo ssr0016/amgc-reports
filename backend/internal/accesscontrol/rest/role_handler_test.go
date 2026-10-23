@@ -41,7 +41,7 @@ func (f *fakeRoleSvc) Update(_ context.Context, _ int64, _ string, id int64, req
 	return &accesscontrol.Role{ID: id, Name: req.Name}, nil
 }
 
-func (f *fakeRoleSvc) Delete(context.Context, int64, string, int64) error { return f.err }
+func (f *fakeRoleSvc) Delete(context.Context, int64, string, int64, int64) error { return f.err }
 
 type errorBody struct {
 	Error   string            `json:"error"`
