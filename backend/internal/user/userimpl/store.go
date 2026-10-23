@@ -210,7 +210,26 @@ func (r *store) UpdateRole(ctx context.Context, userID, roleID int64) error {
 
 // GetWithRole returns a user with their role loaded.
 func (r *store) GetWithRole(ctx context.Context, id int64) (*user.User, error) {
-	query, args, err := r.db.Builder.
+	return r.withRole(ctx, id, nil)
+}
+
+// GetCaller returns the user with their role and its permission names, in one query.
+func (r *store) GetCaller(ctx context.Context, id int64) (*user.Caller, error) {
+	var names []string
+	u, err := r.withRole(ctx, id, &names)
+	if err != nil || u == nil {
+		return nil, err
+	}
+	perms := make(map[string]bool, len(names))
+	for _, n := range names {
+		perms[n] = true
+	}
+	return &user.Caller{User: u, Permissions: perms}, nil
+}
+
+// withRole reads the user and role; a non-nil perms also gets the role's permission names.
+func (r *store) withRole(ctx context.Context, id int64, perms *[]string) (*user.User, error) {
+	sb := r.db.Builder.
 		Select(
 			"u.id", "u.email", "u.name", "u.password_hash", "u.role_id",
 			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status", "u.tokens_valid_after", "u.deleted_at",
@@ -218,8 +237,12 @@ func (r *store) GetWithRole(ctx context.Context, id int64) (*user.User, error) {
 		).
 		From("users u").
 		LeftJoin("roles r ON r.id = u.role_id").
-		Where(sq.Eq{"u.id": id}).
-		ToSql()
+		Where(sq.Eq{"u.id": id})
+	if perms != nil {
+		// ARRAY(...) is never NULL: a user without a role or permissions gets {}.
+		sb = sb.Column("ARRAY(SELECT p.name FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = u.role_id)")
+	}
+	query, args, err := sb.ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
@@ -229,11 +252,15 @@ func (r *store) GetWithRole(ctx context.Context, id int64) (*user.User, error) {
 	var rName, rDesc *string
 	var rCreatedAt, rUpdatedAt *time.Time
 
-	err = r.db.Querier(ctx).QueryRow(ctx, query, args...).Scan(
+	dest := []any{
 		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID,
 		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.TokensValidAfter, &u.DeletedAt,
 		&rID, &rName, &rDesc, &rCreatedAt, &rUpdatedAt,
-	)
+	}
+	if perms != nil {
+		dest = append(dest, perms)
+	}
+	err = r.db.Querier(ctx).QueryRow(ctx, query, args...).Scan(dest...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

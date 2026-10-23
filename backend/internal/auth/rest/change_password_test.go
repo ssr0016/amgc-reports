@@ -49,7 +49,7 @@ type cpFixture struct {
 const cpFamily = "family-1"
 
 // newCPFixture serves POST /auth/change-password and a /whoami probe behind the
-// real Authenticate and RequireRole middleware, so the access cookie can be
+// real Authenticate, LoadCaller and RequireRole middleware, so the access cookie can be
 // followed across requests and a revoked token is refused as it is in production.
 func newCPFixture(t *testing.T) *cpFixture {
 	t.Helper()
@@ -94,7 +94,7 @@ func newCPFixture(t *testing.T) *cpFixture {
 		return c.NoContent(http.StatusNoContent)
 	})
 	e.GET("/whoami", func(c echo.Context) error { return c.NoContent(http.StatusNoContent) },
-		middleware.RequireAuth(), middleware.RequireRole(f.users, "user"))
+		middleware.RequireAuth(), middleware.LoadCaller(f.users), middleware.RequireRole("user"))
 	e.POST("/auth/change-password", h.ChangePassword, middleware.RequireAuth())
 	f.e = e
 	return f

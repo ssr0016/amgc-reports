@@ -22,7 +22,7 @@ func globalServer(burst int) *echo.Echo {
 	e := echo.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	e.GET("/health", func(c echo.Context) error { return c.String(http.StatusOK, "ok") })
-	Setup(e, noAuthn, nil, nil,
+	Setup(e, noAuthn, nil,
 		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		nil, nil, nil, Limiters{Global: ourmiddleware.RateLimit(rate.Limit(0.0001), burst), Read: noLimit, Write: noLimit},

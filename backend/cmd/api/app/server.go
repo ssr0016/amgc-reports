@@ -124,7 +124,7 @@ func run() error {
 		RefreshTTL: cfg.Auth.RefreshTTL, RefreshIdleTTL: cfg.Auth.RefreshIdleTTL,
 	})
 	passwordResetService := authimpl.NewPasswordResetService(userRepo, passwordResetRepo, log)
-	reportService := reportimpl.NewService(reportRepo, auditRepo, db, userRepo, roleRepo)
+	reportService := reportimpl.NewService(reportRepo, auditRepo, db, userRepo)
 	statsService := statsimpl.NewService(statsimpl.NewStore(db))
 	userService := userimpl.NewService(userRepo, roleRepo, auditRepo, db)
 
@@ -150,7 +150,6 @@ func run() error {
 		e,
 		ourmiddleware.Authenticate(tokens),
 		userRepo,
-		roleRepo,
 		authHandler,
 		userHandler,
 		roleHandler,

@@ -12,7 +12,6 @@ import (
 
 	"github.com/xuri/excelize/v2"
 
-	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
@@ -33,7 +32,6 @@ type service struct {
 	audit   audit.Store
 	tx      database.TxRunner
 	users   user.Store
-	roles   accesscontrol.RoleStore
 	now     func() time.Time
 	loc     *time.Location // months are counted in Philippine time, whatever the server clock says
 }
@@ -44,9 +42,8 @@ func NewService(
 	audit audit.Store,
 	tx database.TxRunner,
 	users user.Store,
-	roles accesscontrol.RoleStore,
 ) report.Service {
-	return newService(reports, audit, tx, users, roles)
+	return newService(reports, audit, tx, users)
 }
 
 // newService is NewService with the concrete type, so tests can set the clock.
@@ -55,13 +52,12 @@ func newService(
 	audit audit.Store,
 	tx database.TxRunner,
 	users user.Store,
-	roles accesscontrol.RoleStore,
 ) *service {
 	loc, err := time.LoadLocation("Asia/Manila")
 	if err != nil {
 		panic(fmt.Sprintf("load Asia/Manila (is tzdata installed?): %v", err))
 	}
-	return &service{reports: reports, audit: audit, tx: tx, users: users, roles: roles, now: time.Now, loc: loc}
+	return &service{reports: reports, audit: audit, tx: tx, users: users, now: time.Now, loc: loc}
 }
 
 type actor struct {
@@ -69,25 +65,20 @@ type actor struct {
 	perms map[string]bool
 }
 
+// actor is the caller middleware.LoadCaller put in ctx, or, outside such a
+// request, the same user and permissions read in one query.
 func (s *service) actor(ctx context.Context, userID int64) (*actor, error) {
-	user, err := s.users.GetWithRole(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-	if user == nil {
-		return nil, fmt.Errorf("user %d: %w", userID, database.ErrNotFound)
-	}
-	a := &actor{user: user, perms: map[string]bool{}}
-	if user.RoleID != 0 {
-		perms, err := s.roles.GetPermissions(ctx, user.RoleID)
-		if err != nil {
-			return nil, fmt.Errorf("get permissions: %w", err)
+	c, ok := user.CallerFrom(ctx, userID)
+	if !ok {
+		var err error
+		if c, err = s.users.GetCaller(ctx, userID); err != nil {
+			return nil, fmt.Errorf("get user: %w", err)
 		}
-		for _, p := range perms {
-			a.perms[p.Name] = true
+		if c == nil {
+			return nil, fmt.Errorf("user %d: %w", userID, database.ErrNotFound)
 		}
 	}
-	return a, nil
+	return &actor{user: c.User, perms: c.Permissions}, nil
 }
 
 // canSee reports whether a may act on rep given the _any permission name.

@@ -84,7 +84,8 @@ func newFixture() fixture {
 		roleD: {"reports:read", "reports:read_any", "reports:delete_any"},
 	}}
 	f := fixture{reports: NewMockStore(), audit: auditimpl.NewMockStore()}
-	f.svc = newService(f.reports, f.audit, fakeTx{}, users, roles)
+	users.Roles = roles
+	f.svc = newService(f.reports, f.audit, fakeTx{}, users)
 	f.svc.now = func() time.Time { return time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC) }
 	return f
 }

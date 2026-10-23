@@ -80,7 +80,7 @@ func newAuthEnv(t *testing.T, tokenTTL time.Duration) *authEnv {
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
-	Setup(e, ourmiddleware.Authenticate(env.tokens), env.users, nil,
+	Setup(e, ourmiddleware.Authenticate(env.tokens), env.users,
 		authrest.NewAuthHandler(authService, authrest.NewCookies(config.AuthConfig{}, false)),
 		nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil),

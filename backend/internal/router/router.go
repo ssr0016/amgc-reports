@@ -6,7 +6,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
 
-	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	acrest "github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol/rest"
 	auditrest "github.com/ssr0016/pastoral-reports/backend/internal/audit/rest"
 	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
@@ -29,7 +28,6 @@ func Setup(
 	e *echo.Echo,
 	authenticate echo.MiddlewareFunc,
 	userRepo user.Store,
-	roleRepo accesscontrol.RoleStore,
 	authHandler *authrest.AuthHandler,
 	userHandler *userrest.UserHandler,
 	roleHandler *acrest.RoleHandler,
@@ -77,22 +75,22 @@ func Setup(
 	// caller uses tokens. The lockout counter, not this limit, stops password guessing.
 	authProtected.POST("/change-password", authHandler.ChangePassword, limits.Write)
 
-	// perm gates a route on the caller's role's permissions; adminOnly on the admin role.
-	perm := func(name string) echo.MiddlewareFunc {
-		return ourmiddleware.RequirePermission(roleRepo, userRepo, name)
-	}
-	adminOnly := ourmiddleware.RequireRole(userRepo, "admin")
+	// loadCaller reads the caller, role and permissions once, in front of the gates:
+	// perm checks the role's permissions, adminOnly the admin role.
+	loadCaller := ourmiddleware.LoadCaller(userRepo)
+	perm := func(name string) echo.MiddlewareFunc { return ourmiddleware.RequirePermission(name) }
+	adminOnly := ourmiddleware.RequireRole("admin")
 
 	// Lists every account's email and name, so it needs users:list (37b), never
 	// users:read: the plain user role holds users:read.
-	users := api.Group("/users", authn, ourmiddleware.RequireAuth())
+	users := api.Group("/users", authn, ourmiddleware.RequireAuth(), loadCaller)
 	users.GET("", userHandler.ListUsers, perm("users:list"))
 	users.GET("/:id", userHandler.GetUser, perm("users:list"))
 
 	// ============================================================
 	// Reports (permission-gated; the service applies the _any ownership scope)
 	// ============================================================
-	reports := api.Group("/reports", authn, ourmiddleware.RequireAuth())
+	reports := api.Group("/reports", authn, ourmiddleware.RequireAuth(), loadCaller)
 	reports.GET("", reportHandler.ListReports, perm("reports:read"), limits.Read)
 	// One shared bucket for all four writes (each costs a transaction and an audit
 	// row). It runs after RequirePermission, so only callers who may write use
@@ -108,7 +106,7 @@ func Setup(
 	// role can use them; account and role management stay admin-only, because
 	// users:write includes resetting an admin's password.
 	// ============================================================
-	admin := api.Group("/admin", authn, ourmiddleware.RequireAuth())
+	admin := api.Group("/admin", authn, ourmiddleware.RequireAuth(), loadCaller)
 
 	// Roles (D-A21). Writes need roles:write on top of the admin role, and are audited;
 	// PUT replaces the whole permission set, so there are no per-permission routes.

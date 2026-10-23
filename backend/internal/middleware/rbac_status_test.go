@@ -22,7 +22,7 @@ func (allowAll) GetPermissions(context.Context, int64) ([]accesscontrol.Permissi
 }
 
 // A session that outlives an account's status stops working: a non-active user is
-// a 401 at every gate that loads the user, whatever role they hold.
+// a 401 from LoadCaller in front of every gate, whatever role they hold.
 func TestRBAC_NonActiveUserIsUnauthorized(t *testing.T) {
 	tests := []struct {
 		status string
@@ -34,18 +34,15 @@ func TestRBAC_NonActiveUserIsUnauthorized(t *testing.T) {
 		{user.UserStatusDisciplinary, http.StatusUnauthorized},
 		{user.UserStatusDeceased, http.StatusUnauthorized},
 	}
-	gates := map[string]func(user.Store) echo.MiddlewareFunc{
-		"RequireRole": func(u user.Store) echo.MiddlewareFunc {
-			return RequireRole(u, "admin")
-		},
-		"RequirePermission": func(u user.Store) echo.MiddlewareFunc {
-			return RequirePermission(allowAll{}, u, "reports:read")
-		},
+	gates := map[string]echo.MiddlewareFunc{
+		"RequireRole":       RequireRole("admin"),
+		"RequirePermission": RequirePermission("reports:read"),
 	}
 	for name, gate := range gates {
 		for _, tt := range tests {
 			t.Run(name+"/"+tt.status, func(t *testing.T) {
 				users := userimpl.NewMockStore()
+				users.Roles = allowAll{}
 				users.GetWithRoleFunc = func(context.Context, int64) (*user.User, error) {
 					return &user.User{ID: 1, RoleID: 9, Role: &accesscontrol.Role{Name: "admin"}, Status: tt.status}, nil
 				}
@@ -57,7 +54,7 @@ func TestRBAC_NonActiveUserIsUnauthorized(t *testing.T) {
 						return next(c)
 					}
 				})
-				e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) }, gate(users))
+				e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) }, LoadCaller(users), gate)
 
 				rec := httptest.NewRecorder()
 				e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil))

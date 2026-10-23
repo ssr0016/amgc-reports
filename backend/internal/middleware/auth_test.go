@@ -81,14 +81,12 @@ func TestAuthenticate(t *testing.T) {
 	}
 }
 
-// A token signed before users.tokens_valid_after is refused by the gates that load
-// the user (RequireRole, RequirePermission), whatever else is right with it.
+// A token signed before users.tokens_valid_after is refused by LoadCaller, in front
+// of either gate (RequireRole, RequirePermission), whatever else is right with it.
 func TestRBAC_RefusesATokenSignedBeforeTokensValidAfter(t *testing.T) {
-	gates := map[string]func(user.Store) echo.MiddlewareFunc{
-		"RequireRole": func(u user.Store) echo.MiddlewareFunc { return RequireRole(u, "admin") },
-		"RequirePermission": func(u user.Store) echo.MiddlewareFunc {
-			return RequirePermission(allowAll{}, u, "reports:read")
-		},
+	gates := map[string]echo.MiddlewareFunc{
+		"RequireRole":       RequireRole("admin"),
+		"RequirePermission": RequirePermission("reports:read"),
 	}
 	issued := time.Now().Add(-time.Minute)
 	tests := []struct {
@@ -104,6 +102,7 @@ func TestRBAC_RefusesATokenSignedBeforeTokensValidAfter(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(name+"/"+tt.name, func(t *testing.T) {
 				users := userimpl.NewMockStore()
+				users.Roles = allowAll{}
 				users.GetWithRoleFunc = func(context.Context, int64) (*user.User, error) {
 					return &user.User{ID: 1, RoleID: 9, Role: &accesscontrol.Role{Name: "admin"}, TokensValidAfter: tt.validAfter}, nil
 				}
@@ -116,7 +115,7 @@ func TestRBAC_RefusesATokenSignedBeforeTokensValidAfter(t *testing.T) {
 						return next(c)
 					}
 				})
-				e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) }, gate(users))
+				e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) }, LoadCaller(users), gate)
 				rec := httptest.NewRecorder()
 				e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil))
 				require.Equal(t, tt.want, rec.Code)

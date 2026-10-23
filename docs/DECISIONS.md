@@ -349,6 +349,14 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Refresh vs revoke race (fixed after review):** `rotate` used to lock the token row and insert the new token while a password change or status change revoked "all live tokens" in a separate statement; the revocation waited on the old row, then missed the new one, so a stolen refresh token used at that instant survived the reset. Lock order is now users, then refresh_tokens, everywhere: `rotate` takes `FOR SHARE` on the owner's users row (`UserRepo.LockUser`) before locking the token, and `RevokeSessions` updates users first (in its own transaction when the caller has none), as `UpdatePassword` and `UpdatePasswordKeepSession` already did. Two refreshes still share the lock and meet on the token row. Proved by `TestRefresh_RevocationDuringRotationEndsTheNewToken`, which fails without the lock.
 - **Accepted:** logout and theft revocation do not reach an access token already issued (up to 10 min); password change, admin reset and status change do, through `tokens_valid_after`.
 
+### D-AR2 The caller is loaded once per request
+**Date:** 2026-10-23 · **Status:** Built, not deployed
+
+- **Decision:** `middleware.LoadCaller` reads the user, role and permission names in one query (`user.Store.GetCaller`, an `ARRAY(...)` subquery) and stores a `user.Caller` in the request context. It runs after `RequireAuth` in the `/users`, `/reports` and `/admin` groups. `RequireRole` and `RequirePermission` take no stores and read it; the report, role and user services' `actor()` use it and load only outside such a request (tests, other callers).
+- **Why:** a reports request loaded the user and permissions twice (gate, then service), and admin routes with both `adminOnly` and `perm(...)` three times: 4 to 6 queries before the real one, each a Neon round trip.
+- **Moved:** the status and `tokens_valid_after` checks (D-A10, D3) moved from the gates into `LoadCaller`. `/auth/me` and change-password still check for themselves. `ReportService` no longer takes a `RoleStore`, and `router.Setup` no longer takes one.
+- **Behaviour note:** an unknown path under a gated group now loads the caller before its 404, and a revoked caller gets 401 there instead of 404.
+
 
 ### H-1 Hosting moves from Railway to Render and Neon
 **Date:** 2026-10-21 · **Status:** Decided

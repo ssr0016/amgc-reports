@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 )
@@ -38,6 +39,10 @@ type MockStore struct {
 	LockUserFunc                  func(ctx context.Context, userID int64) error
 	SoftDeleteFunc                func(ctx context.Context, id, deletedBy int64, reason string) (*user.User, error)
 	RestoreFunc                   func(ctx context.Context, id int64) (*user.User, error)
+	GetCallerFunc                 func(ctx context.Context, id int64) (*user.Caller, error)
+
+	// Roles, when set, gives GetCaller the role's permissions; nil means none.
+	Roles accesscontrol.RoleStore
 }
 
 // NewMockStore creates a new mock repository.
@@ -179,6 +184,28 @@ func (m *MockStore) GetWithRole(ctx context.Context, id int64) (*user.User, erro
 		return nil, nil
 	}
 	return usr, nil
+}
+
+// GetCaller is GetWithRole plus Roles.GetPermissions for the user's role (mock).
+func (m *MockStore) GetCaller(ctx context.Context, id int64) (*user.Caller, error) {
+	if m.GetCallerFunc != nil {
+		return m.GetCallerFunc(ctx, id)
+	}
+	u, err := m.GetWithRole(ctx, id)
+	if err != nil || u == nil {
+		return nil, err
+	}
+	c := &user.Caller{User: u, Permissions: map[string]bool{}}
+	if m.Roles != nil && u.RoleID != 0 {
+		perms, err := m.Roles.GetPermissions(ctx, u.RoleID)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range perms {
+			c.Permissions[p.Name] = true
+		}
+	}
+	return c, nil
 }
 
 // ListWithPagination returns users with pagination (mock).

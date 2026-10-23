@@ -211,9 +211,13 @@ func (s *service) withPermissions(ctx context.Context, role *accesscontrol.Role)
 	return role, nil
 }
 
-// actor loads the admin making the change, for the audit row. A session whose
-// user is gone is unauthorized.
+// actor is the admin making the change, for the audit row: the caller
+// middleware.LoadCaller put in ctx, or else loaded. A session whose user is gone
+// is unauthorized.
 func (s *service) actor(ctx context.Context, id int64) (*user.User, error) {
+	if c, ok := user.CallerFrom(ctx, id); ok {
+		return c.User, nil
+	}
 	u, err := s.users.GetWithRole(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get actor: %w", err)

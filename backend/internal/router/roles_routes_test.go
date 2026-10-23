@@ -55,7 +55,8 @@ func rolesServer(limits Limiters, roleName string, perms ...string) (*echo.Echo,
 			return next(c)
 		}
 	})
-	Setup(e, noAuthn, users, permRoles{perms: perms},
+	users.Roles = permRoles{perms: perms}
+	Setup(e, noAuthn, users,
 		nil, nil, acrest.NewRoleHandler(nil, svc), nil, nil, nil, nil, nil, nil, nil, limits)
 	return e, svc
 }

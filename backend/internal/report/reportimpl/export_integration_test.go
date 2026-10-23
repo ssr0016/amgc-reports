@@ -18,8 +18,27 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 )
+
+// stubbedCaller is the real user store with stubRoles' permissions in GetCaller.
+type stubbedCaller struct {
+	user.Store
+	roles stubRoles
+}
+
+func (s stubbedCaller) GetCaller(ctx context.Context, id int64) (*user.Caller, error) {
+	u, err := s.GetWithRole(ctx, id)
+	if err != nil || u == nil {
+		return nil, err
+	}
+	c := &user.Caller{User: u, Permissions: map[string]bool{}}
+	for _, p := range s.roles.perms[u.RoleID] {
+		c.Permissions[p] = true
+	}
+	return c, nil
+}
 
 type failingAudit struct{}
 
@@ -41,8 +60,9 @@ func TestReportService_Export_Integration(t *testing.T) {
 	admin, err := users.CreateWithPassword(ctx, "export-admin@example.com", "Admin", "hash")
 	require.NoError(t, err)
 	roles := stubRoles{perms: map[int64][]string{admin.RoleID: {"reports:read", "reports:read_any"}}}
-	svc := NewService(reports, auditimpl.NewStore(db), db, users, roles)
-	failing := NewService(reports, failingAudit{}, db, users, roles)
+	caller := stubbedCaller{Store: users, roles: roles}
+	svc := NewService(reports, auditimpl.NewStore(db), db, caller)
+	failing := NewService(reports, failingAudit{}, db, caller)
 
 	file := func(email, church string, approve bool) *report.Report {
 		t.Helper()

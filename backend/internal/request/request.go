@@ -9,7 +9,7 @@ import (
 )
 
 // User is the authenticated caller. The role and permissions are not carried;
-// they are read live from the database (see middleware.RequireRole).
+// middleware.LoadCaller reads them live from the database once per request.
 type User struct {
 	ID int64
 	// SessionID names the sign-in (refresh-token family) the request came from, and

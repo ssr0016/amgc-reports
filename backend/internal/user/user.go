@@ -67,6 +67,9 @@ type Store interface {
 	ClearLockout(ctx context.Context, userID int64) error
 	UpdateRole(ctx context.Context, userID, roleID int64) error
 	GetWithRole(ctx context.Context, id int64) (*User, error)
+	// GetCaller is GetWithRole plus the role's permission names, in one query.
+	// A missing user is nil, nil.
+	GetCaller(ctx context.Context, id int64) (*Caller, error)
 	UpdateStatus(ctx context.Context, id int64, status string) (*User, error)
 	RevokeSessions(ctx context.Context, userID int64) (int64, error)
 	LockActiveAdmins(ctx context.Context) ([]int64, error)

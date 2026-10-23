@@ -80,7 +80,8 @@ func ownershipServer() *echo.Echo {
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
 		return &user.User{ID: id, RoleID: id, Role: &accesscontrol.Role{Name: "test"}}, nil
 	}
-	svc := reportimpl.NewService(reportimpl.NewMockStore(), auditimpl.NewMockStore(), runTx{}, users, byRole{})
+	users.Roles = byRole{}
+	svc := reportimpl.NewService(reportimpl.NewMockStore(), auditimpl.NewMockStore(), runTx{}, users)
 
 	e := echo.New()
 	e.Validator = validator.New()
@@ -93,7 +94,7 @@ func ownershipServer() *echo.Echo {
 			return next(c)
 		}
 	})
-	Setup(e, noAuthn, users, byRole{},
+	Setup(e, noAuthn, users,
 		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		reportrest.NewReportHandler(svc), nil, nil,
