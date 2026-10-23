@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { useFocusFirstError } from "@/lib/form-focus";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
@@ -68,15 +68,17 @@ export function ReportForm({
   onSubmit: (input: ReportInput) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [start] = useState(() => JSON.stringify(initial));
+  const [start] = useState(initial);
   const [form, setForm] = useState(initial);
+  // Keys of the fields that differ from start, so dirty is not a whole-form compare per keystroke.
+  const [changed, setChanged] = useState<ReadonlySet<string>>(() => new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [general, setGeneral] = useState("");
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
   const [wait, setWait] = useCountdown();
   const [formRef, focusError] = useFocusFirstError<HTMLFormElement>();
-  const dirty = !saved && JSON.stringify(form) !== start;
+  const dirty = !saved && changed.size > 0;
 
   // Covers closing the tab or refreshing; in-app navigation is guarded by Cancel.
   useEffect(() => {
@@ -86,30 +88,47 @@ export function ReportForm({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  function clearError(...keys: string[]) {
-    setErrors((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => !keys.includes(k))));
-  }
+  // Each updater returns prev when nothing changes, so memoised rows skip the re-render.
+  const markChanged = useCallback((key: string, isChanged: boolean) => {
+    setChanged((prev) => {
+      if (prev.has(key) === isChanged) return prev;
+      const next = new Set(prev);
+      if (isChanged) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const clearError = useCallback((...keys: string[]) => {
+    setErrors((prev) => (keys.some((k) => k in prev) ? Object.fromEntries(Object.entries(prev).filter(([k]) => !keys.includes(k))) : prev));
+  }, []);
 
   function setField(name: keyof Omit<FormState, "metrics">, value: string) {
     setForm((f) => ({ ...f, [name]: value }));
+    markChanged(name, value !== start[name]);
     clearError(name);
   }
 
-  function setWeek(metric: string, week: (typeof WEEKS)[number], value: string) {
-    setForm((f) => ({ ...f, metrics: { ...f.metrics, [metric]: { ...f.metrics[metric], [week]: value } } }));
-    clearError(`metrics.${metric}.${week}`, `metrics.${metric}`);
-  }
+  const setWeek = useCallback(
+    (metric: string, week: (typeof WEEKS)[number], value: string) => {
+      setForm((f) => ({ ...f, metrics: { ...f.metrics, [metric]: { ...f.metrics[metric], [week]: value } } }));
+      markChanged(metricErrorKey(metric, week), value !== (start.metrics[metric]?.[week] ?? ""));
+      clearError(metricErrorKey(metric, week), `metrics.${metric}`);
+    },
+    [start, markChanged, clearError],
+  );
 
-  function checkWeek(metric: string, week: (typeof WEEKS)[number], value: string) {
+  const checkWeek = useCallback((metric: string, week: (typeof WEEKS)[number], value: string) => {
     const key = metricErrorKey(metric, week);
     const message = metricError(metric, value);
     setErrors((prev) => {
+      if (prev[key] === message || (!message && !(key in prev))) return prev;
       const next = { ...prev };
       if (message) next[key] = message;
       else delete next[key];
       return next;
     });
-  }
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -243,39 +262,15 @@ export function ReportForm({
                 </TableHeader>
                 <TableBody>
                   {section.metrics.map((m) => (
-                    <TableRow key={m.key}>
-                      <TableCell className="sticky left-0 bg-background font-medium">
-                        {m.label}
-                        {errors[`metrics.${m.key}`] && (
-                          <span className="block text-sm font-normal text-destructive">{errors[`metrics.${m.key}`]}</span>
-                        )}
-                      </TableCell>
-                      {restricted && m.key === RESTRICTED_METRIC ? (
-                        <TableCell colSpan={WEEKS.length} className="text-muted-foreground">
-                          Restricted
-                        </TableCell>
-                      ) : (
-                      WEEKS.map((w) => (
-                        <TableCell key={w}>
-                          <input
-                            inputMode={m.key === "tithes_offering" ? "decimal" : "numeric"}
-                            pattern={m.key === "tithes_offering" ? undefined : "[0-9]*"} // a hint only: the form has noValidate
-                            aria-label={`${m.label}, week ${w.slice(4)}`}
-                            aria-invalid={!!errors[`metrics.${m.key}.${w}`]}
-                            aria-describedby={errors[`metrics.${m.key}.${w}`] ? `err-${m.key}-${w}` : undefined}
-                            value={form.metrics[m.key]?.[w] ?? ""}
-                            onChange={(e) => setWeek(m.key, w, e.target.value)}
-                            onFocus={(e) => e.target.select()}
-                            onBlur={(e) => checkWeek(m.key, w, e.target.value)}
-                            className="h-8 w-20 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30"
-                          />
-                          {errors[`metrics.${m.key}.${w}`] && (
-                            <span id={`err-${m.key}-${w}`} className="mt-1 block text-xs text-destructive">{errors[`metrics.${m.key}.${w}`]}</span>
-                          )}
-                        </TableCell>
-                      ))
-                      )}
-                    </TableRow>
+                    <MetricRow
+                      key={m.key}
+                      metric={m}
+                      values={form.metrics[m.key]}
+                      errors={errors}
+                      restricted={restricted}
+                      onChange={setWeek}
+                      onBlur={checkWeek}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -342,3 +337,56 @@ export function ReportForm({
     </form>
   );
 }
+
+// Memoised so typing in one week re-renders only its row: setWeek keeps every other row's values object.
+const MetricRow = memo(function MetricRow({
+  metric: m,
+  values,
+  errors,
+  restricted,
+  onChange,
+  onBlur,
+}: {
+  metric: (typeof METRICS)[number];
+  values: FormState["metrics"][string] | undefined;
+  errors: Record<string, string>;
+  restricted: boolean;
+  onChange: (metric: string, week: (typeof WEEKS)[number], value: string) => void;
+  onBlur: (metric: string, week: (typeof WEEKS)[number], value: string) => void;
+}) {
+  return (
+    <TableRow>
+      <TableCell className="sticky left-0 bg-background font-medium">
+        {m.label}
+        {errors[`metrics.${m.key}`] && (
+          <span className="block text-sm font-normal text-destructive">{errors[`metrics.${m.key}`]}</span>
+        )}
+      </TableCell>
+      {restricted && m.key === RESTRICTED_METRIC ? (
+        <TableCell colSpan={WEEKS.length} className="text-muted-foreground">
+          Restricted
+        </TableCell>
+      ) : (
+        WEEKS.map((w) => (
+          <TableCell key={w}>
+            <input
+              inputMode={m.key === "tithes_offering" ? "decimal" : "numeric"}
+              pattern={m.key === "tithes_offering" ? undefined : "[0-9]*"} // a hint only: the form has noValidate
+              aria-label={`${m.label}, week ${w.slice(4)}`}
+              aria-invalid={!!errors[`metrics.${m.key}.${w}`]}
+              aria-describedby={errors[`metrics.${m.key}.${w}`] ? `err-${m.key}-${w}` : undefined}
+              value={values?.[w] ?? ""}
+              onChange={(e) => onChange(m.key, w, e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onBlur={(e) => onBlur(m.key, w, e.target.value)}
+              className="h-8 w-20 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30"
+            />
+            {errors[`metrics.${m.key}.${w}`] && (
+              <span id={`err-${m.key}-${w}`} className="mt-1 block text-xs text-destructive">{errors[`metrics.${m.key}.${w}`]}</span>
+            )}
+          </TableCell>
+        ))
+      )}
+    </TableRow>
+  );
+});

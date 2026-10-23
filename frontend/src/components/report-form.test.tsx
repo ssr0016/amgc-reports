@@ -154,6 +154,18 @@ describe("ReportForm", () => {
     expect(unload()).toBe(true);
   });
 
+  it("is clean again once every edit is undone", async () => {
+    const confirm = vi.spyOn(window, "confirm");
+    const { user, onCancel } = setup();
+    await user.type(metric("Worship Service", 1), "5");
+    await user.type(screen.getByLabelText("Challenges"), "x");
+    await user.clear(metric("Worship Service", 1));
+    await user.clear(screen.getByLabelText("Challenges"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
   it("read-only shows no Save, disables the fields and offers Back", () => {
     setup({ readOnly: true });
     expect(screen.queryByRole("button", { name: "Save report" })).not.toBeInTheDocument();
