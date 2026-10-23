@@ -206,7 +206,7 @@ func cleanupEnv() {
 		"CORS_ALLOWED_ORIGINS", "TRUSTED_PROXY_CIDRS",
 		"ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME",
 		"SWAGGER_ENABLED", "METRICS_USER", "METRICS_PASSWORD",
-		"REPORTS_WRITE_RATE_LIMIT", "REPORTS_WRITE_BURST",
+		"REPORTS_WRITE_RATE_LIMIT", "REPORTS_WRITE_BURST", "REPORTS_READ_RATE_LIMIT", "REPORTS_READ_BURST",
 	} {
 		_ = os.Unsetenv(key)
 	}
@@ -494,27 +494,30 @@ func TestLoad_MetricsCredentialsValidation(t *testing.T) {
 	})
 }
 
-func TestLoad_ReportsWriteLimit(t *testing.T) {
+func TestLoad_ReportsLimits(t *testing.T) {
+	defaults := ReportsConfig{WriteRatePerMinute: 60, WriteBurst: 10, ReadRatePerMinute: 60, ReadBurst: 20}
 	tests := []struct {
-		name        string
-		rate, burst string
-		want        ReportsConfig
-		wantErr     bool
+		name    string
+		env     map[string]string
+		want    ReportsConfig
+		wantErr bool
 	}{
-		{"defaults", "", "", ReportsConfig{60, 10}, false},
-		{"custom", "120", "20", ReportsConfig{120, 20}, false},
-		{"zero rate", "0", "", ReportsConfig{}, true},
-		{"negative burst", "", "-1", ReportsConfig{}, true},
-		{"not a number", "fast", "", ReportsConfig{}, true},
+		{"defaults", nil, defaults, false},
+		{"custom write", map[string]string{"REPORTS_WRITE_RATE_LIMIT": "120", "REPORTS_WRITE_BURST": "20"},
+			ReportsConfig{WriteRatePerMinute: 120, WriteBurst: 20, ReadRatePerMinute: 60, ReadBurst: 20}, false},
+		{"custom read", map[string]string{"REPORTS_READ_RATE_LIMIT": "6000", "REPORTS_READ_BURST": "1000"},
+			ReportsConfig{WriteRatePerMinute: 60, WriteBurst: 10, ReadRatePerMinute: 6000, ReadBurst: 1000}, false},
+		{"zero write rate", map[string]string{"REPORTS_WRITE_RATE_LIMIT": "0"}, ReportsConfig{}, true},
+		{"negative write burst", map[string]string{"REPORTS_WRITE_BURST": "-1"}, ReportsConfig{}, true},
+		{"write not a number", map[string]string{"REPORTS_WRITE_RATE_LIMIT": "fast"}, ReportsConfig{}, true},
+		{"zero read rate", map[string]string{"REPORTS_READ_RATE_LIMIT": "0"}, ReportsConfig{}, true},
+		{"read burst not a number", map[string]string{"REPORTS_READ_BURST": "many"}, ReportsConfig{}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_ = os.Setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
-			if tt.rate != "" {
-				_ = os.Setenv("REPORTS_WRITE_RATE_LIMIT", tt.rate)
-			}
-			if tt.burst != "" {
-				_ = os.Setenv("REPORTS_WRITE_BURST", tt.burst)
+			for k, v := range tt.env {
+				_ = os.Setenv(k, v)
 			}
 			defer cleanupEnv()
 

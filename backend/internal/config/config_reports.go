@@ -1,10 +1,13 @@
 package config
 
-// ReportsConfig holds the rate limit shared by the reports write routes
-// (POST, PUT, DELETE, PATCH). Reads are not limited. Per session user.
+// ReportsConfig holds the per-session-user rate limits on the reports routes.
+// Write is shared by POST, PUT, DELETE and PATCH; Read by the reports GETs,
+// stats, tracker, audit logs and the Excel preview.
 type ReportsConfig struct {
 	WriteRatePerMinute int
 	WriteBurst         int
+	ReadRatePerMinute  int
+	ReadBurst          int
 }
 
 func (cfg *Config) reportsConfig() error {
@@ -16,6 +19,17 @@ func (cfg *Config) reportsConfig() error {
 	if err != nil {
 		return err
 	}
-	cfg.Reports = ReportsConfig{WriteRatePerMinute: writeRate, WriteBurst: writeBurst}
+	readRate, err := getEnvInt("REPORTS_READ_RATE_LIMIT", 60)
+	if err != nil {
+		return err
+	}
+	readBurst, err := getEnvInt("REPORTS_READ_BURST", 20)
+	if err != nil {
+		return err
+	}
+	cfg.Reports = ReportsConfig{
+		WriteRatePerMinute: writeRate, WriteBurst: writeBurst,
+		ReadRatePerMinute: readRate, ReadBurst: readBurst,
+	}
 	return nil
 }

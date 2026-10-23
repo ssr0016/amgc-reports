@@ -427,7 +427,7 @@ POST, PUT, DELETE and PATCH on /reports share one bucket per signed-in user: 60 
 
 ### Global and read limits
 
-Every `/api/v1` route has a per-IP limit: 120 per minute with a burst of 60. GET /reports and GET /reports/:id also share one bucket per signed-in user: 60 per minute with a burst of 20. The read limit runs after the permission check. `/health`, `/ready`, `/live` and `/metrics` are outside `/api/v1` and are never limited. The values are constants in `cmd/api/main.go`, not environment variables. Over the limit returns 429 with a `Retry-After` header.
+Every `/api/v1` route has a per-IP limit: 120 per minute with a burst of 60, a constant in `cmd/api/app/server.go`. GET /reports, GET /reports/:id, the admin stats, tracker and audit logs, and the Excel preview also share one bucket per signed-in user: 60 per minute with a burst of 20 by default (`REPORTS_READ_RATE_LIMIT`, `REPORTS_READ_BURST`). The read limit runs after the permission check. `/health`, `/ready`, `/live` and `/metrics` are outside `/api/v1` and are never limited. Over the limit returns 429 with a `Retry-After` header.
 
 ### 429 Rate Limit
 
