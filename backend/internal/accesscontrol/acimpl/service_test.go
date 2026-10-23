@@ -283,25 +283,26 @@ func TestRoleService_Delete(t *testing.T) {
 
 	t.Run("reassign_to moves the users, audits each move, then deletes", func(t *testing.T) {
 		f := newRoleFixture()
+		f.roles.roles[6] = &accesscontrol.Role{ID: 6, Name: "user"}
 		u, err := f.users.Create(ctx, user.NewUser{Email: "m@example.com", Name: "M", RoleID: 5})
 		require.NoError(t, err)
 		f.roles.users[5] = 1
-		require.NoError(t, f.svc.Delete(ctx, adminID, "", 5, 1))
+		require.NoError(t, f.svc.Delete(ctx, adminID, "", 5, 6))
 
 		got, err := f.users.GetByID(ctx, u.ID)
 		require.NoError(t, err)
-		assert.Equal(t, int64(1), got.RoleID)
+		assert.Equal(t, int64(6), got.RoleID)
 		assert.NotContains(t, f.roles.roles, int64(5))
 		entries := f.audit.Entries()
 		require.Len(t, entries, 2)
 		assert.Equal(t, audit.ActionChangeUserRole, entries[0].Action)
 		assert.Equal(t, "m@example.com", *entries[0].TargetName)
-		assert.Equal(t, map[string]any{"from": "Reviewer", "to": "admin"}, entries[0].Details)
-		assert.Equal(t, map[string]any{"name": "Reviewer", "reassigned_to": "admin"}, entries[1].Details)
+		assert.Equal(t, map[string]any{"from": "Reviewer", "to": "user"}, entries[0].Details)
+		assert.Equal(t, map[string]any{"name": "Reviewer", "reassigned_to": "user"}, entries[1].Details)
 	})
 
-	t.Run("reassign_to the role itself or a missing role is refused", func(t *testing.T) {
-		for _, to := range []int64{5, 404} {
+	t.Run("reassign_to the role itself, admin or a missing role is refused", func(t *testing.T) {
+		for _, to := range []int64{5, 1, 404} {
 			f := newRoleFixture()
 			f.roles.users[5] = 1
 			require.ErrorIs(t, f.svc.Delete(ctx, adminID, "", 5, to), accesscontrol.ErrInvalidReassignRole, to)

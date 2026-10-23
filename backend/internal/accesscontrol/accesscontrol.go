@@ -23,7 +23,7 @@ var (
 	// ErrRoleInUse is matched by every *RoleInUseError.
 	ErrRoleInUse = errors.New("role in use")
 	// ErrInvalidReassignRole is returned when the role to move users to is the
-	// role being deleted or does not exist.
+	// role being deleted, admin (D-A22) or does not exist.
 	ErrInvalidReassignRole = errors.New("invalid role to reassign users to")
 )
 

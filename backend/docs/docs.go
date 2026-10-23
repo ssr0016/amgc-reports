@@ -690,7 +690,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Role ID to move the role's users to",
+                        "description": "Role ID to move the role's users to; not the role itself or admin (422)",
                         "name": "reassign_to",
                         "in": "query"
                     }

@@ -37,7 +37,7 @@ func roleError(err error, msg string) error {
 		return apperror.Conflict("role is assigned to users; reassign them first")
 	case errors.Is(err, accesscontrol.ErrInvalidReassignRole):
 		return apperror.Validation("validation failed").
-			WithDetails(map[string]string{"reassign_to": "choose another existing role"})
+			WithDetails(map[string]string{"reassign_to": "choose another existing role, not admin"})
 	case errors.Is(err, accesscontrol.ErrRoleNameTaken):
 		return apperror.Conflict("role name already exists")
 	case errors.Is(err, accesscontrol.ErrProtectedRole):
@@ -205,7 +205,7 @@ func (h *RoleHandler) Update(c echo.Context) error {
 // @Tags         admin/roles
 // @Security     CookieAuth
 // @Param        id path int true "Role ID"
-// @Param        reassign_to query int false "Role ID to move the role's users to"
+// @Param        reassign_to query int false "Role ID to move the role's users to; not the role itself or admin (422)"
 // @Success      204
 // @Failure      404 {object} map[string]string
 // @Failure      409 {object} map[string]string

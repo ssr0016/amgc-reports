@@ -199,7 +199,8 @@ func (s *service) reassign(ctx context.Context, actor *user.User, ip string, fro
 	if err != nil {
 		return "", err
 	}
-	if to == nil {
+	// admin is refused so one request can never promote a whole role (D-A22).
+	if to == nil || to.Name == "admin" {
 		return "", accesscontrol.ErrInvalidReassignRole
 	}
 	moved, err := s.users.ReassignRole(ctx, from.ID, to.ID)

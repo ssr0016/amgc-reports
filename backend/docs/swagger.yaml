@@ -977,7 +977,8 @@ paths:
         name: id
         required: true
         type: integer
-      - description: Role ID to move the role's users to
+      - description: Role ID to move the role's users to; not the role itself or admin
+          (422)
         in: query
         name: reassign_to
         type: integer

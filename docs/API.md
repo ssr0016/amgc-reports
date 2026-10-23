@@ -111,7 +111,7 @@ DELETE /admin/roles/:id?reassign_to=4 → 204: every account holding the role (d
 - `name` 2-50 characters and unique; `description` up to 255; `permission_ids` unique and existing (422 on `permission_ids` otherwise).
 - 409: "role name already exists", "built-in roles cannot be changed" (`admin`, `editor`, `user`), "role is assigned to N users; reassign them first".
 - 404 for a missing role.
-- 422 on `reassign_to` when it is the role being deleted or does not exist; 400 when it is not a positive integer.
+- 422 on `reassign_to` when it is the role being deleted, `admin`, or does not exist; 400 when it is not a positive integer.
 
 The old `POST /admin/roles/:id/permissions` and `DELETE /admin/roles/:id/permissions/:pid` are removed.
 

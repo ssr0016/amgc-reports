@@ -699,7 +699,7 @@ export interface paths {
         delete: {
             parameters: {
                 query?: {
-                    /** @description Role ID to move the role's users to */
+                    /** @description Role ID to move the role's users to; not the role itself or admin (422) */
                     reassign_to?: number;
                 };
                 header?: never;
