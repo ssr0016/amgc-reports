@@ -66,3 +66,18 @@ func TestMetricWeeks_NonNil(t *testing.T) {
 		t.Error("absent week 2 must not appear (D-5: absent is not zero)")
 	}
 }
+
+func TestCanonicalMonth(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"March", "March"},
+		{"march", "March"},
+		{"SEPTEMBER", "September"},
+		{"Sept", "Sept"}, // not a month: unchanged, so it matches no report
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := CanonicalMonth(tt.in); got != tt.want {
+			t.Errorf("CanonicalMonth(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}

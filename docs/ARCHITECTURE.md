@@ -94,7 +94,7 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 ## Migration history
 
-goose, in `backend/internal/database/migrations/`. 26 migrations.
+goose, in `backend/internal/database/migrations/`. 27 migrations.
 
 | Era | Migrations |
 |---|---|
@@ -108,7 +108,8 @@ goose, in `backend/internal/database/migrations/`. 26 migrations.
 | 2026-10-16 | `20261016120000_add_user_status` (`users.status`, `CHANGE_USER_STATUS`) |
 | 2026-10-17 | `20261017120000_allow_admin_reset_password_audit_action` (`ADMIN_RESET_PASSWORD`) |
 | 2026-10-21 | `20261021100000_create_refresh_tokens`, `…120000_add_user_soft_delete` (`DELETE_USER`, `RESTORE_USER`) |
-| Latest, 2026-10-22 | `20261022120000_allow_login_audit_actions` (`LOGIN`, `LOGOUT`, `LOGIN_FAILED`), `…200000_allow_role_audit_actions` (`CREATE_ROLE`, `UPDATE_ROLE`, `DELETE_ROLE`, `CHANGE_USER_ROLE`) |
+| 2026-10-22 | `20261022120000_allow_login_audit_actions` (`LOGIN`, `LOGOUT`, `LOGIN_FAILED`), `…200000_allow_role_audit_actions` (`CREATE_ROLE`, `UPDATE_ROLE`, `DELETE_ROLE`, `CHANGE_USER_ROLE`) |
+| Latest, 2026-10-23 | `20261023120000_drop_duplicate_indexes` (five indexes that repeated a UNIQUE constraint's own index) |
 
 ## CI
 

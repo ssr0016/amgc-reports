@@ -184,7 +184,7 @@ func listWhere(p report.ListReportsParams) sq.And {
 		where = append(where, sq.Eq{"r.created_by": p.CreatedBy})
 	}
 	if p.Month != "" {
-		where = append(where, sq.Expr("lower(r.month) = lower(?)", p.Month))
+		where = append(where, sq.Eq{"r.month": report.CanonicalMonth(p.Month)})
 	}
 	if p.Completed != nil {
 		where = append(where, sq.Eq{"r.completed": *p.Completed})
@@ -319,7 +319,7 @@ func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report
 		Select("u.church_name", "r.month", "r.year", "r.completed").
 		From("users u").
 		LeftJoin("roles ro ON ro.id = u.role_id").
-		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND lower(r.month) = lower(?)", year, month).
+		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
 		Where("u.deleted_at IS NULL").
 		Where("btrim(COALESCE(u.church_name, '')) <> ''").
 		Where("ro.name IS DISTINCT FROM 'admin'").

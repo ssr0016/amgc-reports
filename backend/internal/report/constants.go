@@ -21,6 +21,16 @@ func ParseMonth(name string) (time.Month, bool) {
 	return 0, false
 }
 
+// CanonicalMonth returns name in the stored casing ("march" gives "March"), or
+// name unchanged when it is not a month, so it still matches no report.
+// Queries compare r.month exactly with it, which lets the month indexes apply.
+func CanonicalMonth(name string) string {
+	if m, ok := ParseMonth(name); ok {
+		return Months[m-1]
+	}
+	return name
+}
+
 // MetricKeys are the 21 snake_case metric keys of chk_report_metrics_metric (D-6).
 // This list is the source of truth: a test compares it with the DTO validate tag
 // and another with the CHECK constraint. Adding a metric also needs a migration.
