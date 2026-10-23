@@ -25,6 +25,15 @@ type Session = {
 
 const SessionContext = createContext<Session | null>(null);
 
+// A hint for proxy.ts, which cannot see the API's session (the access token expires in 10 minutes
+// and the refresh token is scoped to /api/v1/auth). Not a credential: the API still checks every request.
+function setSignedInCookie(on: boolean) {
+  const secure = location.protocol === "https:" ? "; secure" : "";
+  document.cookie = on
+    ? `${SIGNED_IN_COOKIE}=1; path=/; max-age=86400; samesite=lax${secure}`
+    : `${SIGNED_IN_COOKIE}=; path=/; max-age=0`;
+}
+
 export function useSession(): Session {
   const ctx = useContext(SessionContext);
   if (!ctx) throw new Error("useSession must be used inside <SessionProvider>");
@@ -38,26 +47,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // Read by the 401 handler below, which is registered once.
   const statusRef = useRef(status);
 
-  // A hint for proxy.ts, which cannot see the API's session (the access token expires in 10 minutes
-  // and the refresh token is scoped to /api/v1/auth). Not a credential: the API still checks every request.
-  useEffect(() => {
-    statusRef.current = status;
-    if (status === "loading") return;
-    const secure = location.protocol === "https:" ? "; secure" : "";
-    document.cookie =
-      status === "authenticated"
-        ? `${SIGNED_IN_COOKIE}=1; path=/; max-age=86400; samesite=lax${secure}`
-        : `${SIGNED_IN_COOKIE}=; path=/; max-age=0`;
-  }, [status]);
+  // Every status change goes through here, so the signed_in cookie is written before the change
+  // renders: an effect would run after the login page's redirect, and proxy.ts would bounce it.
+  function settle(next: Exclude<Status, "loading">, me: Me | null) {
+    setSignedInCookie(next === "authenticated");
+    statusRef.current = next;
+    setUser(me);
+    setStatus(next);
+  }
 
   useEffect(() => {
     getCurrentUser()
-      .then((me) => {
-        setUser(me);
-        setStatus(me ? "authenticated" : "unauthenticated");
-      })
+      .then((me) => settle(me ? "authenticated" : "unauthenticated", me))
       // shortcut: any failure (network, 5xx) reads as signed out; F10 adds a retry state.
-      .catch(() => setStatus("unauthenticated"));
+      .catch(() => settle("unauthenticated", null));
 
     // A 401 mid-session: the session is gone.
     setOnUnauthorized(() => {
@@ -66,16 +69,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       }
       resetCsrf();
       queryClient.clear();
-      setUser(null);
-      setStatus("unauthenticated");
+      settle("unauthenticated", null);
     });
     return () => setOnUnauthorized(null);
   }, []);
 
   async function signIn(email: string, password: string) {
     const me = await login(email, password);
-    setUser(me);
-    setStatus("authenticated");
+    settle("authenticated", me);
     toast.success(`Welcome back, ${me.name}!`);
   }
 
@@ -84,8 +85,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       await logout();
     } finally {
       queryClient.clear();
-      setUser(null);
-      setStatus("unauthenticated");
+      settle("unauthenticated", null);
       toast.info("You have been logged out.");
     }
   }

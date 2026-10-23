@@ -24,11 +24,16 @@ export default function LoginPage() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
+    const formEl = e.currentTarget;
+    const form = new FormData(formEl);
     setError(null);
     setPending(true);
     try {
       await signIn(String(form.get("email")), String(form.get("password")));
+      // cacheComponents keeps this page alive (hidden) after we leave, so reset it here, or the
+      // next visit after signing out shows a stuck "Signing in…" and the last password.
+      formEl.reset();
+      setPending(false);
     } catch (err) {
       // A 403 is the server's own sentence: locked, inactive, under review or closed.
       const formError = toFormError(err, { 401: "Invalid email or password." });
@@ -65,8 +70,9 @@ export default function LoginPage() {
                 {wait > 0 && ` Try again in ${wait}s.`}
               </p>
             )}
-            <Button type="submit" disabled={pending || wait > 0}>
-              {pending ? "Signing in…" : "Sign in"}
+            {/* Still "Signing in…" while the redirect away from here runs. */}
+            <Button type="submit" disabled={pending || wait > 0 || status === "authenticated"}>
+              {pending || status === "authenticated" ? "Signing in…" : "Sign in"}
             </Button>
           </form>
         </CardContent>

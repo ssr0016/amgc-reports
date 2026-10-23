@@ -72,4 +72,27 @@ test.describe("signed in", () => {
     await page.goto("/reports");
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test("signing out then in as someone else works, and the admin panel opens", async ({ page }) => {
+    const signIn = async (who: (typeof ACCOUNTS)[keyof typeof ACCOUNTS]) => {
+      await page.getByLabel("Email").fill(who.email);
+      await page.getByLabel("Password", { exact: true }).fill(who.password);
+      await page.getByRole("button", { name: "Sign in" }).click();
+    };
+    await page.goto("/login");
+    await signIn(ACCOUNTS.user);
+    await expect(page.getByText(`${ACCOUNTS.user.name} · user`)).toBeVisible();
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/login/);
+    // No full page load anywhere: cacheComponents keeps the first visit's login page alive, so it
+    // must come back reset, not stuck on "Signing in…" with the last password.
+    await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
+
+    await signIn(ACCOUNTS.admin);
+    await expect(page).toHaveURL(/\/reports$/);
+    await expect(page.getByText(`${ACCOUNTS.admin.name} · admin`)).toBeVisible();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" }).click();
+    await expect(page.getByRole("tab", { name: "Users" })).toBeVisible();
+    await expect(page.getByText("You are not allowed to view the admin panel.")).toHaveCount(0);
+  });
 });
