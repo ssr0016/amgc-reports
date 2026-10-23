@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { Lock } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import {
@@ -26,7 +27,7 @@ import { deleteRole, isBuiltIn, type RoleDetail } from "@/lib/roles";
 import { useSession } from "@/lib/session";
 import { listRoles, listUsers } from "@/lib/users";
 
-// The Roles tab of /admin (D-A21); it brings no landmark or heading of its own.
+// The Roles tab of /admin (D-A21): custom roles, then the read-only system roles, each under its own h2.
 export function RolesPanel() {
   const { isAdmin, can } = useSession();
   const writable = can("roles:write");
@@ -49,83 +50,108 @@ export function RolesPanel() {
   } else if (isPending) {
     body = <Loading />;
   } else {
+    const roleTable = (roles: RoleDetail[], heading: string) => (
+      <Table aria-labelledby={heading}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Description</TableHead>
+            <TableHead>Users</TableHead>
+            <TableHead>Permissions</TableHead>
+            {writable && (
+              <TableHead>
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {roles.map((r) => {
+            const builtIn = isBuiltIn(r.name);
+            return (
+              <TableRow key={r.id}>
+                <TableCell>
+                  {r.name}
+                  {builtIn && (
+                    <Badge variant="secondary" className="ml-2" title="System roles cannot be edited or deleted">
+                      <Lock aria-hidden="true" />
+                      System
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell>{r.description || "—"}</TableCell>
+                <TableCell>
+                  {r.user_count > 0 ? (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      aria-label={`Show the ${r.user_count} ${r.user_count === 1 ? "user" : "users"} with role ${r.name}`}
+                      onClick={(e) => {
+                        opener.current = e.currentTarget;
+                        setViewing(r);
+                      }}
+                    >
+                      {r.user_count}
+                    </Button>
+                  ) : (
+                    0
+                  )}
+                </TableCell>
+                <TableCell>{r.permissions?.length ?? 0}</TableCell>
+                {writable && (
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/admin/roles/${r.id}/edit`}>
+                          {builtIn ? "View" : "Edit"} <span className="sr-only">{r.name}</span>
+                        </Link>
+                      </Button>
+                      {!builtIn && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            opener.current = e.currentTarget;
+                            setDeleting(r);
+                          }}
+                        >
+                          Delete <span className="sr-only">{r.name}</span>
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    );
+    const custom = data.filter((r) => !isBuiltIn(r.name));
+    const system = data.filter((r) => isBuiltIn(r.name));
+    // Custom roles first: they are the ones an admin configures (D-A23).
     body = (
       <>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Users</TableHead>
-              <TableHead>Permissions</TableHead>
-              {writable && (
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((r) => {
-              const builtIn = isBuiltIn(r.name);
-              return (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    {r.name}
-                    {builtIn && (
-                      <Badge variant="secondary" className="ml-2">
-                        Built-in
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>{r.description || "—"}</TableCell>
-                  <TableCell>
-                    {r.user_count > 0 ? (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0"
-                        aria-label={`Show the ${r.user_count} ${r.user_count === 1 ? "user" : "users"} with role ${r.name}`}
-                        onClick={(e) => {
-                          opener.current = e.currentTarget;
-                          setViewing(r);
-                        }}
-                      >
-                        {r.user_count}
-                      </Button>
-                    ) : (
-                      0
-                    )}
-                  </TableCell>
-                  <TableCell>{r.permissions?.length ?? 0}</TableCell>
-                  {writable && (
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/admin/roles/${r.id}/edit`}>
-                            {builtIn ? "View" : "Edit"} <span className="sr-only">{r.name}</span>
-                          </Link>
-                        </Button>
-                        {!builtIn && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              opener.current = e.currentTarget;
-                              setDeleting(r);
-                            }}
-                          >
-                            Delete <span className="sr-only">{r.name}</span>
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <section className="flex flex-col gap-2">
+          <h2 id="custom-roles" className="text-lg font-semibold">
+            Custom roles
+          </h2>
+          {custom.length > 0 ? (
+            roleTable(custom, "custom-roles")
+          ) : (
+            <p className="text-sm text-muted-foreground">No custom roles yet.</p>
+          )}
+        </section>
+        <section className="flex flex-col gap-2">
+          <h2 id="system-roles" className="text-lg font-semibold">
+            System roles
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Built into the app. They can be viewed but not edited or deleted.
+          </p>
+          {roleTable(system, "system-roles")}
+        </section>
         <DeleteRoleDialog role={deleting} roles={data} opener={opener} onClose={() => setDeleting(null)} />
         <RoleUsersDialog role={viewing} opener={opener} onClose={() => setViewing(null)} />
       </>

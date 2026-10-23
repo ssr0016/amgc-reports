@@ -86,7 +86,7 @@ for (const scheme of ["light", "dark"] as const) {
       test("admin panel, Roles tab, and the role form", async ({ page }) => {
         await page.goto("/admin?tab=roles");
         const panel = page.getByRole("tabpanel", { name: "Roles" });
-        await expect(panel.getByText("Built-in").first()).toBeVisible();
+        await expect(panel.getByText("System", { exact: true }).first()).toBeVisible();
         await scan(page);
         await page.goto("/admin/roles/new");
         await expect(page.getByRole("group", { name: "Reports" })).toBeVisible();
@@ -300,7 +300,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
         }
         if (path === "/admin?tab=logs") await expect(page.getByText(/total logs$/)).toBeVisible();
         if (path === "/admin?tab=tracker") await expect(page.getByText(/of \d+ workers$/)).toBeVisible();
-        if (path === "/admin?tab=roles") await expect(page.getByText("Built-in").first()).toBeVisible();
+        if (path === "/admin?tab=roles") await expect(page.getByText("System", { exact: true }).first()).toBeVisible();
         if (path === "/admin/roles/new") await expect(page.getByRole("group", { name: "Reports" })).toBeVisible();
         expect(await noSidewaysScroll(page)).toBe(true);
         await scan(page); // wide tables scroll inside their container, which must be reachable by keyboard

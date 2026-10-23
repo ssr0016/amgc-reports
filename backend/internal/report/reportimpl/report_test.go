@@ -487,7 +487,7 @@ var wantDashboard = [][]string{
 	{"bethel", "May", "2026", "Pending", "", ""},
 	{"Report Dashboard", "May", "2026", "Approved", "Checked", "Ready for Pick Up"},
 	{"zion", "May", "2026", "Approved", "Checked", "Ready for Pick Up"},
-	{"Abba", "", "", "Not Filed", "", ""},
+	{"Abba", "", "", "No Report Submitted", "", ""},
 }
 
 // dashboardOf reads a workbook's Report Dashboard as the preview shows it.
@@ -545,7 +545,7 @@ func TestReportService_ExportMonth(t *testing.T) {
 		rows := dashboardOf(t, wb)
 		require.Len(t, rows, 6)
 		for _, r := range rows[2:] {
-			assert.Equal(t, []string{"", "", "Not Filed"}, r[1:4])
+			assert.Equal(t, []string{"", "", "No Report Submitted"}, r[1:4])
 		}
 		entries := f.audit.Entries()
 		require.Len(t, entries, 1)

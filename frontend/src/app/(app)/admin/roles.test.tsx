@@ -71,15 +71,30 @@ describe("Roles tab", () => {
     expect(await screen.findByText("You are not allowed to manage roles.")).toBeInTheDocument();
   });
 
-  it("shows name, description, users and permission count, with a Built-in badge", async () => {
+  it("lists custom roles and system roles in separate tables", async () => {
+    wrap();
+    const custom = await screen.findByRole("table", { name: "Custom roles" });
+    const system = screen.getByRole("table", { name: "System roles" });
+    const names = (t: HTMLElement) => within(t).getAllByRole("row").slice(1).map((r) => r.firstChild?.firstChild?.textContent);
+    expect(names(custom)).toEqual(["Reviewer", "Unused"]);
+    expect(names(system)).toEqual(["admin"]);
+  });
+
+  it("with no custom roles, says so", async () => {
+    vi.mocked(listRoles).mockResolvedValue([roles[0]] as never);
+    wrap();
+    expect(await screen.findByText("No custom roles yet.")).toBeInTheDocument();
+  });
+
+  it("shows name, description, users and permission count, with a System badge", async () => {
     wrap();
     const admin = await row("admin");
-    expect(within(admin).getByText("Built-in")).toBeInTheDocument();
+    expect(within(admin).getByText("System")).toBeInTheDocument();
     expect(within(admin).getAllByRole("cell").map((c) => c.textContent)).toEqual(
       expect.arrayContaining(["Everything", "2"]),
     );
     const unused = await row("Unused");
-    expect(within(unused).queryByText("Built-in")).not.toBeInTheDocument();
+    expect(within(unused).queryByText("System")).not.toBeInTheDocument();
     expect(within(unused).getAllByRole("cell")[3]).toHaveTextContent("0");
   });
 

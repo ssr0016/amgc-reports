@@ -295,7 +295,7 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	rows := []report.DashboardRow{
 		{Church: "=HYPERLINK(\"http://x\")", Month: "May", Year: 2026, Status: report.StatusApproved},
 		{Church: "Bethel", Month: "May", Year: 2026, Status: report.StatusPending},
-		{Church: "Zion", Status: report.StatusNotFiled},
+		{Church: "Zion", Status: report.StatusNoReport},
 	}
 	reps := []*report.Report{
 		{ID: 1, Month: "May", Year: 2026, ChurchName: strPtr("Bethel")},
@@ -335,7 +335,7 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 		"D3": {"00AA00"},                   // Approved
 		"E3": {"0000CC"}, "F3": {"0000CC"}, // Approved remarks
 		"D4": {"FF0000"}, // Pending
-		"D5": {"FF0000"}, // Not Filed
+		"D5": {"FF0000"}, // No Report Submitted
 	} {
 		assert.Equal(t, want, style(cell).Fill.Color, cell)
 	}
@@ -361,7 +361,7 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 		{"Churches", "Month", "Year", "Status", "Coordinator's Remark", "Support Status"},
 		{`=HYPERLINK("http://x")`, "May", "2026", "Approved", "Checked", "Ready for Pick Up"},
 		{"Bethel", "May", "2026", "Pending", "", ""},
-		{"Zion", "", "", "Not Filed", "", ""},
+		{"Zion", "", "", "No Report Submitted", "", ""},
 	}, sheets[0].Rows)
 	assert.Len(t, sheets[1].Rows, 42)
 	assert.Len(t, sheets[1].Rows[0], 7)

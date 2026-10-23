@@ -180,7 +180,7 @@ var dashboardHeader = []string{"Churches", "Month", "Year", "Status", "Coordinat
 
 // writeDashboard writes the owner's reference layout (D-A19): a title merged
 // over A1:F1, the header in row 2, then one bordered row per church account.
-// Approved is green and Pending or Not Filed red. Month and Year are the
+// Approved is green and Pending or No Report Submitted red. Month and Year are the
 // report's and blank when the church has not filed; the year is a number,
 // everything else text. Approved rows read "Checked" and "Ready for Pick Up"
 // on blue in the remark columns; other rows leave them bordered but blank.
@@ -190,7 +190,7 @@ func writeDashboard(f *excelize.File, rows []report.DashboardRow, st excelStyles
 		f.SetColWidth(sh, "A", "A", 36),
 		f.SetColWidth(sh, "B", "B", 13),
 		f.SetColWidth(sh, "C", "C", 9.5),
-		f.SetColWidth(sh, "D", "D", 13),
+		f.SetColWidth(sh, "D", "D", 20),
 		f.SetColWidth(sh, "E", "E", 21),
 		f.SetColWidth(sh, "F", "F", 17),
 		f.SetRowHeight(sh, 1, 30),

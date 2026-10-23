@@ -347,7 +347,7 @@ func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report
 		}
 		switch {
 		case completed == nil:
-			row.Status = report.StatusNotFiled
+			row.Status = report.StatusNoReport
 		case *completed:
 			row.Status = report.StatusApproved
 		default:

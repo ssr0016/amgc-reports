@@ -32,7 +32,7 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
     const sheet = dialog.getByLabel("Sheet", { exact: true });
     await expect(sheet).toHaveValue("0");
     // The dashboard lists the e2e user's church; it filed nothing for this month.
-    await expect(dialog.getByRole("table", { name: "Sheet Report Dashboard" }).getByRole("row").filter({ hasText: "Visionaires Christian Church" })).toContainText("Not Filed");
+    await expect(dialog.getByRole("table", { name: "Sheet Report Dashboard" }).getByRole("row").filter({ hasText: "Visionaires Christian Church" })).toContainText("No Report Submitted");
     await sheet.selectOption({ label: "E2E Export Church" });
     await expect(dialog.getByRole("table", { name: "Sheet E2E Export Church" })).toContainText("E2E Export Worker");
     expect((await new AxeBuilder({ page }).include('[role="alertdialog"]').analyze()).violations).toEqual([]);

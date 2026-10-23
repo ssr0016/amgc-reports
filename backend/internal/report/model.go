@@ -168,7 +168,7 @@ type PreviewSheet struct {
 const (
 	StatusApproved = "Approved"
 	StatusPending  = "Pending"
-	StatusNotFiled = "Not Filed"
+	StatusNoReport = "No Report Submitted"
 )
 
 // DashboardRow is one church account on the bulk export's Report Dashboard

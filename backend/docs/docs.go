@@ -261,7 +261,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Needs reports:export. A Report Dashboard sheet (title, then Churches, Month, Year, Status, Coordinator's Remark, Support Status) with every church account's report month, year and status for the month (Approved, Pending or Not Filed), then one sheet per approved report (at most 100) in the legacy layout and styling (D-A6, D-A16, D-A17, D-A19). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.",
+                "description": "Needs reports:export. A Report Dashboard sheet (title, then Churches, Month, Year, Status, Coordinator's Remark, Support Status) with every church account's report month, year and status for the month (Approved, Pending or No Report Submitted), then one sheet per approved report (at most 100) in the legacy layout and styling (D-A6, D-A16, D-A17, D-A19). A month with no approved reports gives the dashboard alone. Writes a DOWNLOAD_BULK_EXCEL audit row whose count is the number of report sheets.",
                 "consumes": [
                     "application/json"
                 ],

@@ -332,10 +332,10 @@ func TestReportRepo_Dashboard(t *testing.T) {
 	rows, err := repo.Dashboard(ctx, "May", 2026)
 	require.NoError(t, err)
 	assert.Equal(t, []report.DashboardRow{
-		{Church: "Abba", Status: report.StatusNotFiled}, // other months only
+		{Church: "Abba", Status: report.StatusNoReport}, // other months only
 		{Church: "Bethel", Month: "May", Year: 2026, Status: report.StatusPending},
 		{Church: "Calvary", Month: "May", Year: 2026, Status: report.StatusApproved},
-		{Church: "Redo", Status: report.StatusNotFiled}, // its report is soft-deleted
+		{Church: "Redo", Status: report.StatusNoReport}, // its report is soft-deleted
 		{Church: "zion", Month: "May", Year: 2026, Status: report.StatusApproved},
 	}, rows)
 

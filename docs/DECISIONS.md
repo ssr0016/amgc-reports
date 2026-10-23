@@ -31,6 +31,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A20 | Audit Logs UI and sign-in audit | Decided 2026-10-22; built in 21a | here |
 | D-A21 | Dynamic RBAC: Roles tab, custom roles, audited role changes | Decided 2026-10-22; built in 37a | here |
 | D-A22 | Delete a role in use by moving its users; list a role's users | Decided 2026-10-23 | here |
+| D-A23 | Roles tab grouped into custom and system roles; "No Report Submitted" on the dashboard | Decided 2026-10-23 | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -384,3 +385,10 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Audit:** one `CHANGE_USER_ROLE` `{from, to}` per moved account, then `DELETE_ROLE` `{name, reassigned_to}`. No new action, so no migration (details keys are checked in Go, not by the CHECK constraint).
 - **Safety:** built-in roles stay undeletable (D-A21), so `admin` can never be the role deleted and the last-admin guard is not reachable from here. `admin` is never a target (owner, 2026-10-23), so one mis-pick can't promote a whole role: the dropdown leaves it out and the server answers 422 on `reassign_to`. The dialog warns that the users get the chosen role's permissions at once.
 - **Who holds a role:** `GET /users` takes `role_id`. The Roles tab's user count opens a list of the holders (names, emails, deleted ones marked), fetched as the non-deleted and the deleted lists, each capped at 100.
+
+### D-A23 Roles tab groups; "No Report Submitted"
+**Date:** 2026-10-23 · **Status:** Decided by the owner; built, not deployed
+
+- **Roles tab:** custom roles come first under "Custom roles", then the built-in ones under "System roles", each its own table with an h2. A system role carries a "System" badge with a lock icon (replacing "Built-in") and offers View only, as before (D-A21).
+- **Dashboard status (amends D-A16, D-A17, D-A19):** an account with no report for the month reads "No Report Submitted" instead of "Not Filed", still red, with Month and Year blank. The row stays: every church account is listed so the admin sees who is missing. The Status column widens from 13 to 20.
+- **Not a bug:** the bulk export did not fail. A dashboard row for an account whose church name is "toast" read as an error. The export builds in milliseconds; the 15 s `WriteTimeout` is unchanged. Clean up test accounts by deleting them (deleted accounts get no row).

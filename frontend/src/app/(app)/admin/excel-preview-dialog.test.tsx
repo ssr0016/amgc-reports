@@ -39,7 +39,7 @@ beforeEach(() => {
   h.previewExcel.mockResolvedValue({
     count: 2,
     sheets: [
-      dashboard(["Bethel", "September", "2026", "Approved", "Checked", "Ready for Pick Up"], ["Abba", "", "", "Not Filed", "", ""]),
+      dashboard(["Bethel", "September", "2026", "Approved", "Checked", "Ready for Pick Up"], ["Abba", "", "", "No Report Submitted", "", ""]),
       { name: "Bethel", rows: grid("Bethel title") },
       { name: "Zion", rows: grid("Zion title") },
     ],
@@ -79,12 +79,12 @@ describe("Excel preview dialog", () => {
     expect(screen.getByLabelText("Sheet")).toHaveDisplayValue("Report Dashboard");
     expect(within(table).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Row", "A", "B", "C", "D", "E", "F"]);
     expect(within(table).getByText("September")).toBeInTheDocument();
-    expect(within(table).getByText("Not Filed")).toBeInTheDocument();
+    expect(within(table).getByText("No Report Submitted")).toBeInTheDocument();
     expect(screen.getByText("2 approved")).toBeInTheDocument();
   });
 
   it("a month with no approved reports shows the dashboard alone and can still download", async () => {
-    h.previewExcel.mockResolvedValue({ count: 0, sheets: [dashboard(["Abba", "", "", "Not Filed", "", ""])] });
+    h.previewExcel.mockResolvedValue({ count: 0, sheets: [dashboard(["Abba", "", "", "No Report Submitted", "", ""])] });
     renderDialog();
     await screen.findByRole("table", { name: "Sheet Report Dashboard" });
     expect(screen.getByText("0 approved")).toBeInTheDocument();
