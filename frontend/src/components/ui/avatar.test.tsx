@@ -10,6 +10,7 @@ it("shows initials without a picture and falls back when a picture fails", () =>
   const img = container.querySelector("img")!;
   expect(img).toHaveAttribute("src", "https://cdn.example/a?v=1");
   expect(img).toHaveAttribute("alt", "");
+  expect(container).toHaveTextContent("AC");
   fireEvent.error(img);
   expect(container.querySelector("img")).toBeNull();
   expect(container).toHaveTextContent("AC");

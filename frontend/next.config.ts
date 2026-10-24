@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "pub-34d82063b0224b23bf6873227edb3e55.r2.dev",
+        port: "",
+        pathname: "/**",
+      },
+    ],
+  },
   // The home page is the reports list. Temporary (307) so browsers do not cache it.
   async redirects() {
     return [{ source: "/", destination: "/reports", permanent: false }];

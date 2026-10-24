@@ -1,51 +1,80 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import { useState } from "react"
-import { cn } from "cn"
+import { useState, useSyncExternalStore } from "react";
+import { cn } from "cn";
 
-// Tailwind keeps only class names it can see written out, so the palette is a literal list.
-const COLORS = [
-  "bg-red-700", "bg-orange-700", "bg-amber-700", "bg-lime-700", "bg-green-700", "bg-emerald-700",
-  "bg-teal-700", "bg-cyan-700", "bg-sky-700", "bg-blue-700", "bg-indigo-700", "bg-violet-700",
-  "bg-purple-700", "bg-fuchsia-700", "bg-pink-700", "bg-rose-700", "bg-slate-600",
-]
+const palette = [
+  "bg-blue-600",
+  "bg-emerald-600",
+  "bg-violet-600",
+  "bg-rose-600",
+  "bg-amber-600",
+  "bg-cyan-600",
+  "bg-indigo-600",
+  "bg-fuchsia-600",
+  "bg-teal-600",
+  "bg-orange-600",
+];
 
-// The first letter of the first two words: "Juan Dela Cruz" is JD, "test" is T.
 function initials(name: string) {
-  const letters = name.trim().split(/\s+/).slice(0, 2).map((word) => [...word][0] ?? "")
-  return letters.join("").toLocaleUpperCase() || "?"
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.[0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase() || "?";
 }
 
-// djb2 over code points: the same name always gets the same color.
 function colorOf(name: string) {
-  let hash = 5381
-  for (const char of name) hash = (hash * 33 + char.codePointAt(0)!) >>> 0
-  return COLORS[hash % COLORS.length]
+  let hash = 0;
+  for (let i = 0; i < name.length; i++)
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return palette[Math.abs(hash) % palette.length];
 }
 
-// Decorative: the name is always printed next to it, so screen readers skip it.
-function Avatar({ name, src, className }: { name: string; src?: string; className?: string }) {
-  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+// I-force ang client-side render gamit ang useSyncExternalStore
+const emptySubscribe = () => () => {};
+const useMounted = () =>
+  useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+
+export function Avatar({
+  name,
+  src,
+  className,
+}: {
+  name: string;
+  src?: string;
+  className?: string;
+}) {
+  const mounted = useMounted();
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
+  const showImage = mounted && src && src !== failedSrc;
+
   return (
     <span
       aria-hidden="true"
-      className={cn("relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-medium text-white select-none", colorOf(name), className)}
+      className={cn(
+        "relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-medium text-white select-none",
+        colorOf(name),
+        className,
+      )}
     >
-      {initials(name)}
-      {src && src !== failedSrc && (
-        <Image
+      <span>{initials(name)}</span>
+      {showImage && (
+        // Public avatars load directly from R2 without the Next.js image loader.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           src={src}
           alt=""
           width={512}
           height={512}
-          unoptimized
           className="absolute inset-0 size-full object-cover"
           onError={() => setFailedSrc(src)}
         />
       )}
     </span>
-  )
+  );
 }
-
-export { Avatar }
