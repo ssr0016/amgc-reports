@@ -207,8 +207,24 @@ func cleanupEnv() {
 		"ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_NAME",
 		"SWAGGER_ENABLED", "METRICS_USER", "METRICS_PASSWORD",
 		"REPORTS_WRITE_RATE_LIMIT", "REPORTS_WRITE_BURST", "REPORTS_READ_RATE_LIMIT", "REPORTS_READ_BURST",
+		"R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "R2_PUBLIC_URL",
 	} {
 		_ = os.Unsetenv(key)
+	}
+}
+
+func TestLoad_StoragePublicURLPreservesFullValue(t *testing.T) {
+	const publicURL = "https://pub-34d82063b0224b23bf6873227edb3e55.r2.dev"
+	cfg, err := loadWithEnv(t, map[string]string{
+		"CORS_ALLOWED_ORIGINS": "http://localhost:3000",
+		"R2_ACCOUNT_ID":        "account", "R2_ACCESS_KEY_ID": "key", "R2_SECRET_ACCESS_KEY": "secret",
+		"R2_BUCKET": "avatars", "R2_PUBLIC_URL": publicURL + "///",
+	})
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if cfg.Storage.PublicURL != publicURL {
+		t.Fatalf("Storage.PublicURL = %q, want %q", cfg.Storage.PublicURL, publicURL)
 	}
 }
 

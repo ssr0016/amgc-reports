@@ -54,3 +54,23 @@ func TestR2_Delete(t *testing.T) {
 		})
 	}
 }
+
+func TestR2_PutPreservesPublicURL(t *testing.T) {
+	const publicURL = "https://pub-34d82063b0224b23bf6873227edb3e55.r2.dev"
+	r := &R2{bucket: "bucket", publicURL: publicURL}
+	r.client = s3.New(s3.Options{
+		Region:       "auto",
+		BaseEndpoint: aws.String("https://r2.example"),
+		Credentials:  credentials.NewStaticCredentialsProvider("test-key", "test-secret", ""),
+		UsePathStyle: true,
+		HTTPClient: avatarHTTPClient(func(req *http.Request) (*http.Response, error) {
+			require.Equal(t, http.MethodPut, req.Method)
+			require.Equal(t, "/bucket/avatars/4/test", req.URL.Path)
+			return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(""))}, nil
+		}),
+	})
+
+	url, err := r.Put(context.Background(), "avatars/4/test", "image/png", []byte("image"))
+	require.NoError(t, err)
+	require.Equal(t, publicURL+"/avatars/4/test", url)
+}

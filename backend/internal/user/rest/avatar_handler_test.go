@@ -95,6 +95,23 @@ func serveAvatarRequest(users user.Store, storage AvatarStorage, req *http.Reque
 }
 
 func TestAvatarHandler_UploadAvatar(t *testing.T) {
+	t.Run("replaces and cleans up a previously saved avatar", func(t *testing.T) {
+		users := userimpl.NewMockStore()
+		u, err := users.CreateWithPassword(context.Background(), "a@example.com", "Ann", "hash")
+		require.NoError(t, err)
+		const oldURL = "https://pub-34d82063b022"
+		_, _, err = users.UpdateAvatar(context.Background(), u.ID, oldURL)
+		require.NoError(t, err)
+
+		st := &fakeAvatarStorage{}
+		rec := serveAvatarRequest(users, st, avatarRequest(t, "avatar", avatarPNG(t, 2, 3)))
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.Contains(t, st.deleted, oldURL)
+		updated, err := users.GetByID(context.Background(), u.ID)
+		require.NoError(t, err)
+		require.Equal(t, "https://cdn.example/"+st.key, *updated.AvatarURL)
+	})
+
 	t.Run("200 stores a real PNG under a unique caller-owned key", func(t *testing.T) {
 		st := &fakeAvatarStorage{}
 		rec := serveAvatar(t, st, "avatar", avatarPNG(t, 2, 3))
