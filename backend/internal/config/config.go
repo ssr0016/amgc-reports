@@ -18,6 +18,7 @@ type Config struct {
 	Proxy    ProxyConfig
 	Reports  ReportsConfig
 	Admin    AdminConfig
+	Storage  StorageConfig
 	Stage    Stage
 
 	Observability ObservabilityConfig
@@ -41,6 +42,10 @@ func Load() (*Config, error) {
 	}
 
 	cfg.adminConfig()
+
+	if err := cfg.storageConfig(); err != nil {
+		return nil, fmt.Errorf("config validation: %w", err)
+	}
 
 	if err := cfg.databasePoolConfig(); err != nil {
 		return nil, fmt.Errorf("config validation: %w", err)

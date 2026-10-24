@@ -87,6 +87,7 @@ func (s *service) Me(ctx context.Context, userID int64) (*auth.MeResponse, error
 	me := &auth.MeResponse{
 		UserID: user.ID, Name: user.Name, Email: user.Email, Permissions: []string{},
 		AreaAssignment: deref(user.AreaAssignment), ChurchName: deref(user.ChurchName),
+		AvatarURL: deref(user.AvatarURL),
 	}
 	if user.Role != nil {
 		me.Role = user.Role.Name

@@ -26,7 +26,7 @@ func TestBodyLimit_AppliesToAllBindRoutes(t *testing.T) {
 	e.Use(echomw.Recover())
 	Setup(e, noAuthn, nil,
 		authrest.NewAuthHandler(nil, nil),
-		nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil),
 		authrest.NewPasswordResetHandler(nil),
 		nil, nil, nil, noLimits,

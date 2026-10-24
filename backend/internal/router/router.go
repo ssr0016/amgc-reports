@@ -30,6 +30,7 @@ func Setup(
 	userRepo user.Store,
 	authHandler *authrest.AuthHandler,
 	userHandler *userrest.UserHandler,
+	avatarHandler *userrest.AvatarHandler,
 	roleHandler *acrest.RoleHandler,
 	permissionHandler *acrest.PermissionHandler,
 	adminUserHandler *userrest.AdminUserHandler,
@@ -86,6 +87,8 @@ func Setup(
 	users := api.Group("/users", authn, ourmiddleware.RequireAuth(), loadCaller)
 	users.GET("", userHandler.ListUsers, perm("users:list"))
 	users.GET("/:id", userHandler.GetUser, perm("users:list"))
+	// Any signed-in user may set their own picture; it shares the per-user write bucket.
+	users.POST("/me/avatar", avatarHandler.UploadAvatar, limits.Write)
 
 	// ============================================================
 	// Reports (permission-gated; the service applies the _any ownership scope)

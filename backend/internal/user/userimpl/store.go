@@ -19,12 +19,12 @@ type store struct{ db *database.DB }
 // NewStore returns the user.Store over db.
 func NewStore(db *database.DB) user.Store { return &store{db: db} }
 
-const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at, area_assignment, church_name, status, deleted_at, deleted_by, deleted_reason"
+const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at, area_assignment, church_name, status, deleted_at, deleted_by, deleted_reason, avatar_url"
 
 // scanUser scans a single user from a row.
 func scanUser(row pgx.Row) (*user.User, error) {
 	var u user.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -130,6 +130,32 @@ func (r *store) UpdateProfile(ctx context.Context, id int64, p user.UserProfile)
 	return u, nil
 }
 
+// UpdateAvatar serializes replacements so each upload cleans up the URL it replaced.
+func (r *store) UpdateAvatar(ctx context.Context, id int64, url string) (*user.User, string, error) {
+	var previous *string
+	var updated *user.User
+	err := r.db.InTransaction(ctx, func(ctx context.Context) error {
+		err := r.db.Querier(ctx).QueryRow(ctx,
+			"SELECT avatar_url FROM users WHERE id = $1 FOR UPDATE", id).Scan(&previous)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("users: %w", database.ErrNotFound)
+		}
+		if err != nil {
+			return fmt.Errorf("lock avatar: %w", err)
+		}
+		updated, err = r.setColumn(ctx, id, "avatar_url", url)
+		return err
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	previousURL := ""
+	if previous != nil {
+		previousURL = *previous
+	}
+	return updated, previousURL, nil
+}
+
 func (r *store) List(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]user.User, error) {
 	// Validate limit to prevent overflow and DoS
 	if limit <= 0 {
@@ -175,7 +201,7 @@ func (r *store) List(ctx context.Context, emailFilter, status string, roleID int
 	var users []user.User
 	for rows.Next() {
 		var u user.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL); err != nil {
 			return nil, fmt.Errorf("scan row: %w", err)
 		}
 		users = append(users, u)
@@ -257,7 +283,7 @@ func (r *store) withRole(ctx context.Context, id int64, perms *[]string) (*user.
 	sb := r.db.Builder.
 		Select(
 			"u.id", "u.email", "u.name", "u.password_hash", "u.role_id",
-			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status", "u.tokens_valid_after", "u.deleted_at",
+			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status", "u.tokens_valid_after", "u.deleted_at", "u.avatar_url",
 			"r.id", "r.name", "r.description", "r.created_at", "r.updated_at",
 		).
 		From("users u").
@@ -279,7 +305,7 @@ func (r *store) withRole(ctx context.Context, id int64, perms *[]string) (*user.
 
 	dest := []any{
 		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID,
-		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.TokensValidAfter, &u.DeletedAt,
+		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.TokensValidAfter, &u.DeletedAt, &u.AvatarURL,
 		&rID, &rName, &rDesc, &rCreatedAt, &rUpdatedAt,
 	}
 	if perms != nil {
@@ -362,7 +388,7 @@ func (r *store) ListWithPagination(ctx context.Context, emailFilter string, page
 	var users []user.User
 	for rows.Next() {
 		var u user.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
 		users = append(users, u)
@@ -525,9 +551,15 @@ func (r *store) ClearLockout(ctx context.Context, userID int64) error {
 // UpdateStatus sets a user's status (in a transaction ctx, so the audit row and the
 // session revoke share it) and returns the updated user. A missing user is database.ErrNotFound.
 func (r *store) UpdateStatus(ctx context.Context, id int64, status string) (*user.User, error) {
+	return r.setColumn(ctx, id, "status", status)
+}
+
+// setColumn sets one column (a constant name, never user input) and returns the
+// updated user. A missing user is database.ErrNotFound.
+func (r *store) setColumn(ctx context.Context, id int64, column string, value any) (*user.User, error) {
 	query, args, err := r.db.Builder.
 		Update("users").
-		Set("status", status).
+		Set(column, value).
 		Set("updated_at", sq.Expr("NOW()")).
 		Where(sq.Eq{"id": id}).
 		Suffix("RETURNING " + userColumns).

@@ -29,6 +29,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/router"
 	statsrest "github.com/ssr0016/pastoral-reports/backend/internal/stats/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats/statsimpl"
+	"github.com/ssr0016/pastoral-reports/backend/internal/storage"
 	userrest "github.com/ssr0016/pastoral-reports/backend/internal/user/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 )
@@ -131,6 +132,13 @@ func run() error {
 	// Handlers
 	authHandler := authrest.NewAuthHandler(authService, authrest.NewCookies(cfg.Auth, cfg.IsProduction()))
 	userHandler := userrest.NewUserHandler(userRepo)
+	var avatarStorage userrest.AvatarStorage // stays a nil interface without R2, so uploads answer 503
+	if cfg.Storage.Enabled() {
+		avatarStorage = storage.NewR2(cfg.Storage)
+	} else {
+		log.Warn("R2 storage not configured; avatar uploads are disabled")
+	}
+	avatarHandler := userrest.NewAvatarHandler(userRepo, avatarStorage)
 	roleHandler := acrest.NewRoleHandler(roleRepo, acimpl.NewService(roleRepo, permissionRepo, userRepo, auditRepo, db))
 	permissionHandler := acrest.NewPermissionHandler(permissionRepo)
 	adminUserHandler := userrest.NewAdminUserHandler(userRepo, userService)
@@ -152,6 +160,7 @@ func run() error {
 		userRepo,
 		authHandler,
 		userHandler,
+		avatarHandler,
 		roleHandler,
 		permissionHandler,
 		adminUserHandler,

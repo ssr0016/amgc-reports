@@ -295,3 +295,36 @@ describe("downloadFile", () => {
     await expect(downloadFile("/admin/reports/4/excel")).rejects.toMatchObject({ status: 404, message: "Report not found." });
   });
 });
+
+describe("multipart retries", () => {
+  it("replays the FormData with a fresh CSRF token", async () => {
+    const f = stubFetch(
+      () => json(200, { csrf_token: "old" }),
+      () => json(403, { message: "CSRF token invalid" }),
+      () => json(200, { csrf_token: "new" }),
+      () => json(200, { ok: true }),
+    );
+    const body = new FormData();
+    body.append("avatar", new Blob(["image"]), "avatar.jpg");
+    await api("/users/me/avatar", { method: "POST", body });
+    for (const i of [1, 3]) {
+      expect((f.mock.calls[i][1] as RequestInit).body).toBe(body);
+      expect(headersOf(f.mock.calls[i])["Content-Type"]).toBeUndefined();
+    }
+    expect(headersOf(f.mock.calls[3])["X-CSRF-Token"]).toBe("new");
+  });
+
+  it("replays the FormData after an expired access token is refreshed", async () => {
+    const f = stubFetch(
+      () => json(200, { csrf_token: "t" }),
+      () => json(401, {}),
+      () => json(200, {}),
+      () => json(200, { ok: true }),
+    );
+    const body = new FormData();
+    body.append("avatar", new Blob(["image"]), "avatar.jpg");
+    await api("/users/me/avatar", { method: "POST", body });
+    expect(f.mock.calls.map(pathOf)).toEqual(["/auth/csrf", "/users/me/avatar", "/auth/refresh", "/users/me/avatar"]);
+    expect((f.mock.calls[3][1] as RequestInit).body).toBe(body);
+  });
+});

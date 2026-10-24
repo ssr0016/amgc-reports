@@ -2887,6 +2887,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload my profile picture
+         * @description Replaces the signed-in user's avatar. JPEG, PNG or WebP, at most 512 pixels per side; the whole request is capped at 1 MiB (413 above it), so the client should downscale first.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description Image file
+                         */
+                        avatar: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{id}": {
         parameters: {
             query?: never;
@@ -3052,6 +3145,8 @@ export interface components {
         "github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse": {
             /** @description Report form defaults; empty when the admin has not set them. */
             area_assignment?: string;
+            /** @description AvatarURL is empty when the user has no profile picture. */
+            avatar_url?: string;
             church_name?: string;
             email?: string;
             name?: string;
@@ -3155,6 +3250,7 @@ export interface components {
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse": {
             area_assignment?: string;
+            avatar_url?: string;
             church_name?: string;
             created_at?: string;
             deleted_at?: string;

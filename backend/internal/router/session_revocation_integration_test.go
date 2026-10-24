@@ -82,7 +82,7 @@ func newAuthEnv(t *testing.T, tokenTTL time.Duration) *authEnv {
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	Setup(e, ourmiddleware.Authenticate(env.tokens), env.users,
 		authrest.NewAuthHandler(authService, authrest.NewCookies(config.AuthConfig{}, false)),
-		nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil),
 		authrest.NewPasswordResetHandler(authimpl.NewPasswordResetService(env.users, env.resets, log)),
 		nil, nil, nil, noLimits,

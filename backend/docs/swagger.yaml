@@ -257,6 +257,9 @@ definitions:
       area_assignment:
         description: Report form defaults; empty when the admin has not set them.
         type: string
+      avatar_url:
+        description: AvatarURL is empty when the user has no profile picture.
+        type: string
       church_name:
         type: string
       email:
@@ -495,6 +498,8 @@ definitions:
   github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse:
     properties:
       area_assignment:
+        type: string
+      avatar_url:
         type: string
       church_name:
         type: string
@@ -2341,6 +2346,55 @@ paths:
       security:
       - CookieAuth: []
       summary: Get user by ID
+      tags:
+      - users
+  /users/me/avatar:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Replaces the signed-in user's avatar. JPEG, PNG or WebP, at most
+        512 pixels per side; the whole request is capped at 1 MiB (413 above it),
+        so the client should downscale first.
+      parameters:
+      - description: Image file
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "413":
+          description: Request Entity Too Large
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Upload my profile picture
       tags:
       - users
 securityDefinitions:

@@ -71,12 +71,12 @@ func TestAuthHandler_Me(t *testing.T) {
 		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 			t.Fatal(err)
 		}
-		if len(got) != 7 || got["user_id"] != float64(7) || got["name"] != "Ed" ||
+		if len(got) != 8 || got["user_id"] != float64(7) || got["name"] != "Ed" ||
 			got["email"] != "ed@example.org" || got["role"] != "editor" {
 			t.Errorf("body = %s", rec.Body.String())
 		}
 		// The profile keys are always there, empty when the admin has not set them.
-		for _, key := range []string{"area_assignment", "church_name"} {
+		for _, key := range []string{"area_assignment", "church_name", "avatar_url"} {
 			if v, ok := got[key]; !ok || v != "" {
 				t.Errorf("%s = %v (present: %v), want an empty string", key, v, ok)
 			}

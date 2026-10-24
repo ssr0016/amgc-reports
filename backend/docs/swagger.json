@@ -2537,6 +2537,79 @@
                 }
             }
         },
+        "/users/me/avatar": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Replaces the signed-in user's avatar. JPEG, PNG or WebP, at most 512 pixels per side; the whole request is capped at 1 MiB (413 above it), so the client should downscale first.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Upload my profile picture",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Image file",
+                        "name": "avatar",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/users/{id}": {
             "get": {
                 "security": [
@@ -2944,6 +3017,10 @@
                     "description": "Report form defaults; empty when the admin has not set them.",
                     "type": "string"
                 },
+                "avatar_url": {
+                    "description": "AvatarURL is empty when the user has no profile picture.",
+                    "type": "string"
+                },
                 "church_name": {
                     "type": "string"
                 },
@@ -3291,6 +3368,9 @@
             "type": "object",
             "properties": {
                 "area_assignment": {
+                    "type": "string"
+                },
+                "avatar_url": {
                     "type": "string"
                 },
                 "church_name": {

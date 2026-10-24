@@ -42,7 +42,7 @@ func newTestServer() *echo.Echo {
 
 	Setup(e, noAuthn, nil,
 		authrest.NewAuthHandler(nil, nil),
-		nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil),
 		authrest.NewPasswordResetHandler(nil),
 		nil, nil, nil, noLimits,
@@ -97,7 +97,7 @@ func resetServer() *echo.Echo {
 	svc := authimpl.NewPasswordResetService(userimpl.NewMockStore(), noTokenRepo{}, slog.New(slog.DiscardHandler))
 	Setup(e, noAuthn, nil,
 		authrest.NewAuthHandler(nil, nil),
-		nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil),
 		authrest.NewPasswordResetHandler(svc),
 		nil, nil, nil, noLimits,

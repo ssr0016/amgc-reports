@@ -118,7 +118,7 @@ export function UsersPanel() {
             {rows.map((u) => (
               <TableRow key={u.id}>
                 <TableCell>
-                  <Avatar name={u.name} />
+                  <Avatar name={u.name} src={u.avatar_url} />
                 </TableCell>
                 <TableCell>
                   {u.name}

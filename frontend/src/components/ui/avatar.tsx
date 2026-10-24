@@ -1,3 +1,7 @@
+"use client"
+
+import Image from "next/image"
+import { useState } from "react"
 import { cn } from "cn"
 
 // Tailwind keeps only class names it can see written out, so the palette is a literal list.
@@ -21,13 +25,25 @@ function colorOf(name: string) {
 }
 
 // Decorative: the name is always printed next to it, so screen readers skip it.
-function Avatar({ name, className }: { name: string; className?: string }) {
+function Avatar({ name, src, className }: { name: string; src?: string; className?: string }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
   return (
     <span
       aria-hidden="true"
-      className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium text-white select-none", colorOf(name), className)}
+      className={cn("relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-medium text-white select-none", colorOf(name), className)}
     >
       {initials(name)}
+      {src && src !== failedSrc && (
+        <Image
+          src={src}
+          alt=""
+          width={512}
+          height={512}
+          unoptimized
+          className="absolute inset-0 size-full object-cover"
+          onError={() => setFailedSrc(src)}
+        />
+      )}
     </span>
   )
 }

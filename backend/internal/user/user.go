@@ -53,6 +53,9 @@ type Store interface {
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*User, error)
 	Create(ctx context.Context, n NewUser) (*User, error)
 	UpdateProfile(ctx context.Context, id int64, p UserProfile) (*User, error)
+	// UpdateAvatar commits the new URL and returns the previous URL for safe cleanup.
+	// A missing user is ErrNotFound.
+	UpdateAvatar(ctx context.Context, id int64, url string) (*User, string, error)
 	// List returns users newest first; an empty status means every status and a
 	// zero roleID every role. Deleted users are left out unless status is "deleted",
 	// which returns only them.

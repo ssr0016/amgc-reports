@@ -22,16 +22,18 @@ describe("profile menu", () => {
     expect(screen.getByRole("button", { name: "Ana · no role" })).toBeInTheDocument();
   });
 
-  it("opens on click with one item, a link to the password page", async () => {
+  it("opens with profile picture and password links", async () => {
     h.role = "admin";
     const user = userEvent.setup();
     render(<ProfileMenu />);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Ana · admin" }));
     const items = screen.getAllByRole("menuitem");
-    expect(items).toHaveLength(1);
-    expect(items[0]).toHaveAccessibleName("Change password");
-    expect(items[0]).toHaveAttribute("href", "/account/password");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveAccessibleName("Profile picture");
+    expect(items[0]).toHaveAttribute("href", "/account/profile");
+    expect(items[1]).toHaveAccessibleName("Change password");
+    expect(items[1]).toHaveAttribute("href", "/account/password");
   });
 
   it("opens from the keyboard, and Escape closes it and returns focus to the button", async () => {

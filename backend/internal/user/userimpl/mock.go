@@ -141,6 +141,23 @@ func (m *MockStore) UpdateProfile(ctx context.Context, id int64, p user.UserProf
 	return usr, nil
 }
 
+// UpdateAvatar atomically swaps the URL and returns the previous one (mock).
+func (m *MockStore) UpdateAvatar(ctx context.Context, id int64, url string) (*user.User, string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	usr, ok := m.users[id]
+	if !ok {
+		return nil, "", fmt.Errorf("users: %w", database.ErrNotFound)
+	}
+	previousURL := ""
+	if usr.AvatarURL != nil {
+		previousURL = *usr.AvatarURL
+	}
+	usr.AvatarURL = &url
+	return usr, previousURL, nil
+}
+
 func (m *MockStore) List(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]user.User, error) {
 	if m.ListFunc != nil {
 		return m.ListFunc(ctx, emailFilter, status, roleID, limit)

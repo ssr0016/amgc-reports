@@ -66,12 +66,13 @@ async function send(path: string, method: string, body: unknown): Promise<Respon
   const write = method !== "GET";
   const attempt = async () => {
     const headers: Record<string, string> = {};
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const multipart = body instanceof FormData;
+    if (body !== undefined && !multipart) headers["Content-Type"] = "application/json";
     if (write) headers["X-CSRF-Token"] = csrfToken ?? (await fetchCsrf());
     return request(path, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
     });
   };
 

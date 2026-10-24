@@ -134,3 +134,14 @@ describe("QueryProvider", () => {
     expect(screen.getByText("hello")).toBeInTheDocument();
   });
 });
+
+it("updates only the matching signed-in user's avatar", async () => {
+  stubApi({ "/auth/me": () => json(200, { ...me("user", []), user_id: 7, avatar_url: "" }) });
+  const { result } = renderHook(() => useSession(), { wrapper });
+  await waitFor(() => expect(result.current.status).toBe("authenticated"));
+  act(() => result.current.updateAvatar(7, "https://cdn.example/a"));
+  expect(result.current.user?.avatar_url).toBe("https://cdn.example/a");
+  expect(result.current.user?.name).toBe("Ana");
+  act(() => result.current.updateAvatar(9, "https://cdn.example/other"));
+  expect(result.current.user?.avatar_url).toBe("https://cdn.example/a");
+});

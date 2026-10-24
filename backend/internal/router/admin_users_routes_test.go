@@ -87,7 +87,7 @@ func adminUsersServerWith(limits Limiters, roleName string, perms ...string) (*e
 	})
 	users.Roles = permRoles{perms: perms}
 	Setup(e, noAuthn, users,
-		authrest.NewAuthHandler(nil, nil), userrest.NewUserHandler(users), nil, nil,
+		authrest.NewAuthHandler(nil, nil), userrest.NewUserHandler(users), nil, nil, nil,
 		userrest.NewAdminUserHandler(users, svc),
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		reportrest.NewReportHandler(okReportSvc{}), nil,

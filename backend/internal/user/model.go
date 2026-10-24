@@ -34,6 +34,9 @@ type User struct {
 	AreaAssignment *string `json:"area_assignment,omitempty" db:"area_assignment"`
 	ChurchName     *string `json:"church_name,omitempty" db:"church_name"`
 
+	// AvatarURL is the public URL of the profile picture; nil shows initials.
+	AvatarURL *string `json:"avatar_url,omitempty" db:"avatar_url"`
+
 	// DeletedAt is set while the account is soft-deleted (D-A11); nil means not deleted.
 	DeletedAt *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
 	// Who deleted the account and why; only the RESTORE_USER audit row reads them.
@@ -55,6 +58,7 @@ type UserResponse struct {
 	Status          string     `json:"status"`
 	AreaAssignment  string     `json:"area_assignment,omitempty"`
 	ChurchName      string     `json:"church_name,omitempty"`
+	AvatarURL       string     `json:"avatar_url,omitempty"`
 	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse
 
@@ -83,6 +87,7 @@ func (u *User) ToResponse() UserResponse {
 		Status:          u.Status,
 		AreaAssignment:  deref(u.AreaAssignment),
 		ChurchName:      deref(u.ChurchName),
+		AvatarURL:       deref(u.AvatarURL),
 		DeletedAt:       u.DeletedAt,
 	}
 }

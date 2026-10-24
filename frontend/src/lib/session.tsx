@@ -21,6 +21,7 @@ type Session = {
   canAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateAvatar: (userId: number, url: string) => void;
 };
 
 const SessionContext = createContext<Session | null>(null);
@@ -90,12 +91,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  function updateAvatar(userId: number, url: string) {
+    setUser((current) => current?.user_id === userId ? { ...current, avatar_url: url } : current);
+  }
+
   const can = (permission: Permission) => !!user?.permissions.includes(permission);
   const isAdmin = user?.role === "admin";
   const canAdmin = isAdmin || ADMIN_AREA.some(can);
 
   return (
-    <SessionContext.Provider value={{ user, status, can, isAdmin, canAdmin, signIn, signOut }}>
+    <SessionContext.Provider value={{ user, status, can, isAdmin, canAdmin, signIn, signOut, updateAvatar }}>
       {children}
     </SessionContext.Provider>
   );

@@ -45,7 +45,7 @@ func auditServer(roleName string, perms ...string) (*echo.Echo, *okAuditSvc) {
 	})
 	users.Roles = permRoles{perms: perms}
 	Setup(e, noAuthn, users,
-		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
+		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		nil, nil, auditrest.NewAuditHandler(svc),
 		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},

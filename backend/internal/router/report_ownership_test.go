@@ -102,7 +102,7 @@ func ownershipServer() *echo.Echo {
 		}
 	})
 	Setup(e, noAuthn, users,
-		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
+		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		reportrest.NewReportHandler(svc), nil, nil,
 		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},

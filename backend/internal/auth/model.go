@@ -14,6 +14,8 @@ type MeResponse struct {
 	// Report form defaults; empty when the admin has not set them.
 	AreaAssignment string `json:"area_assignment"`
 	ChurchName     string `json:"church_name"`
+	// AvatarURL is empty when the user has no profile picture.
+	AvatarURL string `json:"avatar_url"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse
 
 // ChangePasswordRequest is the body of POST /auth/change-password. The 72-byte

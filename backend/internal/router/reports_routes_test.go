@@ -103,7 +103,7 @@ func reportsServerWithRole(mk func() Limiters, role string, perms ...string) *ec
 	})
 	users.Roles = permRoles{perms: perms}
 	Setup(e, noAuthn, users,
-		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil,
+		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		reportrest.NewReportHandler(okReportSvc{}), nil, nil, limits,
 	)

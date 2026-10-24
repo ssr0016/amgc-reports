@@ -4,6 +4,8 @@ package userimpl
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -115,4 +117,64 @@ func ptr(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+func TestUserRepo_UpdateAvatar(t *testing.T) {
+	repo, _ := setupTestRepo(t)
+	ctx := context.Background()
+	u, err := repo.CreateWithPassword(ctx, "avatar@example.com", "Ava", "h")
+	require.NoError(t, err)
+	require.Nil(t, u.AvatarURL)
+
+	const url = "https://cdn.example/avatars/1?v=1"
+	got, previous, err := repo.UpdateAvatar(ctx, u.ID, url)
+	require.NoError(t, err)
+	assert.Equal(t, ptr(url), got.AvatarURL)
+	assert.Empty(t, previous)
+
+	// GetWithRole feeds /auth/me, so it must load the avatar too.
+	withRole, err := repo.GetWithRole(ctx, u.ID)
+	require.NoError(t, err)
+	assert.Equal(t, ptr(url), withRole.AvatarURL)
+
+	_, _, err = repo.UpdateAvatar(ctx, u.ID+1000, url)
+	assert.ErrorIs(t, err, database.ErrNotFound)
+}
+
+func TestUserRepo_UpdateAvatar_ConcurrentReplacements(t *testing.T) {
+	repo, _ := setupTestRepo(t)
+	ctx := context.Background()
+	u, err := repo.CreateWithPassword(ctx, "concurrent-avatar@example.com", "Ava", "h")
+	require.NoError(t, err)
+	const initial = "https://cdn.example/avatars/initial"
+	_, _, err = repo.UpdateAvatar(ctx, u.ID, initial)
+	require.NoError(t, err)
+
+	type result struct {
+		previous string
+		err      error
+	}
+	const uploads = 8
+	results := make(chan result, uploads)
+	var wg sync.WaitGroup
+	for i := range uploads {
+		wg.Go(func() {
+			_, previous, err := repo.UpdateAvatar(ctx, u.ID, fmt.Sprintf("https://cdn.example/avatars/%d", i))
+			results <- result{previous, err}
+		})
+	}
+	wg.Wait()
+	close(results)
+	previousURLs := make(map[string]bool)
+	for result := range results {
+		require.NoError(t, result.err)
+		require.False(t, previousURLs[result.previous], "each replacement must return a distinct previous URL")
+		previousURLs[result.previous] = true
+	}
+	current, err := repo.GetByID(ctx, u.ID)
+	require.NoError(t, err)
+	require.NotNil(t, current.AvatarURL)
+	assert.True(t, previousURLs[initial])
+	assert.False(t, previousURLs[*current.AvatarURL], "the current picture must never be returned for deletion")
+	assert.Len(t, previousURLs, uploads)
 }
