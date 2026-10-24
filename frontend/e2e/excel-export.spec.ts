@@ -15,6 +15,15 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
   expect(filed.status(), await filed.text()).toBe(201);
   const { id } = await filed.json();
   await author.dispose();
+  const unsubmitted = await send(request, "POST", "/admin/users", {
+    email: "e2e-export-unsubmitted@example.com",
+    name: "E2E Unsubmitted",
+    password: "E2eUnsubmitted!23456",
+    confirm_password: "E2eUnsubmitted!23456",
+    church_name: "E2E Unsubmitted Church",
+  });
+  expect(unsubmitted.status(), await unsubmitted.text()).toBe(201);
+  const { id: unsubmittedUserId } = await unsubmitted.json();
   try {
     const moved = await send(request, "PUT", `/reports/${id}`, { ...period, ...fixture });
     expect(moved.status(), await moved.text()).toBe(200);
@@ -36,8 +45,8 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
     let dialog = page.getByRole("alertdialog", { name: `Excel preview: ${period.month} ${period.year}` });
     const sheet = dialog.getByLabel("Sheet", { exact: true });
     await expect(sheet).toHaveValue("0");
-    // The dashboard lists the e2e user's church; it filed nothing for this month.
-    await expect(dialog.getByRole("table", { name: "Sheet Report Dashboard" }).getByRole("row").filter({ hasText: "Visionaires Christian Church" })).toContainText("No Report Submitted");
+    // This church account has no reports.
+    await expect(dialog.getByRole("table", { name: "Sheet Report Dashboard" }).getByRole("row").filter({ hasText: "E2E Unsubmitted Church" })).toContainText("No Report Submitted");
     await sheet.selectOption({ label: "E2E Export Church" });
     await expect(dialog.getByRole("table", { name: "Sheet E2E Export Church" })).toContainText("E2E Export Worker");
     expect((await new AxeBuilder({ page }).include('[role="alertdialog"]').analyze()).violations).toEqual([]);
@@ -64,5 +73,6 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
   } finally {
     // Soft delete, so a later run can file the month again.
     expect((await send(request, "DELETE", `/reports/${id}`)).status()).toBe(204);
+    expect((await send(request, "DELETE", `/admin/users/${unsubmittedUserId}`)).status()).toBe(200);
   }
 });
