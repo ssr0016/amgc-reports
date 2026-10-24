@@ -158,11 +158,11 @@ describe("ReportPreviewDialog", () => {
     renderDialog();
 
     await waitFor(() => {
-      expect(screen.getByText("Week 1")).toBeInTheDocument();
-      expect(screen.getByText("Week 2")).toBeInTheDocument();
-      expect(screen.getByText("Week 3")).toBeInTheDocument();
-      expect(screen.getByText("Week 4")).toBeInTheDocument();
-      expect(screen.getByText("Week 5")).toBeInTheDocument();
+      expect(screen.getAllByText("Week 1")).toHaveLength(4);
+      expect(screen.getAllByText("Week 2")).toHaveLength(4);
+      expect(screen.getAllByText("Week 3")).toHaveLength(4);
+      expect(screen.getAllByText("Week 4")).toHaveLength(4);
+      expect(screen.getAllByText("Week 5")).toHaveLength(4);
     });
   });
 

@@ -59,11 +59,11 @@ beforeEach(() => {
 });
 
 describe("admin reports: table", () => {
-  it("has the eight columns, in order", async () => {
+  it("has the nine columns, in order", async () => {
     renderReports("reports:read");
     await screen.findByText("Worker 1");
     const heads = screen.getAllByRole("columnheader").map((c) => c.textContent);
-    expect(heads).toEqual(["Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Action", "Download"]);
+    expect(heads).toEqual(["Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Preview", "Action", "Download"]);
   });
 
   it("shows a report's cells, and a dash for what is empty", async () => {
