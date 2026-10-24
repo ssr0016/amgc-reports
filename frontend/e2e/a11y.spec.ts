@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { API, authFile, clientIp, earlierPeriod, expect, send, test } from "./support";
+import { API, authFile, clientIp, earlierPeriod, expect, previousPeriod, send, test } from "./support";
 
 // WCAG 2.x A and AA plus axe's best practices. Axe cannot judge everything (focus
 // visibility, reading order, real screen reader output), so keyboard flows are
@@ -24,16 +24,38 @@ const FIXTURE_WORKER = "A11y Fixture";
 let fixtureId = 0;
 
 test.beforeAll(async ({ playwright }) => {
-  const editor = await playwright.request.newContext({
-    storageState: authFile("editor"),
+  const admin = await playwright.request.newContext({
+    storageState: authFile("admin"),
     extraHTTPHeaders: { "X-Real-IP": clientIp("a11y-fixture") },
   });
-  const p = earlierPeriod(3);
-  const res = await send(editor, "POST", "/reports", { month: p.month, year: p.year, worker: FIXTURE_WORKER });
-  expect([201, 409]).toContain(res.status()); // 409: already there from an earlier run in this database
-  const list = await (await editor.get(`http://localhost:8081/api/v1/reports?worker=${FIXTURE_WORKER}`)).json();
-  fixtureId = list.data[0].id;
-  await editor.dispose();
+  const author = await playwright.request.newContext({
+    extraHTTPHeaders: { "X-Real-IP": clientIp("a11y-author") },
+  });
+  try {
+    const roles: { id: number; name: string }[] = (await (await admin.get(`${API}/admin/roles?limit=100`)).json()).data;
+    const account = { email: "e2e-a11y-author@example.com", name: "E2E A11y Author", password: "E2eA11y!23456" };
+    const created = await send(admin, "POST", "/admin/users", {
+      ...account, confirm_password: account.password, role_id: roles.find((r) => r.name === "user")!.id,
+      area_assignment: "", church_name: "",
+    });
+    expect([201, 409], await created.text()).toContain(created.status());
+    const login = await send(author, "POST", "/auth/login", { email: account.email, password: account.password });
+    expect(login.status(), await login.text()).toBe(200);
+    const existing = await (await admin.get(`${API}/reports?worker=${FIXTURE_WORKER}`)).json();
+    if (existing.data.length) {
+      fixtureId = existing.data[0].id;
+    } else {
+      const res = await send(author, "POST", "/reports", { ...previousPeriod(), worker: FIXTURE_WORKER });
+      expect(res.status(), await res.text()).toBe(201);
+      fixtureId = (await res.json()).id;
+    }
+    // Keep this fixture outside the month used by the report-creation tests.
+    const moved = await send(admin, "PUT", `/reports/${fixtureId}`, { ...earlierPeriod(3), worker: FIXTURE_WORKER });
+    expect(moved.status(), await moved.text()).toBe(200);
+  } finally {
+    await author.dispose();
+    await admin.dispose();
+  }
 });
 
 for (const scheme of ["light", "dark"] as const) {

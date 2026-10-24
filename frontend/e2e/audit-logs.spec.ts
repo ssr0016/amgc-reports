@@ -1,4 +1,4 @@
-import { ACCOUNTS, API, authFile, clientIp, earlierPeriod, expect, send, test } from "./support";
+import { ACCOUNTS, API, authFile, clientIp, earlierPeriod, expect, previousPeriod, send, test } from "./support";
 
 test.describe("as admin", () => {
   test.use({ storageState: authFile("admin") });
@@ -11,14 +11,16 @@ test.describe("as admin", () => {
       anon.post(`${API}/auth/login`, { data: { email: ACCOUNTS.user.email, password }, headers: { "X-CSRF-Token": await csrf() } });
     expect((await login("not-the-password")).status()).toBe(401);
     expect((await login(ACCOUNTS.user.password)).status()).toBe(200);
-    await anon.dispose();
 
     // A report approved now, so its APPROVE_REPORT row falls in the current month.
     const period = earlierPeriod(7);
-    const filed = await send(request, "POST", "/reports", { ...period, worker: "E2E Audit Worker" });
+    const filed = await send(anon, "POST", "/reports", { ...previousPeriod(), worker: "E2E Audit Worker" });
     expect(filed.status(), await filed.text()).toBe(201);
     const { id } = await filed.json();
+    await anon.dispose();
     try {
+      const moved = await send(request, "PUT", `/reports/${id}`, { ...period, worker: "E2E Audit Worker" });
+      expect(moved.status(), await moved.text()).toBe(200);
       expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(200);
 
       await page.goto("/admin?tab=logs");

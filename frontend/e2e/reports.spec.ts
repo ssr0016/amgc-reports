@@ -99,10 +99,16 @@ test.describe("editor", () => {
     expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(403);
   });
 
-  test("may file a late report", async ({ request }) => {
-    const p = earlierPeriod(1);
-    const res = await send(request, "POST", "/reports", { month: p.month, year: p.year, worker: "Late Editor" });
-    expect(res.status()).toBe(201);
+  test("cannot create reports through the UI or API", async ({ page, request }) => {
+    await page.goto("/reports");
+    await expect(page.getByRole("link", { name: "New report" })).toHaveCount(0);
+    await page.goto("/reports/new");
+    await expect(page.getByText("You are not allowed to create reports.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Submit Report" })).toHaveCount(0);
+    for (const p of [period, earlierPeriod(1)]) {
+      const res = await send(request, "POST", "/reports", { ...p, worker: "Forbidden Editor" });
+      expect(res.status(), await res.text()).toBe(403);
+    }
   });
 });
 
@@ -163,16 +169,21 @@ test.describe("admin", () => {
     ]);
   });
 
-  test("may file a late report", async ({ request }) => {
-    const p = earlierPeriod(2);
-    const res = await send(request, "POST", "/reports", { month: p.month, year: p.year, worker: "Late Admin" });
-    expect(res.status()).toBe(201);
+  test("cannot create reports through the UI or API", async ({ page, request }) => {
+    await page.goto("/reports");
+    await expect(page.getByRole("link", { name: "New report" })).toHaveCount(0);
+    await page.goto("/reports/new");
+    await expect(page.getByText("You are not allowed to create reports.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Submit Report" })).toHaveCount(0);
+    for (const p of [period, earlierPeriod(2)]) {
+      const res = await send(request, "POST", "/reports", { ...p, worker: "Forbidden Admin" });
+      expect(res.status(), await res.text()).toBe(403);
+    }
   });
 
-  test("lists every user's reports", async ({ page }) => {
+  test("lists another user's reports", async ({ page }) => {
     await page.goto(`/reports?month=&year=${period.year}`);
     await expect(rowOf(page, "E2E User Edited")).toBeVisible();
-    await expect(rowOf(page, "Late Editor")).toBeVisible();
   });
 });
 

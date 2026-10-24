@@ -63,6 +63,7 @@ test("changing the password keeps this session and the new password signs in", a
   await expect(page.getByText(`${account.name} · user`)).toBeVisible();
 
   await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
   await signIn(page, account.password);
   await expect(page.locator("form").getByRole("alert")).toHaveText("Invalid email or password.");
   await signIn(page, next);

@@ -1,18 +1,23 @@
 import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
-import { authFile, earlierPeriod, expect, send, test } from "./support";
+import { authFile, earlierPeriod, expect, previousPeriod, send, test } from "./support";
 
 test.use({ storageState: authFile("admin") });
 
-test("an admin previews, then downloads, the month and one report as Excel", async ({ page, request }) => {
+test("an admin previews, then downloads, the month and one report as Excel", async ({ page, request, playwright, clientIp }) => {
   // A month no other spec lists, so this report never shows up in their empty-list checks.
   const period = earlierPeriod(5);
-  const filed = await send(request, "POST", "/reports", {
-    ...period, worker: "E2E Export Worker", church_name: "E2E Export Church", metrics: { worship_service: { week1: 12 } },
+  const fixture = { worker: "E2E Export Worker", church_name: "E2E Export Church", metrics: { worship_service: { week1: 12 } } };
+  const author = await playwright.request.newContext({
+    storageState: authFile("user"), extraHTTPHeaders: { "X-Real-IP": clientIp },
   });
+  const filed = await send(author, "POST", "/reports", { ...previousPeriod(), ...fixture });
   expect(filed.status(), await filed.text()).toBe(201);
   const { id } = await filed.json();
+  await author.dispose();
   try {
+    const moved = await send(request, "PUT", `/reports/${id}`, { ...period, ...fixture });
+    expect(moved.status(), await moved.text()).toBe(200);
     // Only approved reports get a sheet in the bulk file (D-A16).
     expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(200);
 
