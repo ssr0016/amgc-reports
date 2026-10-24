@@ -50,7 +50,7 @@ Order and identities follow `build-plan.md`; checked items are shown as shipped 
 | 15 | Shipped | Hide report free text and tithes from non-owners (D-18) |
 | 17 | Open; blocked | Production smoke test awaits deferred domain setup (16) |
 | 18 | Complete | Neon password rotated; owner verified production connectivity and superadmin login on 2026-10-24 |
-| 19 | Open | Verify seed idempotency |
+| 19 | Complete | Seed idempotency verified; archive records the existing integration test and its passing evidence |
 | 20 | Parent unchecked | Phase A: all children 20a–20f checked; see status mismatch below |
 | 20a | Shipped | Admin shell, accessible tabs, guard, header link and titles |
 | 20b | Shipped | Stats endpoint and four cards, with generated API types |
@@ -87,7 +87,7 @@ Order and identities follow `build-plan.md`; checked items are shown as shipped 
 | 26 | Deferred | Cloudflare proxy and IP-limit handling |
 | 23–25 | Skipped, not built | Email delivery, forgot-password flow and reset-password UI (D-A18) |
 
-The first unchecked leaf is 17 but explicitly blocked; 19 is the next unblocked launch item. Preserve the plan's IDs, including 22g before 22f and the repeated reference to 16.
+The first unchecked leaf is 17 and is explicitly blocked on deferred domain setup. Feature 19 is complete. Preserve the plan's IDs, including 22g before 22f and the repeated reference to 16.
 
 ## Data model
 
@@ -150,4 +150,4 @@ Use existing shadcn/Radix components and Tailwind styling. Follow `backend/docs/
 - Build plan says dashboards/notifications are not planned while explicitly shipping stats, Tracker and an export Report Dashboard and proposing Sentry alerts (#35). Treat those as named scopes; broader notification/dashboard work needs a decision.
 - Plans allow admin late-filing, while the recent report-creation restriction tested in this session permits creation only for the user role. Confirm whether admin correction of an existing report period is the intended remaining path.
 - Avatar item #33 still describes initials-only behavior, although profile-picture code exists in this checkout. Verify completion separately before changing the checkbox.
-- #19 remains unchecked even though a seed-idempotency test commit is now present; an overview refresh alone does not establish acceptance.
+- The project plan does not list seed idempotency as a shipped feature; the build plan now marks #19 complete, and its archive records the verification.
