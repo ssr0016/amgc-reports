@@ -95,7 +95,7 @@ func Setup(
 	// One shared bucket for all four writes (each costs a transaction and an audit
 	// row). It runs after RequirePermission, so only callers who may write use
 	// tokens; a user without the permission cannot exhaust a bucket others share.
-	reports.POST("", reportHandler.CreateReport, perm("reports:write"), limits.Write)
+	reports.POST("", reportHandler.CreateReport, ourmiddleware.RequireRole("user"), perm("reports:write"), limits.Write)
 	reports.GET("/:id", reportHandler.GetReport, perm("reports:read"), limits.Read)
 	reports.PUT("/:id", reportHandler.UpdateReport, perm("reports:write"), limits.Write)
 	reports.DELETE("/:id", reportHandler.SoftDeleteReport, perm("reports:delete"), limits.Write)

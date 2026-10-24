@@ -10,7 +10,7 @@ const h = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   search: "",
-  me: { user_id: 1, perms: [] as string[] },
+  me: { user_id: 1, role: "user", perms: [] as string[] },
   listReports: vi.fn(),
   deleteReport: vi.fn(),
 }));
@@ -20,7 +20,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(h.search),
 }));
 vi.mock("@/lib/session", () => ({
-  useSession: () => ({ user: { user_id: h.me.user_id }, can: (p: string) => h.me.perms.includes(p) }),
+  useSession: () => ({ user: { user_id: h.me.user_id, role: h.me.role }, can: (p: string) => h.me.perms.includes(p) }),
 }));
 // Keep the real constants and defaultPeriod; replace only the calls that hit the network.
 vi.mock("@/lib/reports", async (orig) => ({
@@ -56,6 +56,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.search = "";
   h.me.user_id = 1;
+  h.me.role = "user";
   h.listReports.mockResolvedValue(page([report(1, 1), report(2, 2)]));
 });
 
@@ -156,6 +157,19 @@ describe("reports list: live regions", () => {
 });
 
 describe("reports list: gated buttons", () => {
+  it.each(["editor", "admin", "manager", "custom", ""])("hides New report for role %s even with write permissions", async (role) => {
+    h.me.role = role;
+    renderList("reports:read", "reports:write", "reports:write_any");
+    await screen.findByText("Worker 1");
+    expect(screen.queryByRole("link", { name: "New report" })).not.toBeInTheDocument();
+  });
+
+  it("shows New report for a user with reports:write", async () => {
+    renderList("reports:read", "reports:write");
+    await screen.findByText("Worker 1");
+    expect(screen.getByRole("link", { name: "New report" })).toHaveAttribute("href", "/reports/new");
+  });
+
   it("New report needs reports:write", async () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");

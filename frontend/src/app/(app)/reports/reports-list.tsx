@@ -337,15 +337,18 @@ function ReportsList() {
 }
 
 export function Reports() {
+  const { user } = useSession();
   return (
     <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-        <Can permission="reports:write">
-          <Button asChild>
-            <Link href="/reports/new">New report</Link>
-          </Button>
-        </Can>
+        {user?.role === "user" && (
+          <Can permission="reports:write">
+            <Button asChild>
+              <Link href="/reports/new">New report</Link>
+            </Button>
+          </Can>
+        )}
       </div>
       {/* useSearchParams needs a Suspense boundary for the static prerender */}
       <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">Loading…</p>}>

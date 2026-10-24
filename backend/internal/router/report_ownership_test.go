@@ -78,7 +78,14 @@ func previousMonthName() string {
 func ownershipServer() *echo.Echo {
 	users := userimpl.NewMockStore()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
-		return &user.User{ID: id, RoleID: id, Role: &accesscontrol.Role{Name: "test"}}, nil
+		role := "user"
+		switch id {
+		case 3:
+			role = "editor"
+		case 4:
+			role = "admin"
+		}
+		return &user.User{ID: id, RoleID: id, Role: &accesscontrol.Role{Name: role}}, nil
 	}
 	users.Roles = byRole{}
 	svc := reportimpl.NewService(reportimpl.NewMockStore(), auditimpl.NewMockStore(), runTx{}, users)

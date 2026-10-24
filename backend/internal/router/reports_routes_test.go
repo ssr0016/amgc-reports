@@ -80,10 +80,14 @@ func reportsServerLimited(mkLimit func() echo.MiddlewareFunc, perms ...string) *
 }
 
 func reportsServerWith(mk func() Limiters, perms ...string) *echo.Echo {
+	return reportsServerWithRole(mk, "user", perms...)
+}
+
+func reportsServerWithRole(mk func() Limiters, role string, perms ...string) *echo.Echo {
 	limits := mk()
 	users := userimpl.NewMockStore()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
-		return &user.User{ID: id, RoleID: 9}, nil
+		return &user.User{ID: id, RoleID: 9, Role: &accesscontrol.Role{Name: role}}, nil
 	}
 
 	e := echo.New()
@@ -170,6 +174,23 @@ func TestReportsRoutes_WithPermissionReachesHandler(t *testing.T) {
 			got := reportRequest(e, rt.method, rt.path, rt.body, true)
 			if got < 200 || got >= 300 {
 				t.Errorf("status = %d, want 2xx", got)
+			}
+		})
+	}
+}
+
+func TestReportsRoutes_CreateRequiresUserRole(t *testing.T) {
+	for _, role := range []string{"user", "editor", "admin", "manager", "custom", ""} {
+		t.Run(role, func(t *testing.T) {
+			e := reportsServerWithRole(func() Limiters {
+				return Limiters{Global: noLimit, Read: noLimit, Write: noLimit}
+			}, role, "reports:write", "reports:write_any")
+			want := http.StatusForbidden
+			if role == "user" {
+				want = http.StatusCreated
+			}
+			if got := reportRequest(e, http.MethodPost, "/api/v1/reports", `{"month":"May"}`, true); got != want {
+				t.Errorf("status = %d, want %d", got, want)
 			}
 		})
 	}
