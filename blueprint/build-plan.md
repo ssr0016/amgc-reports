@@ -28,7 +28,7 @@
 
 - [ ] 17. F14: production smoke test (blocked on F0, which is deferred)
 - [x] 18. Rotate the Neon Postgres password (owner verified production database connectivity and superadmin login, 2026-10-24)
-- [ ] 19. Seed idempotency
+- [x] 19. Seed idempotency
 
 ## P2 — Admin Panel
 
