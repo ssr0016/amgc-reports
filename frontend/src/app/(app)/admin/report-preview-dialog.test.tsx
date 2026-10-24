@@ -166,12 +166,13 @@ describe("ReportPreviewDialog", () => {
     });
   });
 
-  it("renders Avg column", async () => {
+  it("renders Avg column in each table", async () => {
     h.getReport.mockResolvedValue(makeReport());
     renderDialog();
 
     await waitFor(() => {
-      expect(screen.getByText("Avg")).toBeInTheDocument();
+      // Four tables, each has an Avg column header
+      expect(screen.getAllByText("Avg")).toHaveLength(4);
     });
   });
 
