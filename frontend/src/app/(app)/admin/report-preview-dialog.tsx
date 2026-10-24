@@ -104,6 +104,26 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
                 </Table>
               </section>
             ))}
+            <section aria-labelledby="preview-report-details" className="min-w-0 border-t pt-6">
+              <h3 id="preview-report-details" className="text-base font-medium">
+                Report Details
+              </h3>
+              <dl className="mt-3 grid gap-4 text-sm">
+                {([
+                  ["names", "Names of New Believers"],
+                  ["narrative_report", "Narrative Report"],
+                  ["challenges", "Challenges"],
+                  ["prayer_request", "Prayer Request"],
+                ] as const).map(([field, label]) => (
+                  <div key={field} className="min-w-0">
+                    <dt className="font-medium">{label}</dt>
+                    <dd className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">
+                      {report[field] || "—"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
           </div>
         ) : null}
 

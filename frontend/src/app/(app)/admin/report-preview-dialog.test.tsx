@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Report } from "@/lib/reports";
@@ -151,6 +151,37 @@ describe("ReportPreviewDialog", () => {
         expect(screen.getByRole("heading", { name: section.title })).toBeInTheDocument();
       }
     });
+  });
+
+  it("renders all report details as wrapping plain text with line breaks preserved", async () => {
+    const details = {
+      names: "Ana\nJuan",
+      narrative_report: "First visit\n<script>alert('test')</script>",
+      challenges: "Rain\n" + "x".repeat(200),
+      prayer_request: "Health\nFamily",
+    };
+    h.getReport.mockResolvedValue({ ...makeReport(), ...details });
+    renderDialog();
+
+    const section = await screen.findByRole("region", { name: "Report Details" });
+    const labels = ["Names of New Believers", "Narrative Report", "Challenges", "Prayer Request"];
+    for (const label of labels) {
+      expect(within(section).getByText(label)).toBeInTheDocument();
+    }
+    for (const value of Object.values(details)) {
+      const text = within(section).getByText(value, { normalizer: (text) => text });
+      expect(text.textContent).toBe(value);
+      expect(text).toHaveClass("whitespace-pre-wrap", "[overflow-wrap:anywhere]");
+    }
+    expect(section.querySelector("script")).toBeNull();
+  });
+
+  it("shows a dash for each missing report detail", async () => {
+    h.getReport.mockResolvedValue(makeReport());
+    renderDialog();
+
+    const section = await screen.findByRole("region", { name: "Report Details" });
+    expect(within(section).getAllByText("—")).toHaveLength(4);
   });
 
   it("renders Week columns in header", async () => {
