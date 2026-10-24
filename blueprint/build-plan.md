@@ -37,7 +37,7 @@
   - [x] 20b. Stats endpoint and the four cards, with Swagger and `gen:api` in the same commit (~5h)
   - [x] 20c. Reports tab: reuse `GET /reports`, filters, approve/unapprove, empty state, "X total" (~5h)
   - [x] 20d. Users tab: reuse the existing users list, "You" badge, role filter (~3h)
-  - [ ] 20e. Preview modal: metadata, the two metric tables, Avg per D-A5 (~4h)
+  - [x] 20e. Preview modal: metadata, the two metric tables, Avg per D-A5 (~4h)
   - [x] 20f. Sidebar navigation and profile menu: left sidebar on every signed-in page (Reports for everyone; Admin for admins only, the Users list is the Admin Users tab; Tracker and Logs hidden until Phase B); top bar with only the app name, the avatar with name and Sign out; "Change password" moves into the avatar menu; the sidebar collapses behind a "Menu" button below `md` (768 px)
 - [x] 21. Phase B (~21h)
   - [x] 21a. Audit Logs UI, live 2026-10-22 (`487f7f5`, security fix `4f6bac4`; production smoke test passed) (D-A20; spec, plan and tickets T1-T7 in `.specify/specs/001-audit-logs-ui/`): `LOGIN`, `LOGOUT` and `LOGIN_FAILED` audit with their migration (same deploy), details allow-list enforced at `Insert`, admin-only `GET /admin/audit-logs` (Manila month and year, action filter, 50 per page, no IP), read-only Logs tab with expandable details; amends D-A4 (failed logins now logged) and D-10 (read API)

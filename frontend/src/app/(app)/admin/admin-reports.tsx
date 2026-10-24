@@ -24,6 +24,7 @@ import {
 } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { ExcelPreviewDialog, type PreviewTarget } from "./excel-preview-dialog";
+import { ReportPreviewDialog } from "./report-preview-dialog";
 import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
 import { refreshAdminViews, usePendingVariables } from "@/lib/query";
@@ -84,6 +85,8 @@ export function AdminReports() {
   const downloading = usePendingVariables<{ key: string }>(["excel-download"]).map((d) => d.key);
   // The open Excel preview (D-A15): its target, and the download its Download button runs.
   const [preview, setPreview] = useState<{ key: string; target: PreviewTarget; run: () => ReturnType<typeof exportReport> } | null>(null);
+  // The open report preview (20e): just the report id.
+  const [reportPreview, setReportPreview] = useState<number | null>(null);
 
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
@@ -167,6 +170,7 @@ export function AdminReports() {
                   <TableHead>Area of Assignment</TableHead>
                   <TableHead>Church</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Preview</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Download</TableHead>
                 </TableRow>
@@ -186,6 +190,15 @@ export function AdminReports() {
                     <TableCell>{r.church_name || "—"}</TableCell>
                     <TableCell>
                       <Badge variant={r.completed ? "default" : "secondary"}>{r.completed ? "Completed" : "Pending"}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setReportPreview(r.id)}
+                      >
+                        Preview <span className="sr-only">{rowName(r)}</span>
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <Can permission="reports:approve" fallback="—">
@@ -246,6 +259,12 @@ export function AdminReports() {
           target={preview.target}
           onDownload={() => download.mutateAsync(preview).then(() => true, () => false)}
           onClose={() => setPreview(null)}
+        />
+      )}
+      {reportPreview !== null && (
+        <ReportPreviewDialog
+          reportId={reportPreview}
+          onClose={() => setReportPreview(null)}
         />
       )}
     </div>

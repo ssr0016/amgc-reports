@@ -17,7 +17,7 @@ import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
 
 // D-A5: average of weeks with values; dash when none.
-function calculateAverage(values: Report["metrics"][string] | undefined): string {
+export function calculateAverage(values: Report["metrics"][string] | undefined): string {
   if (!values) return "—";
   const weeks = WEEKS.map((w) => values[w]).filter((v): v is number => v != null);
   if (weeks.length === 0) return "—";
