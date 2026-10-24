@@ -1,126 +1,153 @@
 # AMGCReports - Project Overview
 
-<!-- blueprint:source-hash 905af16253e0bc8a1711a0b1c68c60b8dce9ad70976e6772203de29995caefe0 -->
+<!-- blueprint:source-hash ae0a0792e8e81a670d22da2f554cdebb36d34edb3df6c09743d443ab020f4b69 -->
 
-> Pastoral reports management for 24 churches: church workers file monthly reports (5 weeks x 21 metrics), admins review and approve.
+> Pastoral reports management for 24 churches: monthly submissions with 5 weeks × 21 metrics, admin review, approval and Excel export.
 
 ## Problem
 
-Pastoral reporting across 24 churches was collected piecemeal. AMGCReports gives church workers one place to submit reports and admins one place to review, approve and export them.
+Pastoral reporting across 24 churches is collected piecemeal. AMGCReports gives workers one place to submit reports and administrators one place to review and approve them. Weekly activity is recorded inside one monthly report.
 
 ## Users
 
-| Role | Access |
-|------|--------|
-| admin | Full access: approve, late-file a previous month, admin panel, exports, user and role management |
-| editor | `write_any` + `delete_any`; cannot approve (`20261014120000_revoke_editor_approve`) |
-| user | Church worker; `read_any` sees every report's metadata and counts, not free text or `tithes_offering` (D-18) |
-| custom roles | Planned in 37a: admin-defined roles (e.g. "Reviewer") with a chosen set of permissions |
-
-Closed system (D-A18): no self-registration; admins create accounts and set passwords.
+| Role | Access established by the plans |
+|---|---|
+| admin | Full access, approvals, user and role management, Excel export; project plan also allows late-filing |
+| editor | `write_any` and `delete_any`; cannot approve |
+| user | Church worker; `read_any` exposes others' metadata and counts while hiding free text and tithes (D-18) |
+| custom role | Administrator-defined permissions; admin tabs and routes open only when permissions allow (37a–37b) |
 
 ## Usage model
 
-- Internal tool, no monetization (`TODO (confirm)` in the plan).
-- Rate limiting, body limit and trusted-proxy client IP are enforced. The Cloudflare proxy would break IP-based limits (D-F7, deferred).
-- Every mutation is audited in the same transaction. Sign-ins, sign-outs and refused sign-ins are audited too (21a).
-- Accessibility is a stated bar: axe, keyboard, reflow at 320 px, reduced motion.
+- Internal reporting for 24 churches; no monetization, subject to the project's confirmation note.
+- Closed system with admin-managed passwords (D-A18); email delivery and public password-recovery UI are explicitly skipped in the build plan.
+- Session authentication, CSRF, rate limiting, request body limits and trusted-proxy client IP handling.
+- Audit changes with their mutations in the same transaction where the feature specifies it. A new audit action requires its CHECK-constraint migration in the same deploy.
+- Accessibility includes axe checks, keyboard focus, skip links, announced updates and reduced motion.
+- Cloudflare proxy/IP-limit handling is deferred (D-F7). Broad dashboards and notifications are outside the roadmap, with specific scoped dashboard/alert items noted below.
 
 ## Features
 
-In build-plan order. Done: 1-15, 21, 22, 27, and 20 except 20e.
+Order and identities follow `build-plan.md`; checked items are shown as shipped unless explicitly skipped. Do not infer completion of unchecked items from existing code or test counts.
 
-1-14, 27. **Platform (shipped)** - backend foundation, database and seed, sessions/CSRF/limits, users and RBAC middleware, auth, verification and reset API, change password (F-1), OpenAPI types, frontend F1-F13, tests, CI, and the Render + Neon deploy; L-3 reset-password strongpass.
-8. **Reports API (headline)** - create, read, update, soft delete, approve/unapprove, previous-month rule (D-F8), audit.
-15. **Finding #1 (D-18)** - free text and tithes hidden from non-owners.
-17. **F14 production smoke test** - blocked on F0 (16, deferred).
-18. **Rotate the Neon Postgres password.**
-19. **Seed idempotency.**
-20. **Admin panel Phase A** - 20a shell and tabs, 20b stats cards, 20c Reports tab, 20d Users tab, 20f sidebar and profile menu (done); **20e preview modal** (open: metadata, the two metric tables, Avg per D-A5).
-21. **Admin panel Phase B (done)** - 21a Audit Logs UI (`LOGIN`, `LOGOUT`, `LOGIN_FAILED`, admin-only `GET /admin/audit-logs`, read-only Logs tab, D-A20); 21b Tracker tab (D-A3).
-22. **Admin panel Phase C (done)** - 22a user status (D-A10), 22b soft delete and restore (D-A11), 22c owner badges on reports, 22d password confirm field, 22e admin reset password (D-A12), 22g Excel export in the legacy layout, 22f export preview (D-A15), 22h bulk Report Dashboard and approved-only sheets (D-A16).
-37. **Dynamic RBAC (next, D-A21)**
-    - 37a Roles tab: custom roles with a grouped permission checklist, `roles:write`, no delete while users hold the role, built-in roles read-only, role dropdown on Create and Edit User with last-admin and self protection, audited, with a migration.
-    - 37b permission-gated admin panel: `reports:export`, `tracker:read`, `audit:read` and `users:list` (seeded, admin only by default) open the review tabs to custom roles; account and role management stay admin-only.
-28-36. **Backlog (not specced)** - 28 password rules in the UI, 29 idle sign-out in the browser, 30 audit-log CSV export, 31 empty and loading states pass, 32 copy password on create-user, 33 avatars, 34 Neon backup and restore test, 35 Sentry alerts, 36 open P3 findings.
-16, 26. **Deferred** - 16 F0 domain setup (`amgcreports.com` chosen); 26 D-F7 Cloudflare proxy and IP limits.
-23-25. **Skipped (D-A18)** - E-1 email delivery, forgot-password flow, reset-password UI.
+| ID | State | Purpose |
+|---|---|---|
+| 1 | Shipped | Backend config, logging, Echo, health, metrics, error handling, validation and pagination |
+| 2 | Shipped | Database migrations, seed and testcontainers helpers |
+| 3 | Shipped | Sessions, CSRF, rate limits, body limits and trusted-proxy addresses |
+| 4 | Shipped | Users, roles, permissions and RBAC middleware |
+| 5 | Shipped | Login, `/auth/me` and logout |
+| 6 | Shipped API | Email verification and password-reset endpoints |
+| 7 | Shipped | Change password API/UI and `CHANGE_PASSWORD` audit |
+| 8 | Shipped; headline | Monthly report create/read/update/delete, approve/unapprove and previous-month rule |
+| 9 | Shipped | Admin user management; editor approval permission revoked |
+| 10 | Shipped | Swagger-derived frontend API types; CI rejects drift |
+| 11 | Shipped | App shell, login, report screens, admin users and permission gates |
+| 12 | Shipped | Vitest and Playwright coverage, including accessibility, keyboard and reflow |
+| 13 | Shipped | CI lint, unit/integration tests, builds, gosec, frontend and E2E |
+| 14 | Shipped | Render API and Neon database production deployment |
+| 27 | Shipped | Strong-password enforcement on reset-password API |
+| 15 | Shipped | Hide report free text and tithes from non-owners (D-18) |
+| 17 | Open; blocked | Production smoke test awaits deferred domain setup (16) |
+| 18 | Complete | Neon password rotated; owner verified production connectivity and superadmin login on 2026-10-24 |
+| 19 | Open | Verify seed idempotency |
+| 20 | Parent unchecked | Phase A: all children 20a–20f checked; see status mismatch below |
+| 20a | Shipped | Admin shell, accessible tabs, guard, header link and titles |
+| 20b | Shipped | Stats endpoint and four cards, with generated API types |
+| 20c | Shipped | Reports tab with filtering, approval and empty state |
+| 20d | Shipped | Users tab, own-account badge and role filter |
+| 20e | Shipped | Report preview metadata, two metric tables and averages (D-A5) |
+| 20f | Shipped | Sidebar and profile menu, password link and mobile Menu below 768 px |
+| 21 | Complete | Phase B: audit logs and tracker |
+| 21a | Shipped | Read-only Logs tab, expandable allow-listed details, Manila period/action filters, 50 per page, no IP; sign-in/out/failure auditing |
+| 21b | Shipped | Submission Tracker tab (D-A3) |
+| 22 | Complete | Phase C: account lifecycle and Excel exports |
+| 22a | Shipped | User status changes, login refusal, session revocation, filters/badges and audit |
+| 22b | Shipped | Soft delete/restore users with reason, confirmation and reserved email |
+| 22c | Shipped | Deleted/deceased owner badges on retained reports |
+| 22d | Shipped | Required matching `confirm_password`; API errors on that field |
+| 22e | Shipped | Admin resets another user's password, ends sessions, clears lockout and audits; dialog offers generation/copy; self-reset refused |
+| 22g | Shipped | Admin-only single/bulk Excel downloads in legacy layout, each audited |
+| 22f | Shipped | Read-only workbook preview and sheet selector; only Download writes export audit |
+| 22h | Shipped | Bulk Report Dashboard lists every church as Approved/Pending/Not Filed; metric sheets include approved reports only |
+| 37 | Complete | Dynamic RBAC (D-A21) |
+| 37a | Shipped | Custom role CRUD and permission checklist; built-ins read-only; occupied roles cannot be deleted; self/last-admin protections and audit |
+| 37b | Shipped | Permission-gated admin routes/tabs for custom roles; plan retains stale “not specced” note |
+| 28 | Backlog | Show and validate password-policy rules while typing |
+| 29 | Backlog | Browser idle detection, warning and sign-out after 30 minutes; server idle TTL already exists |
+| 30 | Backlog | Audit-log CSV export; decide whether export itself needs a new audit action/migration |
+| 31 | Backlog | Consistent empty/loading states on non-admin pages |
+| 32 | Backlog | Copy password on create-user; already present in reset-password dialog |
+| 33 | Backlog | Profile-picture upload, storage and display |
+| 38 | Backlog | Server-side admin Users pagination; current list capped at 100 |
+| 34 | Backlog | Confirm Neon retention/PITR window and test restore |
+| 35 | Backlog | Sentry alerts to Slack or email |
+| 16 | Deferred | Domain setup; referenced here in backlog and again under Deferred |
+| 36 | Backlog | Address listed open P3 findings; consult findings ledger before repair |
+| 26 | Deferred | Cloudflare proxy and IP-limit handling |
+| 23–25 | Skipped, not built | Email delivery, forgot-password flow and reset-password UI (D-A18) |
 
-Not planned: dashboards, notifications.
+The first unchecked leaf is 17 but explicitly blocked; 19 is the next unblocked launch item. Preserve the plan's IDs, including 22g before 22f and the repeated reference to 16.
 
 ## Data model
 
-PostgreSQL via goose (`backend/internal/database/migrations/`). Exact columns live in the migrations and `backend/docs/05`.
+These are logical field contracts derived from the plans, not a replacement for the existing migrations. PostgreSQL identifiers, exact column types, keys and all unspecified fields must be checked against `backend/internal/database/migrations/` and the schema reference before implementation.
 
-### users
+| Model | Fields/types established or implied by the features | Relationships and constraints |
+|---|---|---|
+| User | `email`, `name`, `area_assignment`, `church_name` (text); `role_id` (role identifier); `status` (enum: active/inactive/disciplinary/deceased); deletion reason (text) and deletion state | One role per user; deleted emails remain reserved; non-active accounts cannot sign in; self/last-admin protection |
+| Role | Identifier; role name (text); chosen permission set | Built-in admin/editor/user plus custom roles; cannot delete a role while users hold it |
+| Permission | Identifier; permission name (text, e.g. `roles:write`) | Grants link roles and permissions through `role_permissions`; seeded on API start |
+| Report | Owner identifier; worker, area and church (text); month and year (period); five weeks of 21 metric values; Pending/Approved state; soft-deletion state | One report per month as stated in project plan; owner retained after user deletion/death; non-owner field privacy under D-18 |
+| Audit entry | Action (allowed enum); action-specific details (structured payload) | Allow-list on insert; report/account/role/export/auth events; new actions require migration |
+| Session | User relationship and sign-in lifecycle | Password resets/status changes revoke sessions; authenticated API use |
+| Refresh token | Refresh/idle lifecycle; default `REFRESH_IDLE_TTL` 30 minutes | Session refresh; browser refresh currently prevents an open tab becoming idle |
+| Verification token / password reset | Token lifecycle for existing verification/reset APIs | Public recovery UI and email delivery remain skipped |
 
-- Profile: `email` (unique, reserved even after delete), `name`, `area_assignment`, `church_name`.
-- `role_id` -> roles. One role per user.
-- `status`: one of `active`, `inactive`, `disciplinary` or `deceased`. Login is refused unless the status is `active` (22a).
-- Soft delete with a reason, and restore (22b).
+> TODO: plans do not enumerate primary-key types, token fields, report metric names/types, audit columns or exact uniqueness keys. Derive no new schema from these omissions. Plans describe monthly reports despite introductory “weekly reports” wording.
 
-### roles / permissions / role_permissions
-
-- Roles map to permissions through `role_permissions`.
-- Built-in roles: `admin`, `editor` and `user` (`user` is the default). Their grants are seed data in `seed.go`, applied on every API start.
-- Permission names are `resource:action` over users, roles, permissions and reports (e.g. `reports:approve`, `roles:write`).
-- 37a adds custom roles. The built-in roles stay read-only.
-
-### reports
-
-- One per user, month and year; 5 weeks x 21 metrics.
-- A blank week means "not reported", which is different from 0 (D-5).
-- Worker, area and church are prefilled from the profile.
-- `completed`: Pending, then Approved.
-- Soft delete.
-- Free text and `tithes_offering` are owner-only (D-18).
-
-### audit log
-
-- Written in the same transaction as the change, with a details allow-list per action.
-- A new action needs a CHECK-constraint migration in the same deploy.
-- Report actions: `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT`.
-- User actions: `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS`, `ADMIN_RESET_PASSWORD`, `DELETE_USER`, `RESTORE_USER`.
-- Export actions: `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL`.
-- Sign-in actions: `LOGIN`, `LOGOUT`, `LOGIN_FAILED`.
-- 37a adds `CREATE_ROLE`, `UPDATE_ROLE`, `DELETE_ROLE` and `CHANGE_USER_ROLE`.
-
-### tokens and sessions
-
-- Refresh tokens (`20261021100000_create_refresh_tokens`), plus verification tokens and password resets.
+Audit scope: the project plan lists 14 report/user/export actions. Build-plan 21a adds `LOGIN`, `LOGOUT`, `LOGIN_FAILED`; 37a adds role and role-permission change audits without listing their action identifiers. Do not treat the old 14-action list as exhaustive.
 
 ## Tech stack
 
-- **Go 1.26, Echo, pgx, goose, swaggo, golangci-lint v2, air** - backend.
-- **Next.js 16.4, React 19, TypeScript 5, Tailwind 4, shadcn/Radix, TanStack Query** - frontend.
-- **openapi-typescript** (`npm run gen:api`) - API types from Swagger; CI fails on drift.
-- **Go unit + testcontainers, Vitest, Playwright + axe** - tests.
-- **GitHub Actions** - lint, test, integration, build, gosec, frontend, e2e.
+- Backend: Go 1.26, Echo, pgx, goose, swaggo, golangci-lint v2, air.
+- Frontend: Next.js 16.4, React 19.3, TypeScript 5, Tailwind 4, shadcn/Radix, TanStack Query and Sonner.
+- API types: Swagger → OpenAPI → `openapi-typescript` (`npm run gen:api`); CI rejects drift.
+- Tests: Go unit/testcontainers integration, Vitest, Playwright/axe. Plans' numeric test counts are historical, not current verification evidence.
+- CI: `.github/workflows/ci.yml` covers lint, tests, integration, builds, gosec, frontend and E2E.
 
 ## Monetization
 
-None. Internal tool.
+None; internal tool. Project plan retains `TODO (confirm)`.
 
 ## UI/UX
 
-shadcn over Radix, Tailwind 4, Sonner toasts. Skip link, focus management, announced list updates. Copy rules: `backend/docs/04-Content-Guidelines.md`.
+Use existing shadcn/Radix components and Tailwind styling. Follow `backend/docs/04-Content-Guidelines.md`. Preserve keyboard focus, skip links, announced updates and reduced motion.
 
-- `/login`: sign in.
-- `/reports`, `/reports/new`, `/reports/:id/edit`: the reports list and the report form.
-- `/account/password`: change password.
-- `/admin?tab=` with these tabs:
-  - `reports`, `tracker`, `users`, `logs`
-  - `roles` (planned in 37a)
-- `/admin/users/new`, `/admin/users/:id/edit`.
+- Reports list, new/edit forms and read-only report view; worker/area/church prefilled from profile.
+- `/auth/me` supplies session identity; change-password UI is shipped.
+- `/admin` has Reports, Tracker, Users, Logs and Roles tabs, gated by permissions; user/role writes retain their specified protections.
+- Admin Edit User includes status, deletion/restore and password reset workflows. Reset dialog requires matching passwords and supports generate/copy; the generated password is not retained or shown again after completion.
+- Excel preview shows read-only sheets; Cancel downloads nothing and writes no audit; Download rebuilds the file and audits it.
+- Sidebar is responsive; below 768 px it sits behind Menu. Account menu holds Change password.
 
 ## Deployment
 
-- **API:** Render (Docker, root `backend`). **Database:** Neon (Postgres). **Frontend:** Vercel. **DNS:** Cloudflare.
-- **Migrations:** production does not auto-migrate, and Render's Free tier runs neither the Pre-Deploy Command nor Shell. Run migrations locally against Neon before pushing `main`: `make migrate-up DATABASE_URL='<Neon owner URL>'` (H-1).
-- **Domain:** `amgcreports.com` is chosen but not set up (16, deferred).
+- Render hosts the API; Neon hosts PostgreSQL; Vercel hosts the frontend (`app.<domain>`). Docker Compose supports local/production setups.
+- Cloudflare proxy handling remains deferred; `amgcreports.com` is chosen in the build plan but setup is deferred.
+- Seed permissions, roles and the admin account on API start. This is distinct from production migration execution.
+- Repository deployment guardrail: production does not auto-migrate; Render Free has no Pre-Deploy Command or Shell. Run migrations locally against Neon before pushing `main`, and verify Render's actual deploy trigger in its dashboard.
 
-> TODO: env var names, health path and build commands are not in the plans (see `backend/SETUP.md`).
+> TODO: the plans omit exact build/start commands, output directory, health path and most environment-variable names. Consult existing deployment documentation; do not invent provider configuration.
 
-## Open questions
+## Open questions and plan drift
 
-- See the contradictions reported by `/overview`; fix them in `project-plan.md`, then re-run.
+- Email recovery: project plan says blocked on email delivery; build plan explicitly skips email and recovery UI under D-A18. Preserve shipped token APIs separately from skipped user flows.
+- Domain setup (#16) is referenced twice with the same ID; the backlog occurrence explicitly points to Deferred. Project plan mentions taken `amgreports.com`, while build plan selects different `amgcreports.com`.
+- Phase A (#20) is unchecked despite every child being checked; obsolete Phase A splitting and 37b “not specced” notes remain.
+- Project-plan audit count/list and migration “latest” claim are historical; the build plan includes later sign-in and role auditing. Its core-table list omits refresh tokens mentioned in migrations and #29.
+- Project plan lacks the shipped custom-role, status, delete/restore, tracker and preview contracts that the build plan supplies. Backlog additions are also absent there.
+- Build plan says dashboards/notifications are not planned while explicitly shipping stats, Tracker and an export Report Dashboard and proposing Sentry alerts (#35). Treat those as named scopes; broader notification/dashboard work needs a decision.
+- Plans allow admin late-filing, while the recent report-creation restriction tested in this session permits creation only for the user role. Confirm whether admin correction of an existing report period is the intended remaining path.
+- Avatar item #33 still describes initials-only behavior, although profile-picture code exists in this checkout. Verify completion separately before changing the checkbox.
+- #19 remains unchecked even though a seed-idempotency test commit is now present; an overview refresh alone does not establish acceptance.
