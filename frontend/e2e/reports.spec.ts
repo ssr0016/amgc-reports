@@ -128,7 +128,7 @@ test.describe("admin", () => {
 
     await expect(page.getByText(/\d+ total reports/)).toBeVisible();
     await expect(page.getByRole("columnheader")).toHaveText([
-      "Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Action", "Download",
+      "Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Preview", "Action", "Download",
     ]);
     // Download Bulk is on the right of the filter row, level with the dropdowns and flush with the table's right edge.
     const bulk = await page.getByRole("button", { name: "Download Bulk" }).boundingBox();
