@@ -23,13 +23,13 @@ async function scan(page: Page) {
 const FIXTURE_WORKER = "A11y Fixture";
 let fixtureId = 0;
 
-test.beforeAll(async ({ playwright }) => {
+test.beforeAll(async ({ playwright }, testInfo) => {
   const admin = await playwright.request.newContext({
     storageState: authFile("admin"),
     extraHTTPHeaders: { "X-Real-IP": clientIp("a11y-fixture") },
   });
   const author = await playwright.request.newContext({
-    extraHTTPHeaders: { "X-Real-IP": clientIp("a11y-author") },
+    extraHTTPHeaders: { "X-Real-IP": clientIp(`a11y-author-${testInfo.workerIndex}`) },
   });
   try {
     const roles: { id: number; name: string }[] = (await (await admin.get(`${API}/admin/roles?limit=100`)).json()).data;

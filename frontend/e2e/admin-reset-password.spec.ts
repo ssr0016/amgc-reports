@@ -10,7 +10,10 @@ const ids = { A: 0, B: 0 };
 let current = A.password; // A's password as the tests go on
 let admin: APIRequestContext;
 
-test.beforeAll(async ({ playwright }) => {
+test.beforeAll(async ({ playwright }, testInfo) => {
+  // A failed test restarts the worker while the previous accounts remain in the database.
+  A.email = `e2e-reset-${testInfo.workerIndex}@example.com`;
+  B.email = `e2e-reset-axe-${testInfo.workerIndex}@example.com`;
   admin = await playwright.request.newContext({
     storageState: authFile("admin"),
     extraHTTPHeaders: { "X-Real-IP": clientIp("admin-reset-setup") },

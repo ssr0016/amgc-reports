@@ -5,15 +5,15 @@ import { cn } from "cn";
 
 const palette = [
   "bg-blue-600",
-  "bg-emerald-600",
+  "bg-emerald-700",
   "bg-violet-600",
   "bg-rose-600",
-  "bg-amber-600",
-  "bg-cyan-600",
+  "bg-amber-700",
+  "bg-cyan-700",
   "bg-indigo-600",
   "bg-fuchsia-600",
-  "bg-teal-600",
-  "bg-orange-600",
+  "bg-teal-700",
+  "bg-orange-700",
 ];
 
 function initials(name: string) {
