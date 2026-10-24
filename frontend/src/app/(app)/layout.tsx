@@ -35,7 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <>
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:border focus:border-ring focus:bg-background focus:px-3 focus:py-2 focus:text-sm"
+        className="sr-only cursor-pointer focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:border focus:border-ring focus:bg-background focus:px-3 focus:py-2 focus:text-sm"
       >
         Skip to main content
       </a>
@@ -52,7 +52,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             >
               Menu
             </Button>
-            <Link href={HOME} className="font-semibold tracking-tight">
+            <Link href={HOME} className="cursor-pointer font-semibold tracking-tight">
               AMGCReports
             </Link>
           </div>

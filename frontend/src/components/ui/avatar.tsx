@@ -57,7 +57,7 @@ export function Avatar({
     <span
       aria-hidden="true"
       className={cn(
-        "relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-medium text-white select-none",
+        "relative inline-flex size-8 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full text-xs font-medium text-white select-none",
         colorOf(name),
         className,
       )}

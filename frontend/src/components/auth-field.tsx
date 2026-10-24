@@ -39,7 +39,7 @@ export function AuthField({
             onClick={() => setShown(!shown)}
             aria-label="Show password"
             aria-pressed={shown}
-            className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="absolute inset-y-0 right-0 flex w-9 cursor-pointer items-center justify-center rounded-r-lg text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>

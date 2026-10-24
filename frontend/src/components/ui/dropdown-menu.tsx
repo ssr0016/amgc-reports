@@ -40,7 +40,7 @@ function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        "flex cursor-default items-center rounded-md px-2 py-1.5 text-sm outline-none select-none data-[highlighted]:bg-muted",
+        "flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm outline-none select-none data-[disabled]:cursor-default data-[disabled]:pointer-events-none data-[highlighted]:bg-muted",
         className
       )}
       {...props}

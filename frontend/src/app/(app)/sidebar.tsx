@@ -31,7 +31,7 @@ export function Sidebar({ id, open = false, onNavigate }: { id?: string; open?: 
             aria-current={active ? "page" : undefined}
             onClick={onNavigate}
             // The underline and weight mark the current page, so it does not rely on colour alone.
-            className={cn("rounded-lg px-2 py-1.5 hover:bg-muted", active && "bg-muted font-semibold underline underline-offset-4")}
+            className={cn("cursor-pointer rounded-lg px-2 py-1.5 hover:bg-muted", active && "bg-muted font-semibold underline underline-offset-4")}
           >
             {item.label}
           </Link>
