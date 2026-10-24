@@ -55,3 +55,8 @@ Frontend (`cd frontend`):
 - `backend/docs/`: analysis, schema, implementation plan, reports decisions, frontend plan
 - `blueprint/`: `project-plan.md`, `build-plan.md`
 - `~/Documents/AmgReports-HANDOFF.md`: session handoff (outside the repo)
+
+## Token Saving Rules
+
+- When running commands that produce large output (tests, logs, git diff), always pipe through `| tail -c 4000` or `| head -c 4000` to limit context.
+- Do not run the full test suite (`go test ./...` or `npm test`) unless explicitly asked. Run specific tests only.
