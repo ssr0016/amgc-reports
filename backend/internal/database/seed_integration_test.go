@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
@@ -179,23 +180,45 @@ func TestSeed_AdminAreaPermissions(t *testing.T) {
 	}
 }
 
-func TestSeed_IdempotentWithReports(t *testing.T) {
-	app := seeded(t)
+func TestSeed_Idempotent(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	app := tdb.AppUserPool(t)
 	ctx := context.Background()
-	count := func(table string) (n int) {
-		// table is a fixed identifier from this test.
-		query := map[string]string{
-			"permissions":      `SELECT COUNT(*) FROM permissions`,
-			"role_permissions": `SELECT COUNT(*) FROM role_permissions`,
-		}[table]
-		require.NoError(t, app.QueryRow(ctx, query).Scan(&n))
-		return n
+	db := &database.DB{Pool: app, Builder: database.NewStatementBuilder()}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	admin := database.AdminSeed{
+		Email:    "seed-admin@example.com",
+		Name:     "Seed Admin",
+		Password: "SeedPassword123!",
 	}
-	permsBefore, assignBefore := count("permissions"), count("role_permissions")
-	require.Greater(t, permsBefore, 9, "the Reports permissions were not seeded")
+	require.NoError(t, database.SeedData(ctx, db, log, admin))
 
-	seedAs(t, app)
+	snapshot := func() map[string][]string {
+		return map[string][]string{
+			"roles":            names(t, app, `SELECT row_to_json(r)::text FROM roles r ORDER BY id`),
+			"permissions":      names(t, app, `SELECT row_to_json(p)::text FROM permissions p ORDER BY id`),
+			"role_permissions": names(t, app, `SELECT row_to_json(rp)::text FROM role_permissions rp ORDER BY role_id, permission_id`),
+			"users":            names(t, app, `SELECT row_to_json(u)::text FROM users u ORDER BY id`),
+		}
+	}
+	before := snapshot()
+	require.Len(t, before["roles"], 3)
+	require.Greater(t, len(before["permissions"]), 9)
+	require.NotEmpty(t, before["role_permissions"])
+	require.Len(t, before["users"], 1)
 
-	assert.Equal(t, permsBefore, count("permissions"))
-	assert.Equal(t, assignBefore, count("role_permissions"))
+	var name, hash, role string
+	var verified bool
+	require.NoError(t, app.QueryRow(ctx, `
+		SELECT u.name, u.password_hash, r.name, u.email_verified
+		FROM users u JOIN roles r ON r.id = u.role_id
+		WHERE u.email = $1`, admin.Email).Scan(&name, &hash, &role, &verified))
+	assert.Equal(t, admin.Name, name)
+	assert.Equal(t, "admin", role)
+	assert.True(t, verified)
+	require.NoError(t, bcrypt.CompareHashAndPassword([]byte(hash), []byte(admin.Password)))
+
+	require.NoError(t, database.SeedData(ctx, db, log, admin))
+	assert.Equal(t, before, snapshot(), "reseeding must not duplicate or modify existing rows")
 }
