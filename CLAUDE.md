@@ -90,3 +90,8 @@ When a feature is finished or a session ends, update the Obsidian vault through 
 3. **Decision log:** record any new decision in the feature note and link it from the dashboard. The repo's `docs/DECISIONS.md` stays the source of truth.
 
 Use `[[wikilinks]]` and YAML frontmatter, prefer `obsidian_append` to existing notes, and link feature notes back to the dashboard and the session summary. Vault notes never hold secrets, passwords or `.env` values. This rule does not allow commits or pushes.
+
+## Token Saving Rules
+
+- When running commands that produce large output (tests, logs, git diff), always pipe through `| tail -c 4000` or `| head -c 4000` to limit context.
+- Do not run the full test suite (`go test ./...` or `npm test`) unless explicitly asked. Run specific tests only.
