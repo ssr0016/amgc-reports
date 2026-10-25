@@ -87,10 +87,14 @@ Future features, not yet specced. Notes say what already exists, so a spec start
 
 - [ ] 16. F0: domain setup (`amgcreports.com` chosen; deferred to the end by the owner, 2026-10-16; not a blocker for the admin panel)
 - [ ] 26. D-F7: Cloudflare proxy and IP-limit handling
-- [x] 23. E-1: email delivery: skipped, not built (D-A18: closed system with admin-managed passwords)
 - [x] 24. Password recovery (forgot-password flow): skipped, not built (D-A18)
 - [x] 25. Reset-password UI: skipped, not built (D-A18)
 
-## Not planned
+## Future / Backlog
 
-Dashboards and notifications are not on the roadmap.
+Future features aligned with `system-gaps.md`; not yet specced.
+
+- [ ] 23. E-1: email delivery: deferred to Future/Backlog, not built (previously skipped under D-A18); prerequisite for email notifications
+- [ ] 39. Email Notifications (Report Approved/Unapproved): batch bulk-action emails, include admin remarks and reversal reasons, handle bounces, and show in-app updates; keep sensitive metrics out of emails
+- [ ] 40. Advanced Analytics Dashboard (Charts): attendance trends and growth charts using Recharts
+- [ ] 41. Mobile PWA (Progressive Web App): installable mobile experience with offline support via service workers
