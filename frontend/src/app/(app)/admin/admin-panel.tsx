@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSession } from "@/lib/session";
+import { reportsTheme } from "@/components/reports-dashboard";
 import { AdminReports } from "./admin-reports";
 import { AuditLogs } from "./audit-logs";
 import { RolesPanel } from "./roles";
@@ -29,11 +30,11 @@ export function AdminPanel() {
   const tab = tabs.find((t) => t.value === param)?.value ?? tabs[0]?.value;
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
+    <main id="main-content" tabIndex={-1} className={`${tab === "reports" ? reportsTheme : ""} mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
       <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
       {canAdmin && tab ? (
         <>
-          <StatsCards />
+          {tab !== "reports" && <StatsCards />}
           <Tabs value={tab} onValueChange={(v) => router.replace(`/admin?tab=${v}`)}>
             <TabsList>
               {tabs.map((t) => (

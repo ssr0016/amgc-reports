@@ -6,6 +6,8 @@ import { ApiError } from "@/lib/api";
 import type { Page, Report } from "@/lib/reports";
 import { Reports } from "./reports-list";
 
+vi.mock("next/font/google", () => ({ Inter: () => ({ className: "inter" }), JetBrains_Mono: () => ({ variable: "mono" }) }));
+
 const h = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
@@ -13,6 +15,7 @@ const h = vi.hoisted(() => ({
   me: { user_id: 1, role: "user", perms: [] as string[] },
   listReports: vi.fn(),
   deleteReport: vi.fn(),
+  getReport: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -27,6 +30,7 @@ vi.mock("@/lib/reports", async (orig) => ({
   ...(await orig<typeof import("@/lib/reports")>()),
   listReports: h.listReports,
   deleteReport: h.deleteReport,
+  getReport: h.getReport,
 }));
 
 const report = (id: number, by: number, extra: Partial<Report> = {}): Report =>
@@ -87,11 +91,11 @@ describe("reports list: access", () => {
 });
 
 describe("reports list: columns", () => {
-  it("reads Worker, Month, Year, Area of Assignment, Church, Status, Actions, in that order", async () => {
+  it("reads Worker, Month, Year, Area, Church, Status, Actions, in that order", async () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");
-    expect(screen.getAllByRole("columnheader").map((c) => c.textContent)).toEqual([
-      "Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Actions",
+    expect(screen.getAllByRole("columnheader").map((c) => { const copy = c.cloneNode(true) as HTMLElement; copy.querySelectorAll("[aria-hidden=true]").forEach((node) => node.remove()); return copy.textContent; })).toEqual([
+      "Worker", "Month", "Year", "Area", "Church", "Status", "Actions",
     ]);
     // "Actions" is a visible heading, not just a screen reader label
     expect(screen.getByRole("columnheader", { name: "Actions" }).querySelector(".sr-only")).toBeNull();
@@ -103,18 +107,18 @@ describe("reports list: columns", () => {
     );
     renderList("reports:read", "reports:write");
     await screen.findByText("Worker 1");
-    const full = within(row("Worker 1")).getAllByRole("cell");
-    expect(full.slice(0, 6).map((c) => c.textContent)).toEqual(["Worker 1", "April", "2026", "Metro Manila", "AMGC Church", "Pending"]);
+    const full = within(row("Worker 1")).getAllByRole("cell").slice(1);
+    expect(full.slice(0, 6).map((c) => { const copy = c.cloneNode(true) as HTMLElement; copy.querySelectorAll("[aria-hidden=true]").forEach((node) => node.remove()); return copy.textContent; })).toEqual(["Worker 1", "April", "2026", "Metro Manila", "AMGC Church", "Pending"]);
     expect(within(full[6]).getByRole("link", { name: /^Edit / })).toBeInTheDocument();
-    const bare = within(row("Worker 2")).getAllByRole("cell");
-    expect(bare.slice(0, 6).map((c) => c.textContent)).toEqual(["Worker 2", "April", "2026", "—", "—", "Completed"]);
+    const bare = within(row("Worker 2")).getAllByRole("cell").slice(1);
+    expect(bare.slice(0, 6).map((c) => { const copy = c.cloneNode(true) as HTMLElement; copy.querySelectorAll("[aria-hidden=true]").forEach((node) => node.remove()); return copy.textContent; })).toEqual(["Worker 2", "April", "2026", "—", "—", "Approved"]);
   });
 });
 
 describe("reports list: accessible names", () => {
   // Every row has the same actions; a screen reader user needs to know which report each is for (WCAG 2.4.6, 4.1.2).
   it("each row action says which report it acts on", async () => {
-    renderList("reports:read", "reports:write", "reports:delete", "reports:approve");
+    renderList("reports:read", "reports:write", "reports:delete");
     await screen.findByText("Worker 1");
     const mine = within(row("Worker 1"));
     expect(mine.getByRole("link", { name: "Edit April 2026, Worker 1" })).toBeInTheDocument();
@@ -124,7 +128,7 @@ describe("reports list: accessible names", () => {
   it("a report without a worker is named by its month alone", async () => {
     h.listReports.mockResolvedValue(page([report(1, 1, { worker: undefined })]));
     renderList("reports:read");
-    expect(await screen.findByRole("link", { name: "View April 2026" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Preview April 2026" })).toBeInTheDocument();
   });
 
   it("the page's main landmark is the skip link target", async () => {
@@ -157,23 +161,23 @@ describe("reports list: live regions", () => {
 });
 
 describe("reports list: gated buttons", () => {
-  it.each(["editor", "admin", "manager", "custom", ""])("hides New report for role %s even with write permissions", async (role) => {
+  it.each(["editor", "admin", "manager", "custom", ""])("hides New Submission for role %s even with write permissions", async (role) => {
     h.me.role = role;
     renderList("reports:read", "reports:write", "reports:write_any");
     await screen.findByText("Worker 1");
-    expect(screen.queryByRole("link", { name: "New report" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New Submission" })).not.toBeInTheDocument();
   });
 
-  it("shows New report for a user with reports:write", async () => {
+  it("shows New Submission for a user with reports:write", async () => {
     renderList("reports:read", "reports:write");
     await screen.findByText("Worker 1");
-    expect(screen.getByRole("link", { name: "New report" })).toHaveAttribute("href", "/reports/new");
+    expect(screen.getByRole("link", { name: "New Submission" })).toHaveAttribute("href", "/reports/new");
   });
 
-  it("New report needs reports:write", async () => {
+  it("New Submission needs reports:write", async () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");
-    expect(screen.queryByRole("link", { name: "New report" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New Submission" })).not.toBeInTheDocument();
   });
 
   it("a plain user can edit and delete only their own report", async () => {
@@ -181,7 +185,7 @@ describe("reports list: gated buttons", () => {
     await screen.findByText("Worker 1");
     expect(within(row("Worker 1")).getByRole("link", { name: /^Edit / })).toBeInTheDocument();
     expect(within(row("Worker 1")).getByRole("button", { name: /^Delete / })).toBeInTheDocument();
-    expect(within(row("Worker 2")).getByRole("link", { name: /^View / })).toBeInTheDocument();
+    expect(within(row("Worker 2")).getByRole("button", { name: /^Preview / })).toBeInTheDocument();
     expect(within(row("Worker 2")).queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
   });
 
@@ -195,20 +199,16 @@ describe("reports list: gated buttons", () => {
   it("without write or delete, even the owner only views", async () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");
-    expect(within(row("Worker 1")).getByRole("link", { name: /^View / })).toBeInTheDocument();
+    expect(within(row("Worker 1")).getByRole("button", { name: /^Preview / })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
   });
 
-  // Approving moved to the admin panel (/admin), whatever the role: this page only shows the status.
-  it("has no Approve or Unapprove, even for someone holding reports:approve, and the status stays", async () => {
+  it("offers approval only with reports:approve", async () => {
     h.listReports.mockResolvedValue(page([report(1, 1, { completed: true }), report(2, 2)]));
-    renderList("reports:read", "reports:write", "reports:write_any", "reports:delete", "reports:delete_any", "reports:approve");
+    renderList("reports:read", "reports:approve");
     await screen.findByText("Worker 1");
-    expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
-    expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument();
-    expect(within(row("Worker 2")).getByText("Pending")).toBeInTheDocument();
-    expect(within(row("Worker 2")).getByRole("link", { name: /^Edit / })).toBeInTheDocument();
-    expect(within(row("Worker 2")).getByRole("button", { name: /^Delete / })).toBeInTheDocument();
+    expect(within(row("Worker 1")).getByRole("button", { name: /^Unapprove / })).toBeInTheDocument();
+    expect(within(row("Worker 2")).getByRole("button", { name: /^Approve / })).toBeInTheDocument();
   });
 });
 
@@ -395,5 +395,22 @@ describe("report owner badges", () => {
     expect(workerRow.queryByText("Deleted user") !== null).toBe(deleted);
     expect(workerRow.queryByText("Archived") !== null).toBe(archived);
     expect(workerRow.getByText("Pending")).toBeInTheDocument();
+  });
+});
+
+
+describe("reports list: metadata preview", () => {
+  it("never fetches details for a reader and returns focus on close", async () => {
+    h.listReports.mockResolvedValue(page([report(1, 2, { narrative_report: "Private narrative", metrics: { tithes: { week1: 12345 } } } as Partial<Report>)]));
+    const { user } = renderList("reports:read", "reports:read_any");
+    const trigger = await screen.findByRole("button", { name: "Preview April 2026, Worker 1" });
+    await user.click(trigger);
+    const dialog = screen.getByRole("alertdialog", { name: "Report Preview" });
+    expect(within(dialog).getByText("Submission metadata")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Private narrative")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("12345")).not.toBeInTheDocument();
+    expect(h.getReport).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 });

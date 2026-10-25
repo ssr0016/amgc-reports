@@ -6,6 +6,8 @@ import { ApiError } from "@/lib/api";
 import type { Page, Report } from "@/lib/reports";
 import { AdminReports } from "./admin-reports";
 
+vi.mock("next/font/google", () => ({ Inter: () => ({ className: "inter" }), JetBrains_Mono: () => ({ variable: "mono" }) }));
+
 const h = vi.hoisted(() => ({
   perms: [] as string[],
   listReports: vi.fn(),
@@ -59,11 +61,11 @@ beforeEach(() => {
 });
 
 describe("admin reports: table", () => {
-  it("has the nine columns, in order", async () => {
+  it("has the report columns, in order", async () => {
     renderReports("reports:read");
     await screen.findByText("Worker 1");
-    const heads = screen.getAllByRole("columnheader").map((c) => c.textContent);
-    expect(heads).toEqual(["Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Preview", "Action", "Download"]);
+    const heads = screen.getAllByRole("columnheader").map((c) => { const copy = c.cloneNode(true) as HTMLElement; copy.querySelectorAll("[aria-hidden=true]").forEach((node) => node.remove()); return copy.textContent; });
+    expect(heads).toEqual(["Worker", "Month", "Year", "Area", "Church", "Status", "Actions"]);
   });
 
   it("shows a report's cells, and a dash for what is empty", async () => {
@@ -72,17 +74,17 @@ describe("admin reports: table", () => {
     );
     renderReports("reports:read");
     await screen.findByText("Worker 1");
-    const cells = within(row("Worker 1")).getAllByRole("cell").map((c) => c.textContent);
+    const cells = within(row("Worker 1")).getAllByRole("cell").map((c) => { const copy = c.cloneNode(true) as HTMLElement; copy.querySelectorAll("[aria-hidden=true]").forEach((node) => node.remove()); return copy.textContent; });
     expect(cells.slice(0, 5)).toEqual(["Worker 1", "September", "2026", "Area 1", "Church 1"]);
-    const empty = within(screen.getAllByRole("row")[2]).getAllByRole("cell").map((c) => c.textContent);
+    const empty = within(screen.getAllByRole("row")[2]).getAllByRole("cell").map((c) => { const copy = c.cloneNode(true) as HTMLElement; copy.querySelectorAll("[aria-hidden=true]").forEach((node) => node.remove()); return copy.textContent; });
     expect([empty[0], empty[3], empty[4]]).toEqual(["—", "—", "—"]);
   });
 
-  it("says Completed or Pending", async () => {
+  it("says Approved or Pending", async () => {
     h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
     renderReports("reports:read");
     await screen.findByText("Worker 1");
-    expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument();
+    expect(within(row("Worker 1")).getByText("Approved")).toBeInTheDocument();
     expect(within(row("Worker 2")).getByText("Pending")).toBeInTheDocument();
   });
 
@@ -125,11 +127,11 @@ describe("admin reports: header and states", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading…");
   });
 
-  it("an empty period says so, as a status, and shows no table", async () => {
+  it("an empty period says so, as a status, and keeps the table frame", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderReports("reports:read");
     expect(await screen.findByText("No reports match these filters.")).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
   it("shows an API error as an alert", async () => {
@@ -159,16 +161,16 @@ describe("admin reports: filters", () => {
     await screen.findByText("Worker 1");
     const { defaultPeriod } = await import("@/lib/reports");
     const def = defaultPeriod();
-    expect(h.listReports).toHaveBeenCalledWith({ month: def.month, year: def.year });
+    expect(h.listReports).toHaveBeenCalledWith(expect.objectContaining({ month: def.month, year: def.year }));
     expect(screen.getByLabelText("Month")).toHaveValue(def.month);
     expect(screen.getByLabelText("Year")).toHaveValue(String(def.year));
   });
 
-  it("has only the Month and Year dropdowns: no text boxes, no Clear", async () => {
+  it("has period dropdowns and worker, church and area search", async () => {
     renderReports("reports:read");
     await screen.findByText("Worker 1");
-    expect(screen.getAllByRole("combobox").map((c) => c.id)).toEqual(["month", "year"]);
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("combobox").map((c) => c.id)).toEqual(["admin-month", "admin-year"]);
+    expect(screen.getAllByRole("textbox")).toHaveLength(3);
     expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
   });
 
@@ -185,18 +187,18 @@ describe("admin reports: filters", () => {
     const { user } = renderReports("reports:read");
     await screen.findByText("Worker 1");
     expect(within(screen.getByLabelText("Year")).getAllByRole("option").map((o) => o.textContent)).toEqual(["2026", "2027"]);
-    expect(h.listReports).toHaveBeenLastCalledWith({ month: "February", year: 2027 }); // March 2027: the previous month
+    expect(h.listReports).toHaveBeenLastCalledWith(expect.objectContaining({ month: "February", year: 2027 })); // March 2027: the previous month
 
     await user.selectOptions(screen.getByLabelText("Year"), "2026");
     await user.selectOptions(screen.getByLabelText("Month"), "October");
-    await waitFor(() => expect(h.listReports).toHaveBeenLastCalledWith({ month: "October", year: 2026 }));
+    await waitFor(() => expect(h.listReports).toHaveBeenLastCalledWith(expect.objectContaining({ month: "October", year: 2026 })));
   });
 
   it("the previous month of January is December of last year", async () => {
     vi.useFakeTimers({ toFake: ["Date"], now: new Date("2027-01-15T04:00:00Z") });
     renderReports("reports:read");
     await screen.findByText("Worker 1");
-    expect(h.listReports).toHaveBeenLastCalledWith({ month: "December", year: 2026 });
+    expect(h.listReports).toHaveBeenLastCalledWith(expect.objectContaining({ month: "December", year: 2026 }));
   });
 
   it("choosing a month or a year refetches with it", async () => {
@@ -210,24 +212,20 @@ describe("admin reports: filters", () => {
 });
 
 describe("admin reports: Download Bulk", () => {
-  it("is a button in the filter row", async () => {
+  it("is a button in the header", async () => {
     renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
     const bulk = screen.getByRole("button", { name: "Download Bulk" });
     expect(bulk).toBeEnabled();
-    expect(bulk.closest("form")).toContainElement(screen.getByLabelText("Month"));
+    expect(bulk.closest("header")).toBeInTheDocument();
   });
 
   // jsdom has no layout, so the right side is checked as the DOM order (last in the row) and the class that pushes it there.
-  it("sits on the right of the filter row, after Month and Year", async () => {
+  it("sits with the header actions", async () => {
     renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
-    const form = screen.getByLabelText("Month").closest("form")!;
     const bulk = screen.getByRole("button", { name: "Download Bulk" });
-    expect(bulk).toHaveClass("ml-auto");
-    expect(form.lastElementChild).toBe(bulk);
-    expect(screen.getByLabelText("Month").compareDocumentPosition(screen.getByLabelText("Year")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByLabelText("Year").compareDocumentPosition(bulk) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(bulk.closest("header")).toContainElement(screen.getByRole("heading", { name: "Reports overview" }));
   });
 
   it("is disabled when the period has no reports", async () => {
@@ -244,7 +242,6 @@ describe("admin reports: export gate (37b)", () => {
     await screen.findByText("Church 1");
     expect(screen.queryByRole("button", { name: /^Excel/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Download Bulk" })).not.toBeInTheDocument();
-    expect(within(row("Church 1")).getAllByText("—").length).toBeGreaterThan(0);
     expect(h.previewExcel).not.toHaveBeenCalled();
     expect(h.exportReport).not.toHaveBeenCalled();
   });
@@ -327,10 +324,10 @@ describe("admin reports: Excel preview and downloads", () => {
 });
 
 describe("admin reports: pages", () => {
-  it("has no page buttons for a single page", async () => {
+  it("disables page buttons for a single page", async () => {
     renderReports("reports:read");
     await screen.findByText("Worker 1");
-    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 
   it("Next and Previous move the page, and a new filter goes back to page 1", async () => {
@@ -361,7 +358,7 @@ describe("admin reports: approve", () => {
 
   const unapprove = (name: string) => within(row(name)).getByRole("button", { name: /^Unapprove / });
 
-  it("a Pending row offers Approve and a Completed row offers Unapprove, each named for its row", async () => {
+  it("a Pending row offers Approve and a Approved row offers Unapprove, each named for its row", async () => {
     h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
     renderReports("reports:read", "reports:approve");
     await screen.findByText("Worker 1");
@@ -375,7 +372,7 @@ describe("admin reports: approve", () => {
     h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
     renderReports("reports:read");
     await screen.findByText("Worker 1");
-    expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^(Approve|Unapprove) / })).not.toBeInTheDocument();
   });
 
   it("Unapprove toggles once, holds the button, then refreshes the list and the stats cards", async () => {
@@ -401,7 +398,7 @@ describe("admin reports: approve", () => {
     expect(approve("Worker 1")).toBeEnabled();
   });
 
-  it("a failed Unapprove leaves the row Completed and does not touch the cards", async () => {
+  it("a failed Unapprove leaves the row Approved and does not touch the cards", async () => {
     h.toggleComplete.mockRejectedValue(new ApiError(500, "ERROR", "Server error."));
     h.listReports.mockResolvedValue(page([report(1, { completed: true })]));
     const { user, client } = renderReports("reports:read", "reports:approve");
@@ -409,7 +406,7 @@ describe("admin reports: approve", () => {
     await screen.findByText("Worker 1");
     await user.click(unapprove("Worker 1"));
     await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Server error."));
-    expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument();
+    expect(within(row("Worker 1")).getByText("Approved")).toBeInTheDocument();
     expect(unapprove("Worker 1")).toBeEnabled();
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["admin-stats"] });
   });
@@ -433,7 +430,7 @@ describe("admin reports: approve", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["admin-stats"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["tracker"] });
     // the refetched list now shows it done, with no button
-    await waitFor(() => expect(within(row("Worker 1")).getByText("Completed")).toBeInTheDocument());
+    await waitFor(() => expect(within(row("Worker 1")).getByText("Approved")).toBeInTheDocument());
     expect(within(row("Worker 1")).queryByRole("button", { name: /Approve/ })).not.toBeInTheDocument();
   });
 
