@@ -3,6 +3,8 @@ cookies.txt
 # AI Blueprint runtime state
 blueprint/.state/
 .claude/skills/
+.agents/skills/
+skills-lock.json
 
 # Local files: db-config.json holds a database password
 db-config.json

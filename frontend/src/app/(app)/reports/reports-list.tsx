@@ -7,7 +7,11 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
-import { ReportOwnerBadges } from "@/components/report-owner-badges";
+import { Check, Download, Eye, Pencil, Trash2, Undo2 } from "lucide-react";
+import { reportsTheme, ReportsHeader, ReportsStats, ReportsTableCard } from "@/components/reports-dashboard";
+import { useReportActions } from "@/components/use-report-actions";
+import { ExcelPreviewDialog } from "../admin/excel-preview-dialog";
+import { ReportPreviewDialog } from "../admin/report-preview-dialog";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -17,15 +21,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
 import { errorText } from "@/lib/auth-form";
 import {
   defaultPeriod,
+  exportReport,
+  exportReports,
   deleteReport,
   FIRST_YEAR,
   listReports,
@@ -68,6 +72,8 @@ function ReportsList() {
   const { can, user } = useSession();
   const filters = filtersFrom(params);
   const allowed = can("reports:read");
+  const { approve, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
+  const [metadataPreview, setMetadataPreview] = useState<Report | null>(null);
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
 
@@ -156,6 +162,12 @@ function ReportsList() {
   const hasText = textFields.some(([name]) => text[name] !== "");
   return (
     <>
+      <ReportsHeader title="Reports" heading="h1">
+        {user?.role === "user" && <Can permission="reports:write"><Button asChild className="min-h-11"><Link href="/reports/new">New Submission</Link></Button></Can>}
+        <Can permission="reports:export"><Button variant="outline" className="min-h-11" disabled={!filters.month || !data?.data.length || downloading.includes("bulk")} aria-busy={downloading.includes("bulk")} onClick={() => { if (filters.month) { const period = { month: filters.month, year: filters.year! }; setPreview({ key: "bulk", target: period, run: () => exportReports(period.month, period.year) }); } }}><Download aria-hidden="true" />Download Bulk</Button></Can>
+      </ReportsHeader>
+      <ReportsStats data={error ? undefined : data} />
+      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} scope={params.toString()} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} filters={(
       <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="month">Month</Label>
@@ -214,6 +226,15 @@ function ReportsList() {
           </div>
         )}
       </form>
+      )} actions={(r) => (
+        <>
+          <Button variant="ghost" size="icon" className="size-11" aria-label={`Preview ${rowName(r)}`} title="Preview" onClick={(e) => { opener.current = e.currentTarget; if (can("reports:approve") || can("reports:write_any")) setReportPreview(r.id); else setMetadataPreview(r); }}><Eye aria-hidden="true" /></Button>
+          {canEdit(r) && !can("reports:approve") && <Button asChild variant="ghost" size="icon" className="size-11"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
+          <Can permission="reports:approve"><Button variant="ghost" size="icon" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => approve.mutate(r)}>{r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
+          <Can permission="reports:export"><Button variant="ghost" size="icon" className="size-11" aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
+          {canDelete(r) && <Button variant="ghost" size="icon" className="size-11 text-destructive" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={(e) => { opener.current = e.currentTarget; del.reset(); setTarget({ id: r.id, period: `${r.month} ${r.year}` }); }}><Trash2 aria-hidden="true" /></Button>}
+        </>
+      )}>
 
       {isPending && allowed ? (
         <p role="status" className="text-sm text-muted-foreground">Loading…</p>
@@ -226,63 +247,6 @@ function ReportsList() {
       ) : (
         data && (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Worker</TableHead>
-                  <TableHead>Month</TableHead>
-                  <TableHead>Year</TableHead>
-                  <TableHead>Area of Assignment</TableHead>
-                  <TableHead>Church</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.data.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span>{r.worker || "—"}</span>
-                        <ReportOwnerBadges report={r} />
-                      </div>
-                    </TableCell>
-                    <TableCell>{r.month}</TableCell>
-                    <TableCell>{r.year}</TableCell>
-                    <TableCell>{r.area_assignment || "—"}</TableCell>
-                    <TableCell>{r.church_name || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={r.completed ? "default" : "secondary"}>
-                        {r.completed ? "Completed" : "Pending"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/reports/${r.id}/edit`}>{canEdit(r) ? "Edit" : "View"}{" "}
-                            <span className="sr-only">{rowName(r)}</span>
-                          </Link>
-                        </Button>
-                        {canDelete(r) && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={(e) => {
-                              opener.current = e.currentTarget;
-                              del.reset();
-                              setTarget({ id: r.id, period: `${r.month} ${r.year}` });
-                            }}
-                          >
-                            Delete{" "}
-                            <span className="sr-only">{rowName(r)}</span>
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
             {meta && (
               <div className="flex items-center justify-between gap-4">
                 <p role="status" className="text-sm text-muted-foreground">
@@ -306,6 +270,18 @@ function ReportsList() {
         )
       )}
 
+      </ReportsTableCard>
+      {preview && <ExcelPreviewDialog target={preview.target} onDownload={() => download.mutateAsync(preview).then(() => true, () => false)} onClose={() => setPreview(null)} />}
+      {reportPreview !== null && <ReportPreviewDialog reportId={reportPreview} onClose={() => setReportPreview(null)} />}
+      <AlertDialog open={metadataPreview !== null} onOpenChange={(open) => !open && setMetadataPreview(null)}>
+        <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); (opener.current?.isConnected ? opener.current : document.getElementById("main-content"))?.focus(); }}>
+          <AlertDialogHeader><AlertDialogTitle>Report Preview</AlertDialogTitle><AlertDialogDescription>Submission metadata</AlertDialogDescription></AlertDialogHeader>
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            {[["Worker", metadataPreview?.worker], ["Month", metadataPreview?.month], ["Year", metadataPreview?.year], ["Area", metadataPreview?.area_assignment], ["Church", metadataPreview?.church_name], ["Status", metadataPreview?.completed ? "Approved" : "Pending"]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd>{value || "—"}</dd></div>)}
+          </dl>
+          <AlertDialogFooter><AlertDialogCancel>Close</AlertDialogCancel></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={target !== null} onOpenChange={(open) => !open && !deleting && setTarget(null)}>
         <AlertDialogContent
           onCloseAutoFocus={(e) => {
@@ -337,20 +313,8 @@ function ReportsList() {
 }
 
 export function Reports() {
-  const { user } = useSession();
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-        {user?.role === "user" && (
-          <Can permission="reports:write">
-            <Button asChild>
-              <Link href="/reports/new">New report</Link>
-            </Button>
-          </Can>
-        )}
-      </div>
-      {/* useSearchParams needs a Suspense boundary for the static prerender */}
+    <main id="main-content" tabIndex={-1} className={`${reportsTheme} mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
       <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">Loading…</p>}>
         <ReportsList />
       </Suspense>
