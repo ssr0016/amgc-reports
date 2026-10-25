@@ -276,20 +276,38 @@ creation approval as cleanup approval.
 
 Use this phase only for schema 1 records and schema 2 `local-merge` records.
 
-Require a clean local default branch tip whose sole parent is the recorded
-`baseCommit`, and the complete finished tree and archive. If the work branch still
-exists, require its exact final work commit and tree equality with that default
-tip (`git diff --exit-code <workCommit>^{tree} <defaultTip>^{tree>`), including the
-archive blob. A squash merge normally does not contain the work commit as an
-ancestor. Tree equality alone without the matching base, archive, and completed
-bookkeeping is insufficient.
+Require a clean local default branch and the complete finished tree and
+archive. Normally, its tip must have the recorded `baseCommit` as its sole
+parent. When the work branch exists, require its exact final work commit
+and tree equality with that default tip, including the archive blob.
 
-If the work branch was deleted, require the tracked archive at the default tip,
-its exact source-tree/spec/branch annotation, and exactly the finished changes
-from sourceTree to that tip. An ignored archive without a provable commit binding
-must stop for user identification and supporting evidence. If the default has
-advanced or several commits/archives fit, stop and name the ambiguity instead of
-weakening this proof or searching by title.
+Historical-landing waiver: when the default branch has advanced, accept
+one unambiguous earlier squash-landing commit only when all of these hold:
+
+- The landing commit is reachable from the current local default branch.
+- Its sole parent is exactly the recorded `baseCommit`.
+- Its complete tree exactly matches the retained final work commit's tree.
+- The tracked archive is byte-identical in the landing commit, retained
+  work commit, and current checkout.
+- The archive's original spec bytes match both its recorded byte length
+  and SHA-256, using this contract's archive reconstruction rules.
+- The final work commit and completed bookkeeping satisfy the existing
+  recovery proof, and no live spec, review, or pending changes conflict.
+
+Later default-branch commits alone do not invalidate this historical
+proof. This waiver establishes historical completion only; it does not
+claim current runtime verification or authorize cleanup or Git mutations.
+
+Direct or fast-forward landings are excluded from this waiver. They
+require a separately documented owner exception, as recorded for Feature
+19. Reachability or an archive hash alone is insufficient.
+
+If the work branch was deleted, require the tracked archive at the default
+tip, its exact source-tree/spec/branch annotation, and exactly the finished
+changes from sourceTree to that tip. The historical-landing waiver above
+requires the retained final work commit and does not relax this case.
+An ignored archive without a provable commit binding, missing evidence,
+or multiple possible landing commits stops recovery for identification.
 
 Do only pending cleanup already authorized for this work item; ask if cleanup
 approval is missing. Never repeat archival, the work commit, or the squash merge,
