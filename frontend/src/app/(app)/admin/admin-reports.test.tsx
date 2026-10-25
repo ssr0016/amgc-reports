@@ -6,8 +6,6 @@ import { ApiError } from "@/lib/api";
 import type { Page, Report } from "@/lib/reports";
 import { AdminReports } from "./admin-reports";
 
-vi.mock("next/font/google", () => ({ Inter: () => ({ className: "inter" }), JetBrains_Mono: () => ({ variable: "mono" }) }));
-
 const h = vi.hoisted(() => ({
   perms: [] as string[],
   listReports: vi.fn(),

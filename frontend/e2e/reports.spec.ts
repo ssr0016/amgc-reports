@@ -71,7 +71,7 @@ test.describe("user", () => {
   test("cannot approve: no button, and the API says 403", async ({ page, request }) => {
     await page.goto("/reports");
     await expect(rowOf(page, "E2E User Edited")).toBeVisible();
-    await expect(page.getByRole("button", { name: /approve/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^(Approve|Unapprove) / })).toHaveCount(0);
 
     const id = (await (await request.get("http://localhost:8081/api/v1/reports?limit=1")).json()).data[0].id;
     expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(403);
@@ -93,7 +93,7 @@ test.describe("editor", () => {
     await page.goto("/reports");
     const row = rowOf(page, "E2E User Edited");
     await expect(row.getByRole("link", { name: "Edit" })).toBeVisible(); // write_any
-    await expect(page.getByRole("button", { name: /approve/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^(Approve|Unapprove) / })).toHaveCount(0);
 
     const id = (await (await request.get("http://localhost:8081/api/v1/reports?limit=1")).json()).data[0].id;
     expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(403);
@@ -101,7 +101,7 @@ test.describe("editor", () => {
 
   test("cannot create reports through the UI or API", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(page.getByRole("link", { name: "New report" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "New Submission" })).toHaveCount(0);
     await page.goto("/reports/new");
     await expect(page.getByText("You are not allowed to create reports.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit Report" })).toHaveCount(0);
@@ -115,41 +115,36 @@ test.describe("editor", () => {
 test.describe("admin", () => {
   test.use({ storageState: authFile("admin") });
 
-  // Approving lives in the admin panel only; the stats cards above its table count the same reports.
+  // Approval refreshes the shared list and its page-level counts.
   test("approves and unapproves from the admin panel, and the stats cards follow", async ({ page }) => {
     await page.goto("/admin");
     const card = (name: string) =>
       page
-        .getByRole("region", { name: "Statistics" })
+        .getByRole("region", { name: "Report statistics" })
         .locator("[data-slot=card]")
         .filter({ has: page.getByText(name, { exact: true }) })
-        .locator("[data-slot=card-title]");
+        .locator(".font-mono");
     const row = () => rowOf(page, "E2E User Edited");
 
     await expect(page.getByText(/\d+ total reports/)).toBeVisible();
     await expect(page.getByRole("columnheader")).toHaveText([
-      "Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Preview", "Action", "Download",
+      "", "Worker", "Month", "Year", "Area", "Church", "Status", "Actions",
     ]);
-    // Download Bulk is on the right of the filter row, level with the dropdowns and flush with the table's right edge.
-    const bulk = await page.getByRole("button", { name: "Download Bulk" }).boundingBox();
-    const year = await page.getByLabel("Year").boundingBox();
-    const table = await page.getByRole("table").boundingBox();
-    expect(bulk!.x).toBeGreaterThan(year!.x + year!.width);
-    expect(Math.abs(bulk!.x + bulk!.width - (table!.x + table!.width))).toBeLessThan(2);
+    await expect(page.locator("main header").getByRole("button", { name: "Download Bulk" })).toBeVisible();
     await expect(row().getByText("Pending")).toBeVisible(); // the tab opens on the previous month
     await expect(card("Approved")).toBeVisible();
     const approved = Number(await card("Approved").innerText());
     const pending = Number(await card("Pending").innerText());
 
     await row().getByRole("button", { name: /^Approve / }).click();
-    await expect(row().getByText("Completed")).toBeVisible();
+    await expect(row().getByText("Approved")).toBeVisible();
     await expect(page.getByText(`Report approved: ${label}`)).toBeVisible();
     await expect(row().getByRole("button", { name: /^Unapprove / })).toBeVisible();
     await expect(card("Approved")).toHaveText(String(approved + 1));
     await expect(card("Pending")).toHaveText(String(pending - 1));
 
     await page.reload(); // the server kept it
-    await expect(row().getByText("Completed")).toBeVisible();
+    await expect(row().getByText("Approved")).toBeVisible();
     await row().getByRole("button", { name: /^Unapprove / }).click();
     await expect(row().getByText("Pending")).toBeVisible();
     await expect(card("Approved")).toHaveText(String(approved));
@@ -160,18 +155,18 @@ test.describe("admin", () => {
     await expect(row().getByText("Pending")).toBeVisible();
   });
 
-  test("the reports list shows the status but has no Approve or Unapprove", async ({ page }) => {
+  test("the reports list offers approval actions to an admin", async ({ page }) => {
     await page.goto("/reports");
     await expect(rowOf(page, "E2E User Edited").getByText("Pending")).toBeVisible();
-    await expect(page.getByRole("button", { name: /approve/i })).toHaveCount(0);
+    await expect(rowOf(page, "E2E User Edited").getByRole("button", { name: /^Approve / })).toBeVisible();
     await expect(page.getByRole("columnheader")).toHaveText([
-      "Worker", "Month", "Year", "Area of Assignment", "Church", "Status", "Actions",
+      "", "Worker", "Month", "Year", "Area", "Church", "Status", "Actions",
     ]);
   });
 
   test("cannot create reports through the UI or API", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(page.getByRole("link", { name: "New report" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "New Submission" })).toHaveCount(0);
     await page.goto("/reports/new");
     await expect(page.getByText("You are not allowed to create reports.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit Report" })).toHaveCount(0);
