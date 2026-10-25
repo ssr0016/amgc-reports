@@ -53,7 +53,7 @@ test.describe("as a custom role", () => {
       await page.goto("/reports");
       await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" }).click();
       await expect(page.getByRole("tab")).toHaveText(["Reports", "Tracker"]);
-      await expect(page.getByRole("region", { name: "Statistics" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible();
 
       const reports = page.getByRole("tabpanel", { name: "Reports" });
       const row = reports.getByRole("row").filter({ hasText: WORKER });
@@ -69,7 +69,7 @@ test.describe("as a custom role", () => {
       expect(violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(" ")).join(" | ")}`)).toEqual([]);
 
       await row.getByRole("button", { name: /^Approve / }).click();
-      await expect(row.getByText("Completed")).toBeVisible();
+      await expect(row.getByText("Approved")).toBeVisible();
 
       await page.goto("/admin?tab=roles");
       await expect(page.getByRole("tab", { name: "Reports" })).toHaveAttribute("aria-selected", "true");

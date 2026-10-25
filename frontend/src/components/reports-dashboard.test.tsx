@@ -1,10 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ReportsTableCard } from "./reports-dashboard";
 import type { Report } from "@/lib/reports";
-
-vi.mock("next/font/google", () => ({ Inter: () => ({ className: "inter" }), JetBrains_Mono: () => ({ variable: "mono" }) }));
 
 const rows = [
   { id: 1, worker: "Maria Santos", month: "September", year: 2026, completed: false },

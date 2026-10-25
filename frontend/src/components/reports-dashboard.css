@@ -1,4 +1,4 @@
-.dashboard {
+.reports-dashboard {
   --background: #0e1013;
   --foreground: #f1f5f9;
   --card: #15181e;
@@ -23,21 +23,21 @@
   background: var(--background);
 }
 
-.dashboard :global(.font-mono) {
+.reports-dashboard .font-mono {
   font-family: var(--reports-mono), monospace;
 }
 
-.dashboard :global(th),
-.dashboard :global(td) {
+.reports-dashboard th,
+.reports-dashboard td {
   padding: 12px;
 }
 
-.dashboard :global(button),
-.dashboard :global(input),
-.dashboard :global(select) {
+.reports-dashboard button,
+.reports-dashboard input,
+.reports-dashboard select {
   transition-duration: 150ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dashboard :global(*) { transition: none; }
+  .reports-dashboard * { transition: none; }
 }

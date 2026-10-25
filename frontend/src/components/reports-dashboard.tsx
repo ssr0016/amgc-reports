@@ -13,12 +13,12 @@ import { ReportOwnerBadges } from "@/components/report-owner-badges";
 import type { Page, Report } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { getStats } from "@/lib/stats";
-import styles from "./reports-dashboard.module.css";
+import "./reports-dashboard.css";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--reports-mono", display: "swap" });
 
-export const reportsTheme = `${styles.dashboard} ${inter.className} ${mono.variable}`;
+export const reportsTheme = `reports-dashboard ${inter.className} ${mono.variable}`;
 
 export function ReportsHeader({ title, heading: Heading = "h2", children }: { title: string; heading?: "h1" | "h2"; children?: ReactNode }) {
   return (
@@ -52,7 +52,7 @@ export function ReportsStats({ data }: { data?: Page<Report> }) {
     <section aria-label="Report statistics" className="grid grid-cols-2 gap-4 xl:grid-cols-4">
       {cards.map((c) => (
         <Card key={c.label} className="gap-2 rounded-lg p-4 shadow-none">
-          <h3 className="text-sm text-muted-foreground">{c.label}</h3>
+          <p className="text-sm text-muted-foreground">{c.label}</p>
           <p className={`font-mono text-3xl tabular-nums ${c.tone ?? ""}`}>{c.value?.toLocaleString() ?? "—"}</p>
           <p className="text-xs text-muted-foreground">{c.note}</p>
           <p className="text-xs text-muted-foreground">Last-month comparison unavailable</p>
@@ -103,7 +103,7 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
           {visible.map((r) => (
             <TableRow key={r.id} data-state={selected.includes(r.id) ? "selected" : undefined}>
               {selectable && <TableCell><label className="flex size-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label={`Select ${r.worker || "report"}, ${r.month} ${r.year}`} checked={selected.includes(r.id)} onChange={() => select(selected.includes(r.id) ? selected.filter((id) => id !== r.id) : [...selected, r.id])} /></label></TableCell>}
-              <TableCell><div className="flex items-center gap-3"><Avatar name={r.worker || "Unknown worker"} className="bg-secondary! cursor-default" /><div className="flex min-w-36 flex-col items-start gap-1"><span className="font-medium">{r.worker || "—"}</span><ReportOwnerBadges report={r} /></div></div></TableCell>
+              <TableCell><div className="flex items-center gap-3"><Avatar name={r.worker || "Unknown worker"} className="bg-secondary! text-secondary-foreground! cursor-default" /><div className="flex min-w-36 flex-col items-start gap-1"><span className="font-medium">{r.worker || "—"}</span><ReportOwnerBadges report={r} /></div></div></TableCell>
               <TableCell>{r.month}</TableCell><TableCell className="text-right font-mono tabular-nums">{r.year}</TableCell>
               <TableCell>{r.area_assignment || "—"}</TableCell><TableCell>{r.church_name || "—"}</TableCell>
               <TableCell><Badge className={r.completed ? "border-transparent bg-[var(--approved)]/10 text-[var(--approved)]" : "border-transparent bg-[var(--pending)]/10 text-[var(--pending)]"}>{r.completed ? "Approved" : "Pending"}</Badge></TableCell>

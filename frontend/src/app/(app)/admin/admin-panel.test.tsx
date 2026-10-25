@@ -79,12 +79,17 @@ describe("AdminPanel", () => {
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Reports");
   });
 
-  it("puts the stats cards above the tabs for an admin, and shows a non-admin none", () => {
+  it("keeps shared stats off the Reports tab and shows them on other admin tabs", () => {
     h.isAdmin = true;
     const { unmount } = render(<AdminPanel />);
+    expect(screen.queryByText("stats")).not.toBeInTheDocument();
+    h.tab = "tracker";
+    unmount();
+    const { unmount: unmountTracker } = render(<AdminPanel />);
     const stats = screen.getByText("stats");
     expect(stats.compareDocumentPosition(screen.getByRole("tablist")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    unmount();
+    unmountTracker();
+    h.tab = null;
 
     h.isAdmin = false;
     render(<AdminPanel />);
@@ -195,7 +200,7 @@ describe("AdminPanel", () => {
       h.perms = ["reports:read", "reports:approve", "reports:export", "tracker:read", "users:list", "audit:read", "roles:write", "users:write"];
       render(<AdminPanel />);
       expect(tabNames()).toEqual(["Reports", "Tracker", "Users", "Logs"]);
-      expect(screen.getByText("stats")).toBeInTheDocument();
+      expect(screen.queryByText("stats")).not.toBeInTheDocument();
     });
 
     it("with only tracker:read sees the Tracker tab and the cards, and lands on Tracker", () => {
