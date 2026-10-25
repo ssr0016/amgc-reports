@@ -1,6 +1,6 @@
 # AMGCReports - Project Overview
 
-<!-- blueprint:source-hash ae0a0792e8e81a670d22da2f554cdebb36d34edb3df6c09743d443ab020f4b69 -->
+<!-- blueprint:source-hash e09b75a49fb7505e0678f76d952e4d02e9dc61f6f8d979f0362f7cb6dc8cf69e -->
 
 > Pastoral reports management for 24 churches: monthly submissions with 5 weeks × 21 metrics, admin review, approval and Excel export.
 
@@ -51,7 +51,7 @@ Order and identities follow `build-plan.md`; checked items are shown as shipped 
 | 17 | Open; blocked | Production smoke test awaits deferred domain setup (16) |
 | 18 | Complete | Neon password rotated; owner verified production connectivity and superadmin login on 2026-10-24 |
 | 19 | Complete | Seed idempotency verified; archive records the existing integration test and its passing evidence |
-| 20 | Parent unchecked | Phase A: all children 20a–20f checked; see status mismatch below |
+| 20 | Complete | Phase A: all children 20a–20f checked |
 | 20a | Shipped | Admin shell, accessible tabs, guard, header link and titles |
 | 20b | Shipped | Stats endpoint and four cards, with generated API types |
 | 20c | Shipped | Reports tab with filtering, approval and empty state |
@@ -82,12 +82,12 @@ Order and identities follow `build-plan.md`; checked items are shown as shipped 
 | 38 | Backlog | Server-side admin Users pagination; current list capped at 100 |
 | 34 | Backlog | Confirm Neon retention/PITR window and test restore |
 | 35 | Backlog | Sentry alerts to Slack or email |
-| 16 | Deferred | Domain setup; referenced here in backlog and again under Deferred |
 | 36 | Backlog | Address listed open P3 findings; consult findings ledger before repair |
+| 16 | Deferred | Domain setup; `amgcreports.com` chosen, deferred to the end by the owner |
 | 26 | Deferred | Cloudflare proxy and IP-limit handling |
 | 23–25 | Skipped, not built | Email delivery, forgot-password flow and reset-password UI (D-A18) |
 
-The first unchecked leaf is 17 and is explicitly blocked on deferred domain setup. Feature 19 is complete. Preserve the plan's IDs, including 22g before 22f and the repeated reference to 16.
+The first unchecked leaf is 17 and is explicitly blocked on deferred domain setup (16). Feature 19 and Phase A are complete. Preserve the plan's IDs, including 22g before 22f.
 
 ## Data model
 
@@ -143,11 +143,11 @@ Use existing shadcn/Radix components and Tailwind styling. Follow `backend/docs/
 ## Open questions and plan drift
 
 - Email recovery: project plan says blocked on email delivery; build plan explicitly skips email and recovery UI under D-A18. Preserve shipped token APIs separately from skipped user flows.
-- Domain setup (#16) is referenced twice with the same ID; the backlog occurrence explicitly points to Deferred. Project plan mentions taken `amgreports.com`, while build plan selects different `amgcreports.com`.
-- Phase A (#20) is unchecked despite every child being checked; obsolete Phase A splitting and 37b “not specced” notes remain.
+- Domain setup (#16) remains deferred. Project plan mentions taken `amgreports.com`, while build plan selects different `amgcreports.com`.
+- Phase A splitting and 37b “not specced” notes remain obsolete despite their checked completion state.
 - Project-plan audit count/list and migration “latest” claim are historical; the build plan includes later sign-in and role auditing. Its core-table list omits refresh tokens mentioned in migrations and #29.
 - Project plan lacks the shipped custom-role, status, delete/restore, tracker and preview contracts that the build plan supplies. Backlog additions are also absent there.
 - Build plan says dashboards/notifications are not planned while explicitly shipping stats, Tracker and an export Report Dashboard and proposing Sentry alerts (#35). Treat those as named scopes; broader notification/dashboard work needs a decision.
-- Plans allow admin late-filing, while the recent report-creation restriction tested in this session permits creation only for the user role. Confirm whether admin correction of an existing report period is the intended remaining path.
-- Avatar item #33 still describes initials-only behavior, although profile-picture code exists in this checkout. Verify completion separately before changing the checkbox.
+- The project plan allows admin late-filing; preserve that contract when planning report changes. No runtime verification is part of this overview refresh.
+- Avatar item #33 remains unchecked and describes initials-only behavior. Assess its completion separately before changing the checkbox.
 - The project plan does not list seed idempotency as a shipped feature; the build plan now marks #19 complete, and its archive records the verification.

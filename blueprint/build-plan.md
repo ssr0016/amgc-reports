@@ -32,7 +32,7 @@
 
 ## P2 — Admin Panel
 
-- [ ] 20. Phase A (~28h)
+- [x] 20. Phase A (~28h)
   - [x] 20a. Admin shell: `/admin`, tablist with arrow keys, guard, header link, titles (~3h)
   - [x] 20b. Stats endpoint and the four cards, with Swagger and `gen:api` in the same commit (~5h)
   - [x] 20c. Reports tab: reuse `GET /reports`, filters, approve/unapprove, empty state, "X total" (~5h)
@@ -78,7 +78,6 @@ Future features, not yet specced. Notes say what already exists, so a spec start
 
 - [ ] 34. Neon database backups: confirm the plan's retention and point-in-time restore window, and test a restore
 - [ ] 35. Sentry error alerts to Slack or email
-- [ ] 16. F0: domain setup (already listed under Deferred)
 
 ### Codebase health
 
