@@ -71,7 +71,7 @@ export function RoleForm({
   }
 
   return (
-    <form ref={formRef} onSubmit={submit} className="flex max-w-xl flex-col gap-4">
+    <form ref={formRef} onSubmit={submit} className="flex w-full flex-col gap-6 rounded-lg border bg-card p-4 sm:p-6">
       {readOnly && (
         <p className="text-sm text-muted-foreground">
           This is a built-in role. The app depends on its name and permissions, so it cannot be changed.
@@ -97,24 +97,28 @@ export function RoleForm({
         onChange={(e) => setField("description", e.target.value)}
         error={errors.description}
       />
-      {groupPermissions(permissions).map((group) => (
-        <fieldset key={group.label} className="flex flex-col gap-2" disabled={readOnly}>
-          <legend className="mb-1 font-medium">{group.label}</legend>
-          {group.permissions.map((p) => (
-            <label key={p.id} htmlFor={`perm-${p.id}`} className="flex items-center gap-2 text-sm">
-              <input
-                id={`perm-${p.id}`}
-                type="checkbox"
-                className="size-4 accent-primary"
-                checked={checked.has(p.id)}
-                onChange={() => toggle(p.id)}
-              />
-              {actionWords(p.action)}
-              <code className="text-xs text-muted-foreground">{p.name}</code>
-            </label>
-          ))}
-        </fieldset>
-      ))}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        {groupPermissions(permissions).map((group) => (
+          <fieldset key={group.label} className="flex min-w-0 flex-col gap-2 rounded-lg border p-4" disabled={readOnly}>
+            <legend className="px-2 font-semibold">{group.label}</legend>
+            {group.permissions.map((p) => (
+              <label key={p.id} htmlFor={`perm-${p.id}`} className="permission-option text-sm">
+                <input
+                  id={`perm-${p.id}`}
+                  type="checkbox"
+                  className="size-5 shrink-0 accent-[var(--approved)]"
+                  checked={checked.has(p.id)}
+                  onChange={() => toggle(p.id)}
+                />
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span className="font-medium">{actionWords(p.action)}</span>
+                  <code className="break-all font-mono text-xs text-muted-foreground">{p.name}</code>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        ))}
+      </div>
       {errors.permission_ids && (
         <p id="permission_ids-note" data-field-error tabIndex={-1} className="text-sm text-destructive">
           Permissions: {errors.permission_ids}
@@ -125,7 +129,7 @@ export function RoleForm({
           {general}
         </p>
       )}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-3 border-t pt-4 [&_button]:min-h-11">
         {!readOnly && (
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : submitLabel}

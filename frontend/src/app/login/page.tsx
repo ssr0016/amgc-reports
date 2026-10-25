@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { dashboardTheme } from "@/components/dashboard-theme";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,38 +46,41 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">
-            <h1>Sign in</h1>
-          </CardTitle>
-          <CardDescription>Use the account your admin gave you.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <AuthField name="email" label="Email" type="email" autoComplete="email" required error={error?.fields.email} />
-            <AuthField
-              name="password"
-              label="Password"
-              type="password"
-              autoComplete="current-password"
-              required
-              error={error?.fields.password}
-            />
-            {error?.message && (
-              <p role="alert" className="text-sm text-destructive">
-                {error.message}
-                {wait > 0 && ` Try again in ${wait}s.`}
-              </p>
-            )}
-            {/* Still "Signing in…" while the redirect away from here runs. */}
-            <Button type="submit" disabled={pending || wait > 0 || status === "authenticated"}>
-              {pending || status === "authenticated" ? "Signing in…" : "Sign in"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+    <main className={`${dashboardTheme} account-surface account-login flex flex-1 items-center justify-center px-4 py-12 sm:py-20`}>
+      <div className="w-full max-w-md">
+        <p className="mb-8 text-center text-xl font-semibold tracking-tight">AMGCReports</p>
+        <Card className="w-full gap-6 rounded-lg border py-6 sm:py-8">
+          <CardHeader className="gap-3 px-6 sm:px-8">
+            <CardTitle className="text-2xl font-semibold tracking-tight">
+              <h1>Sign in</h1>
+            </CardTitle>
+            <CardDescription>Use the account your admin gave you.</CardDescription>
+          </CardHeader>
+          <CardContent className="px-6 sm:px-8">
+            <form onSubmit={onSubmit} className="flex flex-col gap-5">
+              <AuthField name="email" label="Email" type="email" autoComplete="email" required error={error?.fields.email} />
+              <AuthField
+                name="password"
+                label="Password"
+                type="password"
+                autoComplete="current-password"
+                required
+                error={error?.fields.password}
+              />
+              {error?.message && (
+                <p role="alert" className="text-sm text-destructive">
+                  {error.message}
+                  {wait > 0 && ` Try again in ${wait}s.`}
+                </p>
+              )}
+              {/* Still "Signing in…" while the redirect away from here runs. */}
+              <Button type="submit" className="mt-1 min-h-11 w-full" disabled={pending || wait > 0 || status === "authenticated"}>
+                {pending || status === "authenticated" ? "Signing in…" : "Sign in"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </main>
   );
 }

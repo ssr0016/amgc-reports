@@ -2,6 +2,8 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { Search, UserPlus } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -118,9 +120,9 @@ export function UsersPanel() {
             {rows.map((u) => (
               <TableRow key={u.id}>
                 <TableCell>
-                  <Avatar name={u.name} src={u.avatar_url} />
+                  <Avatar name={u.name} src={u.avatar_url} className="size-10 bg-secondary! text-secondary-foreground! cursor-default" />
                 </TableCell>
-                <TableCell>
+                <TableCell className="font-medium">
                   {u.name}
                   {u.id === user?.user_id && (
                     <Badge variant="secondary" className="ml-2">
@@ -129,7 +131,7 @@ export function UsersPanel() {
                   )}
                 </TableCell>
                 <TableCell>{u.email}</TableCell>
-                <TableCell>{roleName.get(u.role_id) ?? `#${u.role_id}`}</TableCell>
+                <TableCell><Badge variant="secondary">{roleName.get(u.role_id) ?? `#${u.role_id}`}</Badge></TableCell>
                 <TableCell>
                   <UserStatusBadge status={u.status} />
                   {u.deleted_at && (
@@ -142,21 +144,22 @@ export function UsersPanel() {
                 <TableCell>{u.church_name || "—"}</TableCell>
                 {isAdmin && (
                   <TableCell>
-                    <div className="flex gap-2">
-                      <Button asChild variant="outline" size="sm">
+                    <div className="flex justify-end gap-2">
+                      <Button asChild variant="outline" size="sm" className="min-h-11">
                         <Link href={`/admin/users/${u.id}/edit`}>
                           Edit{" "}
                           <span className="sr-only">{u.name}</span>
                         </Link>
                       </Button>
                       {u.deleted_at ? (
-                        <Button variant="outline" size="sm" disabled={restoring.includes(u.id)} onClick={() => restore.mutate(u)}>
+                        <Button variant="outline" size="sm" className="min-h-11" disabled={restoring.includes(u.id)} onClick={() => restore.mutate(u)}>
                           Restore <span className="sr-only">{u.name}</span>
                         </Button>
                       ) : (
                         <Button
                           variant="outline"
                           size="sm"
+                          className="min-h-11"
                           disabled={u.id === user?.user_id}
                           aria-describedby={u.id === user?.user_id ? "delete-self-note" : undefined}
                           onClick={() => setDeleting(u)}
@@ -176,61 +179,74 @@ export function UsersPanel() {
         </p>
         <DeleteUserDialog user={deleting} onClose={() => setDeleting(null)} />
         {data.length >= LIMIT && (
-          <p className="text-sm text-muted-foreground">Showing the first {LIMIT}. Search by email to narrow it.</p>
+          <p className="mt-4 text-sm text-muted-foreground">Showing the first <span className="font-mono tabular-nums">{LIMIT}</span>. Search by email to narrow it.</p>
         )}
       </>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="account-directory flex min-w-0 flex-col gap-6">
       {allowed && (
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex w-64 flex-col gap-2">
-              <Label htmlFor="email-search">Email</Label>
-              <Input
-                id="email-search"
-                type="search"
-                placeholder="Search by email"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+        <>
+          <header className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
+              <p className="mt-2 text-sm text-muted-foreground">Manage church workers and their account access.</p>
             </div>
             {isAdmin && (
-              <div className="flex w-40 flex-col gap-2">
-                <Label htmlFor="role-filter">Role</Label>
-                <NativeSelect id="role-filter" value={role} onChange={(e) => setRole(e.target.value)}>
-                  <option value="">All roles</option>
-                  {roles.data?.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
+              <Button asChild className="min-h-11 px-4">
+                <Link href="/admin/users/new"><UserPlus aria-hidden="true" />New user</Link>
+              </Button>
+            )}
+          </header>
+          <Card className="gap-0 rounded-lg py-0">
+            <div className="grid items-end gap-4 border-b p-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex min-w-0 flex-col gap-2">
+                <Label htmlFor="email-search">Email</Label>
+                <div className="relative">
+                  <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    id="email-search"
+                    type="search"
+                    placeholder="Search by email"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+              {isAdmin && (
+                <div className="flex min-w-0 flex-col gap-2">
+                  <Label htmlFor="role-filter">Role</Label>
+                  <NativeSelect id="role-filter" value={role} onChange={(e) => setRole(e.target.value)}>
+                    <option value="">All roles</option>
+                    {roles.data?.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+              )}
+              <div className="flex min-w-0 flex-col gap-2">
+                <Label htmlFor="status-filter">Status</Label>
+                <NativeSelect id="status-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <option value="">All statuses</option>
+                  {USER_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {STATUS_LABEL[s]}
                     </option>
                   ))}
+                  <option value="deleted">Deleted</option>
                 </NativeSelect>
               </div>
-            )}
-            <div className="flex w-44 flex-col gap-2">
-              <Label htmlFor="status-filter">Status</Label>
-              <NativeSelect id="status-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="">All statuses</option>
-                {USER_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABEL[s]}
-                  </option>
-                ))}
-                <option value="deleted">Deleted</option>
-              </NativeSelect>
             </div>
-          </div>
-          {isAdmin && (
-            <Button asChild>
-              <Link href="/admin/users/new">New user</Link>
-            </Button>
-          )}
-        </div>
+            <div className="min-w-0 p-4">{body}</div>
+          </Card>
+        </>
       )}
-      {body}
+      {!allowed && body}
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { dashboardTheme } from "@/components/dashboard-theme";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,21 +52,30 @@ export function ProfilePicture() {
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 p-4 focus:outline-none">
+    <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
       <h1 className="text-2xl font-semibold tracking-tight">Profile picture</h1>
-      <div className="flex items-center gap-3">
-        <Avatar name={user?.name ?? ""} src={user?.avatar_url} className="size-20 text-xl" />
-        <span>{user?.name}</span>
-      </div>
-      <form onSubmit={onSubmit} noValidate aria-busy={pending} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="avatar">Choose picture</Label>
-          <Input id="avatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" disabled={pending} aria-describedby="avatar-help avatar-error" aria-invalid={!!error} onChange={() => setError("")} />
-          <p id="avatar-help" className="text-sm text-muted-foreground">JPEG, PNG or WebP. Resized to fit within 512 × 512 pixels before upload. Transparency is saved on white.</p>
-          <p id="avatar-error" role="alert" className="text-sm text-destructive">{error}{wait > 0 && ` Try again in ${wait}s.`}</p>
-        </div>
-        <Button type="submit" disabled={pending || wait > 0}>{pending ? "Uploading…" : "Save picture"}</Button>
-      </form>
+      <Card className="gap-0 rounded-lg py-0">
+        <CardHeader className="gap-4 border-b p-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <Avatar name={user?.name ?? ""} src={user?.avatar_url} className="size-20 bg-secondary! text-secondary-foreground! cursor-default text-xl" />
+            <div className="min-w-0">
+              <CardTitle><h2 className="break-words">{user?.name || "Your account"}</h2></CardTitle>
+              <p className="mt-2 text-sm text-muted-foreground">Update the picture shown with your account.</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6">
+          <form onSubmit={onSubmit} noValidate aria-busy={pending} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="avatar">Choose picture</Label>
+              <Input id="avatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" disabled={pending} aria-describedby="avatar-help avatar-error" aria-invalid={!!error} onChange={() => setError("")} />
+              <p id="avatar-help" className="text-sm text-muted-foreground">JPEG, PNG or WebP. Resized to fit within 512 × 512 pixels before upload. Transparency is saved on white.</p>
+              <p id="avatar-error" role="alert" className="text-sm text-destructive">{error}{wait > 0 && ` Try again in ${wait}s.`}</p>
+            </div>
+            <Button type="submit" className="min-h-11 self-start px-4" disabled={pending || wait > 0}>{pending ? "Uploading…" : "Save picture"}</Button>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   );
 }

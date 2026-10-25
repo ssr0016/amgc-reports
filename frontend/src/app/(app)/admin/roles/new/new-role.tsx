@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ErrorRetry } from "@/components/error-retry";
 import { Loading } from "@/components/loading";
+import { dashboardTheme } from "@/components/dashboard-theme";
 import { RoleForm } from "@/components/role-form";
 import { createRole, listPermissions } from "@/lib/roles";
 import { useSession } from "@/lib/session";
@@ -40,7 +41,7 @@ export function NewRole() {
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
+    <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
       <h1 className="text-2xl font-semibold tracking-tight">New role</h1>
       {body}
     </main>
