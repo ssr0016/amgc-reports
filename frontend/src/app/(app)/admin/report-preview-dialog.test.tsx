@@ -3,7 +3,6 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Report } from "@/lib/reports";
-import { METRIC_SECTIONS, WEEKS } from "@/lib/report-form";
 import { ReportPreviewDialog, calculateAverage } from "./report-preview-dialog";
 
 const h = vi.hoisted(() => ({ getReport: vi.fn() }));
@@ -135,10 +134,10 @@ describe("ReportPreviewDialog", () => {
     renderDialog();
 
     await waitFor(() => {
-      expect(screen.getByText("John Doe")).toBeInTheDocument();
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
       expect(screen.getByText("Area 1")).toBeInTheDocument();
       expect(screen.getByText("Test Church")).toBeInTheDocument();
-      expect(screen.getByText("September 2026")).toBeInTheDocument();
+      expect(screen.getByText(/Month of: September 2026/)).toBeInTheDocument();
       expect(screen.getByText("Approved")).toBeInTheDocument();
     });
   });
@@ -173,14 +172,13 @@ describe("ReportPreviewDialog", () => {
     expect(screen.queryByText("Completed")).not.toBeInTheDocument();
   });
 
-  it("renders all four metric sections", async () => {
+  it("renders the Excel metric sections", async () => {
     h.getReport.mockResolvedValue(makeReport());
     renderDialog();
 
     await waitFor(() => {
-      for (const section of METRIC_SECTIONS) {
-        expect(screen.getByRole("heading", { name: section.title })).toBeInTheDocument();
-      }
+      expect(screen.getAllByText("Activities")).toHaveLength(3);
+      expect(screen.getByText("Other Statistics")).toBeInTheDocument();
     });
   });
 
@@ -195,7 +193,7 @@ describe("ReportPreviewDialog", () => {
     renderDialog();
 
     const section = await screen.findByRole("region", { name: "Report Details" });
-    const labels = ["Names of New Believers", "Narrative Report", "Challenges", "Prayer Request"];
+    const labels = ["Names:", "Narrative Report:", "Challenges/Problem Encountered", "Prayer Request"];
     for (const label of labels) {
       expect(within(section).getByText(label)).toBeInTheDocument();
     }
@@ -220,11 +218,11 @@ describe("ReportPreviewDialog", () => {
     renderDialog();
 
     await waitFor(() => {
-      expect(screen.getAllByText("Week 1")).toHaveLength(4);
-      expect(screen.getAllByText("Week 2")).toHaveLength(4);
-      expect(screen.getAllByText("Week 3")).toHaveLength(4);
-      expect(screen.getAllByText("Week 4")).toHaveLength(4);
-      expect(screen.getAllByText("Week 5")).toHaveLength(4);
+      expect(screen.getAllByText("Week 1")).toHaveLength(2);
+      expect(screen.getAllByText("Week 2")).toHaveLength(2);
+      expect(screen.getAllByText("Week 3")).toHaveLength(2);
+      expect(screen.getAllByText("Week 4")).toHaveLength(2);
+      expect(screen.getAllByText("Week 5")).toHaveLength(2);
     });
   });
 
@@ -233,8 +231,7 @@ describe("ReportPreviewDialog", () => {
     renderDialog();
 
     await waitFor(() => {
-      // Four tables, each has an Avg column header
-      expect(screen.getAllByText("Avg")).toHaveLength(4);
+      expect(screen.getAllByText("Average")).toHaveLength(2);
     });
   });
 
@@ -265,7 +262,7 @@ describe("ReportPreviewDialog", () => {
     const { onClose, user } = renderDialog();
 
     await waitFor(() => {
-      expect(screen.getByText("John Doe")).toBeInTheDocument();
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
     await user.click(screen.getByRole("button", { name: "Close" }));
@@ -277,7 +274,7 @@ describe("ReportPreviewDialog", () => {
     const { onClose, user } = renderDialog();
 
     await waitFor(() => {
-      expect(screen.getByText("John Doe")).toBeInTheDocument();
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
     // Click the dialog content to ensure it's mounted, then press Escape
