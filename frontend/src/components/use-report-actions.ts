@@ -32,6 +32,31 @@ export function useReportActions() {
     },
   });
   const busy = usePendingVariables<{ report: Report }>(["toggle-complete"]).map(({ report }) => report.id);
+  const bulkToggle = useMutation({
+    mutationKey: ["bulk-toggle-complete"],
+    mutationFn: async ({ reports, action }: { reports: Report[]; action: "approve" | "unapprove" }) => {
+      const eligible = reports.filter((r) => action === "approve" ? !r.completed && r.status !== "approved" : r.completed || r.status === "approved");
+      const results = await Promise.allSettled(eligible.map((r) => toggleComplete(r.id, "")));
+      return {
+        action,
+        changed: results.filter((r) => r.status === "fulfilled").length,
+        failed: results.filter((r) => r.status === "rejected").length,
+        skipped: reports.length - eligible.length,
+      };
+    },
+    onSuccess: ({ action, changed, failed, skipped }) => {
+      const result = `${changed} ${action === "approve" ? "approved" : "unapproved"}`;
+      const suffix = [failed && `${failed} failed`, skipped && `${skipped} skipped`].filter(Boolean).join(", ");
+      if (failed) toast.error(`${result}${suffix ? `, ${suffix}` : ""}`);
+      else toast.success(`${result}${suffix ? `, ${suffix}` : ""}`);
+    },
+    onSettled: async () => {
+      await Promise.all([
+        refreshAdminViews(queryClient),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
+      ]);
+    },
+  });
   const revision = useMutation({
     mutationKey: ["request-revision"],
     mutationFn: ({ report, adminNotes = "" }: { report: Report; adminNotes?: string }) => requestRevision(report.id, adminNotes),
@@ -60,5 +85,5 @@ export function useReportActions() {
   // The open report preview (20e): just the report id.
   const [reportPreview, setReportPreview] = useState<number | null>(null);
 
-  return { approve, revision, busy: [...busy, ...revisionBusy], download, downloading, preview, setPreview, reportPreview, setReportPreview };
+  return { approve, revision, bulkToggle, busy: [...busy, ...revisionBusy], download, downloading, preview, setPreview, reportPreview, setReportPreview };
 }

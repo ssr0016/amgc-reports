@@ -433,6 +433,34 @@ describe("admin reports: approve", () => {
     expect(within(row("Worker 2")).queryByRole("button", { name: /Unapprove/ })).not.toBeInTheDocument();
   });
 
+  it("bulk approves only selected non-approved reports and reports skipped rows", async () => {
+    h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
+    h.toggleComplete.mockResolvedValue({ id: 2, completed: true });
+    const { user } = renderReports("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+
+    await user.click(screen.getByRole("checkbox", { name: "Select all visible reports" }));
+    await user.click(screen.getByRole("button", { name: "Bulk Approve" }));
+
+    await waitFor(() => expect(h.toggleComplete).toHaveBeenCalledWith(2, ""));
+    expect(h.toggleComplete).not.toHaveBeenCalledWith(1, "");
+    expect(h.toast.success).toHaveBeenCalledWith("1 approved, 1 skipped");
+  });
+
+  it("bulk unapproves only selected approved reports and reports skipped rows", async () => {
+    h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
+    h.toggleComplete.mockResolvedValue({ id: 1, completed: false });
+    const { user } = renderReports("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+
+    await user.click(screen.getByRole("checkbox", { name: "Select all visible reports" }));
+    await user.click(screen.getByRole("button", { name: "Bulk Unapprove" }));
+
+    await waitFor(() => expect(h.toggleComplete).toHaveBeenCalledWith(1, ""));
+    expect(h.toggleComplete).not.toHaveBeenCalledWith(2, "");
+    expect(h.toast.success).toHaveBeenCalledWith("1 unapproved, 1 skipped");
+  });
+
   it("neither is there without reports:approve", async () => {
     h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
     renderReports("reports:read");

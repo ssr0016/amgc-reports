@@ -53,21 +53,32 @@ export function ReportsStats({ data }: { data?: Page<Report> }) {
   );
 }
 
-export function ReportsTableCard({ rows, scope, filters, children, actions, selectable }: {
+export function ReportsTableCard({ rows, scope, filters, children, actions, selectable, bulkActions }: {
   rows: Report[];
   scope: string;
   filters: ReactNode;
   children: ReactNode;
   actions: (report: Report) => ReactNode;
   selectable: boolean;
+  bulkActions?: {
+    busy?: boolean;
+    approve: (reports: Report[]) => Promise<void>;
+    unapprove: (reports: Report[]) => Promise<void>;
+  };
 }) {
   const [status, setStatus] = useState("all");
   const [selection, setSelection] = useState<{ scope: string; ids: number[] }>({ scope: "", ids: [] });
   const visible = rows.filter((r) => status === "all" || (r.status ?? (r.completed ? "approved" : "pending")) === status);
   const selectionScope = `${scope}:${status}`;
   const selected = selection.scope === selectionScope ? selection.ids.filter((id) => visible.some((r) => r.id === id)) : [];
+  const selectedRows = visible.filter((r) => selected.includes(r.id));
   const allSelected = visible.length > 0 && selected.length === visible.length;
   function select(ids: number[]) { setSelection({ scope: selectionScope, ids }); }
+  async function runBulk(action: "approve" | "unapprove") {
+    if (!bulkActions) return;
+    await bulkActions[action](selectedRows);
+    select([]);
+  }
 
   return (
     <Card className="gap-0 overflow-hidden rounded-lg py-0 shadow-none">
@@ -112,8 +123,14 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
       <div className="border-t p-4">{children}</div>
       {selectable && selected.length > 0 && (
         <aside aria-label="Bulk Actions" className="sticky bottom-4 z-10 mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-popover p-4 shadow-lg">
-          <p role="status" className="text-sm"><span className="font-mono tabular-nums">{selected.length}</span> selected · Bulk actions coming soon</p>
-          <Button variant="outline" onClick={() => select([])}>Clear selection</Button>
+          <p role="status" className="text-sm"><span className="font-mono tabular-nums">{selected.length}</span> selected</p>
+          {bulkActions && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => void runBulk("approve")}>Bulk Approve</Button>
+              <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => void runBulk("unapprove")}>Bulk Unapprove</Button>
+            </div>
+          )}
+          <Button variant="outline" disabled={bulkActions?.busy} onClick={() => select([])}>Clear selection</Button>
         </aside>
       )}
     </Card>

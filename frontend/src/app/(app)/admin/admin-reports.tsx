@@ -72,7 +72,7 @@ export function AdminReports() {
     staleTime: 30_000,
   });
 
-  const { approve, revision, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
+  const { approve, revision, bulkToggle, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
   const [statusTarget, setStatusTarget] = useState<{ report: Report; action: "unapprove" | "revision" } | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
   const queryClient = useQueryClient();
@@ -119,7 +119,11 @@ export function AdminReports() {
         </Button>
       </ReportsHeader>
       <ReportsStats data={error ? undefined : data} />
-      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} scope={JSON.stringify(filters)} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} filters={(
+      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} scope={JSON.stringify(filters)} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} bulkActions={can("reports:approve") ? {
+        busy: bulkToggle.isPending,
+        approve: (reports) => bulkToggle.mutateAsync({ reports, action: "approve" }).then(() => undefined),
+        unapprove: (reports) => bulkToggle.mutateAsync({ reports, action: "unapprove" }).then(() => undefined),
+      } : undefined} filters={(
       <form onSubmit={(e) => e.preventDefault()} className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <div className="flex flex-col gap-2">
           <Label htmlFor="admin-month">Month</Label>
