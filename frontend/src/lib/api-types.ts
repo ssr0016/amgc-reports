@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Annual attendance analytics
-         * @description Weekly metric totals across the year and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. Needs tracker:read.
+         * @description Weekly metric totals for the selected year period and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. compare=true includes the same period from the previous year. Needs tracker:read.
          */
         get: {
             parameters: {
@@ -24,6 +24,10 @@ export interface paths {
                     metric: string;
                     /** @description approved or all; defaults to approved */
                     status?: string;
+                    /** @description full_year, q1, q2, q3, q4, or a lowercase month; defaults to full_year */
+                    period?: string;
+                    /** @description Include the previous year's same period */
+                    compare?: boolean;
                 };
                 header?: never;
                 path?: never;
@@ -3451,7 +3455,9 @@ export interface components {
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics": {
             churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"][];
+            comparison?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison"];
             metric?: string;
+            period?: string;
             status?: string;
             trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"][];
             year?: number;
@@ -3459,6 +3465,11 @@ export interface components {
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch": {
             church_name?: string;
             value?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison": {
+            churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"][];
+            trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"][];
+            year?: number;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint": {
             month?: string;
