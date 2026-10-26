@@ -63,4 +63,16 @@ describe("analytics", () => {
     const churchTable = screen.getByRole("table", { name: "Church breakdown data" });
     expect(within(churchTable).getByText("Bethel")).toBeInTheDocument();
   });
+
+  it("shows an empty state for charts with no non-zero values", async () => {
+    h.getAttendanceAnalytics.mockResolvedValueOnce({
+      ...body,
+      trend: [{ month: "January", week: 1, value: 0 }],
+      churches: [{ church_name: "Bethel", value: 0 }],
+    });
+
+    renderAnalytics();
+
+    expect(await screen.findAllByText("No data available for this selection")).toHaveLength(2);
+  });
 });

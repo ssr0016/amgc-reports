@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { TooltipContentProps } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -38,7 +39,16 @@ export function Analytics() {
   const churches = data?.churches ?? [];
   const metricLabel = METRICS.find((item) => item.key === metric)?.label ?? metric;
   const trendData = trend.map((point) => ({ ...point, label: `${point.month.slice(0, 3)} W${point.week}` }));
-  const hasValues = trend.some((point) => point.value !== 0) || churches.some((church) => church.value !== 0);
+  const hasTrendValues = trend.some((point) => point.value !== 0);
+  const hasChurchValues = churches.some((church) => church.value !== 0);
+  const renderTooltip = ({ active, payload }: TooltipContentProps) => {
+    const item = payload?.[0];
+    if (!active || !item) return null;
+    const point = item.payload as { month?: string; week?: number; church_name?: string } | undefined;
+    if (!point) return null;
+    const label = point.month ? `${point.month}, Week ${point.week}` : point.church_name;
+    return <p className="rounded-md border bg-background px-3 py-2 text-sm shadow-sm">{label}: {formatValue(Number(item.value))}</p>;
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -64,9 +74,7 @@ export function Analytics() {
         </div>
       </form>
 
-      {isPending ? <Loading /> : error ? <ErrorRetry message={error.message} onRetry={() => refetch()} /> : !hasValues ? (
-        <p role="status" className="text-sm text-muted-foreground">No attendance data for {metricLabel} in {year}.</p>
-      ) : (
+      {isPending ? <Loading /> : error ? <ErrorRetry message={error.message} onRetry={() => refetch()} /> : (
         <>
           <div className="grid gap-6 xl:grid-cols-2">
             <Card>
@@ -75,17 +83,17 @@ export function Analytics() {
                 <CardDescription>{metricLabel} across all churches · {year} · {status === "approved" ? "Approved" : "All Submitted"}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div aria-label={`${metricLabel} weekly trend chart`} role="img" className="h-72 w-full">
+                {!hasTrendValues ? <p role="status" className="flex h-72 items-center justify-center text-sm text-muted-foreground">No data available for this selection</p> : <div aria-label={`${metricLabel} weekly trend chart`} role="img" className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trendData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="label" interval="preserveStartEnd" tick={{ fontSize: 11 }} />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip formatter={(value) => formatValue(Number(value))} />
-                      <Line type="monotone" dataKey="value" name={metricLabel} stroke="var(--primary)" strokeWidth={2} dot={false} />
+                      <YAxis allowDecimals={false} label={{ value: metricLabel, angle: -90, position: "insideLeft" }} />
+                      <Tooltip content={renderTooltip} />
+                      <Line type="monotone" dataKey="value" name={metricLabel} stroke="var(--primary)" strokeWidth={2} dot={{ r: 3, fill: "var(--primary)" }} />
                     </LineChart>
                   </ResponsiveContainer>
-                </div>
+                </div>}
               </CardContent>
             </Card>
             <Card>
@@ -94,17 +102,17 @@ export function Analytics() {
                 <CardDescription>Total {metricLabel} reported by church in {year}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div aria-label={`${metricLabel} church breakdown chart`} role="img" className="h-72 w-full">
+                {!hasChurchValues ? <p role="status" className="flex h-72 items-center justify-center text-sm text-muted-foreground">No data available for this selection</p> : <div aria-label={`${metricLabel} church breakdown chart`} role="img" className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={churches} layout="vertical" margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis type="number" allowDecimals={false} />
+                      <XAxis type="number" allowDecimals={false} label={{ value: metricLabel, position: "insideBottom", offset: -4 }} />
                       <YAxis dataKey="church_name" type="category" width={100} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(value) => formatValue(Number(value))} />
+                      <Tooltip content={renderTooltip} />
                       <Bar dataKey="value" name={metricLabel} fill="var(--primary)" />
                     </BarChart>
                   </ResponsiveContainer>
-                </div>
+                </div>}
               </CardContent>
             </Card>
           </div>
