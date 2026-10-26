@@ -265,6 +265,7 @@ describe("ReportPreviewDialog", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass("border-slate-700", "bg-white", "text-slate-900");
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
   });

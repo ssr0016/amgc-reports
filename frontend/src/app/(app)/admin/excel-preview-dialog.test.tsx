@@ -96,6 +96,7 @@ describe("Excel preview dialog", () => {
     renderDialog();
     const table = await screen.findByRole("table", { name: "Sheet Report Dashboard" });
     expect(screen.getByLabelText("Sheet")).toHaveDisplayValue("Report Dashboard");
+    expect(screen.getByLabelText("Sheet")).toHaveClass("bg-white", "text-slate-900");
     expect(within(table).getAllByRole("columnheader").map((c) => c.textContent)).toEqual([
       "Report Dashboard",
       "Churches",

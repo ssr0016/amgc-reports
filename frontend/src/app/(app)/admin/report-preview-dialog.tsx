@@ -142,7 +142,9 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
         ) : null}
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Close</AlertDialogCancel>
+          <AlertDialogCancel className="min-w-24 border-slate-700 bg-white px-4 text-slate-900 hover:bg-slate-100 hover:text-slate-950">
+            Close
+          </AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

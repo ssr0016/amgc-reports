@@ -88,7 +88,12 @@ export function ExcelPreviewDialog({
               <div className="flex flex-wrap items-end gap-4">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="preview-sheet">Sheet</Label>
-                  <NativeSelect id="preview-sheet" value={sheet} onChange={(e) => setSheet(Number(e.target.value))}>
+                  <NativeSelect
+                    id="preview-sheet"
+                    value={sheet}
+                    onChange={(e) => setSheet(Number(e.target.value))}
+                    className="border-slate-300 bg-white text-slate-900 [&_option]:bg-white [&_option]:text-slate-900"
+                  >
                     {data.sheets.map((s, i) => (
                       <option key={s.name} value={i}>
                         {s.name}
