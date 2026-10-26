@@ -5,8 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AttendanceAnalytics } from "@/lib/analytics";
 import { Analytics } from "./analytics";
 
-const h = vi.hoisted(() => ({ getAttendanceAnalytics: vi.fn() }));
+const h = vi.hoisted(() => ({ getAttendanceAnalytics: vi.fn(), getStats: vi.fn() }));
 vi.mock("@/lib/analytics", () => ({ getAttendanceAnalytics: h.getAttendanceAnalytics }));
+vi.mock("@/lib/stats", () => ({ getStats: h.getStats }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ can: () => true }) }));
 vi.mock("recharts", () => {
   const Chart = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
@@ -36,6 +37,7 @@ function renderAnalytics() {
 beforeEach(() => {
   vi.clearAllMocks();
   h.getAttendanceAnalytics.mockResolvedValue(body);
+  h.getStats.mockResolvedValue({ churches_total: 3 });
 });
 
 describe("analytics", () => {
@@ -43,6 +45,10 @@ describe("analytics", () => {
     renderAnalytics();
     expect(screen.getByRole("status")).toHaveTextContent("Loading…");
     await screen.findByText("Weekly trend");
+    const summary = screen.getByRole("region", { name: "Analytics summary" });
+    expect(within(summary).getByText("26")).toBeInTheDocument();
+    expect(within(summary).getByText("January")).toBeInTheDocument();
+    expect(within(summary).getByText("1 out of 3 churches")).toBeInTheDocument();
     expect(screen.getByLabelText("Year")).toHaveValue(String(new Date().getFullYear()));
     expect(screen.getByLabelText("Metric")).toHaveValue("worship_service");
     expect(screen.getByLabelText("Status")).toHaveValue("approved");

@@ -14,6 +14,7 @@ import { getAttendanceAnalytics, type AttendanceStatus } from "@/lib/analytics";
 import { METRICS } from "@/lib/report-form";
 import { FIRST_YEAR } from "@/lib/reports";
 import { useSession } from "@/lib/session";
+import { getStats } from "@/lib/stats";
 
 const formatValue = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -29,6 +30,12 @@ export function Analytics() {
     enabled: allowed,
     staleTime: 30_000,
   });
+  const { data: stats } = useQuery({
+    queryKey: ["admin-stats"],
+    queryFn: getStats,
+    enabled: allowed,
+    staleTime: 30_000,
+  });
 
   if (!allowed) return <p className="text-sm text-muted-foreground">You are not allowed to view analytics.</p>;
 
@@ -41,6 +48,16 @@ export function Analytics() {
   const trendData = trend.map((point) => ({ ...point, label: `${point.month.slice(0, 3)} W${point.week}` }));
   const hasTrendValues = trend.some((point) => point.value !== 0);
   const hasChurchValues = churches.some((church) => church.value !== 0);
+  const yearlyTotal = trend.reduce((total, point) => total + point.value, 0);
+  const monthlyTotals = trend.reduce<Record<string, number>>((totals, point) => {
+    totals[point.month] = (totals[point.month] ?? 0) + point.value;
+    return totals;
+  }, {});
+  const peakMonth = Object.entries(monthlyTotals).reduce<[string, number]>(
+    (peak, current) => current[1] > peak[1] ? current : peak,
+    ["", 0],
+  );
+  const activeChurches = churches.filter((church) => church.value > 0).length;
   const renderTooltip = ({ active, payload }: TooltipContentProps) => {
     const item = payload?.[0];
     if (!active || !item) return null;
@@ -76,6 +93,32 @@ export function Analytics() {
 
       {isPending ? <Loading /> : error ? <ErrorRetry message={error.message} onRetry={() => refetch()} /> : (
         <>
+          <section aria-label="Analytics summary" className="grid gap-4 md:grid-cols-3">
+            <Card size="sm">
+              <CardHeader>
+                <CardDescription>Total Yearly Sum</CardDescription>
+                <CardTitle className="font-mono text-2xl tabular-nums">{formatValue(yearlyTotal)}</CardTitle>
+              </CardHeader>
+              <CardContent className="text-muted-foreground">{metricLabel} · {year}</CardContent>
+            </Card>
+            <Card size="sm">
+              <CardHeader>
+                <CardDescription>Peak Month</CardDescription>
+                <CardTitle className="text-2xl">{peakMonth[0] || "—"}</CardTitle>
+              </CardHeader>
+              <CardContent className="text-muted-foreground">
+                {peakMonth[0] ? `${formatValue(peakMonth[1])} ${metricLabel.toLowerCase()}` : "No data available"}
+              </CardContent>
+            </Card>
+            <Card size="sm">
+              <CardHeader>
+                <CardDescription>Active Churches</CardDescription>
+                <CardTitle className="text-2xl">{activeChurches} out of {stats?.churches_total ?? "—"} churches</CardTitle>
+              </CardHeader>
+              <CardContent className="text-muted-foreground">Reported a value greater than 0</CardContent>
+            </Card>
+          </section>
+
           <div className="grid gap-6 xl:grid-cols-2">
             <Card>
               <CardHeader>
