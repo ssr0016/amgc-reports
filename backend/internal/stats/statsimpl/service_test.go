@@ -26,6 +26,35 @@ func (r *recordingStats) Tracker(_ context.Context, month string, year int) ([]s
 	return []stats.TrackerRow{{UserID: 1, Name: "Ana", SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerPending}}, r.err
 }
 
+func (r *recordingStats) AnalyticsAttendance(_ context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
+	return stats.AttendanceAnalytics{Year: q.Year, Metric: q.Metric, Status: q.Status}, r.err
+}
+
+func TestService_AnalyticsAttendance(t *testing.T) {
+	repo := &recordingStats{}
+	svc := newService(repo)
+
+	got, err := svc.AnalyticsAttendance(context.Background(), stats.AttendanceQuery{Year: 2026, Metric: "worship_service"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != stats.AttendanceStatusApproved || got.Year != 2026 || got.Metric != "worship_service" {
+		t.Fatalf("got %+v", got)
+	}
+
+	for name, q := range map[string]stats.AttendanceQuery{
+		"missing year":   {Metric: "worship_service"},
+		"unknown metric": {Year: 2026, Metric: "unknown"},
+		"unknown status": {Year: 2026, Metric: "worship_service", Status: "pending"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := svc.AnalyticsAttendance(context.Background(), q); !errors.Is(err, stats.ErrAnalyticsQuery) {
+				t.Fatalf("error = %v, want ErrAnalyticsQuery", err)
+			}
+		})
+	}
+}
+
 func TestService_Get(t *testing.T) {
 	manila, err := time.LoadLocation("Asia/Manila")
 	if err != nil {

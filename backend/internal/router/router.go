@@ -148,6 +148,7 @@ func Setup(
 	// Counts for the admin panel cards, and who has reported this month.
 	admin.GET("/stats", statsHandler.GetStats, perm("tracker:read"), limits.Read)
 	admin.GET("/tracker", statsHandler.GetTracker, perm("tracker:read"), limits.Read)
+	admin.GET("/analytics/attendance", statsHandler.GetAttendanceAnalytics, perm("tracker:read"), limits.Read)
 
 	// The audit trail, read-only (no other method is routed).
 	admin.GET("/audit-logs", auditHandler.List, perm("audit:read"), limits.Read)

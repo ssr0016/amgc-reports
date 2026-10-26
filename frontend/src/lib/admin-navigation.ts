@@ -4,6 +4,7 @@ import type { Permission } from "./permissions";
 export function adminSections(can: (permission: Permission) => boolean, isAdmin: boolean) {
   return [
     { value: "reports", label: "Reports", allowed: can("reports:approve") || can("reports:export") },
+    { value: "analytics", label: "Analytics", allowed: can("tracker:read") },
     { value: "tracker", label: "Tracker", allowed: can("tracker:read") },
     { value: "users", label: "Users", allowed: can("users:list") },
     { value: "roles", label: "Roles", allowed: isAdmin },

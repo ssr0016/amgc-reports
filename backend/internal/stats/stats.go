@@ -13,6 +13,7 @@ type Service interface {
 	// Tracker returns who has reported for the period in q, with the same
 	// period rules and ErrPeriod as Get (D-A3).
 	Tracker(ctx context.Context, q GetStatsQuery) (Tracker, error)
+	AnalyticsAttendance(ctx context.Context, q AttendanceQuery) (AttendanceAnalytics, error)
 }
 
 // Store is the read side: one query per answer, for one month.
@@ -21,4 +22,5 @@ type Store interface {
 	// Tracker lists every church account (report.ChurchAccount), whatever its
 	// status, with its report status for the month, by church then name.
 	Tracker(ctx context.Context, month string, year int) ([]TrackerRow, error)
+	AnalyticsAttendance(ctx context.Context, q AttendanceQuery) (AttendanceAnalytics, error)
 }

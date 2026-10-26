@@ -75,6 +75,39 @@ func (h *StatsHandler) GetTracker(c echo.Context) error {
 	return c.JSON(http.StatusOK, out)
 }
 
+// GetAttendanceAnalytics godoc
+// @Summary      Annual attendance analytics
+// @Description  Weekly metric totals across the year and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. Needs tracker:read.
+// @Tags         admin/analytics
+// @Produce      json
+// @Security     CookieAuth
+// @Param        year query int true "Year"
+// @Param        metric query string true "Metric key"
+// @Param        status query string false "approved or all; defaults to approved"
+// @Success      200 {object} stats.AttendanceAnalytics
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Router       /admin/analytics/attendance [get]
+func (h *StatsHandler) GetAttendanceAnalytics(c echo.Context) error {
+	year, err := strconv.Atoi(c.QueryParam("year"))
+	if err != nil || year <= 0 {
+		return apperror.BadRequest("invalid year")
+	}
+	if c.QueryParam("metric") == "" {
+		return apperror.BadRequest("invalid metric")
+	}
+	q := stats.AttendanceQuery{Year: year, Metric: c.QueryParam("metric"), Status: c.QueryParam("status")}
+	out, err := h.svc.AnalyticsAttendance(c.Request().Context(), q)
+	if errors.Is(err, stats.ErrAnalyticsQuery) {
+		return apperror.BadRequest(stats.ErrAnalyticsQuery.Error())
+	}
+	if err != nil {
+		return apperror.Internal("failed to get attendance analytics").WithError(err)
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
 // periodQuery reads ?month= and ?year=; an empty value is the same as none.
 func periodQuery(c echo.Context) (stats.GetStatsQuery, error) {
 	var q stats.GetStatsQuery

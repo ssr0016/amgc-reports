@@ -7,6 +7,10 @@ type Models = {
     : never]: Schemas[K];
 };
 type Model<N extends keyof Models> = Models[N];
+type StatsModels = {
+  [K in keyof Schemas as K extends `github_com_ssr0016_pastoral-reports_backend_internal_stats.${infer N}` ? N : never]: Schemas[K];
+};
+type StatsModel<N extends keyof StatsModels> = StatsModels[N];
 
 // swag marks a response field required only when the Go field has no omitempty
 // and a validate tag, so the generated types make everything optional. The
@@ -45,3 +49,13 @@ export type TrackerRow = Always<
   "user_id" | "name" | "email" | "church_name" | "user_status" | "submission_status"
 >;
 export type Tracker = { month: string; year: number; rows: TrackerRow[] };
+
+export type AttendanceTrendPoint = Required<StatsModel<"AttendanceTrendPoint">>;
+export type AttendanceChurch = Required<StatsModel<"AttendanceChurch">>;
+export type AttendanceAnalytics = {
+  year: number;
+  metric: string;
+  status: string;
+  trend: AttendanceTrendPoint[];
+  churches: AttendanceChurch[];
+};

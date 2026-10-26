@@ -4,6 +4,85 @@
  */
 
 export interface paths {
+    "/admin/analytics/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Annual attendance analytics
+         * @description Weekly metric totals across the year and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. Needs tracker:read.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Year */
+                    year: number;
+                    /** @description Metric key */
+                    metric: string;
+                    /** @description approved or all; defaults to approved */
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/audit-logs": {
         parameters: {
             query?: never;
@@ -3369,6 +3448,22 @@ export interface components {
             name?: string;
             role_id?: number;
             status?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics": {
+            churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"][];
+            metric?: string;
+            status?: string;
+            trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"][];
+            year?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch": {
+            church_name?: string;
+            value?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint": {
+            month?: string;
+            value?: number;
+            week?: number;
         };
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta": {
             limit?: number;

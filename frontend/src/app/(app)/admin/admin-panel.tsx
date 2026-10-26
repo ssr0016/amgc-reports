@@ -6,6 +6,7 @@ import { adminSections } from "@/lib/admin-navigation";
 import { useSession } from "@/lib/session";
 import { reportsTheme } from "@/components/reports-dashboard";
 import { AdminReports } from "./admin-reports";
+import { Analytics } from "./analytics";
 import { AuditLogs } from "./audit-logs";
 import { RolesPanel } from "./roles";
 import { StatsCards } from "./stats-cards";
@@ -21,6 +22,7 @@ export function AdminPanel() {
   const tabs = adminSections(can, isAdmin);
   const panels: Record<string, React.ReactNode> = {
     reports: <AdminReports />,
+    analytics: <Analytics />,
     tracker: <Tracker />,
     users: <UsersPanel />,
     roles: <RolesPanel />,

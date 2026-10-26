@@ -56,6 +56,33 @@ func (s *service) Tracker(ctx context.Context, q stats.GetStatsQuery) (stats.Tra
 	return stats.Tracker{Month: m, Year: y, Rows: rows}, nil
 }
 
+func (s *service) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
+	if q.Year <= 0 || !validAnalyticsMetric(q.Metric) {
+		return stats.AttendanceAnalytics{}, stats.ErrAnalyticsQuery
+	}
+	if q.Status == "" {
+		q.Status = stats.AttendanceStatusApproved
+	}
+	if q.Status != stats.AttendanceStatusApproved && q.Status != stats.AttendanceStatusAll {
+		return stats.AttendanceAnalytics{}, stats.ErrAnalyticsQuery
+	}
+	out, err := s.store.AnalyticsAttendance(ctx, q)
+	if err != nil {
+		return stats.AttendanceAnalytics{}, fmt.Errorf("attendance analytics for %d: %w", q.Year, err)
+	}
+	out.Year, out.Metric, out.Status = q.Year, q.Metric, q.Status
+	return out, nil
+}
+
+func validAnalyticsMetric(metric string) bool {
+	for _, key := range report.MetricKeys {
+		if metric == key {
+			return true
+		}
+	}
+	return false
+}
+
 // period resolves q to a canonical month name and a year: both nil means the
 // previous month in Manila; only one, or an unknown month, is ErrPeriod.
 func (s *service) period(q stats.GetStatsQuery) (string, int, error) {

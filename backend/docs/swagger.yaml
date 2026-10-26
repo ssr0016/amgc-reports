@@ -565,6 +565,39 @@ definitions:
       status:
         type: string
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics:
+    properties:
+      churches:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch'
+        type: array
+      metric:
+        type: string
+      status:
+        type: string
+      trend:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint'
+        type: array
+      year:
+        type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch:
+    properties:
+      church_name:
+        type: string
+      value:
+        type: number
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint:
+    properties:
+      month:
+        type: string
+      value:
+        type: number
+      week:
+        type: integer
+    type: object
   github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta:
     properties:
       limit:
@@ -649,6 +682,56 @@ info:
   title: Pastoral Reports API
   version: "1.0"
 paths:
+  /admin/analytics/attendance:
+    get:
+      description: Weekly metric totals across the year and by church. Defaults to
+        approved reports; status=all includes pending, needs_revision, and approved
+        reports. Needs tracker:read.
+      parameters:
+      - description: Year
+        in: query
+        name: year
+        required: true
+        type: integer
+      - description: Metric key
+        in: query
+        name: metric
+        required: true
+        type: string
+      - description: approved or all; defaults to approved
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Annual attendance analytics
+      tags:
+      - admin/analytics
   /admin/audit-logs:
     get:
       description: 'Needs audit:read. One page of the audit trail for one month in
