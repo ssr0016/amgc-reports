@@ -1,9 +1,9 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Download, Eye, Pencil, Undo2 } from "lucide-react";
+import { Bell, Check, Download, Eye, Pencil, Undo2 } from "lucide-react";
 import { ReportsHeader, ReportsStats, ReportsTableCard } from "@/components/reports-dashboard";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
@@ -40,6 +40,15 @@ export function AdminReports() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState({ worker: "", church: "", area: "" });
   const [draft, setDraft] = useState(search);
+
+  useEffect(() => {
+    if (draft === search) return;
+    const timer = setTimeout(() => {
+      setSearch(draft);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draft, search]);
 
   const filters = { ...search, month: period.month, year: period.year, page: page > 1 ? page : undefined };
   const { data, error, isPending, refetch } = useQuery({
@@ -78,10 +87,13 @@ export function AdminReports() {
             {downloading.includes("bulk") ? "Downloading…" : "Download Bulk"}
           </Button>
         </Can>
+        <Button variant="outline" className="size-11" disabled aria-label="Notifications — email alerts coming soon" title="Email alerts coming soon">
+          <Bell aria-hidden="true" />
+        </Button>
       </ReportsHeader>
       <ReportsStats data={error ? undefined : data} />
       <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} scope={JSON.stringify(filters)} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} filters={(
-      <form onSubmit={(e) => { e.preventDefault(); setSearch(draft); setPage(1); }} className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <form onSubmit={(e) => e.preventDefault()} className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <div className="flex flex-col gap-2">
           <Label htmlFor="admin-month">Month</Label>
           <NativeSelect
@@ -119,7 +131,21 @@ export function AdminReports() {
         {(["worker", "church", "area"] as const).map((name) => (
           <AuthField key={name} name={`admin-${name}`} label={name[0].toUpperCase() + name.slice(1)} value={draft[name]} onChange={(e) => setDraft({ ...draft, [name]: e.target.value })} />
         ))}
-        <Button type="submit" variant="outline" className="min-h-11">Search</Button>
+        {Object.values(draft).some(Boolean) && (
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={() => {
+              const empty = { worker: "", church: "", area: "" };
+              setDraft(empty);
+              setSearch(empty);
+              setPage(1);
+            }}
+          >
+            Clear
+          </Button>
+        )}
 
       </form>
 

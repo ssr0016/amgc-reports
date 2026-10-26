@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
@@ -153,6 +153,38 @@ describe("admin reports: header and states", () => {
 
 describe("admin reports: filters", () => {
   afterEach(() => vi.useRealTimers());
+
+  it("debounces all text filters for 300 ms without a Search button", async () => {
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    expect(screen.queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByLabelText("Worker"), { target: { value: "Ana" } });
+    await act(() => vi.advanceTimersByTimeAsync(200));
+    fireEvent.change(screen.getByLabelText("Church"), { target: { value: "Bethel" } });
+    fireEvent.change(screen.getByLabelText("Area"), { target: { value: "North" } });
+    await act(() => vi.advanceTimersByTimeAsync(299));
+    expect(h.listReports).toHaveBeenCalledTimes(1);
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(h.listReports).toHaveBeenCalledTimes(2);
+    expect(h.listReports).toHaveBeenLastCalledWith(expect.objectContaining({ worker: "Ana", church: "Bethel", area: "North", page: undefined }));
+  });
+
+  it("Clear empties all text fields and cancels a pending search", async () => {
+    renderReports("reports:read");
+    await screen.findByText("Worker 1");
+    const month = (screen.getByLabelText("Month") as HTMLSelectElement).value;
+    vi.useFakeTimers();
+    for (const label of ["Worker", "Church", "Area"]) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value: "pending" } });
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    for (const label of ["Worker", "Church", "Area"]) expect(screen.getByLabelText(label)).toHaveValue("");
+    expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Month")).toHaveValue(month);
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    expect(h.listReports).toHaveBeenCalledTimes(1);
+  });
 
   it("starts on the previous month in Asia/Manila", async () => {
     renderReports("reports:read");

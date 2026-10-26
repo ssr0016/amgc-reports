@@ -93,7 +93,7 @@ describe("reports list: access", () => {
   it("says when nothing matches", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderList("reports:read");
-    expect(await screen.findByText("No reports match these filters.")).toBeInTheDocument();
+    expect(await screen.findByText("You haven't submitted any reports yet.")).toBeInTheDocument();
   });
 });
 
@@ -157,7 +157,7 @@ describe("reports list: live regions", () => {
   it("says when nothing matches, as a status", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderList("reports:read");
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("No reports match these filters."));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("You haven't submitted any reports yet."));
   });
 
   it("the page summary is announced when it changes", async () => {
@@ -168,6 +168,14 @@ describe("reports list: live regions", () => {
 });
 
 describe("reports list: gated buttons", () => {
+  it("keeps bulk export and notifications out of the personal header", async () => {
+    h.me.role = "admin";
+    renderList("reports:read", "reports:export");
+    await screen.findByText("Worker 1");
+    expect(screen.queryByRole("button", { name: "Download Bulk" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Notifications/ })).not.toBeInTheDocument();
+  });
+
   it.each(["editor", "admin", "manager", "custom", ""])("hides New Report for role %s even with write permissions", async (role) => {
     h.me.role = role;
     renderList("reports:read", "reports:write", "reports:write_any");

@@ -37,6 +37,28 @@ test.describe("user", () => {
     await expect(row).toContainText("Pending");
   });
 
+  test("personal search updates automatically and Clear restores the list", async ({ page }) => {
+    await page.goto("/reports");
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Download Bulk" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Notifications/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
+    const month = await page.getByLabel("Month", { exact: true }).inputValue();
+    const year = await page.getByLabel("Year", { exact: true }).inputValue();
+    await page.getByLabel("Church", { exact: true }).fill(ACCOUNTS.user.church_name);
+    await page.getByLabel("Area", { exact: true }).fill(ACCOUNTS.user.area_assignment);
+    await page.getByLabel("Worker", { exact: true }).fill("No such worker");
+    await expect(page.getByText("You haven't submitted any reports yet.")).toBeVisible();
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    for (const label of ["Worker", "Church", "Area"]) await expect(page.getByLabel(label, { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Month", { exact: true })).toHaveValue(month);
+    await expect(page.getByLabel("Year", { exact: true })).toHaveValue(year);
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
+    await page.screenshot({ path: "/tmp/amg-personal-reports-final.png", fullPage: true });
+  });
+
   test("a second report for the same month is refused and keeps the form", async ({ page }) => {
     await page.goto("/reports/new");
     await page.getByLabel("Narrative Report").fill("Do not lose me.");
@@ -94,7 +116,7 @@ test.describe("editor", () => {
 
   test("can open and edit someone else's report, but not approve it", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(page.getByText("No reports match these filters.")).toBeVisible();
+    await expect(page.getByText("You haven't submitted any reports yet.")).toBeVisible();
     const id = (await (await request.get("http://localhost:8081/api/v1/reports?limit=1")).json()).data[0].id;
     await page.goto(`/reports/${id}/edit`);
     await expect(page.getByLabel("Worker Name")).toHaveValue("E2E User Edited"); // write_any
@@ -118,6 +140,28 @@ test.describe("editor", () => {
 
 test.describe("admin", () => {
   test.use({ storageState: authFile("admin") });
+
+  test("management search updates automatically and Clear restores the list", async ({ page }) => {
+    await page.goto("/admin?tab=reports");
+    await expect(rowOf(page, "E2E User Edited")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Notifications/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Download Bulk" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
+    const month = await page.getByLabel("Month", { exact: true }).inputValue();
+    const year = await page.getByLabel("Year", { exact: true }).inputValue();
+    await page.getByLabel("Worker", { exact: true }).fill("E2E User Edited");
+    await page.getByLabel("Area", { exact: true }).fill(ACCOUNTS.user.area_assignment);
+    await page.getByLabel("Church", { exact: true }).fill("No such church");
+    await expect(page.getByText("No reports match these filters.")).toBeVisible();
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    for (const label of ["Worker", "Church", "Area"]) await expect(page.getByLabel(label, { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Month", { exact: true })).toHaveValue(month);
+    await expect(page.getByLabel("Year", { exact: true })).toHaveValue(year);
+    await expect(rowOf(page, "E2E User Edited")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
+    await page.screenshot({ path: "/tmp/amg-admin-reports-final.png", fullPage: true });
+  });
 
   // Approval refreshes the shared list and its page-level counts.
   test("approves and unapproves from the admin panel, and the stats cards follow", async ({ page }) => {
@@ -163,7 +207,7 @@ test.describe("admin", () => {
   test("the personal list excludes other users' reports even for an admin", async ({ page, request }) => {
     await page.goto("/reports");
     await expect(page.getByRole("heading", { name: "My Reports", exact: true })).toBeVisible();
-    await expect(page.getByText("No reports match these filters.")).toBeVisible();
+    await expect(page.getByText("You haven't submitted any reports yet.")).toBeVisible();
     await expect(rowOf(page, "E2E User Edited")).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Report statistics" })).toHaveCount(0);
     const personal = await request.get("http://localhost:8081/api/v1/reports?mine=true");
@@ -197,7 +241,7 @@ test.describe("user, later", () => {
     await rowOf(page, "E2E User Edited").getByRole("button", { name: "Delete" }).click();
     await expect(page.getByRole("alertdialog")).toContainText(`Delete ${label}?`);
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByText("No reports match these filters.")).toBeVisible();
+    await expect(page.getByText("You haven't submitted any reports yet.")).toBeVisible();
 
     await page.goto("/reports/new");
     await page.getByRole("button", { name: "Submit Report" }).click();

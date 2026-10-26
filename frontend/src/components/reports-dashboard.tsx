@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -23,9 +22,6 @@ export function ReportsHeader({ title, heading: Heading = "h2", children }: { ti
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {children}
-        <Button variant="outline" className="size-11" disabled aria-label="Notifications — email alerts coming soon" title="Email alerts coming soon">
-          <Bell aria-hidden="true" />
-        </Button>
       </div>
     </header>
   );

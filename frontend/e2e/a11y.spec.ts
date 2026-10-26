@@ -79,7 +79,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       test("admin panel", async ({ page }) => {
         await page.goto("/admin");
-        await expect(page.getByRole("link", { name: "Admin Reports", exact: true })).toBeVisible();
+        await expect(page.getByRole("link", { name: "Admin All Reports", exact: true })).toBeVisible();
         await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible(); // the cards, once /admin/stats answered
         await expect(page.getByText("Loading…")).toHaveCount(0); // and the reports list
         await scan(page);
@@ -196,7 +196,7 @@ test.describe("page titles", () => {
   test("each page names itself, and a client-side navigation updates it", async ({ page }) => {
     await page.goto("/reports");
     await expect(page).toHaveTitle("My Reports · AMGCReports");
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin Reports", exact: true }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin All Reports", exact: true }).click();
     await expect(page).toHaveTitle("Admin · AMGCReports");
     await page.getByRole("link", { name: "Admin Users", exact: true }).click();
     await page.getByRole("link", { name: "New user" }).click();

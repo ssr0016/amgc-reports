@@ -10,10 +10,21 @@ const nav = () => within(screen.getByRole("navigation", { name: "Main" }));
 describe("sidebar", () => {
   beforeEach(() => { Object.assign(h, { isAdmin: true, canAdmin: true, path: "/reports", tab: "", permissions: [] }); });
 
+  it.each([[true, "/admin"], [false, "/reports"]])("the logo leads home with admin=%s", (isAdmin, destination) => {
+    h.isAdmin = isAdmin;
+    const onNavigate = vi.fn();
+    render(<Sidebar onNavigate={onNavigate} />);
+    const logo = nav().getByRole("link", { name: "AMGC home" });
+    expect(logo).toHaveAttribute("href", destination);
+    expect(within(logo).getByRole("img", { name: "AMGC" })).toBeInTheDocument();
+    logo.click();
+    expect(onNavigate).toHaveBeenCalledOnce();
+  });
+
   it("groups all admin destinations and keeps account links last", () => {
     render(<Sidebar />);
     expect(nav().getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "/reports", "/admin?tab=reports", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs", "/account/profile", "/account/password",
+      "/admin", "/reports", "/admin?tab=reports", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs", "/account/profile", "/account/password",
     ]);
   });
 
@@ -21,19 +32,19 @@ describe("sidebar", () => {
     h.isAdmin = false;
     h.permissions = ["tracker:read", "roles:write"];
     render(<Sidebar />);
-    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["My Reports", "Tracker", "Profile", "Change Password"]);
+    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["", "My Reports", "Tracker", "Profile", "Change Password"]);
   });
 
   it("shows workers reports and settings without admin links", () => {
     h.isAdmin = h.canAdmin = false;
     render(<Sidebar />);
-    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["My Reports", "Profile", "Change Password"]);
+    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["", "My Reports", "Profile", "Change Password"]);
   });
 
   it.each([
     ["/reports/new", "", "My Reports"], ["/reports/5/edit", "", "My Reports"],
-    ["/admin", "", "Admin Reports"], ["/admin", "logs", "Admin Logs"],
-    ["/admin", "unknown", "Admin Reports"], ["/admin/users/new", "", "Admin Users"],
+    ["/admin", "", "Admin All Reports"], ["/admin", "logs", "Admin Logs"],
+    ["/admin", "unknown", "Admin All Reports"], ["/admin/users/new", "", "Admin Users"],
     ["/admin/roles/3/edit", "", "Admin Roles"], ["/account/profile", "", "Profile"], ["/account/password", "", "Change Password"],
   ])("marks one current link on %s?tab=%s", (path, tab, name) => {
     Object.assign(h, { path, tab });

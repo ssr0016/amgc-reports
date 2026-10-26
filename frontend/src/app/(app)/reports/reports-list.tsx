@@ -29,7 +29,6 @@ import { errorText } from "@/lib/auth-form";
 import {
   defaultPeriod,
   exportReport,
-  exportReports,
   deleteReport,
   FIRST_YEAR,
   listReports,
@@ -164,10 +163,9 @@ function ReportsList() {
     <>
       <ReportsHeader title="My Reports" heading="h1">
         {user?.role === "user" && <Can permission="reports:write"><Button asChild className="min-h-11"><Link href="/reports/new">New Report</Link></Button></Can>}
-        <Can permission="reports:export"><Button variant="outline" className="min-h-11" disabled={!filters.month || !data?.data.length || downloading.includes("bulk")} aria-busy={downloading.includes("bulk")} onClick={() => { if (filters.month) { const period = { month: filters.month, year: filters.year! }; setPreview({ key: "bulk", target: period, run: () => exportReports(period.month, period.year) }); } }}><Download aria-hidden="true" />Download Bulk</Button></Can>
       </ReportsHeader>
       <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} scope={params.toString()} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} filters={(
-      <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <form onSubmit={(e) => e.preventDefault()} className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <div className="flex flex-col gap-2">
           <Label htmlFor="month">Month</Label>
           <NativeSelect
@@ -209,10 +207,10 @@ function ReportsList() {
           />
         ))}
         {hasText && (
-          <div className="sm:col-span-2 lg:col-span-5">
             <Button
               type="button"
               variant="outline"
+              className="min-h-11"
               onClick={() => {
                 const empty = { worker: "", area: "", church: "" };
                 sentKey.current = JSON.stringify(empty);
@@ -222,7 +220,6 @@ function ReportsList() {
             >
               Clear
             </Button>
-          </div>
         )}
       </form>
       )} actions={(r) => (
@@ -242,7 +239,7 @@ function ReportsList() {
           {error.message}
         </p>
       ) : data && data.data.length === 0 ? (
-        <p role="status" className="text-sm text-muted-foreground">No reports match these filters.</p>
+        <p role="status" className="text-sm text-muted-foreground">You haven&apos;t submitted any reports yet.</p>
       ) : (
         data && (
           <>

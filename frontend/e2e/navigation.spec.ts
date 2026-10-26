@@ -7,12 +7,17 @@ test.describe("sidebar, as admin", () => {
 
   test("lists reports, admin sections and settings, and marks the current page", async ({ page }) => {
     await page.goto("/admin");
-    await expect(mainNav(page).getByRole("link")).toHaveText(["My Reports", "Reports", "Tracker", "Users", "Roles", "Logs", "Profile", "Change Password"]);
-    await expect(mainNav(page).getByRole("link", { name: "Admin Reports", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(mainNav(page).getByRole("link")).toHaveText(["", "My Reports", "All Reports", "Tracker", "Users", "Roles", "Logs", "Profile", "Change Password"]);
+    await expect(mainNav(page).getByRole("link", { name: "Admin All Reports", exact: true })).toHaveAttribute("aria-current", "page");
     await mainNav(page).getByRole("link", { name: "My Reports", exact: true }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(mainNav(page).getByRole("link", { name: "My Reports", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(mainNav(page).getByRole("link", { name: "Admin Reports", exact: true })).not.toHaveAttribute("aria-current", "page");
+    await expect(mainNav(page).getByRole("link", { name: "Admin All Reports", exact: true })).not.toHaveAttribute("aria-current", "page");
+    const logo = mainNav(page).getByRole("link", { name: "AMGC home" });
+    await expect(logo.getByRole("img", { name: "AMGC" })).toBeVisible();
+    await expect.poll(() => logo.getByRole("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    await logo.click();
+    await expect(page).toHaveURL(/\/admin$/);
   });
 
   test("the old /admin/users address lands on the Users section", async ({ page }) => {
@@ -31,7 +36,7 @@ test.describe("sidebar, as admin", () => {
     await page.reload();
     await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toHaveAttribute("aria-current", "page");
 
-    await page.getByRole("link", { name: "Admin Reports", exact: true }).click();
+    await page.getByRole("link", { name: "Admin All Reports", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\?tab=reports$/);
     await page.goBack();
     await expect(page).toHaveURL(/\/reports$/);
@@ -62,7 +67,7 @@ test.describe("sidebar, as admin", () => {
     await expect(menu).toHaveAttribute("aria-expanded", "true");
     const mobileNav = page.getByRole("navigation", { name: "Mobile" });
     await expect(mobileNav).toBeVisible();
-    await mobileNav.getByRole("link", { name: "Admin Reports", exact: true }).click();
+    await mobileNav.getByRole("link", { name: "Admin All Reports", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\?tab=reports$/);
     await expect(menu).toHaveAttribute("aria-expanded", "false");
     await expect(mainNav(page)).toBeHidden();
@@ -76,8 +81,11 @@ for (const role of ["editor", "user"] as const) {
 
     test("shows reports and account settings", async ({ page }) => {
       await page.goto("/reports");
-      await expect(mainNav(page).getByRole("link")).toHaveText(["My Reports", "Profile", "Change Password"]);
+      await expect(mainNav(page).getByRole("link")).toHaveText(["", "My Reports", "Profile", "Change Password"]);
       await expect(mainNav(page).getByRole("link", { name: "My Reports", exact: true })).toHaveAttribute("aria-current", "page");
+      await page.goto("/account/profile");
+      await mainNav(page).getByRole("link", { name: "AMGC home" }).click();
+      await expect(page).toHaveURL(/\/reports$/);
     });
   });
 }

@@ -51,8 +51,8 @@ test.describe("as a custom role", () => {
       expect(assigned.status(), await assigned.text()).toBe(200);
 
       await page.goto("/reports");
-      await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin Reports", exact: true }).click();
-      await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Admin / })).toHaveText(["Reports", "Tracker"]);
+      await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin All Reports", exact: true }).click();
+      await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Admin / })).toHaveText(["All Reports", "Tracker"]);
       await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible();
 
       const reports = page.getByRole("region", { name: "Reports" });
@@ -72,7 +72,7 @@ test.describe("as a custom role", () => {
       await expect(row.getByText("Approved")).toBeVisible();
 
       await page.goto("/admin?tab=roles");
-      await expect(page.getByRole("link", { name: "Admin Reports", exact: true })).toHaveAttribute("aria-current", "page");
+      await expect(page.getByRole("link", { name: "Admin All Reports", exact: true })).toHaveAttribute("aria-current", "page");
       await expect(page.getByRole("link", { name: "Admin Roles", exact: true })).toHaveCount(0);
 
       // The server agrees: account and role management stay admin-only.

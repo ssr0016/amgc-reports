@@ -31,7 +31,7 @@ describe("app header", () => {
   it("puts admin destinations in the sidebar", () => {
     render(<AppLayout>content</AppLayout>);
     const nav = within(screen.getByRole("navigation", { name: "Main" }));
-    expect(nav.getByRole("link", { name: "Admin Reports" })).toHaveAttribute("href", "/admin?tab=reports");
+    expect(nav.getByRole("link", { name: "Admin All Reports" })).toHaveAttribute("href", "/admin?tab=reports");
     expect(nav.getByRole("link", { name: "Admin Users" })).toHaveAttribute("href", "/admin?tab=users");
   });
 });
