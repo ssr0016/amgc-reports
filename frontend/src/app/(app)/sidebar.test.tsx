@@ -18,7 +18,7 @@ describe("sidebar", () => {
   it("groups all admin destinations and keeps account links last", () => {
     render(<Sidebar />);
     expect(nav().getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "/reports", "/admin?tab=reports", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs", "/account/profile", "/account/password",
+      "/reports", "/admin?tab=reports", "/admin?tab=analytics", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs", "/account/profile", "/account/password",
     ]);
   });
 
@@ -26,7 +26,7 @@ describe("sidebar", () => {
     h.isAdmin = false;
     h.permissions = ["tracker:read", "roles:write"];
     render(<Sidebar />);
-    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Tracker", "Profile", "Change Password"]);
+    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Analytics", "Tracker", "Profile", "Change Password"]);
   });
 
   it("shows workers reports and settings without admin links", () => {
@@ -51,6 +51,6 @@ describe("sidebar", () => {
   it("uses the same forbidden-tab fallback as the admin panel", () => {
     Object.assign(h, { isAdmin: false, permissions: ["tracker:read"], path: "/admin", tab: "roles" });
     render(<Sidebar />);
-    expect(nav().getByRole("link", { name: "Admin Tracker" })).toHaveAttribute("aria-current", "page");
+    expect(nav().getByRole("link", { name: "Admin Analytics" })).toHaveAttribute("aria-current", "page");
   });
 });

@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ClipboardList, KeyRound, ListChecks, ScrollText, ShieldCheck, UserRound, Users } from "lucide-react";
+import { BarChart3, ClipboardList, KeyRound, ListChecks, ScrollText, ShieldCheck, UserRound, Users } from "lucide-react";
 import { cn } from "cn";
 import { adminSections } from "@/lib/admin-navigation";
 import { useSession } from "@/lib/session";
 
 const ADMIN_ICONS: Record<string, typeof ClipboardList> = {
-  reports: ClipboardList, tracker: ListChecks, users: Users, roles: ShieldCheck, logs: ScrollText,
+  reports: ClipboardList, analytics: BarChart3, tracker: ListChecks, users: Users, roles: ShieldCheck, logs: ScrollText,
 };
 
 export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavigate?: () => void }) {
