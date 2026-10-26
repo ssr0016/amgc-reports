@@ -73,15 +73,15 @@ for (const scheme of ["light", "dark"] as const) {
 
       test("admin panel", async ({ page }) => {
         await page.goto("/admin");
-        await expect(page.getByRole("tab", { name: "Reports" })).toBeVisible();
-        await expect(page.getByRole("region", { name: "Statistics" })).toBeVisible(); // the cards, once /admin/stats answered
+        await expect(page.getByRole("link", { name: "Admin Reports", exact: true })).toBeVisible();
+        await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible(); // the cards, once /admin/stats answered
         await expect(page.getByText("Loading…")).toHaveCount(0); // and the reports list
         await scan(page);
       });
 
       test("admin panel, Logs tab, with a row expanded", async ({ page }) => {
         await page.goto("/admin?tab=logs");
-        const panel = page.getByRole("tabpanel", { name: "Logs" });
+        const panel = page.getByRole("region", { name: "Logs" });
         await expect(panel.getByText(/total logs$/)).toBeVisible(); // the setup's own sign-ins are always there
         await panel.getByRole("button", { name: /View details/ }).first().click();
         await scan(page);
@@ -89,15 +89,15 @@ for (const scheme of ["light", "dark"] as const) {
 
       test("admin panel, Tracker tab", async ({ page }) => {
         await page.goto("/admin?tab=tracker");
-        const panel = page.getByRole("tabpanel", { name: "Tracker" });
+        const panel = page.getByRole("region", { name: "Tracker" });
         await expect(panel.getByText(/of \d+ workers$/)).toBeVisible(); // the setup's e2e user is always tracked
         await scan(page);
       });
 
       test("admin panel, Users tab", async ({ page }) => {
         await page.goto("/admin");
-        await page.getByRole("tab", { name: "Users" }).click();
-        const panel = page.getByRole("tabpanel", { name: "Users" });
+        await page.getByRole("link", { name: "Admin Users", exact: true }).click();
+        const panel = page.getByRole("region", { name: "Users" });
         await expect(panel.getByText("You", { exact: true })).toBeVisible(); // the signed-in admin's own row
         await scan(page);
         await panel.getByLabel("Role").selectOption({ label: "admin" });
@@ -107,7 +107,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       test("admin panel, Roles tab, and the role form", async ({ page }) => {
         await page.goto("/admin?tab=roles");
-        const panel = page.getByRole("tabpanel", { name: "Roles" });
+        const panel = page.getByRole("region", { name: "Roles" });
         await expect(panel.getByText("System", { exact: true }).first()).toBeVisible();
         await scan(page);
         await page.goto("/admin/roles/new");
@@ -190,9 +190,9 @@ test.describe("page titles", () => {
   test("each page names itself, and a client-side navigation updates it", async ({ page }) => {
     await page.goto("/reports");
     await expect(page).toHaveTitle("Reports · AMGCReports");
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin Reports", exact: true }).click();
     await expect(page).toHaveTitle("Admin · AMGCReports");
-    await page.getByRole("tab", { name: "Users" }).click();
+    await page.getByRole("link", { name: "Admin Users", exact: true }).click();
     await page.getByRole("link", { name: "New user" }).click();
     await expect(page).toHaveTitle("New user · AMGCReports");
     await page.goto("/reports/new");
@@ -317,7 +317,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
         await expect(page.getByRole("heading", { level: 1, name: ready })).toBeVisible();
         await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
         if (path === "/admin") {
-          await expect(page.getByRole("region", { name: "Statistics" })).toBeVisible();
+          await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible();
           await expect(page.getByText("Loading…")).toHaveCount(0); // the reports list too
         }
         if (path === "/admin?tab=logs") await expect(page.getByText(/total logs$/)).toBeVisible();
@@ -332,7 +332,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
     test("admin, with the sidebar menu open", async ({ page }) => {
       await page.goto("/reports");
       await page.getByRole("button", { name: "Menu" }).click();
-      await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Mobile" })).toBeVisible();
       expect(await noSidewaysScroll(page)).toBe(true);
       await scan(page);
     });

@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext } from "@playwright/test";
 import { ACCOUNTS, API, authFile, clientIp, expect, previousPeriod, send, test } from "./support";
 
-// 37b: a custom role opens /admin and sees only the tabs its permissions allow.
+// 37b: a custom role opens /admin and sees only the admin links its permissions allow.
 const ROLE = "E2E Panel Reviewer";
 const PERMS = ["reports:read", "reports:read_any", "reports:approve", "tracker:read"];
 const WORKER = "E2E Reviewer Worker";
@@ -20,7 +20,7 @@ async function cleanUp(admin: APIRequestContext, editorId: number) {
 test.describe("as a custom role", () => {
   test.use({ storageState: authFile("editor") });
 
-  test("sees only its tabs, approves a report, and cannot open Roles", async ({ page, playwright }) => {
+  test("sees only its admin links, approves a report, and cannot open Roles", async ({ page, playwright }) => {
     const admin = await playwright.request.newContext({
       storageState: authFile("admin"),
       extraHTTPHeaders: { "X-Real-IP": clientIp("custom-role-admin") },
@@ -51,11 +51,11 @@ test.describe("as a custom role", () => {
       expect(assigned.status(), await assigned.text()).toBe(200);
 
       await page.goto("/reports");
-      await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" }).click();
-      await expect(page.getByRole("tab")).toHaveText(["Reports", "Tracker"]);
+      await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin Reports", exact: true }).click();
+      await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Admin / })).toHaveText(["Reports", "Tracker"]);
       await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible();
 
-      const reports = page.getByRole("tabpanel", { name: "Reports" });
+      const reports = page.getByRole("region", { name: "Reports" });
       const row = reports.getByRole("row").filter({ hasText: WORKER });
       await expect(row.getByText("Pending")).toBeVisible();
       await expect(reports.getByRole("button", { name: "Download Bulk" })).toHaveCount(0);
@@ -72,8 +72,8 @@ test.describe("as a custom role", () => {
       await expect(row.getByText("Approved")).toBeVisible();
 
       await page.goto("/admin?tab=roles");
-      await expect(page.getByRole("tab", { name: "Reports" })).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByRole("tab", { name: "Roles" })).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "Admin Reports", exact: true })).toHaveAttribute("aria-current", "page");
+      await expect(page.getByRole("link", { name: "Admin Roles", exact: true })).toHaveCount(0);
 
       // The server agrees: account and role management stay admin-only.
       expect((await page.request.get(`${API}/admin/roles`)).status()).toBe(403);

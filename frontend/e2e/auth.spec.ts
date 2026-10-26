@@ -22,9 +22,9 @@ test.describe("signed out", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(page.getByText(`${ACCOUNTS.user.name} · user`)).toBeVisible();
-    // Admin and Users are for admins only; a plain user's sidebar holds just Reports.
-    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["Reports"]);
-    await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0);
+    // A plain user sees reports and account settings without admin links.
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["Reports", "Profile", "Change Password"]);
+    await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toHaveCount(0);
   });
 
   test("?next= is followed, but never to another site", async ({ page }) => {
@@ -91,8 +91,8 @@ test.describe("signed in", () => {
     await signIn(ACCOUNTS.admin);
     await expect(page).toHaveURL(/\/reports$/);
     await expect(page.getByText(`${ACCOUNTS.admin.name} · admin`)).toBeVisible();
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" }).click();
-    await expect(page.getByRole("tab", { name: "Users" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin Reports", exact: true }).click();
+    await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toBeVisible();
     await expect(page.getByText("You are not allowed to view the admin panel.")).toHaveCount(0);
   });
 
@@ -104,7 +104,7 @@ test.describe("signed in", () => {
     };
     await page.goto("/login?next=/admin");
     await signIn(ACCOUNTS.admin);
-    await expect(page.getByRole("tab", { name: "Users" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Sign out" }).click();
     await expect(page).toHaveURL(/\/login$/);
 

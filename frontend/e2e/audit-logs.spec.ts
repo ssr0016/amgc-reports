@@ -3,7 +3,7 @@ import { ACCOUNTS, API, authFile, clientIp, earlierPeriod, expect, previousPerio
 test.describe("as admin", () => {
   test.use({ storageState: authFile("admin") });
 
-  test("an admin finds their own sign-in, a failed sign-in and an approval in the Logs tab", async ({ page, request, playwright }) => {
+  test("an admin finds their own sign-in, a failed sign-in and an approval in the Logs section", async ({ page, request, playwright }) => {
     // A wrong password for the e2e user, then the right one, so the failed attempt does not count toward its lockout.
     const anon = await playwright.request.newContext({ extraHTTPHeaders: { "X-Real-IP": clientIp("audit-logs-failed") } });
     const csrf = async () => (await (await anon.get(`${API}/auth/csrf`)).json()).csrf_token;
@@ -24,7 +24,7 @@ test.describe("as admin", () => {
       expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(200);
 
       await page.goto("/admin?tab=logs");
-      const logs = page.getByRole("tabpanel", { name: "Logs" });
+      const logs = page.getByRole("region", { name: "Logs" });
       await expect(logs.getByText(/total logs$/)).toBeVisible();
 
       await logs.getByLabel("Action").selectOption({ label: "Logged in" });
@@ -53,10 +53,10 @@ test.describe("as admin", () => {
 test.describe("as a plain user", () => {
   test.use({ storageState: authFile("user") });
 
-  test("has no Logs tab, and the API refuses the audit trail", async ({ page, request }) => {
+  test("has no Logs link, and the API refuses the audit trail", async ({ page, request }) => {
     await page.goto("/admin");
     await expect(page.getByText("You are not allowed to view the admin panel.")).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Logs" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Admin Logs", exact: true })).toHaveCount(0);
     const { month, year } = earlierPeriod(0);
     expect((await request.get(`${API}/admin/audit-logs?month=${month}&year=${year}`)).status()).toBe(403);
   });

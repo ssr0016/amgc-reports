@@ -18,7 +18,7 @@ test.describe("as admin", () => {
     await worker.dispose();
     try {
       await page.goto("/admin?tab=tracker");
-      const tracker = page.getByRole("tabpanel", { name: "Tracker" });
+      const tracker = page.getByRole("region", { name: "Tracker" });
       await tracker.getByLabel("Month").selectOption(period.month);
       await tracker.getByLabel("Year").selectOption(String(period.year));
       const row = tracker.getByRole("row").filter({ hasText: ACCOUNTS.user.email });

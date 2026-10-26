@@ -251,7 +251,7 @@ export function ReportForm({
                 </p>
               )}
               {/* table-fixed gives every section the same column widths; min-w keeps phones scrolling sideways */}
-              <Table className="min-w-[40rem] table-fixed">
+              <Table aria-label={`${section.title} metrics`} className="min-w-[40rem] table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="sticky left-0 w-56 bg-background">Metric</TableHead>

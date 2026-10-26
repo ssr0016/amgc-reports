@@ -23,7 +23,7 @@ test.describe("as admin", () => {
     await cleanUp(request, user.id);
     try {
       await page.goto("/admin?tab=roles");
-      const roles = page.getByRole("tabpanel", { name: "Roles" });
+      const roles = page.getByRole("region", { name: "Roles" });
       await roles.getByRole("link", { name: "New role" }).click();
       await page.getByLabel("Name").fill(ROLE);
       await page.getByRole("checkbox", { name: /reports:read_any/ }).check();
@@ -54,7 +54,7 @@ test.describe("as admin", () => {
       await expect(row).toHaveCount(0);
 
       await page.goto("/admin?tab=logs");
-      const logs = page.getByRole("tabpanel", { name: "Logs" });
+      const logs = page.getByRole("region", { name: "Logs" });
       await expect(logs.getByText(/total logs$/)).toBeVisible();
       for (const [label, target] of [
         ["Created role", ROLE],

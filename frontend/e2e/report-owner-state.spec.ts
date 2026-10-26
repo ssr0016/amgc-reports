@@ -29,7 +29,7 @@ test("reports retain deleted and deceased owners, update badges, and preserve re
   }
 
   await page.goto("/admin");
-  const reports = page.getByRole("tabpanel", { name: "Reports" });
+  const reports = page.getByRole("region", { name: "Reports" });
   const reportRow = reports.getByRole("row").filter({ hasText: account.name });
   await expect(reportRow.getByText("Pending", { exact: true })).toBeVisible();
   await expect(reportRow.getByText("Archived", { exact: true })).toHaveCount(0);
@@ -40,19 +40,19 @@ test("reports retain deleted and deceased owners, update badges, and preserve re
   await status.getByRole("button", { name: "Update status" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Change status" }).click();
   await expect(page.getByText(`${account.name} is now Deceased`)).toBeVisible();
-  await page.getByRole("link", { name: "Admin", exact: true }).click();
+  await page.getByRole("link", { name: "Admin Reports", exact: true }).click();
   await expect(reportRow.getByText("Archived", { exact: true })).toBeVisible();
 
-  await page.getByRole("tab", { name: "Users" }).click();
-  const users = page.getByRole("tabpanel", { name: "Users" });
+  await page.getByRole("link", { name: "Admin Users", exact: true }).click();
+  const users = page.getByRole("region", { name: "Users" });
   await users.getByRole("button", { name: `Delete ${account.name}`, exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete user", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await page.getByRole("tab", { name: "Reports" }).click();
+  await page.getByRole("link", { name: "Admin Reports", exact: true }).click();
   await expect(reportRow.getByText("Deleted user", { exact: true })).toBeVisible();
   await expect(reportRow.getByText("Archived", { exact: true })).toBeVisible();
   await expect(reportRow.getByRole("button", { name: /^Approve / })).toBeEnabled();
-  expect((await new AxeBuilder({ page }).include('[role="tabpanel"]').analyze()).violations).toEqual([]);
+  expect((await new AxeBuilder({ page }).include('main section[aria-label="Reports"]').analyze()).violations).toEqual([]);
 
   const reader = await playwright.request.newContext({ storageState: authFile("user"), extraHTTPHeaders: { "X-Real-IP": clientIp } });
   try {
@@ -73,11 +73,11 @@ test("reports retain deleted and deceased owners, update badges, and preserve re
   await expect(regularRow.getByText("Archived", { exact: true })).toBeVisible();
 
   await page.goto("/admin");
-  await page.getByRole("tab", { name: "Users" }).click();
+  await page.getByRole("link", { name: "Admin Users", exact: true }).click();
   await users.getByLabel("Status").selectOption("deleted");
   await users.getByRole("button", { name: `Restore ${account.name}`, exact: true }).click();
   await expect(page.getByText(`${account.name} restored`, { exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "Reports" }).click();
+  await page.getByRole("link", { name: "Admin Reports", exact: true }).click();
   await expect(reportRow.getByText("Deleted user", { exact: true })).toHaveCount(0);
   await expect(reportRow.getByText("Archived", { exact: true })).toBeVisible();
 
@@ -85,7 +85,7 @@ test("reports retain deleted and deceased owners, update badges, and preserve re
   await status.getByLabel("Status").selectOption("active");
   await status.getByRole("button", { name: "Update status" }).click();
   await expect(page.getByText(`${account.name} is now Active`)).toBeVisible();
-  await page.getByRole("link", { name: "Admin", exact: true }).click();
+  await page.getByRole("link", { name: "Admin Reports", exact: true }).click();
   await expect(reportRow.getByText("Archived", { exact: true })).toHaveCount(0);
   await expect(reportRow.getByText("Pending", { exact: true })).toBeVisible();
   // Leave shared report totals unchanged for the other browser specs.

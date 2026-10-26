@@ -31,7 +31,7 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
     expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(200);
 
     await page.goto("/admin");
-    const reports = page.getByRole("tabpanel", { name: "Reports" });
+    const reports = page.getByRole("region", { name: "Reports" });
     await reports.getByLabel("Month").selectOption(period.month);
     await reports.getByLabel("Year").selectOption(String(period.year));
     const row = reports.getByRole("row").filter({ hasText: "E2E Export Worker" });
@@ -69,7 +69,7 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
     expect(single.suggestedFilename()).toBe(`E2E Export Church ${period.month} ${period.year}.xlsx`);
     await expect(dialog).toBeHidden();
 
-    expect((await new AxeBuilder({ page }).include('[role="tabpanel"]').analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).include('main section[aria-label="Reports"]').analyze()).violations).toEqual([]);
   } finally {
     // Soft delete, so a later run can file the month again.
     expect((await send(request, "DELETE", `/reports/${id}`)).status()).toBe(204);

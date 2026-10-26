@@ -89,11 +89,10 @@ test.describe("as admin", () => {
   test.describe.configure({ mode: "serial" });
   test.beforeEach(() => setStatus("active"));
 
-  test("the Users tab shows the badge and the Status filter narrows the list", async ({ page }) => {
+  test("the Users section shows the badge and the Status filter narrows the list", async ({ page }) => {
     await setStatus("inactive");
-    await page.goto("/admin");
-    await page.getByRole("tab", { name: "Users" }).click();
-    const panel = page.getByRole("tabpanel", { name: "Users" });
+    await page.goto("/admin?tab=users");
+    const panel = page.getByRole("region", { name: "Users" });
 
     const row = panel.getByRole("row", { name: /E2E Status/ });
     await expect(row.getByTestId("user-status")).toHaveText("Inactive");
