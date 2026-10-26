@@ -767,7 +767,7 @@ export interface paths {
         };
         /**
          * Admin panel counts
-         * @description Counts for one month: reports (total, approved, pending) and, regardless of month, all users and admins. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+         * @description Counts for one month: report statuses, active expected workers, workers with no report, and unique active churches; plus all users and admins regardless of month. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
          */
         get: {
             parameters: {
@@ -3144,7 +3144,10 @@ export interface components {
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats": {
             admins_total?: number;
+            churches_total?: number;
+            expected_reports?: number;
             month?: string;
+            no_report?: number;
             reports_approved?: number;
             reports_needs_revision?: number;
             reports_pending?: number;

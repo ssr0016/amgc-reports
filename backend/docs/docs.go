@@ -736,7 +736,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Counts for one month: reports (total, approved, pending) and, regardless of month, all users and admins. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.",
+                "description": "Counts for one month: report statuses, active expected workers, workers with no report, and unique active churches; plus all users and admins regardless of month. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.",
                 "produces": [
                     "application/json"
                 ],
@@ -2790,8 +2790,17 @@ const docTemplate = `{
                 "admins_total": {
                     "type": "integer"
                 },
+                "churches_total": {
+                    "type": "integer"
+                },
+                "expected_reports": {
+                    "type": "integer"
+                },
                 "month": {
                     "type": "string"
+                },
+                "no_report": {
+                    "type": "integer"
                 },
                 "reports_approved": {
                     "type": "integer"

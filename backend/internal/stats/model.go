@@ -27,6 +27,9 @@ type AdminStats struct {
 	ReportsNeedsRevision int64  `json:"reports_needs_revision"`
 	UsersTotal           int64  `json:"users_total"`
 	AdminsTotal          int64  `json:"admins_total"`
+	ExpectedReports      int64  `json:"expected_reports"`
+	NoReport             int64  `json:"no_report"`
+	ChurchesTotal        int64  `json:"churches_total"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats
 
 // The Tracker statuses (D-A3): an account's report for the month is approved,

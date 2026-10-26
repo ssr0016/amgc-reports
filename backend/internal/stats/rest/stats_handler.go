@@ -19,7 +19,7 @@ func NewStatsHandler(svc stats.Service) *StatsHandler { return &StatsHandler{svc
 
 // GetStats godoc
 // @Summary      Admin panel counts
-// @Description  Counts for one month: reports (total, approved, pending) and, regardless of month, all users and admins. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+// @Description  Counts for one month: report statuses, active expected workers, workers with no report, and unique active churches; plus all users and admins regardless of month. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
 // @Tags         admin/stats
 // @Produce      json
 // @Security     CookieAuth

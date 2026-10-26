@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   exportReport: vi.fn(),
   exportReports: vi.fn(),
   previewExcel: vi.fn(),
+  getReport: vi.fn(),
   saveFile: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn() },
 }));
@@ -31,6 +32,7 @@ vi.mock("@/lib/reports", async (orig) => ({
   exportReport: h.exportReport,
   exportReports: h.exportReports,
   previewExcel: h.previewExcel,
+  getReport: h.getReport,
 }));
 vi.mock("@/lib/api", async (orig) => ({ ...(await orig<typeof import("@/lib/api")>()), saveFile: h.saveFile }));
 
@@ -60,6 +62,7 @@ const row = (text: string) => screen.getByText(text).closest("tr")!;
 beforeEach(() => {
   vi.clearAllMocks();
   h.listReports.mockResolvedValue(page([report(1), report(2)]));
+  h.getReport.mockResolvedValue(report(1));
 });
 
 describe("admin reports: table", () => {

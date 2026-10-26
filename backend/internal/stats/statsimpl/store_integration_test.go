@@ -42,6 +42,14 @@ func TestStore_Counts(t *testing.T) {
 	require.NoError(t, err)
 	bob, err := users.CreateWithPassword(ctx, "bob@example.com", "Bob", "hash")
 	require.NoError(t, err)
+	require.NoError(t, func() error {
+		_, err := users.UpdateProfile(ctx, ana.ID, user.UserProfile{Name: "Ana", ChurchName: "Bethel"})
+		return err
+	}())
+	require.NoError(t, func() error {
+		_, err := users.UpdateProfile(ctx, bob.ID, user.UserProfile{Name: "Bob", ChurchName: "Ephesus"})
+		return err
+	}())
 	boss, err := users.CreateWithPassword(ctx, "boss@example.com", "Boss", "hash")
 	require.NoError(t, err)
 	require.NoError(t, users.UpdateRole(ctx, boss.ID, adminRole.ID))
@@ -78,6 +86,9 @@ func TestStore_Counts(t *testing.T) {
 		assert.EqualValues(t, 2, got.ReportsTotal)
 		assert.EqualValues(t, 1, got.ReportsApproved)
 		assert.EqualValues(t, 1, got.ReportsPending)
+		assert.EqualValues(t, 2, got.ExpectedReports)
+		assert.EqualValues(t, 0, got.NoReport)
+		assert.EqualValues(t, 2, got.ChurchesTotal)
 		assert.Equal(t, got.ReportsTotal, got.ReportsApproved+got.ReportsPending)
 	})
 
@@ -87,7 +98,8 @@ func TestStore_Counts(t *testing.T) {
 		got, err := store.Counts(ctx, "January", 2026)
 		require.NoError(t, err)
 		assert.EqualValues(t, 0, got.ReportsApproved)
-		assert.EqualValues(t, 2, got.ReportsPending)
+		assert.EqualValues(t, 1, got.ReportsPending)
+		assert.EqualValues(t, 1, got.ReportsNeedsRevision)
 	})
 
 	t.Run("month matches case-insensitively and echoes the arguments", func(t *testing.T) {
@@ -102,6 +114,9 @@ func TestStore_Counts(t *testing.T) {
 		require.NoError(t, err)
 		assert.EqualValues(t, 0, got.ReportsTotal)
 		assert.EqualValues(t, 3, got.UsersTotal)
+		assert.EqualValues(t, 2, got.ExpectedReports)
+		assert.EqualValues(t, 2, got.NoReport)
+		assert.EqualValues(t, 2, got.ChurchesTotal)
 	})
 
 	t.Run("admins are counted by role name, users are all accounts, deleted ones aside", func(t *testing.T) {
@@ -154,7 +169,7 @@ func TestStore_Tracker(t *testing.T) {
 
 	ana := account("ana@example.com", "Ana", "Bethel")     // approved
 	bob := account("bob@example.com", "Bob", "antioch")    // pending
-	eva := account("eva@example.com", "Eva", "Ephesus")   // needs revision
+	eva := account("eva@example.com", "Eva", "Ephesus")    // needs revision
 	cora := account("cora@example.com", "Cora", "Antioch") // no report; inactive
 	dan := account("dan@example.com", "Dan", "")           // no church, so not a church account
 	gone := account("gone@example.com", "Gone", "Calvary") // soft-deleted account

@@ -27,10 +27,10 @@ export function StatsCards() {
   }
 
   const cards = [
-    { label: "Reports", value: data.reports_total, note: `${data.month} ${data.year}` },
-    { label: "Approved", value: data.reports_approved },
-    { label: "Pending", value: data.reports_pending },
-    { label: "Users", value: data.users_total, note: `${data.admins_total} ${data.admins_total === 1 ? "admin" : "admins"}` },
+    { label: "Total Users", value: data.users_total },
+    { label: "Expected Reports", value: data.expected_reports, note: `${data.month} ${data.year}` },
+    { label: "No Report", value: data.no_report },
+    { label: "Total Churches", value: data.churches_total },
   ];
   return (
     <section aria-label="Statistics" className="grid grid-cols-2 gap-4 lg:grid-cols-4">

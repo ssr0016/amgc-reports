@@ -17,6 +17,9 @@ const stats = (over = {}) => ({
   reports_pending: 2,
   users_total: 7,
   admins_total: 2,
+  expected_reports: 5,
+  no_report: 2,
+  churches_total: 4,
   ...over,
 });
 
@@ -41,7 +44,7 @@ describe("StatsCards", () => {
     renderCards();
     expect(await screen.findByRole("alert")).toHaveTextContent("Server error.");
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByText("Pending", { selector: "[data-slot=card-description]" })).toBeInTheDocument();
+    expect(await screen.findByText("Expected Reports", { selector: "[data-slot=card-description]" })).toBeInTheDocument();
     expect(h.getStats).toHaveBeenCalledTimes(2);
   });
 
@@ -51,32 +54,34 @@ describe("StatsCards", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading…");
   });
 
-  it("shows the four cards with their numbers and the period", async () => {
+  it("shows the four master-data cards with their numbers and the period", async () => {
     h.getStats.mockResolvedValue(stats());
     renderCards();
 
     expect(await screen.findByRole("region", { name: "Statistics" })).toBeInTheDocument();
-    expect(within(card("Reports")).getByText("3")).toBeInTheDocument();
-    expect(within(card("Reports")).getByText("September 2026")).toBeInTheDocument();
-    expect(within(card("Approved")).getByText("1")).toBeInTheDocument();
-    expect(within(card("Pending")).getByText("2")).toBeInTheDocument();
-    expect(within(card("Users")).getByText("7")).toBeInTheDocument();
-    expect(within(card("Users")).getByText("2 admins")).toBeInTheDocument();
+    expect(within(card("Total Users")).getByText("7")).toBeInTheDocument();
+    expect(within(card("Expected Reports")).getByText("5")).toBeInTheDocument();
+    expect(within(card("Expected Reports")).getByText("September 2026")).toBeInTheDocument();
+    expect(within(card("No Report")).getByText("2")).toBeInTheDocument();
+    expect(within(card("Total Churches")).getByText("4")).toBeInTheDocument();
+    expect(screen.queryByText("Approved", { selector: "[data-slot=card-description]" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Pending", { selector: "[data-slot=card-description]" })).not.toBeInTheDocument();
   });
 
   it("shows zero as 0, not blank", async () => {
-    h.getStats.mockResolvedValue(stats({ reports_total: 0, reports_approved: 0, reports_pending: 0 }));
+    h.getStats.mockResolvedValue(stats({ users_total: 0, expected_reports: 0, no_report: 0, churches_total: 0 }));
     renderCards();
     await screen.findByRole("region", { name: "Statistics" });
-    for (const label of ["Reports", "Approved", "Pending"]) {
+    for (const label of ["Total Users", "Expected Reports", "No Report", "Total Churches"]) {
       expect(within(card(label)).getByText("0")).toBeInTheDocument();
     }
   });
 
-  it("says '1 admin' for one", async () => {
+  it("does not show the admin breakdown in the master-data cards", async () => {
     h.getStats.mockResolvedValue(stats({ users_total: 1, admins_total: 1 }));
     renderCards();
-    expect(await screen.findByText("1 admin")).toBeInTheDocument();
+    await screen.findByText("Total Users", { selector: "[data-slot=card-description]" });
+    expect(screen.queryByText("1 admin")).not.toBeInTheDocument();
   });
 
   it("announces an error with the API's message", async () => {
