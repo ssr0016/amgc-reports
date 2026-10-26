@@ -119,7 +119,7 @@ export function AdminReports() {
         </Button>
       </ReportsHeader>
       <ReportsStats data={error ? undefined : data} />
-      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} scope={JSON.stringify(filters)} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} bulkActions={can("reports:approve") ? {
+      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} bulkActions={can("reports:approve") ? {
         busy: bulkToggle.isPending,
         approve: (reports) => bulkToggle.mutateAsync({ reports, action: "approve" }).then(() => undefined),
         unapprove: (reports, adminNotes) => bulkToggle.mutateAsync({ reports, action: "unapprove", adminNotes }).then(() => undefined),
