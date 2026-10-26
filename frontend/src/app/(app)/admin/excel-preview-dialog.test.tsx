@@ -82,11 +82,19 @@ describe("Excel preview dialog", () => {
     expect(screen.queryByLabelText("Sheet")).not.toBeInTheDocument();
   });
 
-  it("bulk opens on the Report Dashboard, six columns wide", async () => {
+  it("bulk opens on a clean dashboard table without spreadsheet chrome", async () => {
     renderDialog();
     const table = await screen.findByRole("table", { name: "Sheet Report Dashboard" });
     expect(screen.getByLabelText("Sheet")).toHaveDisplayValue("Report Dashboard");
-    expect(within(table).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Row", "A", "B", "C", "D", "E", "F"]);
+    expect(within(table).getAllByRole("columnheader").map((c) => c.textContent)).toEqual([
+      "Report Dashboard",
+      "Churches",
+      "Month",
+      "Year",
+      "Status",
+      "Coordinator's Remark",
+      "Support Status",
+    ]);
     expect(within(table).getByText("September")).toBeInTheDocument();
     expect(within(table).getByText("No Report Submitted")).toBeInTheDocument();
     expect(screen.getByText("2 approved")).toBeInTheDocument();

@@ -24,9 +24,6 @@ import { ErrorRetry } from "@/components/error-retry";
 // One report (the row's Excel button) or one month (Download Bulk).
 export type PreviewTarget = { reportId: number; label: string } | { month: string; year: number };
 
-// Column letters for a sheet's width: 7 for a report sheet, 6 for the Report Dashboard (D-A19).
-const columns = (rows: string[][]) => Array.from({ length: rows[0]?.length ?? 0 }, (_, i) => String.fromCharCode(65 + i));
-
 // Shows the workbook an export would build before it is downloaded (D-A15). The
 // preview writes no audit row; only Download does, through the real export.
 // Mount it only while open: closing unmounts it, and Radix returns focus to the
@@ -185,21 +182,36 @@ function ExcelMetricTable({ title, rows, name }: { title: string; rows: string[]
 }
 
 function ExcelDashboardSheet({ sheet }: { sheet: { name: string; rows: string[][] } }) {
+  const title = sheet.rows[0]?.[0] || sheet.name;
+  const headers = sheet.rows[1] ?? [];
+  const rows = sheet.rows.slice(2);
+
   return (
-    <div role="region" aria-label={`Sheet ${sheet.name}`} tabIndex={0} className="max-h-[60vh] overflow-auto rounded-lg border bg-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-      <Table aria-label={`Sheet ${sheet.name}`} className="text-black">
+    <div role="region" aria-label={`Sheet ${sheet.name}`} tabIndex={0} className="max-h-[60vh] overflow-auto rounded-lg border border-slate-300 bg-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+      <Table aria-label={`Sheet ${sheet.name}`} className="table-fixed border-collapse bg-white text-[11px] text-black">
         <caption className="sr-only">Sheet {sheet.name}</caption>
         <TableHeader>
-          <TableRow>
-            <TableHead><span className="sr-only">Row</span></TableHead>
-            {columns(sheet.rows).map((c) => <TableHead key={c} scope="col">{c}</TableHead>)}
+          <TableRow className="bg-slate-100 hover:bg-slate-100">
+            <TableHead colSpan={headers.length || 1} className="border-b border-slate-300 px-3 py-2 text-center text-base font-bold text-slate-900">
+              {title}
+            </TableHead>
+          </TableRow>
+          <TableRow className="bg-slate-200 hover:bg-slate-200">
+            {headers.map((text, c) => (
+              <TableHead key={c} scope="col" className={`${c < headers.length - 1 ? "border-r border-slate-300" : ""} px-3 py-2 font-bold text-slate-900 ${c === 0 ? "text-left" : "text-center"}`}>
+                {text}
+              </TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sheet.rows.map((cells, r) => (
-            <TableRow key={r}>
-              <TableHead scope="row" className="text-muted-foreground">{r + 1}</TableHead>
-              {cells.map((text, c) => <TableCell key={c} className="whitespace-pre-wrap">{text}</TableCell>)}
+          {rows.map((cells, r) => (
+            <TableRow key={r} className={r % 2 ? "bg-slate-50 hover:bg-slate-100" : "bg-white hover:bg-slate-100"}>
+              {cells.map((text, c) => (
+                <TableCell key={c} className={`${c < headers.length - 1 ? "border-r border-slate-300" : ""} whitespace-pre-wrap px-3 py-2 text-black ${c === 0 ? "text-left" : "text-center"}`}>
+                  {text}
+                </TableCell>
+              ))}
             </TableRow>
           ))}
         </TableBody>
