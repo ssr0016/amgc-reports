@@ -415,6 +415,19 @@ describe("report owner badges", () => {
 
 
 describe("reports list: metadata preview", () => {
+  it("fetches the owner's report details for the shared preview", async () => {
+    h.getReport.mockResolvedValue(report(1, 1, { status: "needs_revision", admin_notes: "Please add the missing totals." }));
+    const { user } = renderList("reports:read");
+
+    await user.click(await screen.findByRole("button", { name: "Preview April 2026, Worker 1" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Report Preview" });
+
+    expect(h.getReport).toHaveBeenCalledWith(1);
+    expect(within(dialog).getByText("Needs Revision")).toBeInTheDocument();
+    expect(within(dialog).getByText("Admin Notes")).toBeInTheDocument();
+    expect(within(dialog).getByText("Please add the missing totals.")).toBeInTheDocument();
+  });
+
   it("never fetches details for a reader and returns focus on close", async () => {
     h.listReports.mockResolvedValue(page([report(1, 2, { narrative_report: "Private narrative", metrics: { tithes: { week1: 12345 } } } as Partial<Report>)]));
     const { user } = renderList("reports:read", "reports:read_any");
