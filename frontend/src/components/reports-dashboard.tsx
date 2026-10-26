@@ -97,7 +97,12 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
               <TableCell><div className="flex items-center gap-3"><Avatar name={r.worker || "Unknown worker"} className="bg-secondary! text-secondary-foreground! cursor-default" /><div className="flex min-w-36 flex-col items-start gap-1"><span className="font-medium">{r.worker || "—"}</span><ReportOwnerBadges report={r} /></div></div></TableCell>
               <TableCell>{r.month}</TableCell><TableCell className="text-right font-mono tabular-nums">{r.year}</TableCell>
               <TableCell>{r.area_assignment || "—"}</TableCell><TableCell>{r.church_name || "—"}</TableCell>
-              <TableCell><Badge className={(r.status ?? (r.completed ? "approved" : "pending")) === "approved" ? "border-transparent bg-[var(--approved)]/10 text-[var(--approved)]" : (r.status ?? "pending") === "needs_revision" ? "border-transparent bg-red-100 text-red-700" : "border-transparent bg-[var(--pending)]/10 text-[var(--pending)]"}>{(r.status ?? (r.completed ? "approved" : "pending")) === "needs_revision" ? "Needs Revision" : (r.status ?? (r.completed ? "approved" : "pending")) === "approved" ? "Approved" : "Pending"}</Badge></TableCell>
+              <TableCell>
+                <div className="flex flex-wrap gap-1">
+                  <Badge className={(r.status ?? (r.completed ? "approved" : "pending")) === "approved" ? "border-transparent bg-[var(--approved)]/10 text-[var(--approved)]" : (r.status ?? "pending") === "needs_revision" ? "border-transparent bg-red-100 text-red-700" : "border-transparent bg-[var(--pending)]/10 text-[var(--pending)]"}>{(r.status ?? (r.completed ? "approved" : "pending")) === "needs_revision" ? "Needs Revision" : (r.status ?? (r.completed ? "approved" : "pending")) === "approved" ? "Approved" : "Pending"}</Badge>
+                  {r.status === "pending" && r.last_revised_at && <Badge variant="outline">Revised</Badge>}
+                </div>
+              </TableCell>
               <TableCell><div className="flex justify-end gap-2">{actions(r)}</div></TableCell>
             </TableRow>
           ))}

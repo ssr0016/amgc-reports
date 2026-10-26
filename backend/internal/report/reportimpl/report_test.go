@@ -325,6 +325,7 @@ func TestReportService_FieldVisibility(t *testing.T) {
 	}
 	mine, err := f.svc.Create(ctx, alice, "", full)
 	require.NoError(t, err)
+	f.reports.active(mine.ID).UserNotes = ptr("I corrected the totals.")
 	pg := pagination.Params{Page: 1, Limit: 10}
 
 	full_ := func(t *testing.T, r *report.ReportResponse) {
@@ -333,6 +334,7 @@ func TestReportService_FieldVisibility(t *testing.T) {
 		assert.Equal(t, "Juan", r.Names)
 		assert.Equal(t, "none", r.Challenges)
 		assert.Equal(t, "pray for Ana", r.PrayerRequest)
+		assert.Equal(t, "I corrected the totals.", r.UserNotes)
 		assert.Contains(t, r.Metrics, "tithes_offering")
 	}
 	restricted := func(t *testing.T, r *report.ReportResponse) {
@@ -341,6 +343,7 @@ func TestReportService_FieldVisibility(t *testing.T) {
 		assert.Empty(t, r.Names)
 		assert.Empty(t, r.Challenges)
 		assert.Empty(t, r.PrayerRequest)
+		assert.Empty(t, r.UserNotes)
 		assert.NotContains(t, r.Metrics, "tithes_offering")
 		assert.Contains(t, r.Metrics, "outreach", "other metrics stay visible")
 		assert.Equal(t, mine.ID, r.ID)

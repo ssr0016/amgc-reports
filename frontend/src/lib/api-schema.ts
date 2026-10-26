@@ -17,7 +17,7 @@ export type Me = Required<Model<"MeResponse">>;
 export type AdminStats = Required<Model<"AdminStats">>;
 
 export type MetricWeeks = Model<"MetricWeeks">;
-export type ReportInput = Model<"CreateReportRequest">;
+export type ReportInput = Model<"CreateReportRequest"> & { user_notes?: string };
 export type Report = Always<
   Model<"ReportResponse">,
   "id" | "created_by" | "month" | "year" | "metrics" | "completed" | "created_at" | "updated_at" | "owner_status"

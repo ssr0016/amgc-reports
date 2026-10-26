@@ -50,6 +50,7 @@ export function EditReport() {
       <ReportForm
         initial={fromReport(data)}
         submitLabel="Save Changes"
+        revision={data.status === "needs_revision"}
         lockedPeriod={{ month: data.month, year: data.year }}
         readOnly={!editable}
         restricted={isRestricted(data, user?.user_id, can)}

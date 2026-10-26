@@ -94,7 +94,7 @@ func (a *actor) redact(resp *report.ReportResponse) {
 	if resp.CreatedBy == a.user.ID || a.perms["reports:write_any"] || a.perms["reports:delete_any"] {
 		return
 	}
-	resp.Names, resp.NarrativeReport, resp.Challenges, resp.PrayerRequest = "", "", "", ""
+	resp.Names, resp.NarrativeReport, resp.Challenges, resp.PrayerRequest, resp.UserNotes = "", "", "", "", ""
 	delete(resp.Metrics, "tithes_offering")
 	if resp.OwnerStatus != "deceased" {
 		resp.OwnerStatus = ""

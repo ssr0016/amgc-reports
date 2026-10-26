@@ -51,6 +51,7 @@ const headingClass = "text-lg font-medium tracking-tight";
 export function ReportForm({
   initial,
   submitLabel,
+  revision = false,
   lockedPeriod,
   readOnly = false,
   restricted = false,
@@ -59,6 +60,7 @@ export function ReportForm({
 }: {
   initial: FormState;
   submitLabel: string;
+  revision?: boolean;
   // When set, month and year cannot be changed and must match it.
   lockedPeriod?: { month: string; year: number };
   // Shows the report without letting anything change: every field is disabled and there is no Save.
@@ -70,6 +72,7 @@ export function ReportForm({
 }) {
   const [start] = useState(initial);
   const [form, setForm] = useState(initial);
+  const [userNotes, setUserNotes] = useState("");
   // Keys of the fields that differ from start, so dirty is not a whole-form compare per keystroke.
   const [changed, setChanged] = useState<ReadonlySet<string>>(() => new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -142,7 +145,9 @@ export function ReportForm({
 
     setPending(true);
     try {
-      await onSubmit(toInput(form));
+      const input = toInput(form);
+      if (revision) input.user_notes = userNotes;
+      await onSubmit(input);
       setSaved(true);
     } catch (err) {
       setPending(false);
@@ -229,6 +234,23 @@ export function ReportForm({
             ))}
           </div>
         </section>
+
+        {revision && !readOnly && (
+          <section className={sectionClass}>
+            <h2 className={headingClass}>Revision Notes</h2>
+            <Label htmlFor="user-notes">Your Notes / Explanation for Revision</Label>
+            <Textarea
+              id="user-notes"
+              value={userNotes}
+              onChange={(e) => {
+                setUserNotes(e.target.value);
+                markChanged("user_notes", e.target.value !== "");
+              }}
+              maxLength={5000}
+              rows={4}
+            />
+          </section>
+        )}
 
         {weekErrors.length > 0 && (
           <ul role="alert" className="list-disc pl-5 text-sm text-destructive">

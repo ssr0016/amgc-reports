@@ -152,6 +152,19 @@ describe("ReportPreviewDialog", () => {
     expect(screen.getByText("Needs Revision")).toBeInTheDocument();
   });
 
+	it("shows user notes below admin notes", async () => {
+		h.getReport.mockResolvedValue(makeReport({
+			status: "pending",
+			admin_notes: "Please clarify the totals.",
+			user_notes: "I corrected the weekly totals.",
+		}));
+		renderDialog();
+
+		const alerts = await screen.findAllByRole("alert");
+		expect(alerts[1]).toHaveTextContent("User Notes");
+		expect(alerts[1]).toHaveTextContent("I corrected the weekly totals.");
+	});
+
   it("uses status instead of completed for the status label", async () => {
     h.getReport.mockResolvedValue(makeReport({ completed: true, status: "pending" }));
     renderDialog();

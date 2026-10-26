@@ -115,6 +115,20 @@ func TestReportRepo(t *testing.T) {
 		require.ErrorIs(t, err, database.ErrUniqueViolation)
 	})
 
+	t.Run("revision update returns report to pending and records user notes", func(t *testing.T) {
+		_, err := repo.RequestRevision(ctx, jan.ID, user.ID, "Please clarify the totals")
+		require.NoError(t, err)
+
+		updatedReq := report.UpdateReportRequest(mk("January", "Ana", nil))
+		updatedReq.UserNotes = "I corrected the weekly totals."
+		updated, err := repo.Update(ctx, jan.ID, 2026, updatedReq)
+		require.NoError(t, err)
+		assert.Equal(t, "pending", updated.Status)
+		assert.NotNil(t, updated.LastRevisedAt)
+		require.NotNil(t, updated.UserNotes)
+		assert.Equal(t, "I corrected the weekly totals.", *updated.UserNotes)
+	})
+
 	t.Run("toggle approves then unapproves", func(t *testing.T) {
 		on, err := repo.ToggleComplete(ctx, jan.ID, user.ID)
 		require.NoError(t, err)

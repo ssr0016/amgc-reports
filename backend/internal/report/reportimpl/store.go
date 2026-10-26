@@ -24,7 +24,7 @@ type store struct{ db *database.DB }
 func NewStore(db *database.DB) report.Store { return &store{db: db} }
 
 const reportColumns = "id, created_by, month, year, worker, area_assignment, church_name, names, " +
-	"narrative_report, challenges, prayer_request, completed, status, admin_notes, completed_at, completed_by, " +
+	"narrative_report, challenges, prayer_request, completed, status, admin_notes, last_revised_at, user_notes, completed_at, completed_by, " +
 	"deleted_at, created_at, updated_at"
 
 // reportColumnsWithAlias prefixes every column with alias, e.g. "r.id".
@@ -49,7 +49,8 @@ func scanReport(row pgx.Row, withOwner bool) (*report.Report, error) {
 	var r report.Report
 	dest := []any{&r.ID, &r.CreatedBy, &r.Month, &r.Year, &r.Worker, &r.AreaAssignment,
 		&r.ChurchName, &r.Names, &r.NarrativeReport, &r.Challenges, &r.PrayerRequest,
-		&r.Completed, &r.Status, &r.AdminNotes, &r.CompletedAt, &r.CompletedBy, &r.DeletedAt, &r.CreatedAt, &r.UpdatedAt}
+		&r.Completed, &r.Status, &r.AdminNotes, &r.LastRevisedAt, &r.UserNotes,
+		&r.CompletedAt, &r.CompletedBy, &r.DeletedAt, &r.CreatedAt, &r.UpdatedAt}
 	if withOwner {
 		dest = append(dest, &r.OwnerStatus, &r.OwnerDeletedAt)
 	}
@@ -263,6 +264,9 @@ func (r *store) Update(ctx context.Context, id int64, year int, req report.Updat
 			"area_assignment": nullable(req.AreaAssignment), "church_name": nullable(req.ChurchName),
 			"names": nullable(req.Names), "narrative_report": nullable(req.NarrativeReport),
 			"challenges": nullable(req.Challenges), "prayer_request": nullable(req.PrayerRequest),
+			"status":          sq.Expr("CASE WHEN status = 'needs_revision' THEN 'pending' ELSE status END"),
+			"last_revised_at": sq.Expr("CASE WHEN status = 'needs_revision' THEN NOW() ELSE last_revised_at END"),
+			"user_notes":      sq.Expr("CASE WHEN status = 'needs_revision' THEN ? ELSE user_notes END", nullable(req.UserNotes)),
 		}).
 		Set("updated_at", sq.Expr("NOW()")).
 		Where(sq.Eq{"id": id, "deleted_at": nil}).

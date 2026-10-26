@@ -2947,6 +2947,10 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 10000
                 },
+                "user_notes": {
+                    "type": "string",
+                    "maxLength": 5000
+                },
                 "worker": {
                     "type": "string",
                     "maxLength": 150
@@ -3264,6 +3268,9 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "last_revised_at": {
+                    "type": "string"
+                },
                 "metrics": {
                     "type": "object",
                     "additionalProperties": {
@@ -3297,6 +3304,9 @@ const docTemplate = `{
                     ]
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "user_notes": {
                     "type": "string"
                 },
                 "worker": {
@@ -3442,6 +3452,10 @@ const docTemplate = `{
                 "prayer_request": {
                     "type": "string",
                     "maxLength": 10000
+                },
+                "user_notes": {
+                    "type": "string",
+                    "maxLength": 5000
                 },
                 "worker": {
                     "type": "string",

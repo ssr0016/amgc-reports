@@ -67,6 +67,12 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
                   <div className="mt-1 whitespace-pre-wrap">{report.admin_notes}</div>
                 </div>
               )}
+              {report.user_notes && (
+                <div role="alert" className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-blue-800">
+                  <div className="font-medium">User Notes</div>
+                  <div className="mt-1 whitespace-pre-wrap">{report.user_notes}</div>
+                </div>
+              )}
               <div className="grid grid-cols-[120px_1fr] gap-2">
                 <span className="font-medium">Area:</span>
                 <span>{report.area_assignment || "—"}</span>

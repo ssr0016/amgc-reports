@@ -3193,6 +3193,7 @@ export interface components {
             names?: string;
             narrative_report?: string;
             prayer_request?: string;
+            user_notes?: string;
             worker?: string;
             year?: number;
         };
@@ -3281,6 +3282,7 @@ export interface components {
             created_at?: string;
             created_by?: number;
             id?: number;
+            last_revised_at?: string;
             metrics?: {
                 [key: string]: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks"];
             };
@@ -3293,6 +3295,7 @@ export interface components {
             /** @enum {string} */
             status?: "pending" | "approved" | "needs_revision";
             updated_at?: string;
+            user_notes?: string;
             worker?: string;
             year?: number;
         };
@@ -3334,6 +3337,7 @@ export interface components {
             names?: string;
             narrative_report?: string;
             prayer_request?: string;
+            user_notes?: string;
             worker?: string;
             year?: number;
         };

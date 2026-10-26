@@ -28,6 +28,8 @@ type Report struct {
 	Completed       bool       `json:"completed" db:"completed"`
 	Status          string     `json:"status" db:"status"`
 	AdminNotes      *string    `json:"admin_notes,omitempty" db:"admin_notes"`
+	LastRevisedAt   *time.Time `json:"last_revised_at,omitempty" db:"last_revised_at"`
+	UserNotes       *string    `json:"user_notes,omitempty" db:"user_notes"`
 	CompletedAt     *time.Time `json:"completed_at,omitempty" db:"completed_at"`
 	CompletedBy     *int64     `json:"completed_by,omitempty" db:"completed_by"`
 	DeletedAt       *time.Time `json:"-" db:"deleted_at"`
@@ -100,6 +102,7 @@ type CreateReportRequest struct {
 	NarrativeReport string                 `json:"narrative_report" validate:"max=10000"`
 	Challenges      string                 `json:"challenges" validate:"max=10000"`
 	PrayerRequest   string                 `json:"prayer_request" validate:"max=10000"`
+	UserNotes       string                 `json:"user_notes" validate:"max=5000"`
 	Metrics         map[string]MetricWeeks `json:"metrics" validate:"dive,keys,oneof=worship_service sunday_school prayer_meeting bible_studies mens_fellowship womens_fellowship youth_fellowship children_fellowship tithes_offering home_visited bible_study_group_led sermon_preached person_newly_contacted person_followed_up person_evangelized outreach training leadership baptism other family_day,endkeys"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.CreateReportRequest
 
@@ -131,6 +134,8 @@ type ReportResponse struct {
 	Completed       bool                   `json:"completed"`
 	Status          string                 `json:"status" enums:"pending,approved,needs_revision"`
 	AdminNotes      string                 `json:"admin_notes,omitempty"`
+	LastRevisedAt   *time.Time             `json:"last_revised_at,omitempty"`
+	UserNotes       string                 `json:"user_notes,omitempty"`
 	CompletedAt     *time.Time             `json:"completed_at,omitempty"`
 	CompletedBy     *int64                 `json:"completed_by,omitempty"`
 	CreatedAt       time.Time              `json:"created_at"`
@@ -253,6 +258,8 @@ func (r *Report) ToResponse() ReportResponse {
 		Completed:       r.Completed,
 		Status:          r.Status,
 		AdminNotes:      deref(r.AdminNotes),
+		LastRevisedAt:   r.LastRevisedAt,
+		UserNotes:       deref(r.UserNotes),
 		CompletedAt:     r.CompletedAt,
 		CompletedBy:     r.CompletedBy,
 		CreatedAt:       r.CreatedAt,
