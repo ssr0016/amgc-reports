@@ -16,6 +16,7 @@ vi.mock("recharts", () => {
 const trend = [
   { month: "January", week: 1, value: 12 },
   { month: "January", week: 2, value: 14 },
+  { month: "February", week: 1, value: 0 },
 ];
 const body: AttendanceAnalytics = {
   year: 2026,
@@ -58,6 +59,7 @@ describe("analytics", () => {
     const trendTable = screen.getByRole("table", { name: "Weekly trend data" });
     expect(within(trendTable).getAllByText("January")).toHaveLength(2);
     expect(within(trendTable).getByText("12")).toBeInTheDocument();
+    expect(within(trendTable).queryByText("February")).not.toBeInTheDocument();
     const churchTable = screen.getByRole("table", { name: "Church breakdown data" });
     expect(within(churchTable).getByText("Bethel")).toBeInTheDocument();
   });

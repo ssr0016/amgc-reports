@@ -34,6 +34,7 @@ export function Analytics() {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: Math.max(1, currentYear - FIRST_YEAR + 1) }, (_, i) => FIRST_YEAR + i);
   const trend = data?.trend ?? [];
+  const trendWithData = trend.filter((point) => point.value !== 0);
   const churches = data?.churches ?? [];
   const metricLabel = METRICS.find((item) => item.key === metric)?.label ?? metric;
   const trendData = trend.map((point) => ({ ...point, label: `${point.month.slice(0, 3)} W${point.week}` }));
@@ -113,7 +114,7 @@ export function Analytics() {
             <Table aria-label="Weekly trend data">
               <TableCaption>Weekly {metricLabel} totals across all churches for {year}.</TableCaption>
               <TableHeader><TableRow><TableHead>Month</TableHead><TableHead>Week</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
-              <TableBody>{trend.map((point) => <TableRow key={`${point.month}-${point.week}`}><TableCell>{point.month}</TableCell><TableCell>{point.week}</TableCell><TableCell className="text-right tabular-nums">{formatValue(point.value)}</TableCell></TableRow>)}</TableBody>
+              <TableBody>{trendWithData.map((point) => <TableRow key={`${point.month}-${point.week}`}><TableCell>{point.month}</TableCell><TableCell>{point.week}</TableCell><TableCell className="text-right tabular-nums">{formatValue(point.value)}</TableCell></TableRow>)}</TableBody>
             </Table>
             <Table aria-label="Church breakdown data">
               <TableCaption>Total {metricLabel} by church for {year}.</TableCaption>
