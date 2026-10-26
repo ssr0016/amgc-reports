@@ -17,9 +17,10 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
 import { retryText } from "@/lib/auth-form";
-import { previewExcel } from "@/lib/reports";
+import { getReport, previewExcel } from "@/lib/reports";
 import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
+import { ReportStatusBadge } from "@/components/report-status-badge";
 
 // One report (the row's Excel button) or one month (Download Bulk).
 export type PreviewTarget = { reportId: number; label: string } | { month: string; year: number };
@@ -40,7 +41,12 @@ export function ExcelPreviewDialog({
   const single = "reportId" in target;
   const { data, error, isPending, refetch } = useQuery({
     queryKey: ["excel-preview", target],
-    queryFn: () => previewExcel(single ? { report_id: target.reportId } : { month: target.month, year: target.year }),
+    queryFn: async () => {
+      const preview = await previewExcel(single ? { report_id: target.reportId } : { month: target.month, year: target.year });
+      if (!single) return preview;
+      const report = await getReport(target.reportId);
+      return { ...preview, status: report.status };
+    },
     // Every opening reads the current data.
     gcTime: 0,
     retry: false,
@@ -48,6 +54,7 @@ export function ExcelPreviewDialog({
   const [sheet, setSheet] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const shown = data?.sheets[sheet];
+  const previewStatus = data && "status" in data ? data.status : undefined;
 
   async function download() {
     setDownloading(true);
@@ -92,14 +99,25 @@ export function ExcelPreviewDialog({
                 <p className="pb-1.5 text-sm text-muted-foreground">{data.count} approved</p>
               </div>
             )}
-            {shown && (single ? <ExcelReportSheet rows={shown.rows} name={shown.name} /> : <ExcelDashboardSheet sheet={shown} />)}
+            {shown && (single ? <ExcelReportSheet rows={shown.rows} name={shown.name} status={previewStatus} /> : <ExcelDashboardSheet sheet={shown} />)}
           </>
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={downloading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel
+            disabled={downloading}
+            className="min-w-24 border-slate-700 bg-white px-4 text-slate-900 hover:bg-slate-100 hover:text-slate-950"
+          >
+            Cancel
+          </AlertDialogCancel>
           {/* A plain Button, not AlertDialogAction: that one closes the dialog on click, and a failed download must keep it open. */}
-          <Button type="button" disabled={!data || downloading} aria-busy={downloading} onClick={download}>
+          <Button
+            type="button"
+            className="min-w-28 bg-slate-950 px-4 text-white hover:bg-slate-800"
+            disabled={!data || downloading}
+            aria-busy={downloading}
+            onClick={download}
+          >
             {downloading ? "Downloading…" : "Download"}
           </Button>
         </AlertDialogFooter>
@@ -108,7 +126,7 @@ export function ExcelPreviewDialog({
   );
 }
 
-function ExcelReportSheet({ rows, name }: { rows: string[][]; name: string }) {
+function ExcelReportSheet({ rows, name, status }: { rows: string[][]; name: string; status?: string }) {
   const cell = (row: number, column: number) => rows[row]?.[column] ?? "";
   const activities = rows.slice(9, 28).filter((r) => r[0]);
   const statistics = rows.slice(30, 36).filter((r) => r[0]);
@@ -128,7 +146,7 @@ function ExcelReportSheet({ rows, name }: { rows: string[][]; name: string }) {
         {[[4, "Worker:"], [5, "Area of Assignment:"], [6, "Name of Church/Outreach:"], [null, "Status:"]].map(([row, label]) => (
           <div key={label} className="grid grid-cols-[minmax(10rem,auto)_1fr] border-b border-black px-2 py-1 last:border-b-0 sm:odd:border-r">
             <span className="font-bold">{label}</span>
-            <span>{row === null ? "—" : cell(Number(row), 1) || "—"}</span>
+            <span>{row === null ? (status ? <ReportStatusBadge status={status} /> : "—") : cell(Number(row), 1) || "—"}</span>
           </div>
         ))}
       </section>
@@ -183,12 +201,12 @@ function ExcelMetricTable({ title, rows, name }: { title: string; rows: string[]
 
 function ExcelDashboardSheet({ sheet }: { sheet: { name: string; rows: string[][] } }) {
   const title = sheet.rows[0]?.[0] || sheet.name;
-  const headers = sheet.rows[1] ?? [];
-  const rows = sheet.rows.slice(2);
+  const headers = (sheet.rows[1] ?? []).slice(0, 6);
+  const rows = sheet.rows.slice(2).filter((row) => row.some(Boolean)).map((row) => row.slice(0, headers.length));
 
   return (
     <div role="region" aria-label={`Sheet ${sheet.name}`} tabIndex={0} className="max-h-[60vh] overflow-auto rounded-lg border border-slate-300 bg-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-      <Table aria-label={`Sheet ${sheet.name}`} className="table-fixed border-collapse bg-white text-[11px] text-black">
+      <Table aria-label={`Sheet ${sheet.name}`} className="min-w-[760px] table-fixed border-collapse bg-white text-[11px] text-black">
         <caption className="sr-only">Sheet {sheet.name}</caption>
         <TableHeader>
           <TableRow className="bg-slate-100 hover:bg-slate-100">
@@ -209,7 +227,7 @@ function ExcelDashboardSheet({ sheet }: { sheet: { name: string; rows: string[][
             <TableRow key={r} className={r % 2 ? "bg-slate-50 hover:bg-slate-100" : "bg-white hover:bg-slate-100"}>
               {cells.map((text, c) => (
                 <TableCell key={c} className={`${c < headers.length - 1 ? "border-r border-slate-300" : ""} whitespace-pre-wrap px-3 py-2 text-black ${c === 0 ? "text-left" : "text-center"}`}>
-                  {text}
+                  {headers[c] === "Status" ? <ReportStatusBadge status={text} /> : text || "—"}
                 </TableCell>
               ))}
             </TableRow>

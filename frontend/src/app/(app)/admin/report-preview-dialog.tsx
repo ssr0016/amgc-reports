@@ -15,12 +15,7 @@ import { getReport, type Report } from "@/lib/reports";
 import { WEEKS } from "@/lib/report-form";
 import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
-
-const statusLabels = {
-  pending: "Pending",
-  approved: "Approved",
-  needs_revision: "Needs Revision",
-} as const;
+import { ReportStatusBadge } from "@/components/report-status-badge";
 
 const excelMetricRows = [
   { key: "worship_service", label: "Worship Service" },
@@ -96,9 +91,9 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
                 ["Worker:", report.worker],
                 ["Area of Assignment:", report.area_assignment],
                 ["Name of Church/Outreach", report.church_name],
-                ["Status:", report.status ? statusLabels[report.status] : "—"],
-              ].map(([label, value]) => (
-                <div key={label} className="grid grid-cols-[minmax(10rem,auto)_1fr] border-b border-black px-2 py-1 last:border-b-0 sm:odd:border-r">
+                ["Status:", report.status ? <ReportStatusBadge status={report.status} /> : "—"],
+              ].map(([label, value], index) => (
+                <div key={index} className="grid grid-cols-[minmax(10rem,auto)_1fr] border-b border-black px-2 py-1 last:border-b-0 sm:odd:border-r">
                   <span className="font-bold">{label}</span>
                   <span>{value || "—"}</span>
                 </div>

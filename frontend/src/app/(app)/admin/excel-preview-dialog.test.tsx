@@ -5,10 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { ExcelPreviewDialog, type PreviewTarget } from "./excel-preview-dialog";
 
-const h = vi.hoisted(() => ({ previewExcel: vi.fn() }));
+const h = vi.hoisted(() => ({ previewExcel: vi.fn(), getReport: vi.fn() }));
 vi.mock("@/lib/reports", async (orig) => ({
   ...(await orig<typeof import("@/lib/reports")>()),
   previewExcel: h.previewExcel,
+  getReport: h.getReport,
 }));
 
 const grid = (a1: string) => {
@@ -43,6 +44,7 @@ const dashboard = (...rows: string[][]) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.getReport.mockResolvedValue({ status: "approved" });
   h.previewExcel.mockResolvedValue({
     count: 2,
     sheets: [
@@ -82,6 +84,14 @@ describe("Excel preview dialog", () => {
     expect(screen.queryByLabelText("Sheet")).not.toBeInTheDocument();
   });
 
+  it("shows the single report status badge from the report data", async () => {
+    h.previewExcel.mockResolvedValue({ count: 1, sheets: [{ name: "Bethel", rows: grid("Bethel title") }] });
+    h.getReport.mockResolvedValue({ status: "needs_revision" });
+    renderDialog({ reportId: 7, label: "Bethel" });
+
+    expect(await screen.findByText("Needs Revision")).toBeInTheDocument();
+  });
+
   it("bulk opens on a clean dashboard table without spreadsheet chrome", async () => {
     renderDialog();
     const table = await screen.findByRole("table", { name: "Sheet Report Dashboard" });
@@ -97,7 +107,10 @@ describe("Excel preview dialog", () => {
     ]);
     expect(within(table).getByText("September")).toBeInTheDocument();
     expect(within(table).getByText("No Report Submitted")).toBeInTheDocument();
+    expect(within(table).getByText("Approved")).toBeInTheDocument();
     expect(screen.getByText("2 approved")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveClass("border-slate-700");
+    expect(screen.getByRole("button", { name: "Download" })).toHaveClass("bg-slate-950");
   });
 
   it("a month with no approved reports shows the dashboard alone and can still download", async () => {
@@ -114,7 +127,7 @@ describe("Excel preview dialog", () => {
     await screen.findByRole("table", { name: "Sheet Report Dashboard" });
     await user.selectOptions(screen.getByLabelText("Sheet"), "Bethel");
     const bethel = screen.getAllByRole("region", { name: "Sheet Bethel" })[0];
-    expect(within(bethel).getAllByRole("columnheader")).toHaveLength(8);
+    expect(within(bethel).getAllByRole("columnheader")).toHaveLength(7);
     await user.selectOptions(screen.getByLabelText("Sheet"), "Zion");
     expect(screen.getByRole("table", { name: "Sheet Zion" })).toBeInTheDocument();
     expect(screen.getByText("Zion title")).toBeInTheDocument();
