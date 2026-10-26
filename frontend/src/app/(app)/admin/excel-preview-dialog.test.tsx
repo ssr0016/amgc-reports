@@ -11,7 +11,14 @@ vi.mock("@/lib/reports", async (orig) => ({
   previewExcel: h.previewExcel,
 }));
 
-const grid = (a1: string) => [[a1, "", "", "", "", "", ""], ["", "<b>not html</b>", "", "", "", "", ""]];
+const grid = (a1: string) => {
+  const rows = Array.from({ length: 42 }, () => Array(7).fill(""));
+  rows[0][0] = a1;
+  rows[2][0] = "NATIONAL WORKERS' MONTHLY MINISTRY REPORT";
+  rows[3] = ["Month of:", "September 2026", "", "", "", "", ""];
+  rows[9] = ["Worship Service", "<b>not html</b>", "", "", "", "", "12.00"];
+  return rows;
+};
 
 function renderDialog(target: PreviewTarget = { month: "May", year: 2026 }) {
   const onDownload = vi.fn().mockResolvedValue(true);
@@ -65,11 +72,13 @@ describe("Excel preview dialog", () => {
   it("a single report shows its sheet as a table, without a sheet selector", async () => {
     h.previewExcel.mockResolvedValue({ count: 1, sheets: [{ name: "Bethel", rows: grid("Bethel title") }] });
     renderDialog({ reportId: 7, label: "Bethel" });
-    const table = await screen.findByRole("table", { name: "Sheet Bethel" });
+    const sheet = await screen.findByRole("region", { name: "Sheet Bethel" });
     expect(h.previewExcel).toHaveBeenCalledWith({ report_id: 7 });
-    expect(within(table).getByText("Bethel title")).toBeInTheDocument();
+    expect(within(sheet).getByText("Bethel title")).toBeInTheDocument();
     // Cell text is text, never markup.
-    expect(within(table).getByText("<b>not html</b>")).toBeInTheDocument();
+    expect(within(sheet).getByText("<b>not html</b>")).toBeInTheDocument();
+    expect(within(sheet).getByAltText("AMGC logo")).toBeInTheDocument();
+    expect(sheet).toHaveClass("bg-white");
     expect(screen.queryByLabelText("Sheet")).not.toBeInTheDocument();
   });
 
@@ -96,7 +105,7 @@ describe("Excel preview dialog", () => {
     const { user } = renderDialog();
     await screen.findByRole("table", { name: "Sheet Report Dashboard" });
     await user.selectOptions(screen.getByLabelText("Sheet"), "Bethel");
-    const bethel = screen.getByRole("table", { name: "Sheet Bethel" });
+    const bethel = screen.getAllByRole("region", { name: "Sheet Bethel" })[0];
     expect(within(bethel).getAllByRole("columnheader")).toHaveLength(8);
     await user.selectOptions(screen.getByLabelText("Sheet"), "Zion");
     expect(screen.getByRole("table", { name: "Sheet Zion" })).toBeInTheDocument();

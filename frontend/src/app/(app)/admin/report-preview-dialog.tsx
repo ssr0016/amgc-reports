@@ -93,10 +93,10 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
 
             <section className="grid grid-cols-1 border-x border-b border-black sm:grid-cols-2">
               {[
-                ["Worker", report.worker],
-                ["Area of Assignment", report.area_assignment],
+                ["Worker:", report.worker],
+                ["Area of Assignment:", report.area_assignment],
                 ["Name of Church/Outreach", report.church_name],
-                ["Status", report.status ? statusLabels[report.status] : "—"],
+                ["Status:", report.status ? statusLabels[report.status] : "—"],
               ].map(([label, value]) => (
                 <div key={label} className="grid grid-cols-[minmax(10rem,auto)_1fr] border-b border-black px-2 py-1 last:border-b-0 sm:odd:border-r">
                   <span className="font-bold">{label}</span>
