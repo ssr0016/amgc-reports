@@ -104,7 +104,11 @@ export function ExcelPreviewDialog({
                 <p className="pb-1.5 text-sm text-muted-foreground">{data.count} approved</p>
               </div>
             )}
-            {shown && (single ? <ExcelReportSheet rows={shown.rows} name={shown.name} status={previewStatus} /> : <ExcelDashboardSheet sheet={shown} />)}
+            {shown && (
+              single || shown.name !== "Report Dashboard"
+                ? <ExcelReportSheet rows={shown.rows} name={shown.name} status={previewStatus} />
+                : <ExcelDashboardSheet sheet={shown} />
+            )}
           </>
         )}
 

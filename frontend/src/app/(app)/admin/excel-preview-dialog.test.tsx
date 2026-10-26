@@ -123,14 +123,16 @@ describe("Excel preview dialog", () => {
     expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
   });
 
-  it("bulk shows one sheet at a time, chosen with Sheet, seven columns for a report", async () => {
+  it("bulk shows the selected church with the individual report layout", async () => {
     const { user } = renderDialog();
     await screen.findByRole("table", { name: "Sheet Report Dashboard" });
     await user.selectOptions(screen.getByLabelText("Sheet"), "Bethel");
     const bethel = screen.getAllByRole("region", { name: "Sheet Bethel" })[0];
-    expect(within(bethel).getAllByRole("columnheader")).toHaveLength(7);
+    expect(within(bethel).getByAltText("AMGC logo")).toBeInTheDocument();
+    expect(within(bethel).getAllByRole("table")).toHaveLength(2);
+    expect(within(bethel).getAllByRole("columnheader")).toHaveLength(14);
     await user.selectOptions(screen.getByLabelText("Sheet"), "Zion");
-    expect(screen.getByRole("table", { name: "Sheet Zion" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Sheet Zion" })).toBeInTheDocument();
     expect(screen.getByText("Zion title")).toBeInTheDocument();
     expect(screen.queryByText("Bethel title")).not.toBeInTheDocument();
   });
