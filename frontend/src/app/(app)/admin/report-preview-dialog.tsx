@@ -16,6 +16,12 @@ import { METRIC_SECTIONS, WEEKS } from "@/lib/report-form";
 import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
 
+const statusLabels = {
+  pending: "Pending",
+  approved: "Approved",
+  needs_revision: "Needs Revision",
+} as const;
+
 // D-A5: average of weeks with values; dash when none.
 export function calculateAverage(values: Report["metrics"][string] | undefined): string {
   if (!values) return "—";
@@ -55,9 +61,9 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
                 <span className="font-medium">Worker:</span>
                 <span>{report.worker || "—"}</span>
               </div>
-              {report.status === "needs_revision" && report.admin_notes && (
+              {report.admin_notes && (
                 <div role="alert" className="mt-2 rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
-                  <div className="font-medium">Admin notes</div>
+                  <div className="font-medium">Admin Notes</div>
                   <div className="mt-1 whitespace-pre-wrap">{report.admin_notes}</div>
                 </div>
               )}
@@ -75,7 +81,7 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2">
                 <span className="font-medium">Status:</span>
-                <span>{report.status === "needs_revision" ? "Needs Revision" : report.completed ? "Completed" : "Pending"}</span>
+                <span>{report.status ? statusLabels[report.status] : "—"}</span>
               </div>
             </section>
 

@@ -78,6 +78,7 @@ const makeReport = (overrides: Partial<Report> = {}): Report => ({
     family_day: {},
   },
   completed: true,
+  status: "approved",
   created_at: "2026-10-01T00:00:00Z",
   updated_at: "2026-10-01T00:00:00Z",
   owner_status: "approved",
@@ -138,7 +139,7 @@ describe("ReportPreviewDialog", () => {
       expect(screen.getByText("Area 1")).toBeInTheDocument();
       expect(screen.getByText("Test Church")).toBeInTheDocument();
       expect(screen.getByText("September 2026")).toBeInTheDocument();
-      expect(screen.getByText("Completed")).toBeInTheDocument();
+      expect(screen.getByText("Approved")).toBeInTheDocument();
     });
   });
 
@@ -147,7 +148,16 @@ describe("ReportPreviewDialog", () => {
     renderDialog();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Please add the missing totals.");
+    expect(screen.getByText("Admin Notes")).toBeInTheDocument();
     expect(screen.getByText("Needs Revision")).toBeInTheDocument();
+  });
+
+  it("uses status instead of completed for the status label", async () => {
+    h.getReport.mockResolvedValue(makeReport({ completed: true, status: "pending" }));
+    renderDialog();
+
+    expect(await screen.findByText("Pending")).toBeInTheDocument();
+    expect(screen.queryByText("Completed")).not.toBeInTheDocument();
   });
 
   it("renders all four metric sections", async () => {
