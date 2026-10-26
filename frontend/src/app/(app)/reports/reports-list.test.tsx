@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   listReports: vi.fn(),
   deleteReport: vi.fn(),
   getReport: vi.fn(),
+  toggleComplete: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -29,6 +30,7 @@ vi.mock("@/lib/reports", async (orig) => ({
   listReports: h.listReports,
   deleteReport: h.deleteReport,
   getReport: h.getReport,
+  toggleComplete: h.toggleComplete,
 }));
 
 const report = (id: number, by: number, extra: Partial<Report> = {}): Report =>
@@ -224,6 +226,21 @@ describe("reports list: gated buttons", () => {
     await screen.findByText("Worker 1");
     expect(within(row("Worker 1")).getByRole("button", { name: /^Unapprove / })).toBeInTheDocument();
     expect(within(row("Worker 2")).getByRole("button", { name: /^Approve / })).toBeInTheDocument();
+  });
+
+  it("requires notes before unapproving an approved report", async () => {
+    h.listReports.mockResolvedValue(page([report(1, 1, { completed: true })]));
+    h.toggleComplete.mockResolvedValue({ id: 1, completed: false });
+    const { user } = renderList("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Unapprove / }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "Unapprove" })).toBeDisabled();
+    await user.type(within(dialog).getByRole("textbox", { name: "Admin Notes" }), "Needs updated totals");
+    await user.click(within(dialog).getByRole("button", { name: "Unapprove" }));
+
+    await waitFor(() => expect(h.toggleComplete).toHaveBeenCalledWith(1, "Needs updated totals"));
   });
 });
 

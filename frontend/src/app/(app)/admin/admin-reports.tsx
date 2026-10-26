@@ -246,18 +246,18 @@ export function AdminReports() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{statusTarget?.action === "revision" ? "Request Revision" : "Unapprove Report"}</AlertDialogTitle>
-            <AlertDialogDescription>Optionally explain what needs attention.</AlertDialogDescription>
+            <AlertDialogDescription>{statusTarget?.action === "unapprove" ? "Admin notes are required before unapproving this report." : "Optionally explain what needs attention."}</AlertDialogDescription>
           </AlertDialogHeader>
-          <Label htmlFor="admin-notes">Reason</Label>
-          <Textarea id="admin-notes" aria-label="Reason" value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} maxLength={5000} />
+          <Label htmlFor="admin-notes">{statusTarget?.action === "unapprove" ? "Admin Notes" : "Reason"}</Label>
+          <Textarea id="admin-notes" aria-label={statusTarget?.action === "unapprove" ? "Admin Notes" : "Reason"} required={statusTarget?.action === "unapprove"} value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} maxLength={5000} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy.length > 0}>Cancel</AlertDialogCancel>
-            <Button disabled={busy.length > 0} onClick={() => {
+            <Button disabled={busy.length > 0 || (statusTarget?.action === "unapprove" && !adminNotes.trim())} onClick={() => {
               if (!statusTarget) return;
               const { report, action } = statusTarget;
               setStatusTarget(null);
               if (action === "revision") revision.mutate({ report, adminNotes });
-              else approve.mutate({ report, adminNotes });
+              else approve.mutate({ report, adminNotes: adminNotes.trim() });
             }}>{statusTarget?.action === "revision" ? "Request Revision" : "Unapprove"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
 import { errorText } from "@/lib/auth-form";
 import {
@@ -72,6 +73,8 @@ function ReportsList() {
   const filters = filtersFrom(params);
   const allowed = can("reports:read");
   const { approve, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
+  const [unapproveTarget, setUnapproveTarget] = useState<Report | null>(null);
+  const [adminNotes, setAdminNotes] = useState("");
   const [metadataPreview, setMetadataPreview] = useState<Report | null>(null);
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
@@ -226,7 +229,7 @@ function ReportsList() {
         <>
           <Button variant="ghost" size="icon" className="size-11" aria-label={`Preview ${rowName(r)}`} title="Preview" onClick={(e) => { opener.current = e.currentTarget; if (mine(r) || can("reports:approve") || can("reports:write_any")) setReportPreview(r.id); else setMetadataPreview(r); }}><Eye aria-hidden="true" /></Button>
           {canEdit(r) && !can("reports:approve") && <Button asChild variant="ghost" size="icon" className="size-11"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
-          <Can permission="reports:approve"><Button variant="ghost" size="icon" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => approve.mutate({ report: r })}>{r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
+          <Can permission="reports:approve"><Button variant="ghost" size="icon" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => { if (r.completed) { setAdminNotes(""); setUnapproveTarget(r); } else approve.mutate({ report: r }); }}>{r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
           <Can permission="reports:export"><Button variant="ghost" size="icon" className="size-11" aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
           {canDelete(r) && <Button variant="ghost" size="icon" className="size-11 text-destructive" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={(e) => { opener.current = e.currentTarget; del.reset(); setTarget({ id: r.id, period: `${r.month} ${r.year}` }); }}><Trash2 aria-hidden="true" /></Button>}
         </>
@@ -276,6 +279,20 @@ function ReportsList() {
             {[["Worker", metadataPreview?.worker], ["Month", metadataPreview?.month], ["Year", metadataPreview?.year], ["Area", metadataPreview?.area_assignment], ["Church", metadataPreview?.church_name], ["Status", metadataPreview?.completed ? "Approved" : "Pending"]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd>{value || "—"}</dd></div>)}
           </dl>
           <AlertDialogFooter><AlertDialogCancel>Close</AlertDialogCancel></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={unapproveTarget !== null} onOpenChange={(open) => !open && !busy.length && setUnapproveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unapprove Report</AlertDialogTitle>
+            <AlertDialogDescription>Admin notes are required before unapproving this report.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <Label htmlFor="reports-admin-notes">Admin Notes</Label>
+          <Textarea id="reports-admin-notes" aria-label="Admin Notes" required value={adminNotes} onChange={(event) => setAdminNotes(event.target.value)} maxLength={5000} />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy.length > 0}>Cancel</AlertDialogCancel>
+            <Button disabled={busy.length > 0 || !adminNotes.trim()} onClick={() => { if (!unapproveTarget) return; const report = unapproveTarget; setUnapproveTarget(null); approve.mutate({ report, adminNotes: adminNotes.trim() }); }}>Unapprove</Button>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={target !== null} onOpenChange={(open) => !open && !deleting && setTarget(null)}>

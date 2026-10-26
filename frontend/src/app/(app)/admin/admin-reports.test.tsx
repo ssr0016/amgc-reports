@@ -481,9 +481,10 @@ describe("admin reports: approve", () => {
 
     await user.click(unapprove("Worker 1"));
     expect(h.toggleComplete).not.toHaveBeenCalled();
+    await user.type(screen.getByRole("textbox", { name: "Admin Notes" }), "Needs updated totals");
     await user.click(screen.getByRole("button", { name: "Unapprove" }));
     expect(h.toggleComplete).toHaveBeenCalledTimes(1);
-    expect(h.toggleComplete).toHaveBeenCalledWith(1, "");
+    expect(h.toggleComplete).toHaveBeenCalledWith(1, "Needs updated totals");
     expect(unapprove("Worker 1")).toBeDisabled();
 
     h.listReports.mockResolvedValue(page([report(1), report(2)]));
@@ -503,6 +504,7 @@ describe("admin reports: approve", () => {
     const invalidate = vi.spyOn(client, "invalidateQueries");
     await screen.findByText("Worker 1");
     await user.click(unapprove("Worker 1"));
+    await user.type(screen.getByRole("textbox", { name: "Admin Notes" }), "Needs updated totals");
     await user.click(screen.getByRole("button", { name: "Unapprove" }));
     await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Server error."));
     expect(within(row("Worker 1")).getByText("Approved")).toBeInTheDocument();
