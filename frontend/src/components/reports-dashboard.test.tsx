@@ -9,20 +9,24 @@ const rows = [
   { id: 2, worker: "Jose Reyes", month: "September", year: 2026, completed: true },
 ] as Report[];
 
-function table(scope = "page-1", selectable = true) {
-  return <ReportsTableCard rows={rows} scope={scope} selectable={selectable} filters={<span>Filters</span>} actions={() => <span>Preview</span>}><span>Pagination</span></ReportsTableCard>;
+function table(selectable = true, tableRows = rows) {
+  return <ReportsTableCard rows={tableRows} selectable={selectable} filters={<span>Filters</span>} actions={() => <span>Preview</span>}><span>Pagination</span></ReportsTableCard>;
 }
 
 describe("reports table", () => {
-  it("selects visible rows, exposes mixed selection, and clears on a page change", async () => {
+  it("keeps selections across page changes and selects only visible rows", async () => {
     const user = userEvent.setup();
     const { rerender } = render(table());
     await user.click(screen.getByRole("checkbox", { name: /Select Maria/ }));
     expect(screen.getByRole("checkbox", { name: "Select all visible reports" })).toBePartiallyChecked();
     expect(within(screen.getByRole("complementary", { name: "Bulk Actions" })).getByRole("status")).toHaveTextContent("1 selected");
-    rerender(table("page-2"));
-    expect(screen.queryByRole("complementary", { name: "Bulk Actions" })).not.toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /Select Maria/ })).not.toBeChecked();
+    rerender(table(true, [rows[1]]));
+    expect(screen.getByRole("complementary", { name: "Bulk Actions" })).toHaveTextContent("1 selected");
+    expect(screen.getByRole("checkbox", { name: /Select Jose/ })).not.toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: /Select Jose/ }));
+    expect(screen.getByRole("status")).toHaveTextContent("2 selected");
+    await user.click(screen.getByRole("checkbox", { name: "Select all visible reports" }));
+    expect(screen.getByRole("status")).toHaveTextContent("1 selected");
   });
 
   it("filters the current page and selects only visible rows", async () => {
@@ -44,7 +48,6 @@ describe("reports table", () => {
     render(
       <ReportsTableCard
         rows={rows}
-        scope="page-1"
         selectable
         filters={<span>Filters</span>}
         actions={() => <span>Preview</span>}
@@ -69,7 +72,6 @@ describe("reports table", () => {
     render(
       <ReportsTableCard
         rows={rows}
-        scope="page-1"
         selectable
         filters={<span>Filters</span>}
         actions={() => <span>Preview</span>}
@@ -89,7 +91,7 @@ describe("reports table", () => {
   });
 
   it("keeps selection controls hidden without action permissions", () => {
-    render(table("page-1", false));
+    render(table(false));
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(["Worker", "Month", "Year", "Area", "Church", "Status", "Actions"]);
   });

@@ -56,9 +56,8 @@ export function ReportsStats({ data }: { data?: Page<Report> }) {
   );
 }
 
-export function ReportsTableCard({ rows, scope, filters, children, actions, selectable, bulkActions }: {
+export function ReportsTableCard({ rows, filters, children, actions, selectable, bulkActions }: {
   rows: Report[];
-  scope: string;
   filters: ReactNode;
   children: ReactNode;
   actions: (report: Report) => ReactNode;
@@ -70,20 +69,30 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
   };
 }) {
   const [status, setStatus] = useState("all");
-  const [selection, setSelection] = useState<{ scope: string; ids: number[] }>({ scope: "", ids: [] });
+  const [selectedReports, setSelectedReports] = useState<Report[]>([]);
   const [bulkUnapproveOpen, setBulkUnapproveOpen] = useState(false);
   const [bulkAdminNotes, setBulkAdminNotes] = useState("");
   const visible = rows.filter((r) => status === "all" || (r.status ?? (r.completed ? "approved" : "pending")) === status);
-  const selectionScope = `${scope}:${status}`;
-  const selected = selection.scope === selectionScope ? selection.ids.filter((id) => visible.some((r) => r.id === id)) : [];
-  const selectedRows = visible.filter((r) => selected.includes(r.id));
-  const allSelected = visible.length > 0 && selected.length === visible.length;
-  function select(ids: number[]) { setSelection({ scope: selectionScope, ids }); }
+  const selectedIds = new Set(selectedReports.map((r) => r.id));
+  const selectedVisible = visible.filter((r) => selectedIds.has(r.id));
+  const allSelected = visible.length > 0 && selectedVisible.length === visible.length;
+  function toggleReport(report: Report) {
+    setSelectedReports((current) => current.some((r) => r.id === report.id) ? current.filter((r) => r.id !== report.id) : [...current, report]);
+  }
+  function toggleVisible() {
+    setSelectedReports((current) => {
+      const visibleIds = new Set(visible.map((r) => r.id));
+      if (allSelected) return current.filter((r) => !visibleIds.has(r.id));
+      const selected = new Map(current.map((r) => [r.id, r]));
+      visible.forEach((r) => selected.set(r.id, r));
+      return [...selected.values()];
+    });
+  }
   async function runBulk(action: "approve" | "unapprove", adminNotes = "") {
     if (!bulkActions) return;
-    if (action === "approve") await bulkActions.approve(selectedRows);
-    else await bulkActions.unapprove(selectedRows, adminNotes);
-    select([]);
+    if (action === "approve") await bulkActions.approve(selectedReports);
+    else await bulkActions.unapprove(selectedReports, adminNotes);
+    setSelectedReports([]);
   }
 
   return (
@@ -92,7 +101,7 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
       <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2">
         <div role="group" aria-label="Filter status on this page" className="flex gap-1">
           {["all", "approved", "pending", "needs_revision"].map((value) => (
-            <Button key={value} variant={status === value ? "secondary" : "ghost"} className="min-h-11" aria-pressed={status === value} onClick={() => { setStatus(value); select([]); }}>
+            <Button key={value} variant={status === value ? "secondary" : "ghost"} className="min-h-11" aria-pressed={status === value} onClick={() => setStatus(value)}>
               {value === "needs_revision" ? "Needs Revision" : value[0].toUpperCase() + value.slice(1)}
             </Button>
           ))}
@@ -102,15 +111,15 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
       <Table>
         <TableHeader>
           <TableRow>
-            {selectable && <TableHead className="w-12"><label className="flex size-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label="Select all visible reports" checked={allSelected} ref={(node) => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => select(allSelected ? [] : visible.map((r) => r.id))} /></label></TableHead>}
+            {selectable && <TableHead className="w-12"><label className="flex size-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label="Select all visible reports" checked={allSelected} ref={(node) => { if (node) node.indeterminate = selectedVisible.length > 0 && !allSelected; }} onChange={toggleVisible} /></label></TableHead>}
             <TableHead>Worker</TableHead><TableHead>Month</TableHead><TableHead className="text-right">Year</TableHead>
             <TableHead>Area</TableHead><TableHead>Church</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {visible.map((r) => (
-            <TableRow key={r.id} data-state={selected.includes(r.id) ? "selected" : undefined}>
-              {selectable && <TableCell><label className="flex size-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label={`Select ${r.worker || "report"}, ${r.month} ${r.year}`} checked={selected.includes(r.id)} onChange={() => select(selected.includes(r.id) ? selected.filter((id) => id !== r.id) : [...selected, r.id])} /></label></TableCell>}
+            <TableRow key={r.id} data-state={selectedIds.has(r.id) ? "selected" : undefined}>
+              {selectable && <TableCell><label className="flex size-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label={`Select ${r.worker || "report"}, ${r.month} ${r.year}`} checked={selectedIds.has(r.id)} onChange={() => toggleReport(r)} /></label></TableCell>}
               <TableCell><div className="flex items-center gap-3"><Avatar name={r.worker || "Unknown worker"} className="bg-secondary! text-secondary-foreground! cursor-default" /><div className="flex min-w-36 flex-col items-start gap-1"><span className="font-medium">{r.worker || "—"}</span><ReportOwnerBadges report={r} /></div></div></TableCell>
               <TableCell>{r.month}</TableCell><TableCell className="text-right font-mono tabular-nums">{r.year}</TableCell>
               <TableCell>{r.area_assignment || "—"}</TableCell><TableCell>{r.church_name || "—"}</TableCell>
@@ -127,16 +136,16 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
         </TableBody>
       </Table>
       <div className="border-t p-4">{children}</div>
-      {selectable && selected.length > 0 && (
+      {selectable && selectedReports.length > 0 && (
         <aside aria-label="Bulk Actions" className="sticky bottom-4 z-10 mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-popover p-4 shadow-lg">
-          <p role="status" className="text-sm"><span className="font-mono tabular-nums">{selected.length}</span> selected</p>
+          <p role="status" className="text-sm"><span className="font-mono tabular-nums">{selectedReports.length}</span> selected</p>
           {bulkActions && (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => void runBulk("approve")}>Bulk Approve</Button>
               <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => { setBulkAdminNotes(""); setBulkUnapproveOpen(true); }}>Bulk Unapprove</Button>
             </div>
           )}
-          <Button variant="outline" disabled={bulkActions?.busy} onClick={() => select([])}>Clear selection</Button>
+          <Button variant="outline" disabled={bulkActions?.busy} onClick={() => setSelectedReports([])}>Clear selection</Button>
         </aside>
       )}
       <AlertDialog open={bulkUnapproveOpen} onOpenChange={setBulkUnapproveOpen}>
