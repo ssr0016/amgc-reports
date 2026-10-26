@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ClipboardList, KeyRound, ListChecks, ScrollText, ShieldCheck, UserRound, Users } from "lucide-react";
 import { cn } from "cn";
@@ -29,21 +28,17 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
       aria-label={label}
       className="flex min-h-0 flex-1 flex-col gap-6 p-4"
     >
-      <Link
-        href={isAdmin ? "/admin" : "/reports"}
-        onClick={onNavigate}
-        aria-label="AMGC home"
-        className="self-center rounded-sm bg-white p-2 focus-visible:outline-2 focus-visible:outline-ring"
-      >
-        <Image
-          src="/amgc-logo.png"
-          alt="AMGC"
-          loading="eager"
-          width={102}
-          height={132}
-          className="h-auto w-24"
-        />
-      </Link>
+      {can("reports:read") && (
+        <Link
+          href="/reports"
+          aria-current={pathname.startsWith("/reports") ? "page" : undefined}
+          onClick={onNavigate}
+          className={linkClass(pathname.startsWith("/reports"))}
+        >
+          <ClipboardList className="size-4" aria-hidden="true" />
+          Community Reports
+        </Link>
+      )}
       {canAdmin && sections.length > 0 && (
         <section aria-labelledby={`${label}-admin`} className="flex flex-col gap-1">
           <h2 id={`${label}-admin`} className="mb-1 px-3 text-xs font-medium text-muted-foreground">Admin</h2>

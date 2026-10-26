@@ -10,21 +10,15 @@ const nav = () => within(screen.getByRole("navigation", { name: "Main" }));
 describe("sidebar", () => {
   beforeEach(() => { Object.assign(h, { isAdmin: true, canAdmin: true, path: "/reports", tab: "", permissions: [] }); });
 
-  it.each([[true, "/admin"], [false, "/reports"]])("the logo leads home with admin=%s", (isAdmin, destination) => {
-    h.isAdmin = isAdmin;
-    const onNavigate = vi.fn();
-    render(<Sidebar onNavigate={onNavigate} />);
-    const logo = nav().getByRole("link", { name: "AMGC home" });
-    expect(logo).toHaveAttribute("href", destination);
-    expect(within(logo).getByRole("img", { name: "AMGC" })).toBeInTheDocument();
-    logo.click();
-    expect(onNavigate).toHaveBeenCalledOnce();
+  it("names the reports link Community Reports", () => {
+    render(<Sidebar />);
+    expect(nav().getByRole("link", { name: "Community Reports" })).toHaveAttribute("href", "/reports");
   });
 
   it("groups all admin destinations and keeps account links last", () => {
     render(<Sidebar />);
     expect(nav().getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "/admin", "/admin?tab=reports", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs", "/account/profile", "/account/password",
+      "/reports", "/admin?tab=reports", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs", "/account/profile", "/account/password",
     ]);
   });
 
@@ -32,17 +26,17 @@ describe("sidebar", () => {
     h.isAdmin = false;
     h.permissions = ["tracker:read", "roles:write"];
     render(<Sidebar />);
-    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["", "Tracker", "Profile", "Change Password"]);
+    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Tracker", "Profile", "Change Password"]);
   });
 
   it("shows workers reports and settings without admin links", () => {
     h.isAdmin = h.canAdmin = false;
     render(<Sidebar />);
-    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["", "Profile", "Change Password"]);
+    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Profile", "Change Password"]);
   });
 
   it.each([
-    ["/reports/new", "", ""], ["/reports/5/edit", "", ""],
+    ["/reports/new", "", "Community Reports"], ["/reports/5/edit", "", "Community Reports"],
     ["/admin", "", "Admin All Reports"], ["/admin", "logs", "Admin Logs"],
     ["/admin", "unknown", "Admin All Reports"], ["/admin/users/new", "", "Admin Users"],
     ["/admin/roles/3/edit", "", "Admin Roles"], ["/account/profile", "", "Profile"], ["/account/password", "", "Change Password"],

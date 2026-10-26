@@ -7,16 +7,11 @@ test.describe("sidebar, as admin", () => {
 
   test("lists reports, admin sections and settings, and marks the current page", async ({ page }) => {
     await page.goto("/admin");
-    await expect(mainNav(page).getByRole("link")).toHaveText(["", "All Reports", "Tracker", "Users", "Roles", "Logs", "Profile", "Change Password"]);
+    await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports", "All Reports", "Tracker", "Users", "Roles", "Logs", "Profile", "Change Password"]);
     await expect(mainNav(page).getByRole("link", { name: "Admin All Reports", exact: true })).toHaveAttribute("aria-current", "page");
-    await mainNav(page).getByRole("link", { name: "AMGC home" }).click();
+    await mainNav(page).getByRole("link", { name: "Community Reports" }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(mainNav(page).getByRole("link", { name: "Admin All Reports", exact: true })).not.toHaveAttribute("aria-current", "page");
-    const logo = mainNav(page).getByRole("link", { name: "AMGC home" });
-    await expect(logo.getByRole("img", { name: "AMGC" })).toBeVisible();
-    await expect.poll(() => logo.getByRole("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
-    await logo.click();
-    await expect(page).toHaveURL(/\/admin$/);
   });
 
   test("the old /admin/users address lands on the Users section", async ({ page }) => {
@@ -80,9 +75,9 @@ for (const role of ["editor", "user"] as const) {
 
     test("shows reports and account settings", async ({ page }) => {
       await page.goto("/reports");
-      await expect(mainNav(page).getByRole("link")).toHaveText(["", "Profile", "Change Password"]);
+      await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports", "Profile", "Change Password"]);
       await page.goto("/account/profile");
-      await mainNav(page).getByRole("link", { name: "AMGC home" }).click();
+      await mainNav(page).getByRole("link", { name: "Community Reports" }).click();
       await expect(page).toHaveURL(/\/reports$/);
     });
   });
