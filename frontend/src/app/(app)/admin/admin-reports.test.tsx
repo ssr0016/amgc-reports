@@ -455,8 +455,11 @@ describe("admin reports: approve", () => {
 
     await user.click(screen.getByRole("checkbox", { name: "Select all visible reports" }));
     await user.click(screen.getByRole("button", { name: "Bulk Unapprove" }));
+    expect(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Bulk Unapprove" })).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: "Admin Notes" }), "Needs updated totals");
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Bulk Unapprove" }));
 
-    await waitFor(() => expect(h.toggleComplete).toHaveBeenCalledWith(1, ""));
+    await waitFor(() => expect(h.toggleComplete).toHaveBeenCalledWith(1, "Needs updated totals"));
     expect(h.toggleComplete).not.toHaveBeenCalledWith(2, "");
     expect(h.toast.success).toHaveBeenCalledWith("1 unapproved, 1 skipped");
   });

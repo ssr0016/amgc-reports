@@ -122,7 +122,7 @@ export function AdminReports() {
       <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} scope={JSON.stringify(filters)} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} bulkActions={can("reports:approve") ? {
         busy: bulkToggle.isPending,
         approve: (reports) => bulkToggle.mutateAsync({ reports, action: "approve" }).then(() => undefined),
-        unapprove: (reports) => bulkToggle.mutateAsync({ reports, action: "unapprove" }).then(() => undefined),
+        unapprove: (reports, adminNotes) => bulkToggle.mutateAsync({ reports, action: "unapprove", adminNotes }).then(() => undefined),
       } : undefined} filters={(
       <form onSubmit={(e) => e.preventDefault()} className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <div className="flex flex-col gap-2">

@@ -6,7 +6,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ReportOwnerBadges } from "@/components/report-owner-badges";
 import type { Page, Report } from "@/lib/reports";
 import { useSession } from "@/lib/session";
@@ -63,20 +66,23 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
   bulkActions?: {
     busy?: boolean;
     approve: (reports: Report[]) => Promise<void>;
-    unapprove: (reports: Report[]) => Promise<void>;
+    unapprove: (reports: Report[], adminNotes: string) => Promise<void>;
   };
 }) {
   const [status, setStatus] = useState("all");
   const [selection, setSelection] = useState<{ scope: string; ids: number[] }>({ scope: "", ids: [] });
+  const [bulkUnapproveOpen, setBulkUnapproveOpen] = useState(false);
+  const [bulkAdminNotes, setBulkAdminNotes] = useState("");
   const visible = rows.filter((r) => status === "all" || (r.status ?? (r.completed ? "approved" : "pending")) === status);
   const selectionScope = `${scope}:${status}`;
   const selected = selection.scope === selectionScope ? selection.ids.filter((id) => visible.some((r) => r.id === id)) : [];
   const selectedRows = visible.filter((r) => selected.includes(r.id));
   const allSelected = visible.length > 0 && selected.length === visible.length;
   function select(ids: number[]) { setSelection({ scope: selectionScope, ids }); }
-  async function runBulk(action: "approve" | "unapprove") {
+  async function runBulk(action: "approve" | "unapprove", adminNotes = "") {
     if (!bulkActions) return;
-    await bulkActions[action](selectedRows);
+    if (action === "approve") await bulkActions.approve(selectedRows);
+    else await bulkActions.unapprove(selectedRows, adminNotes);
     select([]);
   }
 
@@ -127,12 +133,26 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
           {bulkActions && (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => void runBulk("approve")}>Bulk Approve</Button>
-              <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => void runBulk("unapprove")}>Bulk Unapprove</Button>
+              <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => { setBulkAdminNotes(""); setBulkUnapproveOpen(true); }}>Bulk Unapprove</Button>
             </div>
           )}
           <Button variant="outline" disabled={bulkActions?.busy} onClick={() => select([])}>Clear selection</Button>
         </aside>
       )}
+      <AlertDialog open={bulkUnapproveOpen} onOpenChange={setBulkUnapproveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bulk Unapprove Reports</AlertDialogTitle>
+            <AlertDialogDescription>Add admin notes explaining why these reports need attention.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <Label htmlFor="bulk-admin-notes">Admin Notes</Label>
+          <Textarea id="bulk-admin-notes" aria-label="Admin Notes" required value={bulkAdminNotes} onChange={(event) => setBulkAdminNotes(event.target.value)} maxLength={5000} />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkActions?.busy}>Cancel</AlertDialogCancel>
+            <Button disabled={bulkActions?.busy || !bulkAdminNotes.trim()} onClick={() => { setBulkUnapproveOpen(false); void runBulk("unapprove", bulkAdminNotes.trim()); }}>Bulk Unapprove</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

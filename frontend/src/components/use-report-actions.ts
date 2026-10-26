@@ -34,9 +34,9 @@ export function useReportActions() {
   const busy = usePendingVariables<{ report: Report }>(["toggle-complete"]).map(({ report }) => report.id);
   const bulkToggle = useMutation({
     mutationKey: ["bulk-toggle-complete"],
-    mutationFn: async ({ reports, action }: { reports: Report[]; action: "approve" | "unapprove" }) => {
+    mutationFn: async ({ reports, action, adminNotes = "" }: { reports: Report[]; action: "approve" | "unapprove"; adminNotes?: string }) => {
       const eligible = reports.filter((r) => action === "approve" ? !r.completed && r.status !== "approved" : r.completed || r.status === "approved");
-      const results = await Promise.allSettled(eligible.map((r) => toggleComplete(r.id, "")));
+      const results = await Promise.allSettled(eligible.map((r) => toggleComplete(r.id, adminNotes)));
       return {
         action,
         changed: results.filter((r) => r.status === "fulfilled").length,

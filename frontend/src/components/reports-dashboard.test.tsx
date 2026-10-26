@@ -62,6 +62,32 @@ describe("reports table", () => {
     expect(unapprove).not.toHaveBeenCalled();
   });
 
+  it("requires notes before bulk unapproving", async () => {
+    const user = userEvent.setup();
+    const approve = vi.fn(async () => {});
+    const unapprove = vi.fn(async () => {});
+    render(
+      <ReportsTableCard
+        rows={rows}
+        scope="page-1"
+        selectable
+        filters={<span>Filters</span>}
+        actions={() => <span>Preview</span>}
+        bulkActions={{ approve, unapprove }}
+      >
+        <span>Pagination</span>
+      </ReportsTableCard>,
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "Select all visible reports" }));
+    await user.click(screen.getByRole("button", { name: "Bulk Unapprove" }));
+    expect(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Bulk Unapprove" })).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: "Admin Notes" }), "Review the submitted totals");
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Bulk Unapprove" }));
+
+    await waitFor(() => expect(unapprove).toHaveBeenCalledWith(rows, "Review the submitted totals"));
+  });
+
   it("keeps selection controls hidden without action permissions", () => {
     render(table("page-1", false));
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
