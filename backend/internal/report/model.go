@@ -27,6 +27,7 @@ type Report struct {
 	PrayerRequest   *string    `json:"prayer_request,omitempty" db:"prayer_request"`
 	Completed       bool       `json:"completed" db:"completed"`
 	Status          string     `json:"status" db:"status"`
+	AdminNotes      *string    `json:"admin_notes,omitempty" db:"admin_notes"`
 	CompletedAt     *time.Time `json:"completed_at,omitempty" db:"completed_at"`
 	CompletedBy     *int64     `json:"completed_by,omitempty" db:"completed_by"`
 	DeletedAt       *time.Time `json:"-" db:"deleted_at"`
@@ -105,6 +106,12 @@ type CreateReportRequest struct {
 // UpdateReportRequest is the body of PUT /reports/:id. It replaces the metric set.
 type UpdateReportRequest CreateReportRequest // @name github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateReportRequest
 
+// StatusRequest is the optional reason supplied by an admin when unapproving
+// or requesting a report revision.
+type StatusRequest struct {
+	AdminNotes string `json:"admin_notes" validate:"max=5000"`
+} // @name github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest
+
 // ReportResponse is the API representation (bare object, per D-9).
 type ReportResponse struct {
 	OwnerStatus     string                 `json:"owner_status"`
@@ -123,6 +130,7 @@ type ReportResponse struct {
 	PrayerRequest   string                 `json:"prayer_request,omitempty"`
 	Completed       bool                   `json:"completed"`
 	Status          string                 `json:"status" enums:"pending,approved,needs_revision"`
+	AdminNotes      string                 `json:"admin_notes,omitempty"`
 	CompletedAt     *time.Time             `json:"completed_at,omitempty"`
 	CompletedBy     *int64                 `json:"completed_by,omitempty"`
 	CreatedAt       time.Time              `json:"created_at"`
@@ -244,6 +252,7 @@ func (r *Report) ToResponse() ReportResponse {
 		PrayerRequest:   deref(r.PrayerRequest),
 		Completed:       r.Completed,
 		Status:          r.Status,
+		AdminNotes:      deref(r.AdminNotes),
 		CompletedAt:     r.CompletedAt,
 		CompletedBy:     r.CompletedBy,
 		CreatedAt:       r.CreatedAt,

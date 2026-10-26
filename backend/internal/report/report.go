@@ -37,8 +37,8 @@ type Service interface {
 	List(ctx context.Context, userID int64, p ListReportsParams, pg pagination.Params) ([]ReportResponse, int64, error)
 	Update(ctx context.Context, userID int64, ip string, id int64, req UpdateReportRequest) (*ReportResponse, error)
 	Delete(ctx context.Context, userID int64, ip string, id int64) error
-	ToggleComplete(ctx context.Context, userID int64, ip string, id int64) (*ReportMetadata, error)
-	RequestRevision(ctx context.Context, userID int64, ip string, id int64) (*ReportMetadata, error)
+	ToggleComplete(ctx context.Context, userID int64, ip string, id int64, adminNotes ...string) (*ReportMetadata, error)
+	RequestRevision(ctx context.Context, userID int64, ip string, id int64, adminNotes ...string) (*ReportMetadata, error)
 	// ExportOne and ExportMonth build the Excel download and write its audit row (D-A6, D-10).
 	ExportOne(ctx context.Context, userID int64, ip string, id int64) (*Export, error)
 	ExportMonth(ctx context.Context, userID int64, ip string, req ExportReportsRequest) (*Export, error)
@@ -57,8 +57,8 @@ type Store interface {
 	List(ctx context.Context, p ListReportsParams, pg pagination.Params) ([]*Report, int64, error)
 	Update(ctx context.Context, id int64, year int, req UpdateReportRequest) (*Report, error)
 	SoftDelete(ctx context.Context, id int64) error
-	ToggleComplete(ctx context.Context, id, approverID int64) (*Report, error)
-	RequestRevision(ctx context.Context, id, approverID int64) (*Report, error)
+	ToggleComplete(ctx context.Context, id, approverID int64, adminNotes ...string) (*Report, error)
+	RequestRevision(ctx context.Context, id, approverID int64, adminNotes ...string) (*Report, error)
 	// Dashboard lists every church account (ChurchAccount) with its report
 	// status for the month, by church name then id (D-A16, D-A24).
 	Dashboard(ctx context.Context, month string, year int) ([]DashboardRow, error)

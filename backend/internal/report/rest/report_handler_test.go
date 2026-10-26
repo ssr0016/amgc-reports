@@ -26,6 +26,7 @@ type fakeReportSvc struct {
 	gotUser   int64
 	gotIP     string
 	gotID     int64
+	gotNotes  []string
 	gotList   report.ListReportsParams
 	gotPage   pagination.Params
 	listData  []report.ReportResponse
@@ -59,13 +60,13 @@ func (f *fakeReportSvc) Delete(_ context.Context, uid int64, _ string, id int64)
 	return f.err
 }
 
-func (f *fakeReportSvc) ToggleComplete(_ context.Context, uid int64, _ string, id int64) (*report.ReportMetadata, error) {
-	f.gotUser, f.gotID = uid, id
+func (f *fakeReportSvc) ToggleComplete(_ context.Context, uid int64, _ string, id int64, notes ...string) (*report.ReportMetadata, error) {
+	f.gotUser, f.gotID, f.gotNotes = uid, id, notes
 	return &report.ReportMetadata{ID: id, Completed: true}, f.err
 }
 
-func (f *fakeReportSvc) RequestRevision(_ context.Context, uid int64, _ string, id int64) (*report.ReportMetadata, error) {
-	f.gotUser, f.gotID = uid, id
+func (f *fakeReportSvc) RequestRevision(_ context.Context, uid int64, _ string, id int64, notes ...string) (*report.ReportMetadata, error) {
+	f.gotUser, f.gotID, f.gotNotes = uid, id, notes
 	return &report.ReportMetadata{ID: id, Status: "needs_revision"}, f.err
 }
 
@@ -106,6 +107,7 @@ func serveReport(t *testing.T, svc report.Service, userID int64, method, target,
 	e.PUT("/reports/:id", h.UpdateReport)
 	e.DELETE("/reports/:id", h.SoftDeleteReport)
 	e.PATCH("/reports/:id/complete", h.ToggleComplete)
+	e.PATCH("/reports/:id/revision", h.RequestRevision)
 	e.POST("/admin/reports/excel", h.ExportReports)
 	e.POST("/admin/reports/:id/excel", h.ExportReport)
 	e.POST("/admin/reports/excel/preview", h.PreviewExcel)
@@ -213,6 +215,18 @@ func TestReportHandler_Success(t *testing.T) {
 		}
 		if got := rec.Body.String(); !strings.Contains(got, `"completed":true`) {
 			t.Errorf("body = %s", got)
+		}
+	})
+	t.Run("status endpoints pass admin notes", func(t *testing.T) {
+		for _, tc := range []struct{ target string }{
+			{"/reports/7/complete"},
+			{"/reports/7/revision"},
+		} {
+			f := &fakeReportSvc{}
+			rec, _ := serveReport(t, f, 5, http.MethodPatch, tc.target, `{"admin_notes":"Please add the missing totals."}`)
+			if rec.Code != http.StatusOK || len(f.gotNotes) != 1 || f.gotNotes[0] != "Please add the missing totals." {
+				t.Errorf("target=%s status=%d notes=%q", tc.target, rec.Code, f.gotNotes)
+			}
 		}
 	})
 	t.Run("list is {data, meta} with filters and paging", func(t *testing.T) {

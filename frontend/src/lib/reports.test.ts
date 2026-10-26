@@ -10,6 +10,7 @@ import {
   listReports,
   previewExcel,
   toggleComplete,
+  requestRevision,
   updateReport,
 } from "./reports";
 
@@ -54,12 +55,16 @@ describe("reports API", () => {
     await createReport({ month: "May" } as never);
     await updateReport(3, { month: "May" } as never);
     await toggleComplete(3);
+    await requestRevision(3, "Needs more detail");
     expect([0, 2, 3, 4].map((i) => at(f, i).join(" "))).toEqual([
       "/reports/3 GET",
       "/reports POST",
       "/reports/3 PUT",
       "/reports/3/complete PATCH",
     ]);
+    const revisionCall = f.mock.calls.find((call) => String(call[0]).includes("/reports/3/revision"));
+    expect(revisionCall).toBeDefined();
+    expect((revisionCall![1] as RequestInit).body).toBe('{"admin_notes":"Needs more detail"}');
   });
 
   it("deleteReport resolves on 204", async () => {

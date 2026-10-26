@@ -275,7 +275,7 @@ func (s *service) Delete(ctx context.Context, userID int64, ip string, id int64)
 // is global (D-1): any report by ID, gated by reports:approve at the route. It
 // returns metadata only, so approve never discloses report text; clients fetch
 // the report with Get if they may read it.
-func (s *service) ToggleComplete(ctx context.Context, userID int64, ip string, id int64) (*report.ReportMetadata, error) {
+func (s *service) ToggleComplete(ctx context.Context, userID int64, ip string, id int64, adminNotes ...string) (*report.ReportMetadata, error) {
 	a, err := s.actor(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -283,7 +283,7 @@ func (s *service) ToggleComplete(ctx context.Context, userID int64, ip string, i
 	var rep *report.Report
 	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		var err error
-		if rep, err = s.reports.ToggleComplete(ctx, id, userID); err != nil {
+		if rep, err = s.reports.ToggleComplete(ctx, id, userID, adminNotes...); err != nil {
 			return err
 		}
 		action := audit.ActionUnapproveReport
@@ -298,7 +298,7 @@ func (s *service) ToggleComplete(ctx context.Context, userID int64, ip string, i
 	return &report.ReportMetadata{ID: rep.ID, Completed: rep.Completed, Status: rep.Status, CompletedAt: rep.CompletedAt, CompletedBy: rep.CompletedBy}, nil
 }
 
-func (s *service) RequestRevision(ctx context.Context, userID int64, ip string, id int64) (*report.ReportMetadata, error) {
+func (s *service) RequestRevision(ctx context.Context, userID int64, ip string, id int64, adminNotes ...string) (*report.ReportMetadata, error) {
 	a, err := s.actor(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -306,7 +306,7 @@ func (s *service) RequestRevision(ctx context.Context, userID int64, ip string, 
 	var rep *report.Report
 	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
 		var err error
-		if rep, err = s.reports.RequestRevision(ctx, id, userID); err != nil {
+		if rep, err = s.reports.RequestRevision(ctx, id, userID, adminNotes...); err != nil {
 			return err
 		}
 		return s.audit.Insert(ctx, a.auditEntry(ip, audit.ActionUnapproveReport, rep))

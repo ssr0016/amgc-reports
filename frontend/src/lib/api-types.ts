@@ -2503,7 +2503,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: components["requestBodies"]["github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest"];
             responses: {
                 /** @description OK */
                 200: {
@@ -2846,7 +2846,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: components["requestBodies"]["github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest"];
             responses: {
                 /** @description OK */
                 200: {
@@ -3271,6 +3271,7 @@ export interface components {
             status?: "pending" | "approved" | "needs_revision";
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse": {
+            admin_notes?: string;
             area_assignment?: string;
             challenges?: string;
             church_name?: string;
@@ -3303,6 +3304,9 @@ export interface components {
             permissions?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"][];
             updated_at?: string;
             user_count?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest": {
+            admin_notes?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.Tracker": {
             month?: string;
@@ -3391,7 +3395,14 @@ export interface components {
     };
     responses: never;
     parameters: never;
-    requestBodies: never;
+    requestBodies: {
+        /** @description Optional admin note */
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest": {
+            content: {
+                "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest"];
+            };
+        };
+    };
     headers: never;
     pathItems: never;
 }

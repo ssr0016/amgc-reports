@@ -36,11 +36,11 @@ export const updateReport = (id: number, input: ReportInput) =>
 export const deleteReport = (id: number) => api<void>(`/reports/${id}`, { method: "DELETE" });
 
 // Toggles between approved and not approved.
-export const toggleComplete = (id: number) =>
-  api<ReportMetadata>(`/reports/${id}/complete`, { method: "PATCH" });
+export const toggleComplete = (id: number, admin_notes = "") =>
+  api<ReportMetadata>(`/reports/${id}/complete`, { method: "PATCH", body: { admin_notes } });
 
-export const requestRevision = (id: number) =>
-  api<ReportMetadata>(`/reports/${id}/revision`, { method: "PATCH" });
+export const requestRevision = (id: number, admin_notes = "") =>
+  api<ReportMetadata>(`/reports/${id}/revision`, { method: "PATCH", body: { admin_notes } });
 
 // Excel exports (D-A6), admin only. The server writes the audit row for each download.
 export const exportReport = (id: number) => downloadFile(`/admin/reports/${id}/excel`);

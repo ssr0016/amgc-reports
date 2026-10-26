@@ -24,7 +24,7 @@ type store struct{ db *database.DB }
 func NewStore(db *database.DB) report.Store { return &store{db: db} }
 
 const reportColumns = "id, created_by, month, year, worker, area_assignment, church_name, names, " +
-	"narrative_report, challenges, prayer_request, completed, status, completed_at, completed_by, " +
+	"narrative_report, challenges, prayer_request, completed, status, admin_notes, completed_at, completed_by, " +
 	"deleted_at, created_at, updated_at"
 
 // reportColumnsWithAlias prefixes every column with alias, e.g. "r.id".
@@ -49,7 +49,7 @@ func scanReport(row pgx.Row, withOwner bool) (*report.Report, error) {
 	var r report.Report
 	dest := []any{&r.ID, &r.CreatedBy, &r.Month, &r.Year, &r.Worker, &r.AreaAssignment,
 		&r.ChurchName, &r.Names, &r.NarrativeReport, &r.Challenges, &r.PrayerRequest,
-		&r.Completed, &r.Status, &r.CompletedAt, &r.CompletedBy, &r.DeletedAt, &r.CreatedAt, &r.UpdatedAt}
+		&r.Completed, &r.Status, &r.AdminNotes, &r.CompletedAt, &r.CompletedBy, &r.DeletedAt, &r.CreatedAt, &r.UpdatedAt}
 	if withOwner {
 		dest = append(dest, &r.OwnerStatus, &r.OwnerDeletedAt)
 	}
@@ -367,13 +367,15 @@ func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report
 // ToggleComplete flips completed in one statement and returns the report; the
 // returned Completed says whether this was an approve or an unapprove. Metrics
 // are not loaded. Returns database.ErrNotFound when the report is missing.
-func (r *store) ToggleComplete(ctx context.Context, id, approverID int64) (*report.Report, error) {
+func (r *store) ToggleComplete(ctx context.Context, id, approverID int64, adminNotes ...string) (*report.Report, error) {
+	notes := nullable(firstNote(adminNotes))
 	query, args, err := r.db.Builder.
 		Update("reports").
 		Set("completed", sq.Expr("NOT completed")).
 		Set("status", sq.Expr("CASE WHEN completed THEN 'needs_revision' ELSE 'approved' END")).
 		Set("completed_at", sq.Expr("CASE WHEN completed THEN NULL ELSE NOW() END")).
 		Set("completed_by", sq.Expr("CASE WHEN completed THEN NULL ELSE ?::bigint END", approverID)).
+		Set("admin_notes", sq.Expr("CASE WHEN completed THEN ? ELSE NULL END", notes)).
 		Set("updated_at", sq.Expr("NOW()")).
 		Where(sq.Eq{"id": id, "deleted_at": nil}).
 		Suffix("RETURNING " + reportColumns).
@@ -391,12 +393,14 @@ func (r *store) ToggleComplete(ctx context.Context, id, approverID int64) (*repo
 	return rep, nil
 }
 
-func (r *store) RequestRevision(ctx context.Context, id, approverID int64) (*report.Report, error) {
+func (r *store) RequestRevision(ctx context.Context, id, approverID int64, adminNotes ...string) (*report.Report, error) {
+	notes := nullable(firstNote(adminNotes))
 	query, args, err := r.db.Builder.Update("reports").
 		Set("completed", false).
 		Set("status", "needs_revision").
 		Set("completed_at", nil).
 		Set("completed_by", nil).
+		Set("admin_notes", notes).
 		Set("updated_at", sq.Expr("NOW()")).
 		Where(sq.Eq{"id": id, "deleted_at": nil}).
 		Suffix("RETURNING " + reportColumns).ToSql()
@@ -411,4 +415,11 @@ func (r *store) RequestRevision(ctx context.Context, id, approverID int64) (*rep
 		return nil, fmt.Errorf("report: %w", database.ErrNotFound)
 	}
 	return rep, nil
+}
+
+func firstNote(notes []string) string {
+	if len(notes) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(notes[0])
 }

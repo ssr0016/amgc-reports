@@ -102,6 +102,7 @@ func TestReportService_Create(t *testing.T) {
 		got, err := f.svc.Create(ctx, alice, "10.0.0.1", req("April"))
 		require.NoError(t, err)
 		assert.Equal(t, 2026, got.Year)
+		assert.Equal(t, "pending", got.Status)
 
 		entries := f.audit.Entries()
 		require.Len(t, entries, 1)
@@ -295,10 +296,11 @@ func TestReportService_ToggleComplete(t *testing.T) {
 	assert.NotContains(t, string(body), "secret text")
 	assert.NotContains(t, string(body), "narrative")
 
-	off, err := f.svc.ToggleComplete(ctx, bob, "", created.ID)
+	off, err := f.svc.ToggleComplete(ctx, bob, "", created.ID, "Fix the missing totals")
 	require.NoError(t, err)
 	assert.False(t, off.Completed)
 	assert.Nil(t, off.CompletedBy)
+	assert.Equal(t, "Fix the missing totals", *f.reports.active(created.ID).AdminNotes)
 
 	entries := f.audit.Entries()
 	require.Len(t, entries, 3)

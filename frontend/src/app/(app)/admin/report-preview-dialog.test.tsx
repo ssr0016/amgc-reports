@@ -142,6 +142,14 @@ describe("ReportPreviewDialog", () => {
     });
   });
 
+  it("shows admin notes for reports needing revision", async () => {
+    h.getReport.mockResolvedValue(makeReport({ completed: false, status: "needs_revision", admin_notes: "Please add the missing totals." }));
+    renderDialog();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Please add the missing totals.");
+    expect(screen.getByText("Needs Revision")).toBeInTheDocument();
+  });
+
   it("renders all four metric sections", async () => {
     h.getReport.mockResolvedValue(makeReport());
     renderDialog();

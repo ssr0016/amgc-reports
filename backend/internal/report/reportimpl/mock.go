@@ -29,8 +29,8 @@ type MockStore struct {
 	ListFunc            func(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error)
 	UpdateFunc          func(ctx context.Context, id int64, year int, req report.UpdateReportRequest) (*report.Report, error)
 	SoftDeleteFunc      func(ctx context.Context, id int64) error
-	ToggleCompleteFunc  func(ctx context.Context, id, approverID int64) (*report.Report, error)
-	RequestRevisionFunc func(ctx context.Context, id, approverID int64) (*report.Report, error)
+	ToggleCompleteFunc  func(ctx context.Context, id, approverID int64, adminNotes ...string) (*report.Report, error)
+	RequestRevisionFunc func(ctx context.Context, id, approverID int64, adminNotes ...string) (*report.Report, error)
 
 	// Accounts are the church accounts Dashboard lists, in order; their status
 	// comes from the account's report of the month in the mock.
@@ -212,9 +212,9 @@ func matchesReport(r *report.Report, p report.ListReportsParams) bool {
 	return containsFold(r.Worker, p.Worker) && containsFold(r.AreaAssignment, p.Area) && containsFold(r.ChurchName, p.Church)
 }
 
-func (m *MockStore) RequestRevision(ctx context.Context, id, approverID int64) (*report.Report, error) {
+func (m *MockStore) RequestRevision(ctx context.Context, id, approverID int64, adminNotes ...string) (*report.Report, error) {
 	if m.RequestRevisionFunc != nil {
-		return m.RequestRevisionFunc(ctx, id, approverID)
+		return m.RequestRevisionFunc(ctx, id, approverID, adminNotes...)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -222,7 +222,7 @@ func (m *MockStore) RequestRevision(ctx context.Context, id, approverID int64) (
 	if r == nil {
 		return nil, fmt.Errorf("report: %w", database.ErrNotFound)
 	}
-	r.Completed, r.Status, r.CompletedAt, r.CompletedBy = false, "needs_revision", nil, nil
+	r.Completed, r.Status, r.CompletedAt, r.CompletedBy, r.AdminNotes = false, "needs_revision", nil, nil, notePtr(adminNotes)
 	return copyReport(r), nil
 }
 
@@ -285,9 +285,9 @@ func (m *MockStore) SoftDelete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (m *MockStore) ToggleComplete(ctx context.Context, id, approverID int64) (*report.Report, error) {
+func (m *MockStore) ToggleComplete(ctx context.Context, id, approverID int64, adminNotes ...string) (*report.Report, error) {
 	if m.ToggleCompleteFunc != nil {
-		return m.ToggleCompleteFunc(ctx, id, approverID)
+		return m.ToggleCompleteFunc(ctx, id, approverID, adminNotes...)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -298,12 +298,20 @@ func (m *MockStore) ToggleComplete(ctx context.Context, id, approverID int64) (*
 	}
 	now := time.Now()
 	if r.Completed {
-		r.Completed, r.Status, r.CompletedAt, r.CompletedBy = false, "needs_revision", nil, nil
+		r.Completed, r.Status, r.CompletedAt, r.CompletedBy, r.AdminNotes = false, "needs_revision", nil, nil, notePtr(adminNotes)
 	} else {
-		r.Completed, r.Status, r.CompletedAt, r.CompletedBy = true, "approved", &now, &approverID
+		r.Completed, r.Status, r.CompletedAt, r.CompletedBy, r.AdminNotes = true, "approved", &now, &approverID, nil
 	}
 	r.UpdatedAt = now
 	c := copyReport(r)
 	c.Metrics = nil // the real ToggleComplete does not load metrics
 	return c, nil
+}
+
+func notePtr(notes []string) *string {
+	note := firstNote(notes)
+	if note == "" {
+		return nil
+	}
+	return &note
 }

@@ -54,10 +54,10 @@ func (okReportSvc) Update(context.Context, int64, string, int64, report.UpdateRe
 	return &report.ReportResponse{}, nil
 }
 func (okReportSvc) Delete(context.Context, int64, string, int64) error { return nil }
-func (okReportSvc) ToggleComplete(context.Context, int64, string, int64) (*report.ReportMetadata, error) {
+func (okReportSvc) ToggleComplete(context.Context, int64, string, int64, ...string) (*report.ReportMetadata, error) {
 	return &report.ReportMetadata{}, nil
 }
-func (okReportSvc) RequestRevision(context.Context, int64, string, int64) (*report.ReportMetadata, error) {
+func (okReportSvc) RequestRevision(context.Context, int64, string, int64, ...string) (*report.ReportMetadata, error) {
 	return &report.ReportMetadata{}, nil
 }
 func (okReportSvc) ExportOne(context.Context, int64, string, int64) (*report.Export, error) {

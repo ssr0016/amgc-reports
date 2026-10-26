@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { errorText } from "@/lib/auth-form";
 import { refreshAdminViews } from "@/lib/query";
+import { Textarea } from "@/components/ui/textarea";
 
 // Which report a row control is for, so a screen reader user can tell the rows apart.
 const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
@@ -72,6 +73,8 @@ export function AdminReports() {
   });
 
   const { approve, revision, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
+  const [statusTarget, setStatusTarget] = useState<{ report: Report; action: "unapprove" | "revision" } | null>(null);
+  const [adminNotes, setAdminNotes] = useState("");
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<Report | null>(null);
   const del = useMutation({
@@ -185,8 +188,8 @@ export function AdminReports() {
           <Button size="icon" className="size-11" variant="ghost" aria-label={`Preview ${rowName(r)}`} title="Preview" onClick={() => setReportPreview(r.id)}><Eye aria-hidden="true" /></Button>
           {can("reports:write") && (r.created_by === user?.user_id || can("reports:write_any")) && <Button asChild size="icon" className="size-11" variant="ghost"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
           {can("reports:delete") && (r.created_by === user?.user_id || can("reports:delete_any")) && <Button size="icon" className="size-11 text-destructive" variant="ghost" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={() => { del.reset(); setTarget(r); }}><Trash2 aria-hidden="true" /></Button>}
-          <Can permission="reports:approve"><Button size="icon" variant="ghost" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => approve.mutate(r)}>{r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
-          <Can permission="reports:approve">{!r.completed && r.status !== "needs_revision" && <Button size="icon" variant="ghost" className="size-11 text-red-700" aria-label={`Request Revision ${rowName(r)}`} title="Request Revision" disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => revision.mutate(r)}><Undo2 aria-hidden="true" /></Button>}</Can>
+          <Can permission="reports:approve"><Button size="icon" variant="ghost" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => r.completed ? (setAdminNotes(""), setStatusTarget({ report: r, action: "unapprove" })) : approve.mutate({ report: r })}>{r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
+          <Can permission="reports:approve">{!r.completed && r.status !== "needs_revision" && <Button size="icon" variant="ghost" className="size-11 text-red-700" aria-label={`Request Revision ${rowName(r)}`} title="Request Revision" disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => { setAdminNotes(""); setStatusTarget({ report: r, action: "revision" }); }}><Undo2 aria-hidden="true" /></Button>}</Can>
           <Can permission="reports:export"><Button size="icon" className="size-11" variant="ghost" aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
         </>
       )}>
@@ -235,6 +238,26 @@ export function AdminReports() {
           onClose={() => setReportPreview(null)}
         />
       )}
+      <AlertDialog open={statusTarget !== null} onOpenChange={(open) => !open && !busy.length && setStatusTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{statusTarget?.action === "revision" ? "Request Revision" : "Unapprove Report"}</AlertDialogTitle>
+            <AlertDialogDescription>Optionally explain what needs attention.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <Label htmlFor="admin-notes">Reason</Label>
+          <Textarea id="admin-notes" aria-label="Reason" value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} maxLength={5000} />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy.length > 0}>Cancel</AlertDialogCancel>
+            <Button disabled={busy.length > 0} onClick={() => {
+              if (!statusTarget) return;
+              const { report, action } = statusTarget;
+              setStatusTarget(null);
+              if (action === "revision") revision.mutate({ report, adminNotes });
+              else approve.mutate({ report, adminNotes });
+            }}>{statusTarget?.action === "revision" ? "Request Revision" : "Unapprove"}</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={target !== null} onOpenChange={(open) => !open && !del.isPending && setTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

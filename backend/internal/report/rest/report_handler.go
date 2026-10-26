@@ -101,6 +101,7 @@ func (h *ReportHandler) CreateReport(c echo.Context) error {
 // @Produce      json
 // @Security     CookieAuth
 // @Param        id path int true "Report ID"
+// @Param        body body report.StatusRequest false "Optional admin note"
 // @Success      200 {object} report.ReportResponse
 // @Failure      400 {object} map[string]string
 // @Failure      401 {object} map[string]string
@@ -272,7 +273,14 @@ func (h *ReportHandler) ToggleComplete(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	meta, err := h.svc.ToggleComplete(c.Request().Context(), uid, c.RealIP(), id)
+	var req report.StatusRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	meta, err := h.svc.ToggleComplete(c.Request().Context(), uid, c.RealIP(), id, req.AdminNotes)
 	if err != nil {
 		return reportError(err, "failed to update report status")
 	}
@@ -286,6 +294,7 @@ func (h *ReportHandler) ToggleComplete(c echo.Context) error {
 // @Produce      json
 // @Security     CookieAuth
 // @Param        id path int true "Report ID"
+// @Param        body body report.StatusRequest false "Optional admin note"
 // @Success      200 {object} report.ReportMetadata
 // @Failure      400 {object} map[string]string
 // @Failure      401 {object} map[string]string
@@ -301,7 +310,14 @@ func (h *ReportHandler) RequestRevision(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	meta, err := h.svc.RequestRevision(c.Request().Context(), uid, c.RealIP(), id)
+	var req report.StatusRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	meta, err := h.svc.RequestRevision(c.Request().Context(), uid, c.RealIP(), id, req.AdminNotes)
 	if err != nil {
 		return reportError(err, "failed to update report status")
 	}

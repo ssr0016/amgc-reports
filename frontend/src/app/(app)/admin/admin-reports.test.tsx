@@ -407,7 +407,9 @@ describe("admin reports: approve", () => {
     const { user } = renderReports("reports:read", "reports:approve");
     await screen.findByText("Worker 1");
     await user.click(within(row("Worker 1")).getByRole("button", { name: /^Request Revision / }));
-    await waitFor(() => expect(h.requestRevision).toHaveBeenCalledWith(1));
+    await user.type(screen.getByRole("textbox", { name: /reason/i }), "Missing totals");
+    await user.click(screen.getByRole("button", { name: /Request Revision/ }));
+    await waitFor(() => expect(h.requestRevision).toHaveBeenCalledWith(1, "Missing totals"));
     expect(h.toast.success).toHaveBeenCalledWith("Revision requested: September 2026");
   });
 
@@ -437,8 +439,10 @@ describe("admin reports: approve", () => {
     await screen.findByText("Worker 1");
 
     await user.click(unapprove("Worker 1"));
+    expect(h.toggleComplete).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Unapprove" }));
     expect(h.toggleComplete).toHaveBeenCalledTimes(1);
-    expect(h.toggleComplete).toHaveBeenCalledWith(1);
+    expect(h.toggleComplete).toHaveBeenCalledWith(1, "");
     expect(unapprove("Worker 1")).toBeDisabled();
 
     h.listReports.mockResolvedValue(page([report(1), report(2)]));
@@ -458,6 +462,7 @@ describe("admin reports: approve", () => {
     const invalidate = vi.spyOn(client, "invalidateQueries");
     await screen.findByText("Worker 1");
     await user.click(unapprove("Worker 1"));
+    await user.click(screen.getByRole("button", { name: "Unapprove" }));
     await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith("Server error."));
     expect(within(row("Worker 1")).getByText("Approved")).toBeInTheDocument();
     expect(unapprove("Worker 1")).toBeEnabled();
@@ -473,7 +478,7 @@ describe("admin reports: approve", () => {
 
     await user.click(approve("Worker 1"));
     expect(h.toggleComplete).toHaveBeenCalledTimes(1);
-    expect(h.toggleComplete).toHaveBeenCalledWith(1);
+    expect(h.toggleComplete).toHaveBeenCalledWith(1, "");
     expect(approve("Worker 1")).toBeDisabled(); // a second click would undo the first: the endpoint toggles
 
     h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));

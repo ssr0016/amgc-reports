@@ -55,6 +55,12 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
                 <span className="font-medium">Worker:</span>
                 <span>{report.worker || "—"}</span>
               </div>
+              {report.status === "needs_revision" && report.admin_notes && (
+                <div role="alert" className="mt-2 rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
+                  <div className="font-medium">Admin notes</div>
+                  <div className="mt-1 whitespace-pre-wrap">{report.admin_notes}</div>
+                </div>
+              )}
               <div className="grid grid-cols-[120px_1fr] gap-2">
                 <span className="font-medium">Area:</span>
                 <span>{report.area_assignment || "—"}</span>
@@ -69,7 +75,7 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2">
                 <span className="font-medium">Status:</span>
-                <span>{report.completed ? "Completed" : "Pending"}</span>
+                <span>{report.status === "needs_revision" ? "Needs Revision" : report.completed ? "Completed" : "Pending"}</span>
               </div>
             </section>
 

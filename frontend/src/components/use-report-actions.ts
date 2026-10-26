@@ -15,15 +15,15 @@ export function useReportActions() {
   const queryClient = useQueryClient();
   const approve = useMutation({
     mutationKey: ["toggle-complete"],
-    mutationFn: (r: Report) => toggleComplete(r.id),
-    onSuccess: (meta, r) => {
+    mutationFn: ({ report, adminNotes = "" }: { report: Report; adminNotes?: string }) => toggleComplete(report.id, adminNotes),
+    onSuccess: (meta, { report: r }) => {
       // The server decides (another admin may have approved it first, and this click undid that), so say what it did.
       const result = meta.status === "needs_revision" ? "needs revision" : meta.status ? "approved" : meta.completed ? "approved" : "unapproved";
       toast.success(`Report ${result}: ${r.month} ${r.year}`);
       refreshAdminViews(queryClient); // the cards above and the Tracker count these reports
       return queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
-    onError: (err, r) => {
+    onError: (err, { report: r }) => {
       if (err instanceof ApiError && err.status === 404) {
         toast.error(`${r.month} ${r.year} no longer exists.`);
         return queryClient.invalidateQueries({ queryKey: ["reports"] });
@@ -31,18 +31,18 @@ export function useReportActions() {
       toast.error(errorText(err, "Could not update the report. Try again."));
     },
   });
-  const busy = usePendingVariables<Report>(["toggle-complete"]).map((r) => r.id);
+  const busy = usePendingVariables<{ report: Report }>(["toggle-complete"]).map(({ report }) => report.id);
   const revision = useMutation({
     mutationKey: ["request-revision"],
-    mutationFn: (r: Report) => requestRevision(r.id),
-    onSuccess: (_, r) => {
+    mutationFn: ({ report, adminNotes = "" }: { report: Report; adminNotes?: string }) => requestRevision(report.id, adminNotes),
+    onSuccess: (_, { report: r }) => {
       toast.success(`Revision requested: ${r.month} ${r.year}`);
       refreshAdminViews(queryClient);
       return queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
-    onError: (err, r) => toast.error(errorText(err, `Could not request revision for ${r.month} ${r.year}.`)),
+    onError: (err, { report: r }) => toast.error(errorText(err, `Could not request revision for ${r.month} ${r.year}.`)),
   });
-  const revisionBusy = usePendingVariables<Report>(["request-revision"]).map((r) => r.id);
+  const revisionBusy = usePendingVariables<{ report: Report }>(["request-revision"]).map(({ report }) => report.id);
 
   // Excel downloads, keyed "bulk" or by a row's id, so each button waits for its own file.
   const download = useMutation({
