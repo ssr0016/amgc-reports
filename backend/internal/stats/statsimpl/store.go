@@ -91,15 +91,32 @@ func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.Tr
 }
 
 func (r *store) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
+	current, err := r.analyticsAttendanceYear(ctx, q, q.Year)
+	if err != nil {
+		return stats.AttendanceAnalytics{}, err
+	}
+	if q.Compare {
+		previous, err := r.analyticsAttendanceYear(ctx, q, q.Year-1)
+		if err != nil {
+			return stats.AttendanceAnalytics{}, err
+		}
+		current.Comparison = &stats.AttendanceComparison{Year: q.Year - 1, Trend: previous.Trend, Churches: previous.Churches}
+	}
+	return current, nil
+}
+
+func (r *store) analyticsAttendanceYear(ctx context.Context, q stats.AttendanceQuery, year int) (stats.AttendanceAnalytics, error) {
 	statusWhere := "AND r.status = 'approved'"
 	if q.Status == stats.AttendanceStatusAll {
 		statusWhere = "AND r.status IN ('pending', 'needs_revision', 'approved')"
 	}
+	startMonth, endMonth, _ := stats.AnalyticsPeriodBounds(q.Period)
+	periodWhere := "AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN ? AND ?"
 	trendQuery, trendArgs, err := r.db.Builder.
 		Select("EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int", "rm.week_no", "SUM(rm.value)::double precision").
 		From("reports r").
 		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+statusWhere, q.Year, q.Metric).
+		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+periodWhere+" "+statusWhere, year, q.Metric, startMonth, endMonth).
 		GroupBy("1", "2").
 		OrderBy("1", "2").
 		ToSql()
@@ -128,7 +145,7 @@ func (r *store) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQuery
 		Select("COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')", "SUM(rm.value)::double precision").
 		From("reports r").
 		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+statusWhere, q.Year, q.Metric).
+		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+periodWhere+" "+statusWhere, year, q.Metric, startMonth, endMonth).
 		GroupBy("1").
 		OrderBy("1").
 		ToSql()
@@ -152,11 +169,12 @@ func (r *store) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQuery
 		return stats.AttendanceAnalytics{}, fmt.Errorf("attendance churches: %w", err)
 	}
 
-	trend := make([]stats.AttendanceTrendPoint, 0, 60)
-	for month, name := range report.Months {
+	trend := make([]stats.AttendanceTrendPoint, 0, (endMonth-startMonth+1)*5)
+	for month := startMonth; month <= endMonth; month++ {
+		name := report.Months[month-1]
 		for week := 1; week <= 5; week++ {
-			trend = append(trend, stats.AttendanceTrendPoint{Month: name, Week: week, Value: values[[2]int{month + 1, week}]})
+			trend = append(trend, stats.AttendanceTrendPoint{Month: name, Week: week, Value: values[[2]int{month, week}]})
 		}
 	}
-	return stats.AttendanceAnalytics{Trend: trend, Churches: churches}, nil
+	return stats.AttendanceAnalytics{Year: year, Metric: q.Metric, Status: q.Status, Period: q.Period, Trend: trend, Churches: churches}, nil
 }

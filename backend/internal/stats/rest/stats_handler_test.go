@@ -27,6 +27,7 @@ type fakeStatsSvc struct {
 	calls int
 	month *string
 	year  *int
+	query stats.AttendanceQuery
 }
 
 func (f *fakeStatsSvc) Get(_ context.Context, q stats.GetStatsQuery) (stats.AdminStats, error) {
@@ -44,6 +45,7 @@ func (f *fakeStatsSvc) Tracker(_ context.Context, q stats.GetStatsQuery) (stats.
 
 func (f *fakeStatsSvc) AnalyticsAttendance(_ context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
 	f.calls++
+	f.query = q
 	return stats.AttendanceAnalytics{
 		Year: q.Year, Metric: q.Metric, Status: q.Status,
 		Trend:    []stats.AttendanceTrendPoint{{Month: "January", Week: 1, Value: 12.5}},
@@ -201,7 +203,7 @@ func TestStatsHandler_GetTracker(t *testing.T) {
 
 func TestStatsHandler_GetAnalyticsAttendance(t *testing.T) {
 	svc := &fakeStatsSvc{}
-	rec := serveStats(t, svc, "/admin/analytics/attendance?year=2026&metric=worship_service&status=all")
+	rec := serveStats(t, svc, "/admin/analytics/attendance?year=2026&metric=worship_service&status=all&period=q2&compare=true")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, body %s", rec.Code, rec.Body)
 	}
@@ -212,12 +214,25 @@ func TestStatsHandler_GetAnalyticsAttendance(t *testing.T) {
 	if got["year"] != 2026.0 || got["metric"] != "worship_service" || got["status"] != "all" {
 		t.Fatalf("body = %v", got)
 	}
+	if svc.query.Period != "q2" || !svc.query.Compare {
+		t.Fatalf("query = %+v", svc.query)
+	}
 
 	t.Run("default status is approved", func(t *testing.T) {
 		svc := &fakeStatsSvc{}
 		serveStats(t, svc, "/admin/analytics/attendance?year=2026&metric=worship_service")
-		if svc.calls != 1 {
-			t.Fatalf("calls = %d", svc.calls)
+		if svc.calls != 1 || svc.query.Period != "full_year" || svc.query.Compare {
+			t.Fatalf("calls = %d query = %+v", svc.calls, svc.query)
+		}
+	})
+
+	t.Run("invalid compare is rejected", func(t *testing.T) {
+		svc := &fakeStatsSvc{}
+		if rec := serveStats(t, svc, "/admin/analytics/attendance?year=2026&metric=worship_service&compare=maybe"); rec.Code != http.StatusBadRequest {
+			t.Errorf("status = %d, want 400", rec.Code)
+		}
+		if svc.calls != 0 {
+			t.Error("service was called")
 		}
 	})
 

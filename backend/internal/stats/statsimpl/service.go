@@ -60,6 +60,12 @@ func (s *service) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQue
 	if q.Year <= 0 || !validAnalyticsMetric(q.Metric) {
 		return stats.AttendanceAnalytics{}, stats.ErrAnalyticsQuery
 	}
+	if q.Period == "" {
+		q.Period = stats.AttendancePeriodFullYear
+	}
+	if _, _, ok := stats.AnalyticsPeriodBounds(q.Period); !ok {
+		return stats.AttendanceAnalytics{}, stats.ErrAnalyticsQuery
+	}
 	if q.Status == "" {
 		q.Status = stats.AttendanceStatusApproved
 	}
@@ -70,7 +76,7 @@ func (s *service) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQue
 	if err != nil {
 		return stats.AttendanceAnalytics{}, fmt.Errorf("attendance analytics for %d: %w", q.Year, err)
 	}
-	out.Year, out.Metric, out.Status = q.Year, q.Metric, q.Status
+	out.Year, out.Metric, out.Status, out.Period = q.Year, q.Metric, q.Status, q.Period
 	return out, nil
 }
 

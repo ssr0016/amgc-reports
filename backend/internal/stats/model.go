@@ -11,20 +11,31 @@ var ErrAnalyticsQuery = errors.New("year, metric, and status are invalid")
 const (
 	AttendanceStatusApproved = "approved"
 	AttendanceStatusAll      = "all"
+	AttendancePeriodFullYear = "full_year"
 )
 
 type AttendanceQuery struct {
-	Year   int
-	Metric string
-	Status string
+	Year    int
+	Metric  string
+	Status  string
+	Period  string
+	Compare bool
+}
+
+type AttendanceComparison struct {
+	Year     int                    `json:"year"`
+	Trend    []AttendanceTrendPoint `json:"trend"`
+	Churches []AttendanceChurch     `json:"churches"`
 }
 
 type AttendanceAnalytics struct {
-	Year     int                    `json:"year"`
-	Metric   string                 `json:"metric"`
-	Status   string                 `json:"status"`
-	Trend    []AttendanceTrendPoint `json:"trend"`
-	Churches []AttendanceChurch     `json:"churches"`
+	Year       int                    `json:"year"`
+	Metric     string                 `json:"metric"`
+	Status     string                 `json:"status"`
+	Trend      []AttendanceTrendPoint `json:"trend"`
+	Churches   []AttendanceChurch     `json:"churches"`
+	Period     string                 `json:"period"`
+	Comparison *AttendanceComparison  `json:"comparison,omitempty"`
 }
 
 type AttendanceTrendPoint struct {
@@ -36,6 +47,15 @@ type AttendanceTrendPoint struct {
 type AttendanceChurch struct {
 	ChurchName string  `json:"church_name"`
 	Value      float64 `json:"value"`
+}
+
+func AnalyticsPeriodBounds(period string) (int, int, bool) {
+	start, ok := map[string][2]int{
+		AttendancePeriodFullYear: {1, 12}, "q1": {1, 3}, "q2": {4, 6}, "q3": {7, 9}, "q4": {10, 12},
+		"january": {1, 1}, "february": {2, 2}, "march": {3, 3}, "april": {4, 4}, "may": {5, 5}, "june": {6, 6},
+		"july": {7, 7}, "august": {8, 8}, "september": {9, 9}, "october": {10, 10}, "november": {11, 11}, "december": {12, 12},
+	}[period]
+	return start[0], start[1], ok
 }
 
 // GetStatsQuery is the period the caller asks for. Both nil means the previous

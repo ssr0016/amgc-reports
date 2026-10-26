@@ -4,6 +4,7 @@ package statsimpl
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,44 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 )
+
+func analyticsNum(s string) *json.Number { n := json.Number(s); return &n }
+
+func TestStore_AnalyticsAttendance(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
+	store := NewStore(db)
+	reports := reportimpl.NewStore(db)
+	worker, err := userimpl.NewStore(db).CreateWithPassword(context.Background(), "analytics@example.com", "Analytics", "hash")
+	require.NoError(t, err)
+	ctx := context.Background()
+	create := func(month string, year int, value string) {
+		t.Helper()
+		_, err := reports.Create(ctx, worker.ID, year, report.CreateReportRequest{
+			Month:   month,
+			Metrics: map[string]report.MetricWeeks{"worship_service": {Week1: analyticsNum(value)}},
+		})
+		require.NoError(t, err)
+	}
+	create("January", 2026, "2")
+	create("April", 2026, "9")
+	create("January", 2025, "3")
+
+	got, err := store.AnalyticsAttendance(ctx, stats.AttendanceQuery{
+		Year: 2026, Metric: "worship_service", Status: stats.AttendanceStatusAll,
+		Period: "q1", Compare: true,
+	})
+	require.NoError(t, err)
+	require.Len(t, got.Trend, 15)
+	require.Len(t, got.Churches, 1)
+	assert.Equal(t, 2.0, got.Churches[0].Value)
+	require.NotNil(t, got.Comparison)
+	assert.Equal(t, 2025, got.Comparison.Year)
+	assert.Len(t, got.Comparison.Trend, 15)
+	require.Len(t, got.Comparison.Churches, 1)
+	assert.Equal(t, 3.0, got.Comparison.Churches[0].Value)
+}
 
 func TestStore_Counts(t *testing.T) {
 	tdb := testutil.SetupPostgres(t)

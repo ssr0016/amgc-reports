@@ -77,13 +77,15 @@ func (h *StatsHandler) GetTracker(c echo.Context) error {
 
 // GetAttendanceAnalytics godoc
 // @Summary      Annual attendance analytics
-// @Description  Weekly metric totals across the year and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. Needs tracker:read.
+// @Description  Weekly metric totals for the selected year period and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. compare=true includes the same period from the previous year. Needs tracker:read.
 // @Tags         admin/analytics
 // @Produce      json
 // @Security     CookieAuth
 // @Param        year query int true "Year"
 // @Param        metric query string true "Metric key"
 // @Param        status query string false "approved or all; defaults to approved"
+// @Param        period query string false "full_year, q1, q2, q3, q4, or a lowercase month; defaults to full_year"
+// @Param        compare query bool false "Include the previous year's same period"
 // @Success      200 {object} stats.AttendanceAnalytics
 // @Failure      400 {object} map[string]string
 // @Failure      401 {object} map[string]string
@@ -97,7 +99,18 @@ func (h *StatsHandler) GetAttendanceAnalytics(c echo.Context) error {
 	if c.QueryParam("metric") == "" {
 		return apperror.BadRequest("invalid metric")
 	}
-	q := stats.AttendanceQuery{Year: year, Metric: c.QueryParam("metric"), Status: c.QueryParam("status")}
+	period := c.QueryParam("period")
+	if period == "" {
+		period = stats.AttendancePeriodFullYear
+	}
+	compare := false
+	if raw := c.QueryParam("compare"); raw != "" {
+		compare, err = strconv.ParseBool(raw)
+		if err != nil {
+			return apperror.BadRequest("invalid compare")
+		}
+	}
+	q := stats.AttendanceQuery{Year: year, Metric: c.QueryParam("metric"), Status: c.QueryParam("status"), Period: period, Compare: compare}
 	out, err := h.svc.AnalyticsAttendance(c.Request().Context(), q)
 	if errors.Is(err, stats.ErrAnalyticsQuery) {
 		return apperror.BadRequest(stats.ErrAnalyticsQuery.Error())

@@ -571,7 +571,11 @@ definitions:
         items:
           $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch'
         type: array
+      comparison:
+        $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison'
       metric:
+        type: string
+      period:
         type: string
       status:
         type: string
@@ -588,6 +592,19 @@ definitions:
         type: string
       value:
         type: number
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison:
+    properties:
+      churches:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch'
+        type: array
+      trend:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint'
+        type: array
+      year:
+        type: integer
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint:
     properties:
@@ -684,9 +701,10 @@ info:
 paths:
   /admin/analytics/attendance:
     get:
-      description: Weekly metric totals across the year and by church. Defaults to
-        approved reports; status=all includes pending, needs_revision, and approved
-        reports. Needs tracker:read.
+      description: Weekly metric totals for the selected year period and by church.
+        Defaults to approved reports; status=all includes pending, needs_revision,
+        and approved reports. compare=true includes the same period from the previous
+        year. Needs tracker:read.
       parameters:
       - description: Year
         in: query
@@ -702,6 +720,15 @@ paths:
         in: query
         name: status
         type: string
+      - description: full_year, q1, q2, q3, q4, or a lowercase month; defaults to
+          full_year
+        in: query
+        name: period
+        type: string
+      - description: Include the previous year's same period
+        in: query
+        name: compare
+        type: boolean
       produces:
       - application/json
       responses:

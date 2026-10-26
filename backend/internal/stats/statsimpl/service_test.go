@@ -34,11 +34,11 @@ func TestService_AnalyticsAttendance(t *testing.T) {
 	repo := &recordingStats{}
 	svc := newService(repo)
 
-	got, err := svc.AnalyticsAttendance(context.Background(), stats.AttendanceQuery{Year: 2026, Metric: "worship_service"})
+	got, err := svc.AnalyticsAttendance(context.Background(), stats.AttendanceQuery{Year: 2026, Metric: "worship_service", Period: "q2", Compare: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != stats.AttendanceStatusApproved || got.Year != 2026 || got.Metric != "worship_service" {
+	if got.Status != stats.AttendanceStatusApproved || got.Year != 2026 || got.Metric != "worship_service" || got.Period != "q2" {
 		t.Fatalf("got %+v", got)
 	}
 
@@ -46,6 +46,7 @@ func TestService_AnalyticsAttendance(t *testing.T) {
 		"missing year":   {Metric: "worship_service"},
 		"unknown metric": {Year: 2026, Metric: "unknown"},
 		"unknown status": {Year: 2026, Metric: "worship_service", Status: "pending"},
+		"unknown period": {Year: 2026, Metric: "worship_service", Period: "semester"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := svc.AnalyticsAttendance(context.Background(), q); !errors.Is(err, stats.ErrAnalyticsQuery) {

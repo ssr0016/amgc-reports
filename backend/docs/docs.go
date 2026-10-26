@@ -26,7 +26,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Weekly metric totals across the year and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. Needs tracker:read.",
+                "description": "Weekly metric totals for the selected year period and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. compare=true includes the same period from the previous year. Needs tracker:read.",
                 "produces": [
                     "application/json"
                 ],
@@ -53,6 +53,18 @@ const docTemplate = `{
                         "type": "string",
                         "description": "approved or all; defaults to approved",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "full_year, q1, q2, q3, q4, or a lowercase month; defaults to full_year",
+                        "name": "period",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include the previous year's same period",
+                        "name": "compare",
                         "in": "query"
                     }
                 ],
@@ -3654,7 +3666,13 @@ const docTemplate = `{
                         "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"
                     }
                 },
+                "comparison": {
+                    "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison"
+                },
                 "metric": {
+                    "type": "string"
+                },
+                "period": {
                     "type": "string"
                 },
                 "status": {
@@ -3679,6 +3697,26 @@ const docTemplate = `{
                 },
                 "value": {
                     "type": "number"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison": {
+            "type": "object",
+            "properties": {
+                "churches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"
+                    }
+                },
+                "trend": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"
+                    }
+                },
+                "year": {
+                    "type": "integer"
                 }
             }
         },
