@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ApiError, saveFile } from "@/lib/api";
 import { errorText } from "@/lib/auth-form";
-import { exportReport, toggleComplete, type Report } from "@/lib/reports";
+import { exportReport, requestRevision, toggleComplete, type Report } from "@/lib/reports";
 import { refreshAdminViews, usePendingVariables } from "@/lib/query";
 import type { PreviewTarget } from "@/app/(app)/admin/excel-preview-dialog";
 
@@ -18,7 +18,8 @@ export function useReportActions() {
     mutationFn: (r: Report) => toggleComplete(r.id),
     onSuccess: (meta, r) => {
       // The server decides (another admin may have approved it first, and this click undid that), so say what it did.
-      toast.success(`Report ${meta.completed ? "approved" : "unapproved"}: ${r.month} ${r.year}`);
+      const result = meta.status === "needs_revision" ? "needs revision" : meta.status ? "approved" : meta.completed ? "approved" : "unapproved";
+      toast.success(`Report ${result}: ${r.month} ${r.year}`);
       refreshAdminViews(queryClient); // the cards above and the Tracker count these reports
       return queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
@@ -31,6 +32,17 @@ export function useReportActions() {
     },
   });
   const busy = usePendingVariables<Report>(["toggle-complete"]).map((r) => r.id);
+  const revision = useMutation({
+    mutationKey: ["request-revision"],
+    mutationFn: (r: Report) => requestRevision(r.id),
+    onSuccess: (_, r) => {
+      toast.success(`Revision requested: ${r.month} ${r.year}`);
+      refreshAdminViews(queryClient);
+      return queryClient.invalidateQueries({ queryKey: ["reports"] });
+    },
+    onError: (err, r) => toast.error(errorText(err, `Could not request revision for ${r.month} ${r.year}.`)),
+  });
+  const revisionBusy = usePendingVariables<Report>(["request-revision"]).map((r) => r.id);
 
   // Excel downloads, keyed "bulk" or by a row's id, so each button waits for its own file.
   const download = useMutation({
@@ -48,5 +60,5 @@ export function useReportActions() {
   // The open report preview (20e): just the report id.
   const [reportPreview, setReportPreview] = useState<number | null>(null);
 
-  return { approve, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview };
+  return { approve, revision, busy: [...busy, ...revisionBusy], download, downloading, preview, setPreview, reportPreview, setReportPreview };
 }

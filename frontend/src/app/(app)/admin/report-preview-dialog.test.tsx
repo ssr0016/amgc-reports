@@ -46,7 +46,7 @@ describe("calculateAverage", () => {
   });
 });
 
-const makeReport = (overrides: Partial<Report["metrics"][string]> = {}): Report => ({
+const makeReport = (overrides: Partial<Report> = {}): Report => ({
   id: 1,
   created_by: 1,
   month: "September",

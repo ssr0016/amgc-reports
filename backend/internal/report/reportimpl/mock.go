@@ -24,12 +24,13 @@ type MockStore struct {
 	nextID  int64
 
 	// Override functions for testing specific behaviors
-	CreateFunc         func(ctx context.Context, userID int64, year int, req report.CreateReportRequest) (*report.Report, error)
-	GetFunc            func(ctx context.Context, id int64) (*report.Report, error)
-	ListFunc           func(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error)
-	UpdateFunc         func(ctx context.Context, id int64, year int, req report.UpdateReportRequest) (*report.Report, error)
-	SoftDeleteFunc     func(ctx context.Context, id int64) error
-	ToggleCompleteFunc func(ctx context.Context, id, approverID int64) (*report.Report, error)
+	CreateFunc          func(ctx context.Context, userID int64, year int, req report.CreateReportRequest) (*report.Report, error)
+	GetFunc             func(ctx context.Context, id int64) (*report.Report, error)
+	ListFunc            func(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error)
+	UpdateFunc          func(ctx context.Context, id int64, year int, req report.UpdateReportRequest) (*report.Report, error)
+	SoftDeleteFunc      func(ctx context.Context, id int64) error
+	ToggleCompleteFunc  func(ctx context.Context, id, approverID int64) (*report.Report, error)
+	RequestRevisionFunc func(ctx context.Context, id, approverID int64) (*report.Report, error)
 
 	// Accounts are the church accounts Dashboard lists, in order; their status
 	// comes from the account's report of the month in the mock.
@@ -126,6 +127,7 @@ func (m *MockStore) Create(ctx context.Context, userID int64, year int, req repo
 		Challenges: ptr(req.Challenges), PrayerRequest: ptr(req.PrayerRequest),
 		Metrics: mockMetrics(req.Metrics), CreatedAt: now, UpdatedAt: now,
 	}
+	r.Status = "pending"
 	m.reports[r.ID] = r
 	m.nextID++
 	return copyReport(r), nil
@@ -175,9 +177,19 @@ func (m *MockStore) Dashboard(_ context.Context, month string, year int) ([]repo
 		row := report.DashboardRow{Church: acc.Church, Status: report.StatusNoReport}
 		for _, r := range m.reports {
 			if r.DeletedAt == nil && r.CreatedBy == acc.ID && int(r.Year) == year && strings.EqualFold(r.Month, month) {
-				row.Month, row.Year, row.Status = r.Month, int(r.Year), report.StatusPending
-				if r.Completed {
+				row.Month, row.Year, row.Status = r.Month, int(r.Year), r.Status
+				switch row.Status {
+				case "approved":
 					row.Status = report.StatusApproved
+				case "needs_revision":
+					row.Status = "Needs Revision"
+				case "":
+					row.Status = report.StatusPending
+					if r.Completed {
+						row.Status = report.StatusApproved
+					}
+				default:
+					row.Status = report.StatusPending
 				}
 			}
 		}
@@ -193,10 +205,25 @@ func matchesReport(r *report.Report, p report.ListReportsParams) bool {
 		(p.CreatedBy != 0 && r.CreatedBy != p.CreatedBy) ||
 		(p.Year != 0 && int(r.Year) != p.Year) ||
 		(p.Month != "" && !strings.EqualFold(r.Month, p.Month)) ||
-		(p.Completed != nil && r.Completed != *p.Completed) {
+		(p.Completed != nil && r.Completed != *p.Completed) ||
+		(p.Status != "" && r.Status != p.Status) {
 		return false
 	}
 	return containsFold(r.Worker, p.Worker) && containsFold(r.AreaAssignment, p.Area) && containsFold(r.ChurchName, p.Church)
+}
+
+func (m *MockStore) RequestRevision(ctx context.Context, id, approverID int64) (*report.Report, error) {
+	if m.RequestRevisionFunc != nil {
+		return m.RequestRevisionFunc(ctx, id, approverID)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	r := m.active(id)
+	if r == nil {
+		return nil, fmt.Errorf("report: %w", database.ErrNotFound)
+	}
+	r.Completed, r.Status, r.CompletedAt, r.CompletedBy = false, "needs_revision", nil, nil
+	return copyReport(r), nil
 }
 
 // containsFold reports whether field contains sub, ignoring case. An empty sub matches anything.
@@ -271,9 +298,9 @@ func (m *MockStore) ToggleComplete(ctx context.Context, id, approverID int64) (*
 	}
 	now := time.Now()
 	if r.Completed {
-		r.Completed, r.CompletedAt, r.CompletedBy = false, nil, nil
+		r.Completed, r.Status, r.CompletedAt, r.CompletedBy = false, "needs_revision", nil, nil
 	} else {
-		r.Completed, r.CompletedAt, r.CompletedBy = true, &now, &approverID
+		r.Completed, r.Status, r.CompletedAt, r.CompletedBy = true, "approved", &now, &approverID
 	}
 	r.UpdatedAt = now
 	c := copyReport(r)

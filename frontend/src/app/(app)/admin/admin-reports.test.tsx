@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   listReports: vi.fn(),
   deleteReport: vi.fn(),
   toggleComplete: vi.fn(),
+  requestRevision: vi.fn(),
   exportReport: vi.fn(),
   exportReports: vi.fn(),
   previewExcel: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("@/lib/reports", async (orig) => ({
   listReports: h.listReports,
   deleteReport: h.deleteReport,
   toggleComplete: h.toggleComplete,
+  requestRevision: h.requestRevision,
   exportReport: h.exportReport,
   exportReports: h.exportReports,
   previewExcel: h.previewExcel,
@@ -399,6 +401,15 @@ describe("admin reports: approve", () => {
   const approve = (name: string) => within(row(name)).getByRole("button", { name: /^Approve / });
 
   const unapprove = (name: string) => within(row(name)).getByRole("button", { name: /^Unapprove / });
+
+  it("Request Revision moves a pending row into the revision queue", async () => {
+    h.requestRevision.mockResolvedValue({ id: 1, completed: false, status: "needs_revision" });
+    const { user } = renderReports("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Request Revision / }));
+    await waitFor(() => expect(h.requestRevision).toHaveBeenCalledWith(1));
+    expect(h.toast.success).toHaveBeenCalledWith("Revision requested: September 2026");
+  });
 
   it("a Pending row offers Approve and a Approved row offers Unapprove, each named for its row", async () => {
     h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));

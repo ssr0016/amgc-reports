@@ -103,6 +103,7 @@ func Setup(
 	reports.PUT("/:id", reportHandler.UpdateReport, perm("reports:write"), limits.Write)
 	reports.DELETE("/:id", reportHandler.SoftDeleteReport, perm("reports:delete"), limits.Write)
 	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, perm("reports:approve"), limits.Write)
+	reports.PATCH("/:id/revision", reportHandler.RequestRevision, perm("reports:approve"), limits.Write)
 
 	// ============================================================
 	// Admin routes (37b): the review areas are permission-gated, so a custom

@@ -24,7 +24,8 @@ func (r *store) Counts(ctx context.Context, month string, year int) (stats.Admin
 	stored := report.CanonicalMonth(month)
 	query, args, err := r.db.Builder.Select().
 		Column(sq.Expr("(SELECT COUNT(*) "+inPeriod+")", year, stored)).
-		Column(sq.Expr("(SELECT COUNT(*) "+inPeriod+" AND completed)", year, stored)).
+		Column(sq.Expr("(SELECT COUNT(*) "+inPeriod+" AND status = 'approved')", year, stored)).
+		Column(sq.Expr("(SELECT COUNT(*) "+inPeriod+" AND status = 'needs_revision')", year, stored)).
 		Column("(SELECT COUNT(*) FROM users WHERE deleted_at IS NULL)").
 		Column(sq.Expr("(SELECT COUNT(*) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE u.deleted_at IS NULL AND ro.name = ?)", "admin")).
 		ToSql()
@@ -32,10 +33,10 @@ func (r *store) Counts(ctx context.Context, month string, year int) (stats.Admin
 		return stats.AdminStats{}, fmt.Errorf("build stats query: %w", err)
 	}
 	s := stats.AdminStats{Month: month, Year: year}
-	if err := r.db.Querier(ctx).QueryRow(ctx, query, args...).Scan(&s.ReportsTotal, &s.ReportsApproved, &s.UsersTotal, &s.AdminsTotal); err != nil {
+	if err := r.db.Querier(ctx).QueryRow(ctx, query, args...).Scan(&s.ReportsTotal, &s.ReportsApproved, &s.ReportsNeedsRevision, &s.UsersTotal, &s.AdminsTotal); err != nil {
 		return stats.AdminStats{}, fmt.Errorf("count stats: %w", err)
 	}
-	s.ReportsPending = s.ReportsTotal - s.ReportsApproved
+	s.ReportsPending = s.ReportsTotal - s.ReportsApproved - s.ReportsNeedsRevision
 	return s, nil
 }
 
@@ -43,7 +44,7 @@ func (r *store) Counts(ctx context.Context, month string, year int) (stats.Admin
 // (a unique index allows one per account and period) in a single query (D-A3).
 func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.TrackerRow, error) {
 	query, args, err := r.db.Builder.
-		Select("u.id", "u.name", "u.email", "COALESCE(u.church_name, '')", "u.status", "r.completed").
+		Select("u.id", "u.name", "u.email", "COALESCE(u.church_name, '')", "u.status", "r.status").
 		From("users u").
 		Join("roles ro ON ro.id = u.role_id").
 		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
@@ -61,14 +62,14 @@ func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.Tr
 	out := []stats.TrackerRow{}
 	for rows.Next() {
 		var row stats.TrackerRow
-		var completed *bool // NULL when there is no report this month
-		if err := rows.Scan(&row.UserID, &row.Name, &row.Email, &row.ChurchName, &row.UserStatus, &completed); err != nil {
+		var status *string // NULL when there is no report this month
+		if err := rows.Scan(&row.UserID, &row.Name, &row.Email, &row.ChurchName, &row.UserStatus, &status); err != nil {
 			return nil, fmt.Errorf("scan tracker: %w", err)
 		}
 		switch {
-		case completed == nil:
+		case status == nil:
 			row.Status = stats.TrackerNotSubmitted
-		case *completed:
+		case *status == "approved":
 			row.Status = stats.TrackerApproved
 		default:
 			row.Status = stats.TrackerForReview

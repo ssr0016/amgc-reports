@@ -26,6 +26,7 @@ type Report struct {
 	Challenges      *string    `json:"challenges,omitempty" db:"challenges"`
 	PrayerRequest   *string    `json:"prayer_request,omitempty" db:"prayer_request"`
 	Completed       bool       `json:"completed" db:"completed"`
+	Status          string     `json:"status" db:"status"`
 	CompletedAt     *time.Time `json:"completed_at,omitempty" db:"completed_at"`
 	CompletedBy     *int64     `json:"completed_by,omitempty" db:"completed_by"`
 	DeletedAt       *time.Time `json:"-" db:"deleted_at"`
@@ -121,6 +122,7 @@ type ReportResponse struct {
 	Challenges      string                 `json:"challenges,omitempty"`
 	PrayerRequest   string                 `json:"prayer_request,omitempty"`
 	Completed       bool                   `json:"completed"`
+	Status          string                 `json:"status" enums:"pending,approved,needs_revision"`
 	CompletedAt     *time.Time             `json:"completed_at,omitempty"`
 	CompletedBy     *int64                 `json:"completed_by,omitempty"`
 	CreatedAt       time.Time              `json:"created_at"`
@@ -132,6 +134,7 @@ type ReportResponse struct {
 type ReportMetadata struct {
 	ID          int64      `json:"id"`
 	Completed   bool       `json:"completed"`
+	Status      string     `json:"status" enums:"pending,approved,needs_revision"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	CompletedBy *int64     `json:"completed_by,omitempty"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata
@@ -207,6 +210,7 @@ type ListReportsParams struct {
 
 	// Completed limits the list to approved (true) or pending (false) reports; nil = any.
 	Completed *bool
+	Status    string
 }
 
 // ToResponse converts a report to its API form. A NUMERIC value is emitted in
@@ -239,6 +243,7 @@ func (r *Report) ToResponse() ReportResponse {
 		Challenges:      deref(r.Challenges),
 		PrayerRequest:   deref(r.PrayerRequest),
 		Completed:       r.Completed,
+		Status:          r.Status,
 		CompletedAt:     r.CompletedAt,
 		CompletedBy:     r.CompletedBy,
 		CreatedAt:       r.CreatedAt,

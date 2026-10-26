@@ -24,7 +24,7 @@ type store struct{ db *database.DB }
 func NewStore(db *database.DB) report.Store { return &store{db: db} }
 
 const reportColumns = "id, created_by, month, year, worker, area_assignment, church_name, names, " +
-	"narrative_report, challenges, prayer_request, completed, completed_at, completed_by, " +
+	"narrative_report, challenges, prayer_request, completed, status, completed_at, completed_by, " +
 	"deleted_at, created_at, updated_at"
 
 // reportColumnsWithAlias prefixes every column with alias, e.g. "r.id".
@@ -49,7 +49,7 @@ func scanReport(row pgx.Row, withOwner bool) (*report.Report, error) {
 	var r report.Report
 	dest := []any{&r.ID, &r.CreatedBy, &r.Month, &r.Year, &r.Worker, &r.AreaAssignment,
 		&r.ChurchName, &r.Names, &r.NarrativeReport, &r.Challenges, &r.PrayerRequest,
-		&r.Completed, &r.CompletedAt, &r.CompletedBy, &r.DeletedAt, &r.CreatedAt, &r.UpdatedAt}
+		&r.Completed, &r.Status, &r.CompletedAt, &r.CompletedBy, &r.DeletedAt, &r.CreatedAt, &r.UpdatedAt}
 	if withOwner {
 		dest = append(dest, &r.OwnerStatus, &r.OwnerDeletedAt)
 	}
@@ -189,6 +189,9 @@ func listWhere(p report.ListReportsParams) sq.And {
 	if p.Completed != nil {
 		where = append(where, sq.Eq{"r.completed": *p.Completed})
 	}
+	if p.Status != "" {
+		where = append(where, sq.Eq{"r.status": p.Status})
+	}
 	if p.Worker != "" {
 		where = append(where, sq.ILike{"r.worker": "%" + escapeLike(p.Worker) + "%"})
 	}
@@ -316,7 +319,7 @@ func (r *store) SoftDelete(ctx context.Context, id int64) error {
 // account gives one row (D-A16, D-A24).
 func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report.DashboardRow, error) {
 	q, args, err := r.db.Builder.
-		Select("u.church_name", "r.month", "r.year", "r.completed").
+		Select("u.church_name", "r.month", "r.year", "r.status").
 		From("users u").
 		Join("roles ro ON ro.id = u.role_id").
 		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
@@ -336,18 +339,20 @@ func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report
 		var row report.DashboardRow
 		var month *string // the report columns are NULL when there is no report this month
 		var year *int
-		var completed *bool
-		if err := rows.Scan(&row.Church, &month, &year, &completed); err != nil {
+		var status *string
+		if err := rows.Scan(&row.Church, &month, &year, &status); err != nil {
 			return nil, fmt.Errorf("scan dashboard: %w", err)
 		}
 		if month != nil && year != nil {
 			row.Month, row.Year = *month, *year
 		}
 		switch {
-		case completed == nil:
+		case status == nil:
 			row.Status = report.StatusNoReport
-		case *completed:
+		case *status == "approved":
 			row.Status = report.StatusApproved
+		case *status == "needs_revision":
+			row.Status = "Needs Revision"
 		default:
 			row.Status = report.StatusPending
 		}
@@ -366,12 +371,35 @@ func (r *store) ToggleComplete(ctx context.Context, id, approverID int64) (*repo
 	query, args, err := r.db.Builder.
 		Update("reports").
 		Set("completed", sq.Expr("NOT completed")).
+		Set("status", sq.Expr("CASE WHEN completed THEN 'needs_revision' ELSE 'approved' END")).
 		Set("completed_at", sq.Expr("CASE WHEN completed THEN NULL ELSE NOW() END")).
 		Set("completed_by", sq.Expr("CASE WHEN completed THEN NULL ELSE ?::bigint END", approverID)).
 		Set("updated_at", sq.Expr("NOW()")).
 		Where(sq.Eq{"id": id, "deleted_at": nil}).
 		Suffix("RETURNING " + reportColumns).
 		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...), false)
+	if err != nil {
+		return nil, err
+	}
+	if rep == nil {
+		return nil, fmt.Errorf("report: %w", database.ErrNotFound)
+	}
+	return rep, nil
+}
+
+func (r *store) RequestRevision(ctx context.Context, id, approverID int64) (*report.Report, error) {
+	query, args, err := r.db.Builder.Update("reports").
+		Set("completed", false).
+		Set("status", "needs_revision").
+		Set("completed_at", nil).
+		Set("completed_by", nil).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": id, "deleted_at": nil}).
+		Suffix("RETURNING " + reportColumns).ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}

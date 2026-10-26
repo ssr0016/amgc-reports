@@ -116,7 +116,7 @@ test.describe("editor", () => {
 
   test("can open and edit someone else's report, but not approve it", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(page.getByText("No reports match these filters.")).toBeVisible();
+    await expect(page.getByRole("row").first()).toBeVisible();
     const id = (await (await request.get("http://localhost:8081/api/v1/reports?limit=1")).json()).data[0].id;
     await page.goto(`/reports/${id}/edit`);
     await expect(page.getByLabel("Worker Name")).toHaveValue("E2E User Edited"); // write_any
@@ -164,7 +164,7 @@ test.describe("admin", () => {
   });
 
   // Approval refreshes the shared list and its page-level counts.
-  test("approves and unapproves from the admin panel, and the stats cards follow", async ({ page }) => {
+  test("approves and sends a report back for revision, and the stats cards follow", async ({ page }) => {
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "All Reports", exact: true })).toBeVisible();
     const card = (name: string) =>
@@ -184,6 +184,7 @@ test.describe("admin", () => {
     await expect(card("Approved")).toBeVisible();
     const approved = Number(await card("Approved").innerText());
     const pending = Number(await card("Pending").innerText());
+    const needsRevision = Number(await card("Needs Revision").innerText());
 
     await row().getByRole("button", { name: /^Approve / }).click();
     await expect(row().getByText("Approved")).toBeVisible();
@@ -195,13 +196,14 @@ test.describe("admin", () => {
     await page.reload(); // the server kept it
     await expect(row().getByText("Approved")).toBeVisible();
     await row().getByRole("button", { name: /^Unapprove / }).click();
-    await expect(row().getByText("Pending")).toBeVisible();
+    await expect(row().getByText("Needs Revision")).toBeVisible();
     await expect(card("Approved")).toHaveText(String(approved));
-    await expect(card("Pending")).toHaveText(String(pending));
+    await expect(card("Pending")).toHaveText(String(pending - 1));
+    await expect(card("Needs Revision")).toHaveText(String(needsRevision + 1));
 
-    // The next tests expect the report Pending, so wait for the server to say so.
+    // The next tests expect the report to remain in the review queue.
     await page.reload();
-    await expect(row().getByText("Pending")).toBeVisible();
+    await expect(row().getByText("Needs Revision")).toBeVisible();
   });
 
   test("the personal list excludes other users' reports even for an admin", async ({ page, request }) => {

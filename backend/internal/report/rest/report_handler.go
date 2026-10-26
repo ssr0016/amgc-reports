@@ -136,6 +136,7 @@ func (h *ReportHandler) GetReport(c echo.Context) error {
 // @Param        worker query string false "Partial, case-insensitive match"
 // @Param        area query string false "Partial, case-insensitive match on area assignment"
 // @Param        church query string false "Partial, case-insensitive match on church name"
+// @Param        status query string false "Status: pending, approved or needs_revision"
 // @Param        mine query bool false "Only the authenticated user's reports"
 // @Success      200 {object} pagination.Response[report.ReportResponse]
 // @Failure      400 {object} map[string]string
@@ -152,6 +153,7 @@ func (h *ReportHandler) ListReports(c echo.Context) error {
 		Worker: c.QueryParam("worker"),
 		Area:   c.QueryParam("area"),
 		Church: c.QueryParam("church"),
+		Status: c.QueryParam("status"),
 	}
 	if value := c.QueryParam("mine"); value != "" {
 		mine, err := strconv.ParseBool(value)
@@ -250,7 +252,7 @@ func (h *ReportHandler) SoftDeleteReport(c echo.Context) error {
 
 // ToggleComplete godoc
 // @Summary      Approve or unapprove report
-// @Description  Flips the report's completed flag. Requires reports:approve, which works on any report by ID. Returns metadata only, never report text.
+// @Description  Approves an open report or marks an approved report as needing revision. Requires reports:approve. Returns metadata only, never report text.
 // @Tags         reports
 // @Produce      json
 // @Security     CookieAuth
@@ -271,6 +273,35 @@ func (h *ReportHandler) ToggleComplete(c echo.Context) error {
 		return err
 	}
 	meta, err := h.svc.ToggleComplete(c.Request().Context(), uid, c.RealIP(), id)
+	if err != nil {
+		return reportError(err, "failed to update report status")
+	}
+	return c.JSON(http.StatusOK, meta)
+}
+
+// RequestRevision godoc
+// @Summary      Request report revision
+// @Description  Marks a report as needing revision. Requires reports:approve and returns metadata only.
+// @Tags         reports
+// @Produce      json
+// @Security     CookieAuth
+// @Param        id path int true "Report ID"
+// @Success      200 {object} report.ReportMetadata
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /reports/{id}/revision [patch]
+func (h *ReportHandler) RequestRevision(c echo.Context) error {
+	uid, err := h.userID(c)
+	if err != nil {
+		return err
+	}
+	id, err := reportID(c)
+	if err != nil {
+		return err
+	}
+	meta, err := h.svc.RequestRevision(c.Request().Context(), uid, c.RealIP(), id)
 	if err != nil {
 		return reportError(err, "failed to update report status")
 	}

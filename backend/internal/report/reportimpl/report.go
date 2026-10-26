@@ -295,7 +295,26 @@ func (s *service) ToggleComplete(ctx context.Context, userID int64, ip string, i
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return &report.ReportMetadata{ID: rep.ID, Completed: rep.Completed, CompletedAt: rep.CompletedAt, CompletedBy: rep.CompletedBy}, nil
+	return &report.ReportMetadata{ID: rep.ID, Completed: rep.Completed, Status: rep.Status, CompletedAt: rep.CompletedAt, CompletedBy: rep.CompletedBy}, nil
+}
+
+func (s *service) RequestRevision(ctx context.Context, userID int64, ip string, id int64) (*report.ReportMetadata, error) {
+	a, err := s.actor(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	var rep *report.Report
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
+		var err error
+		if rep, err = s.reports.RequestRevision(ctx, id, userID); err != nil {
+			return err
+		}
+		return s.audit.Insert(ctx, a.auditEntry(ip, audit.ActionUnapproveReport, rep))
+	})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &report.ReportMetadata{ID: rep.ID, Completed: rep.Completed, Status: rep.Status, CompletedAt: rep.CompletedAt, CompletedBy: rep.CompletedBy}, nil
 }
 
 func respond(r *report.Report) *report.ReportResponse {

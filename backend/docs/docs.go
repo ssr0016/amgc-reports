@@ -2039,6 +2039,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Status: pending, approved or needs_revision",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
                         "type": "boolean",
                         "description": "Only the authenticated user's reports",
                         "name": "mine",
@@ -2401,7 +2407,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Flips the report's completed flag. Requires reports:approve, which works on any report by ID. Returns metadata only, never report text.",
+                "description": "Approves an open report or marks an approved report as needing revision. Requires reports:approve. Returns metadata only, never report text.",
                 "produces": [
                     "application/json"
                 ],
@@ -2409,6 +2415,76 @@ const docTemplate = `{
                     "reports"
                 ],
                 "summary": "Approve or unapprove report",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Report ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reports/{id}/revision": {
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Marks a report as needing revision. Requires reports:approve and returns metadata only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reports"
+                ],
+                "summary": "Request report revision",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2702,6 +2778,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "reports_approved": {
+                    "type": "integer"
+                },
+                "reports_needs_revision": {
                     "type": "integer"
                 },
                 "reports_pending": {
@@ -3125,6 +3204,14 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "approved",
+                        "needs_revision"
+                    ]
                 }
             }
         },
@@ -3181,6 +3268,14 @@ const docTemplate = `{
                 },
                 "prayer_request": {
                     "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "approved",
+                        "needs_revision"
+                    ]
                 },
                 "updated_at": {
                     "type": "string"

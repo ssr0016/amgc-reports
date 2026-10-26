@@ -2336,6 +2336,8 @@ export interface paths {
                     area?: string;
                     /** @description Partial, case-insensitive match on church name */
                     church?: string;
+                    /** @description Status: pending, approved or needs_revision */
+                    status?: string;
                     /** @description Only the authenticated user's reports */
                     mine?: boolean;
                 };
@@ -2746,7 +2748,93 @@ export interface paths {
         head?: never;
         /**
          * Approve or unapprove report
-         * @description Flips the report's completed flag. Requires reports:approve, which works on any report by ID. Returns metadata only, never report text.
+         * @description Approves an open report or marks an approved report as needing revision. Requires reports:approve. Returns metadata only, never report text.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Report ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/reports/{id}/revision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Request report revision
+         * @description Marks a report as needing revision. Requires reports:approve and returns metadata only.
          */
         patch: {
             parameters: {
@@ -3058,6 +3146,7 @@ export interface components {
             admins_total?: number;
             month?: string;
             reports_approved?: number;
+            reports_needs_revision?: number;
             reports_pending?: number;
             reports_total?: number;
             users_total?: number;
@@ -3178,6 +3267,8 @@ export interface components {
             completed_at?: string;
             completed_by?: number;
             id?: number;
+            /** @enum {string} */
+            status?: "pending" | "approved" | "needs_revision";
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse": {
             area_assignment?: string;
@@ -3198,6 +3289,8 @@ export interface components {
             owner_deleted_at?: string;
             owner_status?: string;
             prayer_request?: string;
+            /** @enum {string} */
+            status?: "pending" | "approved" | "needs_revision";
             updated_at?: string;
             worker?: string;
             year?: number;

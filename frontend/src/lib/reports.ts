@@ -10,6 +10,7 @@ export type ReportFilters = {
   worker?: string;
   area?: string;
   church?: string;
+  status?: "pending" | "approved" | "needs_revision";
   page?: number;
   limit?: number;
 };
@@ -37,6 +38,9 @@ export const deleteReport = (id: number) => api<void>(`/reports/${id}`, { method
 // Toggles between approved and not approved.
 export const toggleComplete = (id: number) =>
   api<ReportMetadata>(`/reports/${id}/complete`, { method: "PATCH" });
+
+export const requestRevision = (id: number) =>
+  api<ReportMetadata>(`/reports/${id}/revision`, { method: "PATCH" });
 
 // Excel exports (D-A6), admin only. The server writes the audit row for each download.
 export const exportReport = (id: number) => downloadFile(`/admin/reports/${id}/excel`);

@@ -31,12 +31,13 @@ export function ReportsStats({ data }: { data?: Page<Report> }) {
   const { can } = useSession();
   const allowed = can("tracker:read");
   const stats = useQuery({ queryKey: ["admin-stats"], queryFn: getStats, enabled: allowed, staleTime: 30_000 });
-  const approved = data?.data.filter((r) => r.completed).length;
+  const approved = data?.data.filter((r) => (r.status ?? (r.completed ? "approved" : "pending")) === "approved").length;
+  const needsRevision = stats.data?.reports_needs_revision;
   const cards = [
     { label: "Total Reports", value: data?.meta.total, note: "Matching current filters" },
     { label: "Approved", value: approved, note: "On this page", tone: "text-[var(--approved)]" },
-    { label: "Pending", value: data ? data.data.length - (approved ?? 0) : undefined, note: "On this page", tone: "text-[var(--pending)]" },
-    { label: "Users", value: allowed ? stats.data?.users_total : undefined, note: allowed ? (stats.isError ? "Count unavailable" : "All registered users") : "Admin access required" },
+    { label: "Pending", value: data ? data.data.filter((r) => (r.status ?? (r.completed ? "approved" : "pending")) === "pending").length : undefined, note: "On this page", tone: "text-[var(--pending)]" },
+    { label: "Needs Revision", value: allowed ? needsRevision : undefined, note: allowed ? (stats.isError ? "Count unavailable" : "All reports this month") : "Admin access required", tone: "text-red-700" },
   ];
   return (
     <section aria-label="Report statistics" className="grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -62,7 +63,7 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
 }) {
   const [status, setStatus] = useState("all");
   const [selection, setSelection] = useState<{ scope: string; ids: number[] }>({ scope: "", ids: [] });
-  const visible = rows.filter((r) => status === "all" || r.completed === (status === "approved"));
+  const visible = rows.filter((r) => status === "all" || (r.status ?? (r.completed ? "approved" : "pending")) === status);
   const selectionScope = `${scope}:${status}`;
   const selected = selection.scope === selectionScope ? selection.ids.filter((id) => visible.some((r) => r.id === id)) : [];
   const allSelected = visible.length > 0 && selected.length === visible.length;
@@ -73,9 +74,9 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
       <div className="border-b p-4">{filters}</div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2">
         <div role="group" aria-label="Filter status on this page" className="flex gap-1">
-          {["all", "approved", "pending"].map((value) => (
+          {["all", "approved", "pending", "needs_revision"].map((value) => (
             <Button key={value} variant={status === value ? "secondary" : "ghost"} className="min-h-11" aria-pressed={status === value} onClick={() => { setStatus(value); select([]); }}>
-              {value[0].toUpperCase() + value.slice(1)}
+              {value === "needs_revision" ? "Needs Revision" : value[0].toUpperCase() + value.slice(1)}
             </Button>
           ))}
         </div>
@@ -96,7 +97,7 @@ export function ReportsTableCard({ rows, scope, filters, children, actions, sele
               <TableCell><div className="flex items-center gap-3"><Avatar name={r.worker || "Unknown worker"} className="bg-secondary! text-secondary-foreground! cursor-default" /><div className="flex min-w-36 flex-col items-start gap-1"><span className="font-medium">{r.worker || "—"}</span><ReportOwnerBadges report={r} /></div></div></TableCell>
               <TableCell>{r.month}</TableCell><TableCell className="text-right font-mono tabular-nums">{r.year}</TableCell>
               <TableCell>{r.area_assignment || "—"}</TableCell><TableCell>{r.church_name || "—"}</TableCell>
-              <TableCell><Badge className={r.completed ? "border-transparent bg-[var(--approved)]/10 text-[var(--approved)]" : "border-transparent bg-[var(--pending)]/10 text-[var(--pending)]"}>{r.completed ? "Approved" : "Pending"}</Badge></TableCell>
+              <TableCell><Badge className={(r.status ?? (r.completed ? "approved" : "pending")) === "approved" ? "border-transparent bg-[var(--approved)]/10 text-[var(--approved)]" : (r.status ?? "pending") === "needs_revision" ? "border-transparent bg-red-100 text-red-700" : "border-transparent bg-[var(--pending)]/10 text-[var(--pending)]"}>{(r.status ?? (r.completed ? "approved" : "pending")) === "needs_revision" ? "Needs Revision" : (r.status ?? (r.completed ? "approved" : "pending")) === "approved" ? "Approved" : "Pending"}</Badge></TableCell>
               <TableCell><div className="flex justify-end gap-2">{actions(r)}</div></TableCell>
             </TableRow>
           ))}

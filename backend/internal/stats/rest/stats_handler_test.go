@@ -32,7 +32,7 @@ type fakeStatsSvc struct {
 func (f *fakeStatsSvc) Get(_ context.Context, q stats.GetStatsQuery) (stats.AdminStats, error) {
 	f.calls++
 	f.month, f.year = q.Month, q.Year
-	return stats.AdminStats{Month: "September", Year: 2026, ReportsTotal: 3, ReportsApproved: 1, ReportsPending: 2, UsersTotal: 7, AdminsTotal: 2}, f.err
+	return stats.AdminStats{Month: "September", Year: 2026, ReportsTotal: 3, ReportsApproved: 1, ReportsPending: 2, ReportsNeedsRevision: 0, UsersTotal: 7, AdminsTotal: 2}, f.err
 }
 
 func (f *fakeStatsSvc) Tracker(_ context.Context, q stats.GetStatsQuery) (stats.Tracker, error) {
@@ -67,6 +67,7 @@ func TestStatsHandler_GetStats(t *testing.T) {
 		want := map[string]any{
 			"month": "September", "year": 2026.0, "reports_total": 3.0, "reports_approved": 1.0,
 			"reports_pending": 2.0, "users_total": 7.0, "admins_total": 2.0,
+			"reports_needs_revision": 0.0,
 		}
 		if fmt.Sprint(got) != fmt.Sprint(want) {
 			t.Errorf("body = %v, want %v", got, want)

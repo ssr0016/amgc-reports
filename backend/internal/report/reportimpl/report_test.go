@@ -523,7 +523,8 @@ func TestReportService_ExportMonth(t *testing.T) {
 		wb := open(t, x)
 		// dave's "bethel" is pending: no sheet. carol's church may not take the dashboard's name.
 		assert.Equal(t, []string{"Report Dashboard", "Bethel", "Report Dashboard (2)", "zion"}, wb.GetSheetList())
-		assert.Equal(t, wantDashboard, dashboardOf(t, wb))
+		gotDashboard := dashboardOf(t, wb)
+		assert.Equal(t, wantDashboard, gotDashboard)
 
 		entries := f.audit.Entries()
 		require.Len(t, entries, 1)

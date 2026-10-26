@@ -18,6 +18,8 @@ definitions:
         type: string
       reports_approved:
         type: integer
+      reports_needs_revision:
+        type: integer
       reports_pending:
         type: integer
       reports_total:
@@ -320,6 +322,12 @@ definitions:
         type: integer
       id:
         type: integer
+      status:
+        enum:
+        - pending
+        - approved
+        - needs_revision
+        type: string
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse:
     properties:
@@ -356,6 +364,12 @@ definitions:
       owner_status:
         type: string
       prayer_request:
+        type: string
+      status:
+        enum:
+        - pending
+        - approved
+        - needs_revision
         type: string
       updated_at:
         type: string
@@ -1974,6 +1988,10 @@ paths:
         in: query
         name: church
         type: string
+      - description: 'Status: pending, approved or needs_revision'
+        in: query
+        name: status
+        type: string
       - description: Only the authenticated user's reports
         in: query
         name: mine
@@ -2217,8 +2235,8 @@ paths:
       - reports
   /reports/{id}/complete:
     patch:
-      description: Flips the report's completed flag. Requires reports:approve, which
-        works on any report by ID. Returns metadata only, never report text.
+      description: Approves an open report or marks an approved report as needing
+        revision. Requires reports:approve. Returns metadata only, never report text.
       parameters:
       - description: Report ID
         in: path
@@ -2259,6 +2277,52 @@ paths:
       security:
       - CookieAuth: []
       summary: Approve or unapprove report
+      tags:
+      - reports
+  /reports/{id}/revision:
+    patch:
+      description: Marks a report as needing revision. Requires reports:approve and
+        returns metadata only.
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Request report revision
       tags:
       - reports
   /users:

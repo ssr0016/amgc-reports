@@ -64,6 +64,11 @@ func (f *fakeReportSvc) ToggleComplete(_ context.Context, uid int64, _ string, i
 	return &report.ReportMetadata{ID: id, Completed: true}, f.err
 }
 
+func (f *fakeReportSvc) RequestRevision(_ context.Context, uid int64, _ string, id int64) (*report.ReportMetadata, error) {
+	f.gotUser, f.gotID = uid, id
+	return &report.ReportMetadata{ID: id, Status: "needs_revision"}, f.err
+}
+
 func (f *fakeReportSvc) ExportOne(_ context.Context, uid int64, ip string, id int64) (*report.Export, error) {
 	f.gotUser, f.gotIP, f.gotID = uid, ip, id
 	return &report.Export{Filename: "Café May 2026.xlsx", Data: []byte("PK")}, f.err
