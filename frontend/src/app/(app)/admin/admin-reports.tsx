@@ -62,7 +62,7 @@ export function AdminReports() {
   const meta = data?.meta;
   return (
     <div className="flex flex-col gap-6">
-      <ReportsHeader title="Reports overview">
+      <ReportsHeader title="All Reports">
         <Can permission="reports:export">
           <Button
             type="button"

@@ -29,7 +29,7 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
       className="flex min-h-0 flex-1 flex-col gap-6 p-4"
     >
       <Link href="/reports" aria-current={pathname.startsWith("/reports") ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname.startsWith("/reports"))}>
-        <FileText className="size-4" aria-hidden="true" />Reports
+        <FileText className="size-4" aria-hidden="true" />My Reports
       </Link>
       {canAdmin && sections.length > 0 && (
         <section aria-labelledby={`${label}-admin`} className="flex flex-col gap-1">

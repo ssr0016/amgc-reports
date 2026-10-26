@@ -63,6 +63,15 @@ beforeEach(() => {
 });
 
 describe("reports list: access", () => {
+  it.each(["user", "admin"])("requests only personal reports for %s without stats cards", async (role) => {
+    h.me.role = role;
+    renderList("reports:read", "reports:read_any");
+    await screen.findByText("Worker 1");
+    expect(h.listReports).toHaveBeenCalledWith(expect.objectContaining({ mine: true }));
+    expect(screen.getByRole("heading", { name: "My Reports", level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Report statistics" })).not.toBeInTheDocument();
+  });
+
   it("without reports:read it says so and never asks the API", () => {
     renderList();
     expect(screen.getByText("You are not allowed to view reports.")).toBeInTheDocument();
@@ -159,23 +168,23 @@ describe("reports list: live regions", () => {
 });
 
 describe("reports list: gated buttons", () => {
-  it.each(["editor", "admin", "manager", "custom", ""])("hides New Submission for role %s even with write permissions", async (role) => {
+  it.each(["editor", "admin", "manager", "custom", ""])("hides New Report for role %s even with write permissions", async (role) => {
     h.me.role = role;
     renderList("reports:read", "reports:write", "reports:write_any");
     await screen.findByText("Worker 1");
-    expect(screen.queryByRole("link", { name: "New Submission" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New Report" })).not.toBeInTheDocument();
   });
 
-  it("shows New Submission for a user with reports:write", async () => {
+  it("shows New Report for a user with reports:write", async () => {
     renderList("reports:read", "reports:write");
     await screen.findByText("Worker 1");
-    expect(screen.getByRole("link", { name: "New Submission" })).toHaveAttribute("href", "/reports/new");
+    expect(screen.getByRole("link", { name: "New Report" })).toHaveAttribute("href", "/reports/new");
   });
 
-  it("New Submission needs reports:write", async () => {
+  it("New Report needs reports:write", async () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");
-    expect(screen.queryByRole("link", { name: "New Submission" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New Report" })).not.toBeInTheDocument();
   });
 
   it("a plain user can edit and delete only their own report", async () => {
@@ -304,7 +313,7 @@ describe("reports list: filters and pagination", () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");
     expect(h.listReports).toHaveBeenCalledWith({
-      month: undefined, year: 2026, worker: "Ana", area: undefined, church: undefined, page: 2,
+      month: undefined, year: 2026, worker: "Ana", area: undefined, church: undefined, page: 2, mine: true,
     });
     expect(screen.getByLabelText("Worker")).toHaveValue("Ana");
   });

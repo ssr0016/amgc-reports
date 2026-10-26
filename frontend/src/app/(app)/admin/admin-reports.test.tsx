@@ -223,7 +223,7 @@ describe("admin reports: Download Bulk", () => {
     renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
     const bulk = screen.getByRole("button", { name: "Download Bulk" });
-    expect(bulk.closest("header")).toContainElement(screen.getByRole("heading", { name: "Reports overview" }));
+    expect(bulk.closest("header")).toContainElement(screen.getByRole("heading", { name: "All Reports" }));
   });
 
   it("is disabled when the period has no reports", async () => {

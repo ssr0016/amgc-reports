@@ -9,6 +9,12 @@ describe("safeNext", () => {
     expect(safeNext("/admin/users")).toBe("/admin/users");
   });
 
+  it("uses the admin fallback for absent or unsafe destinations, while preserving safe paths", () => {
+    expect(safeNext(null, "/admin")).toBe("/admin");
+    expect(safeNext("//evil.com", "/admin")).toBe("/admin");
+    expect(safeNext("/reports", "/admin")).toBe("/reports");
+  });
+
   it.each([
     null,
     "",

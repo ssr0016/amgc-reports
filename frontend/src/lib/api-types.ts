@@ -2336,6 +2336,8 @@ export interface paths {
                     area?: string;
                     /** @description Partial, case-insensitive match on church name */
                     church?: string;
+                    /** @description Only the authenticated user's reports */
+                    mine?: boolean;
                 };
                 header?: never;
                 path?: never;

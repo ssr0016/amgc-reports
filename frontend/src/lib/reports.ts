@@ -4,6 +4,7 @@ import type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetada
 export type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetadata };
 
 export type ReportFilters = {
+  mine?: boolean;
   month?: string;
   year?: number;
   worker?: string;

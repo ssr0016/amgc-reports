@@ -1974,6 +1974,10 @@ paths:
         in: query
         name: church
         type: string
+      - description: Only the authenticated user's reports
+        in: query
+        name: mine
+        type: boolean
       produces:
       - application/json
       responses:

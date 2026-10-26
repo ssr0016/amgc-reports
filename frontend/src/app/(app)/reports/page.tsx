@@ -1,6 +1,6 @@
 import { Reports } from "./reports-list";
 
-export const metadata = { title: "Reports" };
+export const metadata = { title: "My Reports" };
 
 // A Client Component page cannot export `instant`, so this Server Component
 // page does. The list loads after navigation by design (it needs the session).

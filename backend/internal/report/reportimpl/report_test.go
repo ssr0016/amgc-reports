@@ -227,6 +227,12 @@ func TestReportService_Ownership(t *testing.T) {
 		_, total, err = f.svc.List(ctx, bob, report.ListReportsParams{}, pg)
 		require.NoError(t, err)
 		assert.EqualValues(t, 2, total)
+
+		got, total, err = f.svc.List(ctx, bob, report.ListReportsParams{CreatedBy: bob}, pg)
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, total)
+		require.Len(t, got, 1)
+		assert.Equal(t, theirs.ID, got[0].ID)
 	})
 
 	t.Run("delete by owner audits and hides the report", func(t *testing.T) {

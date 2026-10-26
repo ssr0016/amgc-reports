@@ -23,7 +23,7 @@ test.describe("signed out", () => {
     await expect(page).toHaveURL(/\/reports$/);
     await expect(page.getByText(`${ACCOUNTS.user.name} · user`)).toBeVisible();
     // A plain user sees reports and account settings without admin links.
-    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["Reports", "Profile", "Change Password"]);
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["My Reports", "Profile", "Change Password"]);
     await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toHaveCount(0);
   });
 
@@ -89,7 +89,7 @@ test.describe("signed in", () => {
     await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
 
     await signIn(ACCOUNTS.admin);
-    await expect(page).toHaveURL(/\/reports$/);
+    await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByText(`${ACCOUNTS.admin.name} · admin`)).toBeVisible();
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin Reports", exact: true }).click();
     await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toBeVisible();

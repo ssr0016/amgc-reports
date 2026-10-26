@@ -2037,6 +2037,12 @@ const docTemplate = `{
                         "description": "Partial, case-insensitive match on church name",
                         "name": "church",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only the authenticated user's reports",
+                        "name": "mine",
+                        "in": "query"
                     }
                 ],
                 "responses": {

@@ -13,15 +13,17 @@ import { useSession } from "@/lib/session";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, status } = useSession();
+  const { signIn, status, isAdmin } = useSession();
   const [error, setError] = useState<FormError | null>(null);
   const [pending, setPending] = useState(false);
   const [wait, setWait] = useCountdown();
 
   // Already signed in (proxy.ts sent a session without its marker cookie here): go back.
   useEffect(() => {
-    if (status === "authenticated") router.replace(safeNext(new URLSearchParams(location.search).get("next")));
-  }, [status, router]);
+    if (status === "authenticated") {
+      router.replace(safeNext(new URLSearchParams(location.search).get("next"), isAdmin ? "/admin" : "/reports"));
+    }
+  }, [status, isAdmin, router]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

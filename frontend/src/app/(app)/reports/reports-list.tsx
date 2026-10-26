@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
 import { Check, Download, Eye, Pencil, Trash2, Undo2 } from "lucide-react";
-import { reportsTheme, ReportsHeader, ReportsStats, ReportsTableCard } from "@/components/reports-dashboard";
+import { reportsTheme, ReportsHeader, ReportsTableCard } from "@/components/reports-dashboard";
 import { useReportActions } from "@/components/use-report-actions";
 import { ExcelPreviewDialog } from "../admin/excel-preview-dialog";
 import { ReportPreviewDialog } from "../admin/report-preview-dialog";
@@ -70,7 +70,7 @@ function ReportsList() {
   const router = useRouter();
   const params = useSearchParams();
   const { can, user } = useSession();
-  const filters = filtersFrom(params);
+  const filters = { ...filtersFrom(params), mine: true };
   const allowed = can("reports:read");
   const { approve, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
   const [metadataPreview, setMetadataPreview] = useState<Report | null>(null);
@@ -78,7 +78,7 @@ function ReportsList() {
   const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
 
   const { data, error, isPending } = useQuery({
-    queryKey: ["reports", filters],
+    queryKey: ["reports", user?.user_id, filters],
     queryFn: () => listReports(filters),
     enabled: allowed,
     placeholderData: keepPreviousData,
@@ -162,11 +162,10 @@ function ReportsList() {
   const hasText = textFields.some(([name]) => text[name] !== "");
   return (
     <>
-      <ReportsHeader title="Reports" heading="h1">
-        {user?.role === "user" && <Can permission="reports:write"><Button asChild className="min-h-11"><Link href="/reports/new">New Submission</Link></Button></Can>}
+      <ReportsHeader title="My Reports" heading="h1">
+        {user?.role === "user" && <Can permission="reports:write"><Button asChild className="min-h-11"><Link href="/reports/new">New Report</Link></Button></Can>}
         <Can permission="reports:export"><Button variant="outline" className="min-h-11" disabled={!filters.month || !data?.data.length || downloading.includes("bulk")} aria-busy={downloading.includes("bulk")} onClick={() => { if (filters.month) { const period = { month: filters.month, year: filters.year! }; setPreview({ key: "bulk", target: period, run: () => exportReports(period.month, period.year) }); } }}><Download aria-hidden="true" />Download Bulk</Button></Can>
       </ReportsHeader>
-      <ReportsStats data={error ? undefined : data} />
       <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} scope={params.toString()} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} filters={(
       <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="flex flex-col gap-2">

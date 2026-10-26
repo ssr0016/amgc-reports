@@ -7,11 +7,11 @@ test.describe("sidebar, as admin", () => {
 
   test("lists reports, admin sections and settings, and marks the current page", async ({ page }) => {
     await page.goto("/admin");
-    await expect(mainNav(page).getByRole("link")).toHaveText(["Reports", "Reports", "Tracker", "Users", "Roles", "Logs", "Profile", "Change Password"]);
+    await expect(mainNav(page).getByRole("link")).toHaveText(["My Reports", "Reports", "Tracker", "Users", "Roles", "Logs", "Profile", "Change Password"]);
     await expect(mainNav(page).getByRole("link", { name: "Admin Reports", exact: true })).toHaveAttribute("aria-current", "page");
-    await mainNav(page).getByRole("link", { name: "Reports", exact: true }).click();
+    await mainNav(page).getByRole("link", { name: "My Reports", exact: true }).click();
     await expect(page).toHaveURL(/\/reports$/);
-    await expect(mainNav(page).getByRole("link", { name: "Reports", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(mainNav(page).getByRole("link", { name: "My Reports", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(mainNav(page).getByRole("link", { name: "Admin Reports", exact: true })).not.toHaveAttribute("aria-current", "page");
   });
 
@@ -76,8 +76,8 @@ for (const role of ["editor", "user"] as const) {
 
     test("shows reports and account settings", async ({ page }) => {
       await page.goto("/reports");
-      await expect(mainNav(page).getByRole("link")).toHaveText(["Reports", "Profile", "Change Password"]);
-      await expect(mainNav(page).getByRole("link", { name: "Reports", exact: true })).toHaveAttribute("aria-current", "page");
+      await expect(mainNav(page).getByRole("link")).toHaveText(["My Reports", "Profile", "Change Password"]);
+      await expect(mainNav(page).getByRole("link", { name: "My Reports", exact: true })).toHaveAttribute("aria-current", "page");
     });
   });
 }

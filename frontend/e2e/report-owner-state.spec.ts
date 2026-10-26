@@ -69,8 +69,8 @@ test("reports retain deleted and deceased owners, update badges, and preserve re
   }
   await page.goto("/reports");
   const regularRow = page.getByRole("row").filter({ hasText: account.name });
-  await expect(regularRow.getByText("Deleted user", { exact: true })).toBeVisible();
-  await expect(regularRow.getByText("Archived", { exact: true })).toBeVisible();
+  await expect(page.getByText("No reports match these filters.")).toBeVisible();
+  await expect(regularRow).toHaveCount(0);
 
   await page.goto("/admin");
   await page.getByRole("link", { name: "Admin Users", exact: true }).click();

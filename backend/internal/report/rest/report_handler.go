@@ -136,6 +136,7 @@ func (h *ReportHandler) GetReport(c echo.Context) error {
 // @Param        worker query string false "Partial, case-insensitive match"
 // @Param        area query string false "Partial, case-insensitive match on area assignment"
 // @Param        church query string false "Partial, case-insensitive match on church name"
+// @Param        mine query bool false "Only the authenticated user's reports"
 // @Success      200 {object} pagination.Response[report.ReportResponse]
 // @Failure      400 {object} map[string]string
 // @Failure      401 {object} map[string]string
@@ -151,6 +152,15 @@ func (h *ReportHandler) ListReports(c echo.Context) error {
 		Worker: c.QueryParam("worker"),
 		Area:   c.QueryParam("area"),
 		Church: c.QueryParam("church"),
+	}
+	if value := c.QueryParam("mine"); value != "" {
+		mine, err := strconv.ParseBool(value)
+		if err != nil {
+			return apperror.BadRequest("invalid mine")
+		}
+		if mine {
+			p.CreatedBy = uid
+		}
 	}
 	if y := c.QueryParam("year"); y != "" {
 		if p.Year, err = strconv.Atoi(y); err != nil || p.Year <= 0 {

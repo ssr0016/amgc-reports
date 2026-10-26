@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { API, authFile, clientIp, earlierPeriod, expect, previousPeriod, send, test } from "./support";
 
 // WCAG 2.x A and AA plus axe's best practices. Axe cannot judge everything (focus
@@ -18,10 +18,15 @@ async function scan(page: Page) {
   ).toEqual([]);
 }
 
-// A report by someone else, so the list has a row to scan, the user sees a read-only form,
-// and the admin can open the delete dialog without touching the other specs' data.
+// A separate author's report keeps these scans independent of the report workflow specs.
 const FIXTURE_WORKER = "A11y Fixture";
 let fixtureId = 0;
+let fixtureCookies: Awaited<ReturnType<BrowserContext["cookies"]>> = [];
+
+async function openFixtureReports(page: Page) {
+  await page.context().addCookies(fixtureCookies);
+  await page.goto(`/reports?month=&year=${earlierPeriod(3).year}`);
+}
 
 test.beforeAll(async ({ playwright }, testInfo) => {
   const admin = await playwright.request.newContext({
@@ -52,6 +57,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
     // Keep this fixture outside the month used by the report-creation tests.
     const moved = await send(admin, "PUT", `/reports/${fixtureId}`, { ...earlierPeriod(3), worker: FIXTURE_WORKER });
     expect(moved.status(), await moved.text()).toBe(200);
+    fixtureCookies = (await author.storageState()).cookies;
   } finally {
     await author.dispose();
     await admin.dispose();
@@ -123,13 +129,13 @@ for (const scheme of ["light", "dark"] as const) {
       });
 
       test("reports list, with a row", async ({ page }) => {
-        await page.goto(`/reports?month=&year=${earlierPeriod(3).year}`);
+        await openFixtureReports(page);
         await expect(page.getByRole("row", { name: new RegExp(FIXTURE_WORKER) })).toBeVisible();
         await scan(page);
       });
 
       test("delete dialog", async ({ page }) => {
-        await page.goto(`/reports?month=&year=${earlierPeriod(3).year}`);
+        await openFixtureReports(page);
         await page.getByRole("button", { name: /^Delete .*A11y Fixture/ }).click();
         await expect(page.getByRole("alertdialog")).toBeVisible();
         await scan(page);
@@ -189,7 +195,7 @@ test.describe("page titles", () => {
 
   test("each page names itself, and a client-side navigation updates it", async ({ page }) => {
     await page.goto("/reports");
-    await expect(page).toHaveTitle("Reports · AMGCReports");
+    await expect(page).toHaveTitle("My Reports · AMGCReports");
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin Reports", exact: true }).click();
     await expect(page).toHaveTitle("Admin · AMGCReports");
     await page.getByRole("link", { name: "Admin Users", exact: true }).click();
@@ -225,7 +231,7 @@ test.describe("keyboard", () => {
     });
 
     test("the delete dialog traps focus, closes on Escape and gives focus back", async ({ page }) => {
-      await page.goto(`/reports?month=&year=${earlierPeriod(3).year}`);
+      await openFixtureReports(page);
       const open = page.getByRole("button", { name: /^Delete .*A11y Fixture/ });
       await open.focus();
       await page.keyboard.press("Enter");
@@ -267,7 +273,7 @@ test.describe("reduced motion", () => {
   test.use({ storageState: authFile("admin") });
 
   async function dialogAnimationSeconds(page: Page) {
-    await page.goto(`/reports?month=&year=${earlierPeriod(3).year}`);
+    await openFixtureReports(page);
     await page.getByRole("button", { name: /^Delete .*A11y Fixture/ }).click();
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();

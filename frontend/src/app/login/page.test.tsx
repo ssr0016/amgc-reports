@@ -1,11 +1,18 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import LoginPage from "./page";
 
-const h = vi.hoisted(() => ({ signIn: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
-vi.mock("@/lib/session", () => ({ useSession: () => ({ signIn: h.signIn }) }));
+const h = vi.hoisted(() => ({ signIn: vi.fn(), replace: vi.fn(), status: "unauthenticated", isAdmin: false }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace }) }));
+vi.mock("@/lib/session", () => ({ useSession: () => h }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  h.status = "unauthenticated";
+  h.isAdmin = false;
+  window.history.replaceState(null, "", "/login");
+});
 
 async function submitWith(err: ApiError) {
   h.signIn.mockRejectedValueOnce(err);
@@ -16,6 +23,19 @@ async function submitWith(err: ApiError) {
 }
 
 describe("login page", () => {
+  it.each([
+    [true, "", "/admin"],
+    [false, "", "/reports"],
+    [true, "?next=/reports", "/reports"],
+    [true, "?next=//evil.example", "/admin"],
+  ])("redirects with admin=%s and query=%s to %s", (isAdmin, query, destination) => {
+    h.status = "authenticated";
+    h.isAdmin = isAdmin;
+    window.history.replaceState(null, "", `/login${query}`);
+    render(<LoginPage />);
+    expect(h.replace).toHaveBeenCalledWith(destination);
+  });
+
   // The page title text was a plain div, so the page had no heading at all (WCAG 1.3.1, 2.4.6).
   it("has a level-one heading", () => {
     render(<LoginPage />);

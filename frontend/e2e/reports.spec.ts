@@ -29,6 +29,9 @@ test.describe("user", () => {
     await page.getByRole("button", { name: "Submit Report" }).click();
 
     await expect(page).toHaveURL(/\/reports$/);
+    await expect(page.getByRole("heading", { name: "My Reports", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "New Report", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Report statistics" })).toHaveCount(0);
     const row = rowOf(page, ACCOUNTS.user.name);
     await expect(row).toContainText(period.month);
     await expect(row).toContainText("Pending");
@@ -91,17 +94,18 @@ test.describe("editor", () => {
 
   test("can open and edit someone else's report, but not approve it", async ({ page, request }) => {
     await page.goto("/reports");
-    const row = rowOf(page, "E2E User Edited");
-    await expect(row.getByRole("link", { name: "Edit" })).toBeVisible(); // write_any
-    await expect(page.getByRole("button", { name: /^(Approve|Unapprove) / })).toHaveCount(0);
-
+    await expect(page.getByText("No reports match these filters.")).toBeVisible();
     const id = (await (await request.get("http://localhost:8081/api/v1/reports?limit=1")).json()).data[0].id;
+    await page.goto(`/reports/${id}/edit`);
+    await expect(page.getByLabel("Worker Name")).toHaveValue("E2E User Edited"); // write_any
+    await expect(page.getByRole("button", { name: "Save Changes" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(Approve|Unapprove) / })).toHaveCount(0);
     expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(403);
   });
 
   test("cannot create reports through the UI or API", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(page.getByRole("link", { name: "New Submission" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "New Report" })).toHaveCount(0);
     await page.goto("/reports/new");
     await expect(page.getByText("You are not allowed to create reports.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit Report" })).toHaveCount(0);
@@ -118,6 +122,7 @@ test.describe("admin", () => {
   // Approval refreshes the shared list and its page-level counts.
   test("approves and unapproves from the admin panel, and the stats cards follow", async ({ page }) => {
     await page.goto("/admin");
+    await expect(page.getByRole("heading", { name: "All Reports", exact: true })).toBeVisible();
     const card = (name: string) =>
       page
         .getByRole("region", { name: "Report statistics" })
@@ -155,18 +160,20 @@ test.describe("admin", () => {
     await expect(row().getByText("Pending")).toBeVisible();
   });
 
-  test("the reports list offers approval actions to an admin", async ({ page }) => {
+  test("the personal list excludes other users' reports even for an admin", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(rowOf(page, "E2E User Edited").getByText("Pending")).toBeVisible();
-    await expect(rowOf(page, "E2E User Edited").getByRole("button", { name: /^Approve / })).toBeVisible();
-    await expect(page.getByRole("columnheader")).toHaveText([
-      "", "Worker", "Month", "Year", "Area", "Church", "Status", "Actions",
-    ]);
+    await expect(page.getByRole("heading", { name: "My Reports", exact: true })).toBeVisible();
+    await expect(page.getByText("No reports match these filters.")).toBeVisible();
+    await expect(rowOf(page, "E2E User Edited")).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Report statistics" })).toHaveCount(0);
+    const personal = await request.get("http://localhost:8081/api/v1/reports?mine=true");
+    expect(personal.status()).toBe(200);
+    expect((await personal.json()).meta.total).toBe(0);
   });
 
   test("cannot create reports through the UI or API", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(page.getByRole("link", { name: "New Submission" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "New Report" })).toHaveCount(0);
     await page.goto("/reports/new");
     await expect(page.getByText("You are not allowed to create reports.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit Report" })).toHaveCount(0);
@@ -177,7 +184,7 @@ test.describe("admin", () => {
   });
 
   test("lists another user's reports", async ({ page }) => {
-    await page.goto(`/reports?month=&year=${period.year}`);
+    await page.goto("/admin?tab=reports");
     await expect(rowOf(page, "E2E User Edited")).toBeVisible();
   });
 });

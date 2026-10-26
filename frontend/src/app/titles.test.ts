@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 // so every page names itself; the root layout adds the " · AMGCReports" suffix.
 describe("page titles", () => {
   it.each([
-    ["./(app)/reports/page", "Reports"],
+    ["./(app)/reports/page", "My Reports"],
     ["./(app)/reports/new/page", "New report"],
     ["./(app)/reports/[id]/edit/page", "Edit report"],
     ["./(app)/admin/page", "Admin"],

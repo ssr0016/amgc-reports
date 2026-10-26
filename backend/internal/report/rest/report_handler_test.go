@@ -236,6 +236,28 @@ func TestReportHandler_Success(t *testing.T) {
 	})
 }
 
+func TestReportHandler_ListMine(t *testing.T) {
+	for _, tc := range []struct {
+		query  string
+		status int
+		owner  int64
+	}{
+		{"", 200, 0},
+		{"?mine=true", 200, 5},
+		{"?mine=false", 200, 0},
+		{"?mine=true&created_by=99", 200, 5},
+		{"?mine=invalid", 400, 0},
+	} {
+		t.Run(tc.query, func(t *testing.T) {
+			f := &fakeReportSvc{}
+			rec, _ := serveReport(t, f, 5, http.MethodGet, "/reports"+tc.query, "")
+			if rec.Code != tc.status || f.gotList.CreatedBy != tc.owner {
+				t.Errorf("status=%d owner=%d, want status=%d owner=%d", rec.Code, f.gotList.CreatedBy, tc.status, tc.owner)
+			}
+		})
+	}
+}
+
 func TestReportHandler_BadInput(t *testing.T) {
 	tests := []struct {
 		name, method, target, body string
