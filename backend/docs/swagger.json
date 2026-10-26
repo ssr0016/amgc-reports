@@ -12,6 +12,80 @@
     },
     "basePath": "/api/v1",
     "paths": {
+        "/admin/analytics/attendance": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Weekly metric totals across the year and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. Needs tracker:read.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/analytics"
+                ],
+                "summary": "Annual attendance analytics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Year",
+                        "name": "year",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Metric key",
+                        "name": "metric",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "approved or all; defaults to approved",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/admin/audit-logs": {
             "get": {
                 "security": [
@@ -3561,6 +3635,57 @@
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics": {
+            "type": "object",
+            "properties": {
+                "churches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"
+                    }
+                },
+                "metric": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "trend": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"
+                    }
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch": {
+            "type": "object",
+            "properties": {
+                "church_name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint": {
+            "type": "object",
+            "properties": {
+                "month": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
+                },
+                "week": {
+                    "type": "integer"
                 }
             }
         },

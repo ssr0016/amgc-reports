@@ -42,6 +42,15 @@ func (f *fakeStatsSvc) Tracker(_ context.Context, q stats.GetStatsQuery) (stats.
 	return stats.Tracker{Month: "September", Year: 2026, Rows: rows}, f.err
 }
 
+func (f *fakeStatsSvc) AnalyticsAttendance(_ context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
+	f.calls++
+	return stats.AttendanceAnalytics{
+		Year: q.Year, Metric: q.Metric, Status: q.Status,
+		Trend:    []stats.AttendanceTrendPoint{{Month: "January", Week: 1, Value: 12.5}},
+		Churches: []stats.AttendanceChurch{{ChurchName: "Bethel", Value: 12.5}},
+	}, f.err
+}
+
 func serveStats(t *testing.T, svc stats.Service, target string) *httptest.ResponseRecorder {
 	t.Helper()
 	e := echo.New()
@@ -49,6 +58,7 @@ func serveStats(t *testing.T, svc stats.Service, target string) *httptest.Respon
 	h := NewStatsHandler(svc)
 	e.GET("/admin/stats", h.GetStats)
 	e.GET("/admin/tracker", h.GetTracker)
+	e.GET("/admin/analytics/attendance", h.GetAttendanceAnalytics)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil))
 	return rec
@@ -187,4 +197,43 @@ func TestStatsHandler_GetTracker(t *testing.T) {
 			t.Errorf("status = %d, want 500", rec.Code)
 		}
 	})
+}
+
+func TestStatsHandler_GetAnalyticsAttendance(t *testing.T) {
+	svc := &fakeStatsSvc{}
+	rec := serveStats(t, svc, "/admin/analytics/attendance?year=2026&metric=worship_service&status=all")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["year"] != 2026.0 || got["metric"] != "worship_service" || got["status"] != "all" {
+		t.Fatalf("body = %v", got)
+	}
+
+	t.Run("default status is approved", func(t *testing.T) {
+		svc := &fakeStatsSvc{}
+		serveStats(t, svc, "/admin/analytics/attendance?year=2026&metric=worship_service")
+		if svc.calls != 1 {
+			t.Fatalf("calls = %d", svc.calls)
+		}
+	})
+
+	for _, target := range []string{
+		"/admin/analytics/attendance?metric=worship_service",
+		"/admin/analytics/attendance?year=2026",
+		"/admin/analytics/attendance?year=nope&metric=worship_service",
+	} {
+		t.Run(target, func(t *testing.T) {
+			svc := &fakeStatsSvc{}
+			if rec := serveStats(t, svc, target); rec.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400", rec.Code)
+			}
+			if svc.calls != 0 {
+				t.Error("service was called")
+			}
+		})
+	}
 }

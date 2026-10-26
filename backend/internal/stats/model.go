@@ -6,6 +6,38 @@ import "errors"
 // is not an English month name. The handler maps it to 422.
 var ErrPeriod = errors.New("month and year must be given together, and the month must be a month name")
 
+var ErrAnalyticsQuery = errors.New("year, metric, and status are invalid")
+
+const (
+	AttendanceStatusApproved = "approved"
+	AttendanceStatusAll      = "all"
+)
+
+type AttendanceQuery struct {
+	Year   int
+	Metric string
+	Status string
+}
+
+type AttendanceAnalytics struct {
+	Year     int                    `json:"year"`
+	Metric   string                 `json:"metric"`
+	Status   string                 `json:"status"`
+	Trend    []AttendanceTrendPoint `json:"trend"`
+	Churches []AttendanceChurch     `json:"churches"`
+}
+
+type AttendanceTrendPoint struct {
+	Month string  `json:"month"`
+	Week  int     `json:"week"`
+	Value float64 `json:"value"`
+}
+
+type AttendanceChurch struct {
+	ChurchName string  `json:"church_name"`
+	Value      float64 `json:"value"`
+}
+
 // GetStatsQuery is the period the caller asks for. Both nil means the previous
 // month; setting only one is ErrPeriod.
 type GetStatsQuery struct {

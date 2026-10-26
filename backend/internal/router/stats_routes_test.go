@@ -31,6 +31,11 @@ func (s *okStatsSvc) Tracker(context.Context, stats.GetStatsQuery) (stats.Tracke
 	return stats.Tracker{Month: "September", Year: 2026, Rows: []stats.TrackerRow{}}, nil
 }
 
+func (s *okStatsSvc) AnalyticsAttendance(context.Context, stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
+	s.calls++
+	return stats.AttendanceAnalytics{}, nil
+}
+
 // statsServer wires the real routes. A request is user 1 when it carries
 // X-Test-User; that user has the named role and permissions.
 func statsServer(roleName string, perms ...string) (*echo.Echo, *okStatsSvc) {
@@ -75,7 +80,7 @@ func TestStatsAndTrackerRoutes_NeedTrackerRead(t *testing.T) {
 		{"admin", "admin", "1", []string{"tracker:read"}, http.StatusOK},
 	}
 	for _, tt := range tests {
-		for _, path := range []string{"/api/v1/admin/stats", "/api/v1/admin/tracker"} {
+		for _, path := range []string{"/api/v1/admin/stats", "/api/v1/admin/tracker", "/api/v1/admin/analytics/attendance?year=2026&metric=worship_service"} {
 			t.Run(tt.name+path, func(t *testing.T) {
 				e, svc := statsServer(tt.role, tt.perms...)
 				if got := reportRequestAs(e, http.MethodGet, path, "", tt.user); got != tt.want {

@@ -14,6 +14,7 @@ vi.mock("./admin-reports", () => ({ AdminReports: () => <p>admin reports</p> }))
 vi.mock("./users/users-list", () => ({ UsersPanel: () => <p>users panel</p> }));
 vi.mock("./audit-logs", () => ({ AuditLogs: () => <p>audit logs</p> }));
 vi.mock("./tracker", () => ({ Tracker: () => <p>tracker</p> }));
+vi.mock("./analytics", () => ({ Analytics: () => <p>analytics</p> }));
 vi.mock("./roles", () => ({ RolesPanel: () => <p>roles panel</p> }));
 
 describe("AdminPanel", () => {
@@ -22,6 +23,7 @@ describe("AdminPanel", () => {
   it.each([
     ["", "Reports", "admin reports"], ["unknown", "Reports", "admin reports"],
     ["reports", "Reports", "admin reports"], ["tracker", "Tracker", "tracker"],
+    ["analytics", "Analytics", "analytics"],
     ["users", "Users", "users panel"], ["roles", "Roles", "roles panel"], ["logs", "Logs", "audit logs"],
   ])("renders only the selected section for ?tab=%s", (tab, name, text) => {
     h.tab = tab;
@@ -33,7 +35,7 @@ describe("AdminPanel", () => {
   });
 
   it.each([
-    [["tracker:read"], "roles", "Tracker"], [["users:list"], "logs", "Users"],
+    [["tracker:read"], "analytics", "Analytics"], [["users:list"], "logs", "Users"],
     [["audit:read"], "reports", "Logs"], [["reports:approve"], "roles", "Reports"], [["reports:export"], "", "Reports"],
   ])("preserves the first permitted section for %j", (permissions, tab, name) => {
     Object.assign(h, { isAdmin: false, permissions, tab });

@@ -89,3 +89,74 @@ func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.Tr
 	}
 	return out, nil
 }
+
+func (r *store) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
+	statusWhere := "AND r.status = 'approved'"
+	if q.Status == stats.AttendanceStatusAll {
+		statusWhere = "AND r.status IN ('pending', 'needs_revision', 'approved')"
+	}
+	trendQuery, trendArgs, err := r.db.Builder.
+		Select("EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int", "rm.week_no", "SUM(rm.value)::double precision").
+		From("reports r").
+		Join("report_metrics rm ON rm.report_id = r.id").
+		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+statusWhere, q.Year, q.Metric).
+		GroupBy("1", "2").
+		OrderBy("1", "2").
+		ToSql()
+	if err != nil {
+		return stats.AttendanceAnalytics{}, fmt.Errorf("build attendance trend query: %w", err)
+	}
+	rows, err := r.db.Querier(ctx).Query(ctx, trendQuery, trendArgs...)
+	if err != nil {
+		return stats.AttendanceAnalytics{}, fmt.Errorf("query attendance trend: %w", err)
+	}
+	defer rows.Close()
+	values := make(map[[2]int]float64)
+	for rows.Next() {
+		var month, week int
+		var value float64
+		if err := rows.Scan(&month, &week, &value); err != nil {
+			return stats.AttendanceAnalytics{}, fmt.Errorf("scan attendance trend: %w", err)
+		}
+		values[[2]int{month, week}] = value
+	}
+	if err := rows.Err(); err != nil {
+		return stats.AttendanceAnalytics{}, fmt.Errorf("attendance trend: %w", err)
+	}
+
+	churchQuery, churchArgs, err := r.db.Builder.
+		Select("COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')", "SUM(rm.value)::double precision").
+		From("reports r").
+		Join("report_metrics rm ON rm.report_id = r.id").
+		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+statusWhere, q.Year, q.Metric).
+		GroupBy("1").
+		OrderBy("1").
+		ToSql()
+	if err != nil {
+		return stats.AttendanceAnalytics{}, fmt.Errorf("build attendance church query: %w", err)
+	}
+	churchRows, err := r.db.Querier(ctx).Query(ctx, churchQuery, churchArgs...)
+	if err != nil {
+		return stats.AttendanceAnalytics{}, fmt.Errorf("query attendance churches: %w", err)
+	}
+	defer churchRows.Close()
+	churches := []stats.AttendanceChurch{}
+	for churchRows.Next() {
+		var church stats.AttendanceChurch
+		if err := churchRows.Scan(&church.ChurchName, &church.Value); err != nil {
+			return stats.AttendanceAnalytics{}, fmt.Errorf("scan attendance church: %w", err)
+		}
+		churches = append(churches, church)
+	}
+	if err := churchRows.Err(); err != nil {
+		return stats.AttendanceAnalytics{}, fmt.Errorf("attendance churches: %w", err)
+	}
+
+	trend := make([]stats.AttendanceTrendPoint, 0, 60)
+	for month, name := range report.Months {
+		for week := 1; week <= 5; week++ {
+			trend = append(trend, stats.AttendanceTrendPoint{Month: name, Week: week, Value: values[[2]int{month + 1, week}]})
+		}
+	}
+	return stats.AttendanceAnalytics{Trend: trend, Churches: churches}, nil
+}
