@@ -1,21 +1,3 @@
-.account-surface,
-.account-directory {
-  --primary: #3ecf8e;
-  --primary-foreground: #171717;
-}
-
-.account-surface [data-slot="card"],
-.account-directory [data-slot="card"] {
-  box-shadow: none;
-}
-
-.account-surface input:not([type="checkbox"]),
-.account-surface select,
-.account-directory input,
-.account-directory select {
-  min-height: 44px;
-}
-
 .permission-option {
   display: flex;
   align-items: flex-start;

@@ -100,7 +100,7 @@ export function RoleForm({
       <div className="grid items-start gap-4 lg:grid-cols-2">
         {groupPermissions(permissions).map((group) => (
           <fieldset key={group.label} className="flex min-w-0 flex-col gap-2 rounded-lg border p-4" disabled={readOnly}>
-            <legend className="px-2 font-semibold">{group.label}</legend>
+            <legend className="px-2 font-medium">{group.label}</legend>
             {group.permissions.map((p) => (
               <label key={p.id} htmlFor={`perm-${p.id}`} className="permission-option text-sm">
                 <input

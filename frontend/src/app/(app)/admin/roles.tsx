@@ -56,8 +56,8 @@ export function RolesPanel() {
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Description</TableHead>
-            <TableHead>Users</TableHead>
-            <TableHead>Permissions</TableHead>
+            <TableHead className="text-right">Users</TableHead>
+            <TableHead className="text-right">Permissions</TableHead>
             {writable && (
               <TableHead>
                 <span className="sr-only">Actions</span>
@@ -80,12 +80,12 @@ export function RolesPanel() {
                   )}
                 </TableCell>
                 <TableCell>{r.description || "—"}</TableCell>
-                <TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
                   {r.user_count > 0 ? (
                     <Button
                       variant="link"
                       size="sm"
-                      className="h-auto p-0"
+                      className="p-0 font-mono tabular-nums"
                       aria-label={`Show the ${r.user_count} ${r.user_count === 1 ? "user" : "users"} with role ${r.name}`}
                       onClick={(e) => {
                         opener.current = e.currentTarget;
@@ -98,7 +98,7 @@ export function RolesPanel() {
                     0
                   )}
                 </TableCell>
-                <TableCell>{r.permissions?.length ?? 0}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{r.permissions?.length ?? 0}</TableCell>
                 {writable && (
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-2">
@@ -134,7 +134,7 @@ export function RolesPanel() {
     body = (
       <>
         <section className="flex flex-col gap-2">
-          <h2 id="custom-roles" className="text-lg font-semibold">
+          <h2 id="custom-roles" className="text-lg font-medium">
             Custom roles
           </h2>
           {custom.length > 0 ? (
@@ -144,7 +144,7 @@ export function RolesPanel() {
           )}
         </section>
         <section className="flex flex-col gap-2">
-          <h2 id="system-roles" className="text-lg font-semibold">
+          <h2 id="system-roles" className="text-lg font-medium">
             System roles
           </h2>
           <p className="text-sm text-muted-foreground">

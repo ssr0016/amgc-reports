@@ -1,7 +1,8 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSearchParams } from "next/navigation";
+import { Card } from "@/components/ui/card";
+import { adminSections } from "@/lib/admin-navigation";
 import { useSession } from "@/lib/session";
 import { reportsTheme } from "@/components/reports-dashboard";
 import { AdminReports } from "./admin-reports";
@@ -11,44 +12,32 @@ import { StatsCards } from "./stats-cards";
 import { Tracker } from "./tracker";
 import { UsersPanel } from "./users/users-list";
 
-// The tab lives in ?tab= (old /admin/users links land on ?tab=users). A change replaces the entry instead of
-// pushing one, so Back leaves /admin rather than stepping through tabs. Keep the tab order.
+// Sidebar links keep the existing ?tab= URLs and permission fallback order.
 export function AdminPanel() {
   const { isAdmin, can, canAdmin } = useSession();
-  const router = useRouter();
   const param = useSearchParams().get("tab");
 
   // Each tab shows only to those who may use it (37b); the server still enforces every route.
-  const tabs = [
-    { value: "reports", label: "Reports", allowed: can("reports:approve") || can("reports:export"), panel: <AdminReports /> },
-    { value: "tracker", label: "Tracker", allowed: can("tracker:read"), panel: <Tracker /> },
-    { value: "users", label: "Users", allowed: can("users:list"), panel: <UsersPanel /> },
-    { value: "roles", label: "Roles", allowed: isAdmin, panel: <RolesPanel /> },
-    { value: "logs", label: "Logs", allowed: can("audit:read"), panel: <AuditLogs /> },
-  ].filter((t) => t.allowed);
+  const tabs = adminSections(can, isAdmin);
+  const panels: Record<string, React.ReactNode> = {
+    reports: <AdminReports />,
+    tracker: <Tracker />,
+    users: <UsersPanel />,
+    roles: <RolesPanel />,
+    logs: <AuditLogs />,
+  };
   // A missing, unknown or not-allowed ?tab= lands on the first allowed tab.
   const tab = tabs.find((t) => t.value === param)?.value ?? tabs[0]?.value;
 
   return (
     <main id="main-content" tabIndex={-1} className={`${tab === "reports" ? reportsTheme : ""} mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
+      <h1 className="text-2xl font-medium tracking-tight">Admin{tab && ` / ${tabs.find((t) => t.value === tab)?.label}`}</h1>
       {canAdmin && tab ? (
         <>
           {tab !== "reports" && <StatsCards />}
-          <Tabs value={tab} onValueChange={(v) => router.replace(`/admin?tab=${v}`)}>
-            <TabsList>
-              {tabs.map((t) => (
-                <TabsTrigger key={t.value} value={t.value}>
-                  {t.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {tabs.map((t) => (
-              <TabsContent key={t.value} value={t.value}>
-                {t.panel}
-              </TabsContent>
-            ))}
-          </Tabs>
+          <section aria-label={tabs.find((t) => t.value === tab)?.label} className="min-w-0">
+            {tab === "reports" ? panels[tab] : <Card className="p-4 sm:p-6">{panels[tab]}</Card>}
+          </section>
         </>
       ) : (
         <p className="text-sm text-muted-foreground">You are not allowed to view the admin panel.</p>

@@ -191,7 +191,7 @@ export function UsersPanel() {
         <>
           <header className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
+              <h2 className="text-2xl font-medium tracking-tight">Users</h2>
               <p className="mt-2 text-sm text-muted-foreground">Manage church workers and their account access.</p>
             </div>
             {isAdmin && (

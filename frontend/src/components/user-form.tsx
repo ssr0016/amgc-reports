@@ -201,7 +201,7 @@ export function UserForm({
           {wait > 0 && ` Try again in ${wait}s.`}
         </p>
       )}
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="submit" disabled={pending || wait > 0}>
           {pending ? "Saving…" : submitLabel}
         </Button>

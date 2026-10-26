@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import { useState, type ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,18 +12,13 @@ import { ReportOwnerBadges } from "@/components/report-owner-badges";
 import type { Page, Report } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { getStats } from "@/lib/stats";
-import "./reports-dashboard.css";
-
-const inter = Inter({ subsets: ["latin"], display: "swap" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--reports-mono", display: "swap" });
-
-export const reportsTheme = `reports-dashboard ${inter.className} ${mono.variable}`;
+export { dashboardTheme as reportsTheme } from "./dashboard-theme";
 
 export function ReportsHeader({ title, heading: Heading = "h2", children }: { title: string; heading?: "h1" | "h2"; children?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <Heading className="text-2xl font-semibold tracking-tight">{title}</Heading>
+        <Heading className="text-2xl font-medium tracking-tight">{title}</Heading>
         <p className="mt-2 text-sm text-muted-foreground">Monthly ministry reports from workers across AMGC churches.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">

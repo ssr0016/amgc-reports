@@ -24,7 +24,7 @@ export function AuthField({
       type={isPassword && shown ? "text" : type}
       aria-invalid={!!error}
       aria-describedby={note ? `${name}-note` : undefined}
-      className={isPassword ? "pr-9" : undefined}
+      className={isPassword ? "pr-12" : undefined}
       {...props}
     />
   );
@@ -39,7 +39,7 @@ export function AuthField({
             onClick={() => setShown(!shown)}
             aria-label="Show password"
             aria-pressed={shown}
-            className="absolute inset-y-0 right-0 flex w-9 cursor-pointer items-center justify-center rounded-r-lg text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="absolute inset-y-0 right-0 flex min-h-11 w-11 cursor-pointer items-center justify-center rounded-r-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>

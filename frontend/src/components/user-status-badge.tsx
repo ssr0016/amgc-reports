@@ -5,7 +5,7 @@ import { statusLabel } from "@/lib/user-status";
 // light tint with dark text, and the reverse in the dark theme, to stay above 4.5:1 for axe.
 // A plain span with its own colours: Badge's default background would compete with these.
 const TONE: Record<string, string> = {
-  active: "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200",
+  active: "bg-primary/10 text-primary",
   inactive: "bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-100",
   disciplinary:
     "bg-yellow-100 text-yellow-900 dark:bg-yellow-950 dark:text-yellow-200",

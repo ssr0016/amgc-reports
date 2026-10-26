@@ -64,7 +64,7 @@ export function StatusSection({
 
   return (
     <fieldset className="flex max-w-xl flex-col gap-3 border-t pt-4">
-      <legend className="text-lg font-semibold">Status</legend>
+      <legend className="text-lg font-medium">Status</legend>
       <Label htmlFor="user-status" className="sr-only">
         Status
       </Label>

@@ -3,31 +3,11 @@
 import { useState, useSyncExternalStore } from "react";
 import { cn } from "cn";
 
-const palette = [
-  "bg-blue-600",
-  "bg-emerald-700",
-  "bg-violet-600",
-  "bg-rose-600",
-  "bg-amber-700",
-  "bg-cyan-700",
-  "bg-indigo-600",
-  "bg-fuchsia-600",
-  "bg-teal-700",
-  "bg-orange-700",
-];
-
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const first = parts[0]?.[0] ?? "";
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return (first + last).toUpperCase() || "?";
-}
-
-function colorOf(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++)
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return palette[Math.abs(hash) % palette.length];
 }
 
 // I-force ang client-side render gamit ang useSyncExternalStore
@@ -57,8 +37,7 @@ export function Avatar({
     <span
       aria-hidden="true"
       className={cn(
-        "relative inline-flex size-8 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full text-xs font-medium text-white select-none",
-        colorOf(name),
+        "relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-xs font-medium text-secondary-foreground select-none",
         className,
       )}
     >

@@ -12,10 +12,10 @@ export function ProfileMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         title={user?.email}
-        className="flex cursor-pointer items-center gap-2 rounded-lg text-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="flex min-h-11 min-w-11 max-w-full cursor-pointer items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <Avatar name={user?.name ?? ""} src={user?.avatar_url} />
-        <span>
+        <span className="max-w-40 truncate sm:max-w-64">
           {user?.name} · {user?.role || "no role"}
         </span>
       </DropdownMenuTrigger>

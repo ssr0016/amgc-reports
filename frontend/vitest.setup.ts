@@ -10,3 +10,10 @@ vi.mock("next/font/google", () => ({
 
 // Testing Library only cleans up on its own when the runner exposes globals.
 afterEach(cleanup);
+
+// Mock window.matchMedia for the mobile drawer
+vi.stubGlobal("matchMedia", vi.fn(() => ({
+  matches: false,
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+})));

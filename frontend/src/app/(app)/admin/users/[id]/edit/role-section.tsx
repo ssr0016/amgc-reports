@@ -47,7 +47,7 @@ export function RoleSection({ user }: { user: Pick<User, "id" | "name" | "role_i
 
   return (
     <fieldset className="flex max-w-xl flex-col gap-3 border-t pt-4">
-      <legend className="text-lg font-semibold">Role</legend>
+      <legend className="text-lg font-medium">Role</legend>
       {self ? (
         <p className="text-sm text-muted-foreground">You cannot change your own role.</p>
       ) : roles.error ? (

@@ -57,7 +57,7 @@ export function EditRole() {
 
   return (
     <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <h1 className="text-2xl font-semibold tracking-tight">Edit role</h1>
+      <h1 className="text-2xl font-medium tracking-tight">Edit role</h1>
       {body}
     </main>
   );

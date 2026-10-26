@@ -53,7 +53,19 @@ export function ProfilePicture() {
 
   return (
     <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <h1 className="text-2xl font-semibold tracking-tight">Profile picture</h1>
+      <h1 className="text-2xl font-medium tracking-tight">Profile picture</h1>
+      <Card className="p-4 sm:p-6">
+        <h2 className="text-lg font-medium tracking-tight">Account details</h2>
+        <p className="text-sm text-muted-foreground">These details are managed by your admin.</p>
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          {[["Name", user?.name], ["Email", user?.email], ["Role", user?.role], ["Area assignment", user?.area_assignment], ["Church", user?.church_name]].map(([label, value]) => (
+            <div key={label} className="flex min-w-0 flex-col gap-2">
+              <Label htmlFor={`profile-${label?.replaceAll(" ", "-")}`}>{label}</Label>
+              <Input id={`profile-${label?.replaceAll(" ", "-")}`} value={value ?? ""} readOnly />
+            </div>
+          ))}
+        </div>
+      </Card>
       <Card className="gap-0 rounded-lg py-0">
         <CardHeader className="gap-4 border-b p-6">
           <div className="flex flex-wrap items-center gap-4">

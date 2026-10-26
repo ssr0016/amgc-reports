@@ -24,7 +24,7 @@ import { ErrorRetry } from "@/components/error-retry";
 // Light tint with dark text (and the reverse in the dark theme) to stay above 4.5:1 for axe.
 const TONE: Record<string, string> = {
   create: "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200",
-  change: "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200",
+  change: "bg-muted text-foreground",
   delete: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
   approve: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
   download: "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200",
@@ -76,7 +76,7 @@ export function AuditLogs() {
   const meta = data?.meta;
   return (
     <div className="flex flex-col gap-6">
-      <form onSubmit={(e) => e.preventDefault()} className="flex flex-wrap items-end gap-4">
+      <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="logs-month">Month</Label>
           <NativeSelect id="logs-month" value={period.month} onChange={(e) => filter({ month: e.target.value })}>
@@ -140,7 +140,7 @@ export function AuditLogs() {
                   return (
                     <Fragment key={l.id}>
                       <TableRow>
-                        <TableCell className="whitespace-nowrap">{formatTimestamp(l.created_at)}</TableCell>
+                        <TableCell className="font-mono whitespace-nowrap tabular-nums">{formatTimestamp(l.created_at)}</TableCell>
                         <TableCell>
                           {l.performed_by_name ? (
                             <div className="flex flex-wrap items-center gap-2">
@@ -195,7 +195,7 @@ export function AuditLogs() {
                           <TableCell colSpan={5} className="whitespace-normal">
                             <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm">
                               <dt className="text-muted-foreground">Time</dt>
-                              <dd>{formatTimestamp(l.created_at, true)}</dd>
+                              <dd className="font-mono tabular-nums">{formatTimestamp(l.created_at, true)}</dd>
                               <dt className="text-muted-foreground">Actor</dt>
                               <dd>
                                 {l.performed_by_name

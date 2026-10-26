@@ -66,7 +66,7 @@ export function EditReport() {
 
   return (
     <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
-      <h1 className="text-2xl font-semibold tracking-tight">{editable ? "Edit report" : "View report"}</h1>
+      <h1 className="text-2xl font-medium tracking-tight">{editable ? "Edit report" : "View report"}</h1>
       {body}
     </main>
   );

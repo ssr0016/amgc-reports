@@ -48,10 +48,10 @@ export default function LoginPage() {
   return (
     <main className={`${dashboardTheme} account-surface account-login flex flex-1 items-center justify-center px-4 py-12 sm:py-20`}>
       <div className="w-full max-w-md">
-        <p className="mb-8 text-center text-xl font-semibold tracking-tight">AMGCReports</p>
+        <p className="mb-8 text-center text-xl font-medium tracking-tight">AMGCReports</p>
         <Card className="w-full gap-6 rounded-lg border py-6 sm:py-8">
           <CardHeader className="gap-3 px-6 sm:px-8">
-            <CardTitle className="text-2xl font-semibold tracking-tight">
+            <CardTitle className="text-2xl font-medium tracking-tight">
               <h1>Sign in</h1>
             </CardTitle>
             <CardDescription>Use the account your admin gave you.</CardDescription>

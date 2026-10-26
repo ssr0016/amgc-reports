@@ -1,42 +1,59 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { ClipboardList, FileText, KeyRound, ListChecks, ScrollText, ShieldCheck, UserRound, Users } from "lucide-react";
 import { cn } from "cn";
+import { adminSections } from "@/lib/admin-navigation";
 import { useSession } from "@/lib/session";
 
-// Hiding Admin is a convenience; the pages and the API still enforce the role and permissions.
-const ITEMS = [
-  { href: "/reports", label: "Reports", admin: false, match: (p: string) => p === "/reports" || p.startsWith("/reports/") },
-  // Users lives in the Admin panel's Users tab; its new and edit pages belong to Admin too.
-  { href: "/admin", label: "Admin", admin: true, match: (p: string) => p === "/admin" || p.startsWith("/admin/") },
-];
+const ADMIN_ICONS: Record<string, typeof FileText> = {
+  reports: ClipboardList, tracker: ListChecks, users: Users, roles: ShieldCheck, logs: ScrollText,
+};
 
-// Below md the nav is hidden unless `open` (the layout's Menu button); from md up it is always shown.
-export function Sidebar({ id, open = false, onNavigate }: { id?: string; open?: boolean; onNavigate?: () => void }) {
+export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const { canAdmin } = useSession();
+  const params = useSearchParams();
+  const { can, isAdmin, canAdmin } = useSession();
+  const sections = adminSections(can, isAdmin);
+  const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  const requested = pathname.startsWith("/admin/users/") ? "users" : pathname.startsWith("/admin/roles/") ? "roles" : params.get("tab");
+  const activeAdmin = sections.find((section) => section.value === requested)?.value ?? sections[0]?.value;
+  const linkClass = (active: boolean) => cn(
+    "flex min-h-11 items-center gap-3 rounded-sm px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-foreground",
+    active ? "bg-accent font-medium text-primary" : "text-muted-foreground",
+  );
   return (
     <nav
-      id={id}
-      aria-label="Main"
-      className={cn("flex-col gap-1 border-b p-4 text-sm md:flex md:w-48 md:shrink-0 md:border-r md:border-b-0", open ? "flex" : "hidden")}
+      aria-label={label}
+      className="flex min-h-0 flex-1 flex-col gap-6 p-4"
     >
-      {ITEMS.filter((item) => canAdmin || !item.admin).map((item) => {
-        const active = item.match(pathname);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={active ? "page" : undefined}
-            onClick={onNavigate}
-            // The underline and weight mark the current page, so it does not rely on colour alone.
-            className={cn("cursor-pointer rounded-lg px-2 py-1.5 hover:bg-muted", active && "bg-muted font-semibold underline underline-offset-4")}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
+      <Link href="/reports" aria-current={pathname.startsWith("/reports") ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname.startsWith("/reports"))}>
+        <FileText className="size-4" aria-hidden="true" />Reports
+      </Link>
+      {canAdmin && sections.length > 0 && (
+        <section aria-labelledby={`${label}-admin`} className="flex flex-col gap-1">
+          <h2 id={`${label}-admin`} className="mb-1 px-3 text-xs font-medium text-muted-foreground">Admin</h2>
+          {sections.map((section) => {
+            const active = inAdmin && section.value === activeAdmin;
+            const Icon = ADMIN_ICONS[section.value];
+            return (
+              <Link key={section.value} href={`/admin?tab=${section.value}`} aria-label={`Admin ${section.label}`} replace={inAdmin} aria-current={active ? "page" : undefined} onClick={onNavigate} className={linkClass(active)}>
+                <Icon className="size-4" aria-hidden="true" />{section.label}
+              </Link>
+            );
+          })}
+        </section>
+      )}
+      <section aria-labelledby={`${label}-settings`} className="mt-auto flex flex-col gap-1 border-t pt-4">
+        <h2 id={`${label}-settings`} className="mb-1 px-3 text-xs font-medium text-muted-foreground">Settings</h2>
+        <Link href="/account/profile" aria-current={pathname === "/account/profile" ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === "/account/profile")}>
+          <UserRound className="size-4" aria-hidden="true" />Profile
+        </Link>
+        <Link href="/account/password" aria-current={pathname === "/account/password" ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === "/account/password")}>
+          <KeyRound className="size-4" aria-hidden="true" />Change Password
+        </Link>
+      </section>
     </nav>
   );
 }

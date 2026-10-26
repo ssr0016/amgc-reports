@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { changePassword } from "@/lib/auth";
 import { toFormError, useCountdown, type FormError } from "@/lib/auth-form";
 import { useFocusFirstError } from "@/lib/form-focus";
@@ -58,8 +59,9 @@ export function ChangePassword() {
   };
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 p-4 focus:outline-none">
-      <h1 className="text-2xl font-semibold tracking-tight">Change password</h1>
+    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none">
+      <h1 className="text-2xl font-medium tracking-tight">Change password</h1>
+      <Card className="p-4 sm:p-6">
       <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <AuthField
           name="current_password"
@@ -92,6 +94,7 @@ export function ChangePassword() {
           {pending ? "Changing…" : "Change password"}
         </Button>
       </form>
+      </Card>
     </main>
   );
 }

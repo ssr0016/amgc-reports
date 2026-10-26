@@ -17,7 +17,7 @@ import { ErrorRetry } from "@/components/error-retry";
 // Light tint with dark text (and the reverse in the dark theme) to stay above 4.5:1 for axe.
 // The label is always printed, so colour is never the only cue.
 const TONE: Record<string, string> = {
-  approved: "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200",
+  approved: "bg-primary/10 text-primary",
   for_review: "bg-yellow-100 text-yellow-900 dark:bg-yellow-950 dark:text-yellow-200",
   not_submitted: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
 };
@@ -56,7 +56,7 @@ export function Tracker() {
 
   return (
     <div className="flex flex-col gap-6">
-      <form onSubmit={(e) => e.preventDefault()} className="flex flex-wrap items-end gap-4">
+      <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="tracker-month">Month</Label>
           <NativeSelect id="tracker-month" value={period.month} onChange={(e) => setPeriod((p) => ({ ...p, month: e.target.value }))}>
@@ -108,7 +108,7 @@ export function Tracker() {
         <p role="status" className="text-sm text-muted-foreground">No church workers to track.</p>
       ) : (
         <>
-          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+          <dl className="grid grid-cols-2 gap-4 [&>div:last-child]:col-span-2 md:grid-cols-5 md:[&>div:last-child]:col-span-1">
             {[
               ["Expected", counts.expected],
               ["Submitted", counts.submitted],
@@ -118,7 +118,7 @@ export function Tracker() {
             ].map(([label, value]) => (
               <div key={label} className="rounded-lg border p-3">
                 <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="text-2xl font-semibold">{value}</dd>
+                <dd className="font-mono text-2xl tabular-nums">{value}</dd>
               </div>
             ))}
           </dl>

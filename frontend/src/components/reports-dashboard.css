@@ -1,32 +1,3 @@
-.reports-dashboard {
-  --background: #0e1013;
-  --foreground: #f1f5f9;
-  --card: #15181e;
-  --card-foreground: #f1f5f9;
-  --popover: #15181e;
-  --popover-foreground: #f1f5f9;
-  --border: #262b35;
-  --input: #64748b;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --secondary: #262b35;
-  --secondary-foreground: #f1f5f9;
-  --muted: #262b35;
-  --muted-foreground: #aab4c4;
-  --accent: #262b35;
-  --accent-foreground: #f1f5f9;
-  --ring: #a5b4fc;
-  --approved: #10b981;
-  --pending: #f59e0b;
-  color-scheme: dark;
-  color: var(--foreground);
-  background: var(--background);
-}
-
-.reports-dashboard .font-mono {
-  font-family: var(--reports-mono), monospace;
-}
-
 .reports-dashboard th,
 .reports-dashboard td {
   padding: 12px;

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { Menu, X } from "lucide-react";
+import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { HOME } from "@/lib/auth-form";
 import { useSession } from "@/lib/session";
@@ -18,6 +20,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   // A chosen sign-out gets no ?next=: the next person to sign in may be someone else (a user sent to /admin).
   const signingOut = useRef(false);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   useEffect(() => {
     if (status !== "unauthenticated") return;
@@ -39,20 +48,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         Skip to main content
       </a>
-      <header className="border-b">
+      <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>
+      <header className="border-b bg-background">
         <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4">
           <div className="flex items-center gap-3">
-            <Button
+            <Dialog.Trigger asChild><Button
               variant="outline"
-              size="sm"
-              className="md:hidden"
+              size="icon"
+              className="lg:hidden"
               aria-expanded={menuOpen}
-              aria-controls="main-nav"
-              onClick={() => setMenuOpen((open) => !open)}
+              aria-controls="mobile-navigation"
             >
-              Menu
-            </Button>
-            <Link href={HOME} className="cursor-pointer font-semibold tracking-tight">
+              <Menu aria-hidden="true" /><span className="sr-only">Menu</span>
+            </Button></Dialog.Trigger>
+            <Link href={HOME} className="flex min-h-11 items-center font-medium tracking-tight">
               AMGCReports
             </Link>
           </div>
@@ -71,8 +80,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <div className="flex flex-1 flex-col md:flex-row">
-        <Sidebar id="main-nav" open={menuOpen} onNavigate={() => setMenuOpen(false)} />
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        <Dialog.Content id="mobile-navigation" aria-describedby={undefined} className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,calc(100%-1rem))] flex-col overflow-y-auto border-r bg-background p-2 shadow-xl outline-none duration-200 data-open:animate-in data-open:slide-in-from-left data-closed:animate-out data-closed:slide-out-to-left">
+          <div className="flex items-center justify-between border-b p-2">
+            <Dialog.Title className="px-3 font-medium">AMGCReports navigation</Dialog.Title>
+            <Dialog.Close asChild><Button variant="ghost" size="icon" aria-label="Close navigation"><X aria-hidden="true" /></Button></Dialog.Close>
+          </div>
+          <Suspense fallback={null}><Sidebar label="Mobile" onNavigate={() => setMenuOpen(false)} /></Suspense>
+        </Dialog.Content>
+      </Dialog.Portal>
+      </Dialog.Root>
+      <div className="flex min-w-0 flex-1">
+        <aside className="hidden w-60 shrink-0 border-r lg:flex">
+          <div className="sticky top-0 flex h-dvh max-h-dvh w-full overflow-y-auto">
+            <Suspense fallback={null}><Sidebar /></Suspense>
+          </div>
+        </aside>
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </div>
     </>

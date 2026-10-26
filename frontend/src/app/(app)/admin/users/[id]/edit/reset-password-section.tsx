@@ -108,7 +108,7 @@ export function ResetPasswordSection({ user }: { user: Pick<User, "id" | "name">
 
   return (
     <fieldset className="flex max-w-xl flex-col gap-3 border-t pt-4">
-      <legend className="text-lg font-semibold">Reset password</legend>
+      <legend className="text-lg font-medium">Reset password</legend>
       <p className="text-sm text-muted-foreground">Sets a new password for {user.name} and signs them out everywhere.</p>
       {self && (
         <p id="reset-password-note" className="text-sm text-muted-foreground">

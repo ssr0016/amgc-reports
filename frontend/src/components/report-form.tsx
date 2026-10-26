@@ -44,8 +44,8 @@ const longTexts = [
   ["prayer_request", "Prayer Request", "e.g. Pray for the youth camp", "List your prayer requests here so the team can pray for you."],
 ] as const;
 
-const sectionClass = "flex flex-col gap-4";
-const headingClass = "text-lg font-medium";
+const sectionClass = "flex min-w-0 flex-col gap-5 rounded-lg border bg-card p-4 sm:p-6";
+const headingClass = "text-lg font-medium tracking-tight";
 
 // A failed save leaves the form as it is, so nothing the user typed is lost.
 export function ReportForm({
@@ -173,7 +173,7 @@ export function ReportForm({
   );
 
   return (
-    <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-8">
+    <form ref={formRef} onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-6">
       <fieldset
         disabled={readOnly}
         className={`flex min-w-0 flex-col gap-8${readOnly ? " [&_:disabled]:opacity-100! [&_select:disabled]:text-foreground!" : ""}`}
@@ -241,7 +241,7 @@ export function ReportForm({
         {METRIC_SECTIONS.map((section, i) => {
           const id = `section-${section.title.toLowerCase().replace(/\s+/g, "-")}`;
           return (
-            <section key={section.title} aria-labelledby={id} className={`${sectionClass} border-t pt-6`}>
+            <section key={section.title} aria-labelledby={id} className={sectionClass}>
               <h2 id={id} className={headingClass}>
                 {section.title}
               </h2>
@@ -278,7 +278,7 @@ export function ReportForm({
           );
         })}
 
-        <section aria-labelledby="section-details" className={`${sectionClass} border-t pt-6`}>
+        <section aria-labelledby="section-details" className={sectionClass}>
           <h2 id="section-details" className={headingClass}>
             Report Details
           </h2>
@@ -324,7 +324,7 @@ export function ReportForm({
           {wait > 0 && ` Try again in ${wait}s.`}
         </p>
       )}
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         {!readOnly && (
           <Button type="submit" disabled={pending || wait > 0}>
             {pending ? "Saving…" : submitLabel}
@@ -379,7 +379,7 @@ const MetricRow = memo(function MetricRow({
               onChange={(e) => onChange(m.key, w, e.target.value)}
               onFocus={(e) => e.target.select()}
               onBlur={(e) => onBlur(m.key, w, e.target.value)}
-              className="h-8 w-20 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30"
+              className="min-h-11 w-full min-w-16 rounded-sm border border-input bg-background px-2 text-right font-mono text-base tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm"
             />
             {errors[`metrics.${m.key}.${w}`] && (
               <span id={`err-${m.key}-${w}`} className="mt-1 block text-xs text-destructive">{errors[`metrics.${m.key}.${w}`]}</span>

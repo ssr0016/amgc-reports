@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import AppLayout from "./layout";
 
 const h = vi.hoisted(() => ({ status: "authenticated" }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports", useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/session", () => ({
-  useSession: () => ({ status: h.status, user: { name: "Ana", email: "a@b.c", role: "user" }, isAdmin: false, canAdmin: false, signOut: vi.fn() }),
+  useSession: () => ({ status: h.status, user: { name: "Ana", email: "a@b.c", role: "user" }, isAdmin: false, canAdmin: false, can: () => false, signOut: vi.fn() }),
 }));
 
 describe("app layout", () => {
@@ -19,10 +19,10 @@ describe("app layout", () => {
     expect(screen.getAllByRole("link")[0]).toBe(skip);
   });
 
-  it("gives a non-admin a sidebar with only Reports", () => {
+  it("gives a non-admin reports and account settings", () => {
     render(<AppLayout>content</AppLayout>);
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Reports"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Reports", "Profile", "Change Password"]);
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
   });
 
@@ -34,18 +34,19 @@ describe("app layout", () => {
     expect(nav.compareDocumentPosition(screen.getByText("content")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("has a Menu button that opens and closes the sidebar", async () => {
+  it("opens a modal drawer and returns focus after Escape", async () => {
     const user = userEvent.setup();
     render(<AppLayout>content</AppLayout>);
     const menu = screen.getByRole("button", { name: "Menu" });
-    const nav = screen.getByRole("navigation", { name: "Main" });
     expect(menu).toHaveAttribute("aria-expanded", "false");
-    expect(menu).toHaveAttribute("aria-controls", nav.id);
-    expect(nav.id).not.toBe("");
     await user.click(menu);
     expect(menu).toHaveAttribute("aria-expanded", "true");
-    await user.click(menu);
+    const drawer = screen.getByRole("dialog", { name: "AMGCReports navigation" });
+    expect(menu).toHaveAttribute("aria-controls", drawer.id);
+    expect(within(drawer).getByRole("navigation", { name: "Mobile" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(menu).toHaveAttribute("aria-expanded", "false");
+    expect(menu).toHaveFocus();
   });
 
   it("closes the menu when an item is chosen", async () => {
@@ -53,7 +54,7 @@ describe("app layout", () => {
     render(<AppLayout>content</AppLayout>);
     const menu = screen.getByRole("button", { name: "Menu" });
     await user.click(menu);
-    await user.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Reports" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("link", { name: "Reports" }));
     expect(menu).toHaveAttribute("aria-expanded", "false");
   });
 

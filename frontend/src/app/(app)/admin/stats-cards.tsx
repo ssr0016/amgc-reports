@@ -38,7 +38,7 @@ export function StatsCards() {
         <Card key={c.label} size="sm">
           <CardHeader>
             <CardDescription>{c.label}</CardDescription>
-            <CardTitle className="text-2xl">{c.value}</CardTitle>
+          <CardTitle className="font-mono text-2xl tabular-nums">{c.value}</CardTitle>
           </CardHeader>
           {c.note && <CardContent className="text-muted-foreground">{c.note}</CardContent>}
         </Card>

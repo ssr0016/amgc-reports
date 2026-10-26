@@ -2,9 +2,9 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import AppLayout from "./layout";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports", useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/session", () => ({
-  useSession: () => ({ status: "authenticated", user: { name: "Ana", email: "a@b.c", role: "admin" }, isAdmin: true, canAdmin: true, signOut: vi.fn() }),
+  useSession: () => ({ status: "authenticated", user: { name: "Ana", email: "a@b.c", role: "admin" }, isAdmin: true, canAdmin: true, can: () => true, signOut: vi.fn() }),
 }));
 
 describe("app header", () => {
@@ -28,10 +28,10 @@ describe("app header", () => {
     }
   });
 
-  it("links an admin to the admin panel from the sidebar, with no separate Users link", () => {
+  it("puts admin destinations in the sidebar", () => {
     render(<AppLayout>content</AppLayout>);
     const nav = within(screen.getByRole("navigation", { name: "Main" }));
-    expect(nav.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
-    expect(nav.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
+    expect(nav.getByRole("link", { name: "Admin Reports" })).toHaveAttribute("href", "/admin?tab=reports");
+    expect(nav.getByRole("link", { name: "Admin Users" })).toHaveAttribute("href", "/admin?tab=users");
   });
 });
