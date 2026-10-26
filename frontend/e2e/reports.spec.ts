@@ -196,6 +196,9 @@ test.describe("admin", () => {
     await page.reload(); // the server kept it
     await expect(row().getByText("Approved")).toBeVisible();
     await row().getByRole("button", { name: /^Unapprove / }).click();
+    const unapproveDialog = page.getByRole("alertdialog");
+    await expect(unapproveDialog).toBeVisible();
+    await unapproveDialog.getByRole("button", { name: "Unapprove", exact: true }).click();
     await expect(row().getByText("Needs Revision")).toBeVisible();
     await expect(card("Approved")).toHaveText(String(approved));
     await expect(card("Pending")).toHaveText(String(pending - 1));
