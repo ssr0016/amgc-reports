@@ -48,7 +48,7 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
     // This church account has no reports.
     await expect(dialog.getByRole("table", { name: "Sheet Report Dashboard" }).getByRole("row").filter({ hasText: "E2E Unsubmitted Church" })).toContainText("No Report Submitted");
     await sheet.selectOption({ label: "E2E Export Church" });
-    await expect(dialog.getByRole("table", { name: "Sheet E2E Export Church" })).toContainText("E2E Export Worker");
+    await expect(dialog.getByRole("region", { name: "Sheet E2E Export Church", exact: true })).toContainText("E2E Export Worker");
     expect((await new AxeBuilder({ page }).include('[role="alertdialog"]').analyze()).violations).toEqual([]);
     expect(downloads).toBe(0);
     const [bulk] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download" }).click()]);
@@ -59,7 +59,7 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
 
     await row.getByRole("button", { name: /^Excel / }).click();
     dialog = page.getByRole("alertdialog", { name: "Excel preview: E2E Export Church" });
-    await expect(dialog.getByRole("table")).toContainText("E2E Export Worker");
+    await expect(dialog.getByRole("region", { name: "Sheet E2E Export Church", exact: true })).toContainText("E2E Export Worker");
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
     expect(downloads).toBe(1); // only the bulk file

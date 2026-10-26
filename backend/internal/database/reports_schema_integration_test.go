@@ -307,8 +307,8 @@ func TestReports_CompletedBySetNull(t *testing.T) {
 
 	var reportID int64
 	require.NoError(t, tdb.Pool.QueryRow(ctx,
-		`INSERT INTO reports (created_by, month, year, completed, completed_at, completed_by)
-		 VALUES ($1, 'January', 2026, TRUE, NOW(), $2) RETURNING id`, author, approver).Scan(&reportID))
+		`INSERT INTO reports (created_by, month, year, completed, status, completed_at, completed_by)
+		 VALUES ($1, 'January', 2026, TRUE, 'approved', NOW(), $2) RETURNING id`, author, approver).Scan(&reportID))
 
 	_, err := tdb.Pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, approver)
 	require.NoError(t, err)

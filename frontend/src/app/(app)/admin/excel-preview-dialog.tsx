@@ -70,7 +70,7 @@ export function ExcelPreviewDialog({
           <AlertDialogTitle>
             Excel preview: {single ? target.label : `${target.month} ${target.year}`}
           </AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription className="text-slate-700">
             This is what the file will contain. Download builds it again from the current data.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -101,7 +101,7 @@ export function ExcelPreviewDialog({
                     ))}
                   </NativeSelect>
                 </div>
-                <p className="pb-1.5 text-sm text-muted-foreground">{data.count} approved</p>
+                <p className="pb-1.5 text-sm text-slate-700">{data.count} approved</p>
               </div>
             )}
             {shown && (
@@ -142,14 +142,14 @@ function ExcelReportSheet({ rows, name, status }: { rows: string[][]; name: stri
 
   return (
     <div role="region" aria-label={`Sheet ${name}`} tabIndex={0} className="mx-auto max-h-[70vh] w-full max-w-[1100px] overflow-auto bg-white font-sans text-[11px] text-black outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-      <header className="border-b border-black pb-3 text-center">
+      <div className="border-b border-black pb-3 text-center">
         {/* Static public asset; Next image optimization is unnecessary for this fixed report logo. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/amgc-logo.png" alt="AMGC logo" className="mx-auto mb-2 h-16 w-auto object-contain" />
         <h1 className="text-lg font-bold">{cell(0, 0)}</h1>
         <h2 className="text-sm font-bold">{cell(2, 0)}</h2>
         <p className="mt-1 text-xs">{cell(3, 0)} {cell(3, 1)}</p>
-      </header>
+      </div>
 
       <section className="grid grid-cols-1 border-x border-b border-black sm:grid-cols-2">
         {[[4, "Worker:"], [5, "Area of Assignment:"], [6, "Name of Church/Outreach:"], [null, "Status:"]].map(([row, label]) => (
