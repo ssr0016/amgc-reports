@@ -38,7 +38,7 @@ func (f *fakeStatsSvc) Get(_ context.Context, q stats.GetStatsQuery) (stats.Admi
 func (f *fakeStatsSvc) Tracker(_ context.Context, q stats.GetStatsQuery) (stats.Tracker, error) {
 	f.calls++
 	f.month, f.year = q.Month, q.Year
-	rows := []stats.TrackerRow{{UserID: 4, Name: "Ana", Email: "ana@example.com", ChurchName: "Bethel", UserStatus: "active", Status: stats.TrackerApproved}}
+	rows := []stats.TrackerRow{{UserID: 4, Name: "Ana", Email: "ana@example.com", ChurchName: "Bethel", UserStatus: "active", SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerApproved}}
 	return stats.Tracker{Month: "September", Year: 2026, Rows: rows}, f.err
 }
 
@@ -149,7 +149,7 @@ func TestStatsHandler_GetTracker(t *testing.T) {
 			"month": "September", "year": 2026.0,
 			"rows": []any{map[string]any{
 				"user_id": 4.0, "name": "Ana", "email": "ana@example.com", "church_name": "Bethel",
-				"user_status": "active", "status": "approved",
+				"user_status": "active", "submission_status": "submitted", "review_status": "approved",
 			}},
 		}
 		if fmt.Sprint(got) != fmt.Sprint(want) {

@@ -23,7 +23,7 @@ func (r *recordingStats) Counts(_ context.Context, month string, year int) (stat
 
 func (r *recordingStats) Tracker(_ context.Context, month string, year int) ([]stats.TrackerRow, error) {
 	r.month, r.year = month, year
-	return []stats.TrackerRow{{UserID: 1, Name: "Ana", Status: stats.TrackerForReview}}, r.err
+	return []stats.TrackerRow{{UserID: 1, Name: "Ana", SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerPending}}, r.err
 }
 
 func TestService_Get(t *testing.T) {
@@ -115,7 +115,7 @@ func TestService_Tracker(t *testing.T) {
 		if repo.month != "December" || repo.year != 2025 || got.Month != "December" || got.Year != 2025 {
 			t.Errorf("queried %s %d, got %s %d; want December 2025", repo.month, repo.year, got.Month, got.Year)
 		}
-		if len(got.Rows) != 1 || got.Rows[0].Status != stats.TrackerForReview {
+		if len(got.Rows) != 1 || got.Rows[0].SubmissionStatus != stats.TrackerSubmitted || got.Rows[0].ReviewStatus != stats.TrackerPending {
 			t.Errorf("rows = %+v", got.Rows)
 		}
 	})

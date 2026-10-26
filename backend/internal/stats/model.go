@@ -32,9 +32,11 @@ type AdminStats struct {
 // The Tracker statuses (D-A3): an account's report for the month is approved,
 // filed and waiting for review, or missing.
 const (
-	TrackerApproved     = "approved"
-	TrackerForReview    = "for_review"
-	TrackerNotSubmitted = "not_submitted"
+	TrackerSubmitted     = "submitted"
+	TrackerNoReport      = "no_report"
+	TrackerApproved      = "approved"
+	TrackerPending       = "pending"
+	TrackerNeedsRevision = "needs_revision"
 )
 
 // Tracker is the body of GET /admin/tracker: every account expected to report
@@ -48,10 +50,11 @@ type Tracker struct {
 // TrackerRow is one church account; ChurchName is never blank.
 // UserStatus is the account status (active, inactive, disciplinary, deceased).
 type TrackerRow struct {
-	UserID     int64  `json:"user_id"`
-	Name       string `json:"name"`
-	Email      string `json:"email"`
-	ChurchName string `json:"church_name"`
-	UserStatus string `json:"user_status"`
-	Status     string `json:"status" enums:"approved,for_review,not_submitted"`
+	UserID           int64  `json:"user_id"`
+	Name             string `json:"name"`
+	Email            string `json:"email"`
+	ChurchName       string `json:"church_name"`
+	UserStatus       string `json:"user_status"`
+	SubmissionStatus string `json:"submission_status" enums:"submitted,no_report"`
+	ReviewStatus     string `json:"review_status,omitempty" enums:"approved,pending,needs_revision"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.TrackerRow

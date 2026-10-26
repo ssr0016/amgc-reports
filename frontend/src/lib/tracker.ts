@@ -6,20 +6,29 @@ export type { Tracker, TrackerRow };
 export const getTracker = (month: string, year: number) =>
   api<Tracker>(`/admin/tracker?${new URLSearchParams({ month, year: String(year) })}`);
 
-// The three statuses the server sends (D-A3), in the order of the Status filter.
-export const TRACKER_STATUSES = [
+export const SUBMISSION_STATUSES = [
+  { code: "submitted", label: "Submitted" },
+  { code: "no_report", label: "No Report" },
+] as const;
+
+export const REVIEW_STATUSES = [
   { code: "approved", label: "Approved" },
-  { code: "for_review", label: "Pending" },
-  { code: "not_submitted", label: "Not Submitted" },
+  { code: "pending", label: "Pending" },
+  { code: "needs_revision", label: "Needs Revision" },
 ] as const;
 
 // A value this code does not know is shown as it came, not hidden.
 export const trackerLabel = (status: string) =>
-  TRACKER_STATUSES.find((s) => s.code === status)?.label ?? status;
+  [...SUBMISSION_STATUSES, ...REVIEW_STATUSES].find((s) => s.code === status)?.label ?? status;
 
 export function trackerCounts(rows: readonly TrackerRow[]) {
-  const n = (status: string) => rows.filter((r) => r.status === status).length;
-  const approved = n("approved");
-  const forReview = n("for_review");
-  return { expected: rows.length, submitted: approved + forReview, approved, forReview, notSubmitted: n("not_submitted") };
+  const n = (status: string) => rows.filter((r) => r.review_status === status).length;
+  return {
+    expected: rows.length,
+    submitted: rows.filter((r) => r.submission_status === "submitted").length,
+    noReport: rows.filter((r) => r.submission_status === "no_report").length,
+    approved: n("approved"),
+    pending: n("pending"),
+    needsRevision: n("needs_revision"),
+  };
 }

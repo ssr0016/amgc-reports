@@ -154,6 +154,7 @@ func TestStore_Tracker(t *testing.T) {
 
 	ana := account("ana@example.com", "Ana", "Bethel")     // approved
 	bob := account("bob@example.com", "Bob", "antioch")    // pending
+	eva := account("eva@example.com", "Eva", "Ephesus")   // needs revision
 	cora := account("cora@example.com", "Cora", "Antioch") // no report; inactive
 	dan := account("dan@example.com", "Dan", "")           // no church, so not a church account
 	gone := account("gone@example.com", "Gone", "Calvary") // soft-deleted account
@@ -169,6 +170,8 @@ func TestStore_Tracker(t *testing.T) {
 	_, err = reports.ToggleComplete(ctx, file(ana, "January", 2026).ID, boss)
 	require.NoError(t, err)
 	file(bob, "January", 2026)
+	_, err = reports.RequestRevision(ctx, file(eva, "January", 2026).ID, boss)
+	require.NoError(t, err)
 	require.NoError(t, reports.SoftDelete(ctx, file(dan, "January", 2026).ID))
 	file(dan, "February", 2026)
 	file(dan, "January", 2025)
@@ -180,18 +183,20 @@ func TestStore_Tracker(t *testing.T) {
 		got, err := store.Tracker(ctx, "january", 2026)
 		require.NoError(t, err)
 		assert.Equal(t, []stats.TrackerRow{
-			{UserID: bob, Name: "Bob", Email: "bob@example.com", ChurchName: "antioch", UserStatus: "active", Status: stats.TrackerForReview},
-			{UserID: cora, Name: "Cora", Email: "cora@example.com", ChurchName: "Antioch", UserStatus: "inactive", Status: stats.TrackerNotSubmitted},
-			{UserID: ana, Name: "Ana", Email: "ana@example.com", ChurchName: "Bethel", UserStatus: "active", Status: stats.TrackerApproved},
+			{UserID: bob, Name: "Bob", Email: "bob@example.com", ChurchName: "antioch", UserStatus: "active", SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerPending},
+			{UserID: cora, Name: "Cora", Email: "cora@example.com", ChurchName: "Antioch", UserStatus: "inactive", SubmissionStatus: stats.TrackerNoReport},
+			{UserID: ana, Name: "Ana", Email: "ana@example.com", ChurchName: "Bethel", UserStatus: "active", SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerApproved},
+			{UserID: eva, Name: "Eva", Email: "eva@example.com", ChurchName: "Ephesus", UserStatus: "active", SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerNeedsRevision},
 		}, got)
 	})
 
 	t.Run("a month with no reports lists everyone as not submitted", func(t *testing.T) {
 		got, err := store.Tracker(ctx, "March", 2030)
 		require.NoError(t, err)
-		require.Len(t, got, 3)
+		require.Len(t, got, 4)
 		for _, row := range got {
-			assert.Equal(t, stats.TrackerNotSubmitted, row.Status, row.Name)
+			assert.Equal(t, stats.TrackerNoReport, row.SubmissionStatus, row.Name)
+			assert.Empty(t, row.ReviewStatus, row.Name)
 		}
 	})
 }

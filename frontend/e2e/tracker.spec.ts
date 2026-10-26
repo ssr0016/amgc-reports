@@ -27,13 +27,19 @@ test.describe("as admin", () => {
       await expect(tracker.getByRole("row").filter({ hasText: ACCOUNTS.editor.email })).toHaveCount(0);
       await expect(tracker.getByRole("progressbar")).toBeVisible();
 
+      expect((await send(request, "PATCH", `/reports/${id}/revision`, { admin_notes: "Please clarify" })).status()).toBe(200);
+      await page.reload();
+      await tracker.getByLabel("Month").selectOption(period.month);
+      await tracker.getByLabel("Year").selectOption(String(period.year));
+      await expect(row).toContainText("Needs Revision");
+
       expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(200);
       await page.reload();
       await tracker.getByLabel("Month").selectOption(period.month);
       await tracker.getByLabel("Year").selectOption(String(period.year));
       await expect(row).toContainText("Approved");
 
-      await tracker.getByLabel("Status").selectOption({ label: "Not Submitted" });
+      await tracker.getByLabel("Submission status").selectOption({ label: "No Report" });
       await expect(row).toHaveCount(0);
     } finally {
       await send(request, "DELETE", `/reports/${id}`);

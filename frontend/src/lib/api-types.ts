@@ -855,7 +855,7 @@ export interface paths {
         };
         /**
          * Who has reported this month
-         * @description Every church account: the user role, not deleted, with a church name (any status: active, inactive, disciplinary, deceased; D-A24), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+         * @description Every church account: the user role, not deleted, with a church name (any status: active, inactive, disciplinary, deceased; D-A24), with separate submission and review statuses for one month. Submission status is submitted or no_report; review status is approved, pending or needs_revision when a report exists. Ordered by church name, then name. No report text. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
          */
         get: {
             parameters: {
@@ -3321,7 +3321,9 @@ export interface components {
             email?: string;
             name?: string;
             /** @enum {string} */
-            status?: "approved" | "for_review" | "not_submitted";
+            review_status?: "approved" | "pending" | "needs_revision";
+            /** @enum {string} */
+            submission_status?: "submitted" | "no_report";
             user_id?: number;
             user_status?: string;
         };

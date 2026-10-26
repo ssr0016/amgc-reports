@@ -10,7 +10,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
 import { defaultPeriod, FIRST_YEAR, MONTHS } from "@/lib/reports";
-import { getTracker, TRACKER_STATUSES, trackerCounts, trackerLabel } from "@/lib/tracker";
+import { getTracker, REVIEW_STATUSES, SUBMISSION_STATUSES, trackerCounts, trackerLabel } from "@/lib/tracker";
 import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
 
@@ -18,8 +18,9 @@ import { ErrorRetry } from "@/components/error-retry";
 // The label is always printed, so colour is never the only cue.
 const TONE: Record<string, string> = {
   approved: "bg-primary/10 text-primary",
-  for_review: "bg-yellow-100 text-yellow-900 dark:bg-yellow-950 dark:text-yellow-200",
-  not_submitted: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
+  pending: "bg-yellow-100 text-yellow-900 dark:bg-yellow-950 dark:text-yellow-200",
+  needs_revision: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
+  no_report: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
 };
 
 // The Tracker tab: who has filed a report for one Manila month (D-A3). It starts on the previous
@@ -29,7 +30,8 @@ const TONE: Record<string, string> = {
 export function Tracker() {
   const [period, setPeriod] = useState<{ month: string; year: number }>(() => defaultPeriod());
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [submissionStatus, setSubmissionStatus] = useState("");
+  const [reviewStatus, setReviewStatus] = useState("");
 
   const { data, error, isPending, refetch } = useQuery({
     queryKey: ["tracker", period.month, period.year],
@@ -50,13 +52,14 @@ export function Tracker() {
   const q = search.trim().toLowerCase();
   const shown = rows.filter(
     (r) =>
-      (!status || r.status === status) &&
+      (!submissionStatus || r.submission_status === submissionStatus) &&
+      (!reviewStatus || r.review_status === reviewStatus) &&
       (!q || [r.name, r.email, r.church_name].some((v) => v.toLowerCase().includes(q))),
   );
 
   return (
     <div className="flex flex-col gap-6">
-      <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="tracker-month">Month</Label>
           <NativeSelect id="tracker-month" value={period.month} onChange={(e) => setPeriod((p) => ({ ...p, month: e.target.value }))}>
@@ -88,10 +91,19 @@ export function Tracker() {
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="tracker-status">Status</Label>
-          <NativeSelect id="tracker-status" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All statuses</option>
-            {TRACKER_STATUSES.map((s) => (
+          <Label htmlFor="tracker-submission-status">Submission status</Label>
+          <NativeSelect id="tracker-submission-status" value={submissionStatus} onChange={(e) => setSubmissionStatus(e.target.value)}>
+            <option value="">All submission statuses</option>
+            {SUBMISSION_STATUSES.map((s) => (
+              <option key={s.code} value={s.code}>{s.label}</option>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="tracker-review-status">Review status</Label>
+          <NativeSelect id="tracker-review-status" value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value)}>
+            <option value="">All review statuses</option>
+            {REVIEW_STATUSES.map((s) => (
               <option key={s.code} value={s.code}>
                 {s.label}
               </option>
@@ -108,20 +120,24 @@ export function Tracker() {
         <p role="status" className="text-sm text-muted-foreground">No church workers to track.</p>
       ) : (
         <>
-          <dl className="grid grid-cols-2 gap-4 [&>div:last-child]:col-span-2 md:grid-cols-5 md:[&>div:last-child]:col-span-1">
-            {[
-              ["Expected", counts.expected],
-              ["Submitted", counts.submitted],
-              ["Approved", counts.approved],
-              ["Pending", counts.forReview],
-              ["Not Submitted", counts.notSubmitted],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-lg border p-3">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="font-mono text-2xl tabular-nums">{value}</dd>
-              </div>
-            ))}
-          </dl>
+          <div className="grid gap-4 md:grid-cols-2">
+            <section aria-label="Submission summary">
+              <h2 className="mb-2 text-sm font-medium">Submission status</h2>
+              <dl className="grid grid-cols-3 gap-4">
+                {[["Expected", counts.expected], ["Submitted", counts.submitted], ["No Report", counts.noReport]].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border p-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-mono text-2xl tabular-nums">{value}</dd></div>
+                ))}
+              </dl>
+            </section>
+            <section aria-label="Review summary">
+              <h2 className="mb-2 text-sm font-medium">Review status</h2>
+              <dl className="grid grid-cols-3 gap-4">
+                {[["Approved", counts.approved], ["Pending", counts.pending], ["Needs Revision", counts.needsRevision]].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border p-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-mono text-2xl tabular-nums">{value}</dd></div>
+                ))}
+              </dl>
+            </section>
+          </div>
           <div className="flex flex-col gap-2">
             <p id="tracker-progress-label" className="text-sm">
               {counts.submitted} of {counts.expected} submitted
@@ -145,7 +161,8 @@ export function Tracker() {
                 <TableRow>
                   <TableHead>Worker</TableHead>
                   <TableHead>Church</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Submission Status</TableHead>
+                  <TableHead>Review Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -166,10 +183,20 @@ export function Tracker() {
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-                          TONE[r.status] ?? "bg-muted text-foreground",
+                          TONE[r.submission_status] ?? "bg-muted text-foreground",
                         )}
                       >
-                        {trackerLabel(r.status)}
+                        {trackerLabel(r.submission_status)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                          r.review_status ? TONE[r.review_status] ?? "bg-muted text-foreground" : "text-muted-foreground",
+                        )}
+                      >
+                        {r.review_status ? trackerLabel(r.review_status) : "—"}
                       </span>
                     </TableCell>
                   </TableRow>

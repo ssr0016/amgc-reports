@@ -811,7 +811,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Every church account: the user role, not deleted, with a church name (any status: active, inactive, disciplinary, deceased; D-A24), with its report status for one month: approved, for_review (filed, not approved) or not_submitted (D-A3). Ordered by church name, then name. No report text. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.",
+                "description": "Every church account: the user role, not deleted, with a church name (any status: active, inactive, disciplinary, deceased; D-A24), with separate submission and review statuses for one month. Submission status is submitted or no_report; review status is approved, pending or needs_revision when a report exists. Ordered by church name, then name. No report text. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.",
                 "produces": [
                     "application/json"
                 ],
@@ -3384,12 +3384,19 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "status": {
+                "review_status": {
                     "type": "string",
                     "enum": [
                         "approved",
-                        "for_review",
-                        "not_submitted"
+                        "pending",
+                        "needs_revision"
+                    ]
+                },
+                "submission_status": {
+                    "type": "string",
+                    "enum": [
+                        "submitted",
+                        "no_report"
                     ]
                 },
                 "user_id": {

@@ -66,13 +66,18 @@ func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.Tr
 		if err := rows.Scan(&row.UserID, &row.Name, &row.Email, &row.ChurchName, &row.UserStatus, &status); err != nil {
 			return nil, fmt.Errorf("scan tracker: %w", err)
 		}
-		switch {
-		case status == nil:
-			row.Status = stats.TrackerNotSubmitted
-		case *status == "approved":
-			row.Status = stats.TrackerApproved
-		default:
-			row.Status = stats.TrackerForReview
+		if status == nil {
+			row.SubmissionStatus = stats.TrackerNoReport
+		} else {
+			row.SubmissionStatus = stats.TrackerSubmitted
+			switch *status {
+			case "approved":
+				row.ReviewStatus = stats.TrackerApproved
+			case "needs_revision":
+				row.ReviewStatus = stats.TrackerNeedsRevision
+			default:
+				row.ReviewStatus = stats.TrackerPending
+			}
 		}
 		out = append(out, row)
 	}

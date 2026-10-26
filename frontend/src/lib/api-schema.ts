@@ -40,5 +40,8 @@ export type AuditLog = Always<Model<"AuditLogResponse">, "id" | "action" | "targ
 export type PageMeta = Required<Schemas["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"]>;
 export type Page<T> = { data: T[]; meta: PageMeta };
 
-export type TrackerRow = Required<Model<"TrackerRow">>;
+export type TrackerRow = Always<
+  Model<"TrackerRow">,
+  "user_id" | "name" | "email" | "church_name" | "user_status" | "submission_status"
+>;
 export type Tracker = { month: string; year: number; rows: TrackerRow[] };
