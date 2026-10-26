@@ -23,7 +23,7 @@ test.describe("signed out", () => {
     await expect(page).toHaveURL(/\/reports$/);
     await expect(page.getByText(`${ACCOUNTS.user.name} · user`)).toBeVisible();
     // A plain user sees reports and account settings without admin links.
-    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["", "My Reports", "Profile", "Change Password"]);
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["", "Profile", "Change Password"]);
     await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toHaveCount(0);
   });
 

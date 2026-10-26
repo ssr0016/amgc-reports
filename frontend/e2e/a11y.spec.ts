@@ -195,7 +195,7 @@ test.describe("page titles", () => {
 
   test("each page names itself, and a client-side navigation updates it", async ({ page }) => {
     await page.goto("/reports");
-    await expect(page).toHaveTitle("My Reports · AMGCReports");
+    await expect(page).toHaveTitle("Reports · AMGCReports");
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin All Reports", exact: true }).click();
     await expect(page).toHaveTitle("Admin · AMGCReports");
     await page.getByRole("link", { name: "Admin Users", exact: true }).click();

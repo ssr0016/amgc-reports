@@ -3,12 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ClipboardList, FileText, KeyRound, ListChecks, ScrollText, ShieldCheck, UserRound, Users } from "lucide-react";
+import { ClipboardList, KeyRound, ListChecks, ScrollText, ShieldCheck, UserRound, Users } from "lucide-react";
 import { cn } from "cn";
 import { adminSections } from "@/lib/admin-navigation";
 import { useSession } from "@/lib/session";
 
-const ADMIN_ICONS: Record<string, typeof FileText> = {
+const ADMIN_ICONS: Record<string, typeof ClipboardList> = {
   reports: ClipboardList, tracker: ListChecks, users: Users, roles: ShieldCheck, logs: ScrollText,
 };
 
@@ -43,9 +43,6 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
           height={132}
           className="h-auto w-24"
         />
-      </Link>
-      <Link href="/reports" aria-current={pathname.startsWith("/reports") ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname.startsWith("/reports"))}>
-        <FileText className="size-4" aria-hidden="true" />My Reports
       </Link>
       {canAdmin && sections.length > 0 && (
         <section aria-labelledby={`${label}-admin`} className="flex flex-col gap-1">

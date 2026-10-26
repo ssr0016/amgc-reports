@@ -9,6 +9,7 @@ import { AdminReports } from "./admin-reports";
 const h = vi.hoisted(() => ({
   perms: [] as string[],
   listReports: vi.fn(),
+  deleteReport: vi.fn(),
   toggleComplete: vi.fn(),
   exportReport: vi.fn(),
   exportReports: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("@/lib/session", () => ({ useSession: () => ({ can: (p: string) => h.per
 vi.mock("@/lib/reports", async (orig) => ({
   ...(await orig<typeof import("@/lib/reports")>()),
   listReports: h.listReports,
+  deleteReport: h.deleteReport,
   toggleComplete: h.toggleComplete,
   exportReport: h.exportReport,
   exportReports: h.exportReports,
@@ -94,14 +96,12 @@ describe("admin reports: table", () => {
     expect(excel).toHaveAccessibleName("Excel September 2026, Worker 1");
   });
 
-  it("offers no Edit, View or Delete", async () => {
+  it("offers edit and delete with the matching permissions", async () => {
     h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
-    renderReports("reports:read", "reports:approve", "reports:write", "reports:delete");
+    renderReports("reports:read", "reports:approve", "reports:write", "reports:write_any", "reports:delete", "reports:delete_any");
     await screen.findByText("Worker 1");
-    for (const name of [/Edit/, /View/, /Delete/]) {
-      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
-      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
-    }
+    expect(within(row("Worker 1")).getByRole("link", { name: /^Edit / })).toBeInTheDocument();
+    expect(within(row("Worker 1")).getByRole("button", { name: /^Delete / })).toBeInTheDocument();
   });
 });
 
@@ -202,6 +202,18 @@ describe("admin reports: filters", () => {
     expect(screen.getAllByRole("combobox").map((c) => c.id)).toEqual(["admin-month", "admin-year"]);
     expect(screen.getAllByRole("textbox")).toHaveLength(3);
     expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Worker")).toHaveAttribute("placeholder", "e.g. Juan Dela Cruz");
+    expect(screen.getByLabelText("Church")).toHaveAttribute("placeholder", "e.g. AMGC Church");
+    expect(screen.getByLabelText("Area")).toHaveAttribute("placeholder", "e.g. Metro Manila");
+  });
+
+  it("deletes a report after confirmation", async () => {
+    h.deleteReport.mockResolvedValue(undefined);
+    const { user } = renderReports("reports:read", "reports:delete", "reports:delete_any");
+    await screen.findByText("Worker 1");
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(h.deleteReport).toHaveBeenCalledWith(1));
   });
 
   it("Month lists the twelve months and no Any, so one view is one month", async () => {

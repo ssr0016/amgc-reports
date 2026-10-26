@@ -22,7 +22,7 @@ describe("app layout", () => {
   it("gives a non-admin reports and account settings", () => {
     render(<AppLayout>content</AppLayout>);
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["", "My Reports", "Profile", "Change Password"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["", "Profile", "Change Password"]);
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
   });
 
@@ -54,7 +54,7 @@ describe("app layout", () => {
     render(<AppLayout>content</AppLayout>);
     const menu = screen.getByRole("button", { name: "Menu" });
     await user.click(menu);
-    await user.click(within(screen.getByRole("dialog")).getByRole("link", { name: "My Reports" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("link", { name: "AMGC home" }));
     expect(menu).toHaveAttribute("aria-expanded", "false");
   });
 

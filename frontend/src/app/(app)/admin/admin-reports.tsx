@@ -1,9 +1,9 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, Download, Eye, Pencil, Undo2 } from "lucide-react";
+import { Bell, Check, Download, Eye, Pencil, Trash2, Undo2 } from "lucide-react";
 import { ReportsHeader, ReportsStats, ReportsTableCard } from "@/components/reports-dashboard";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
@@ -13,6 +13,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { ApiError } from "@/lib/api";
 import {
   defaultPeriod,
+  deleteReport,
   exportReport,
   exportReports,
   FIRST_YEAR,
@@ -26,6 +27,17 @@ import { ReportPreviewDialog } from "./report-preview-dialog";
 import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
 import { useReportActions } from "@/components/use-report-actions";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { errorText } from "@/lib/auth-form";
+import { refreshAdminViews } from "@/lib/query";
 
 // Which report a row control is for, so a screen reader user can tell the rows apart.
 const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
@@ -60,6 +72,18 @@ export function AdminReports() {
   });
 
   const { approve, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
+  const queryClient = useQueryClient();
+  const [target, setTarget] = useState<Report | null>(null);
+  const del = useMutation({
+    mutationFn: (id: number) => deleteReport(id),
+    onSuccess: async () => {
+      setTarget(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
+        refreshAdminViews(queryClient),
+      ]);
+    },
+  });
 
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
@@ -129,7 +153,14 @@ export function AdminReports() {
           </NativeSelect>
         </div>
         {(["worker", "church", "area"] as const).map((name) => (
-          <AuthField key={name} name={`admin-${name}`} label={name[0].toUpperCase() + name.slice(1)} value={draft[name]} onChange={(e) => setDraft({ ...draft, [name]: e.target.value })} />
+          <AuthField
+            key={name}
+            name={`admin-${name}`}
+            label={name[0].toUpperCase() + name.slice(1)}
+            placeholder={{ worker: "e.g. Juan Dela Cruz", church: "e.g. AMGC Church", area: "e.g. Metro Manila" }[name]}
+            value={draft[name]}
+            onChange={(e) => setDraft({ ...draft, [name]: e.target.value })}
+          />
         ))}
         {Object.values(draft).some(Boolean) && (
           <Button
@@ -152,7 +183,8 @@ export function AdminReports() {
       )} actions={(r) => (
         <>
           <Button size="icon" className="size-11" variant="ghost" aria-label={`Preview ${rowName(r)}`} title="Preview" onClick={() => setReportPreview(r.id)}><Eye aria-hidden="true" /></Button>
-          {can("reports:write") && !can("reports:approve") && (r.created_by === user?.user_id || can("reports:write_any")) && <Button asChild size="icon" className="size-11" variant="ghost"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
+          {can("reports:write") && (r.created_by === user?.user_id || can("reports:write_any")) && <Button asChild size="icon" className="size-11" variant="ghost"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
+          {can("reports:delete") && (r.created_by === user?.user_id || can("reports:delete_any")) && <Button size="icon" className="size-11 text-destructive" variant="ghost" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={() => { del.reset(); setTarget(r); }}><Trash2 aria-hidden="true" /></Button>}
           <Can permission="reports:approve"><Button size="icon" variant="ghost" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => approve.mutate(r)}>{r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
           <Can permission="reports:export"><Button size="icon" className="size-11" variant="ghost" aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
         </>
@@ -202,6 +234,21 @@ export function AdminReports() {
           onClose={() => setReportPreview(null)}
         />
       )}
+      <AlertDialog open={target !== null} onOpenChange={(open) => !open && !del.isPending && setTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {target ? rowName(target) : "report"}?</AlertDialogTitle>
+            <AlertDialogDescription>You can file this month again afterwards.</AlertDialogDescription>
+          </AlertDialogHeader>
+          {del.error && <p role="alert" className="text-sm text-destructive">{errorText(del.error, "Could not delete the report. Try again.")}</p>}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={del.isPending}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" disabled={del.isPending} onClick={() => target && del.mutate(target.id)}>
+              {del.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

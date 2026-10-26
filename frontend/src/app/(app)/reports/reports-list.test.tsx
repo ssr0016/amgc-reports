@@ -63,12 +63,12 @@ beforeEach(() => {
 });
 
 describe("reports list: access", () => {
-  it.each(["user", "admin"])("requests only personal reports for %s without stats cards", async (role) => {
+  it.each(["user", "admin"])("requests the community feed for %s without stats cards", async (role) => {
     h.me.role = role;
     renderList("reports:read", "reports:read_any");
     await screen.findByText("Worker 1");
-    expect(h.listReports).toHaveBeenCalledWith(expect.objectContaining({ mine: true }));
-    expect(screen.getByRole("heading", { name: "My Reports", level: 1 })).toBeInTheDocument();
+    expect(h.listReports).toHaveBeenCalledWith(expect.not.objectContaining({ mine: true }));
+    expect(screen.getByRole("heading", { name: "Reports", level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Report statistics" })).not.toBeInTheDocument();
   });
 
@@ -93,7 +93,7 @@ describe("reports list: access", () => {
   it("says when nothing matches", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderList("reports:read");
-    expect(await screen.findByText("You haven't submitted any reports yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No reports match these filters.")).toBeInTheDocument();
   });
 });
 
@@ -157,7 +157,7 @@ describe("reports list: live regions", () => {
   it("says when nothing matches, as a status", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderList("reports:read");
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("You haven't submitted any reports yet."));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("No reports match these filters."));
   });
 
   it("the page summary is announced when it changes", async () => {
@@ -321,7 +321,7 @@ describe("reports list: filters and pagination", () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");
     expect(h.listReports).toHaveBeenCalledWith({
-      month: undefined, year: 2026, worker: "Ana", area: undefined, church: undefined, page: 2, mine: true,
+      month: undefined, year: 2026, worker: "Ana", area: undefined, church: undefined, page: 2,
     });
     expect(screen.getByLabelText("Worker")).toHaveValue("Ana");
   });

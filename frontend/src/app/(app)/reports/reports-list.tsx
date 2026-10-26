@@ -69,7 +69,7 @@ function ReportsList() {
   const router = useRouter();
   const params = useSearchParams();
   const { can, user } = useSession();
-  const filters = { ...filtersFrom(params), mine: true };
+  const filters = filtersFrom(params);
   const allowed = can("reports:read");
   const { approve, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
   const [metadataPreview, setMetadataPreview] = useState<Report | null>(null);
@@ -161,7 +161,7 @@ function ReportsList() {
   const hasText = textFields.some(([name]) => text[name] !== "");
   return (
     <>
-      <ReportsHeader title="My Reports" heading="h1">
+      <ReportsHeader title="Reports" heading="h1">
         {user?.role === "user" && <Can permission="reports:write"><Button asChild className="min-h-11"><Link href="/reports/new">New Report</Link></Button></Can>}
       </ReportsHeader>
       <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} scope={params.toString()} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} filters={(
@@ -239,7 +239,7 @@ function ReportsList() {
           {error.message}
         </p>
       ) : data && data.data.length === 0 ? (
-        <p role="status" className="text-sm text-muted-foreground">You haven&apos;t submitted any reports yet.</p>
+        <p role="status" className="text-sm text-muted-foreground">No reports match these filters.</p>
       ) : (
         data && (
           <>

@@ -69,8 +69,7 @@ test("reports retain deleted and deceased owners, update badges, and preserve re
   }
   await page.goto("/reports");
   const regularRow = page.getByRole("row").filter({ hasText: account.name });
-  await expect(page.getByText("You haven't submitted any reports yet.")).toBeVisible();
-  await expect(regularRow).toHaveCount(0);
+  await expect(regularRow).toBeVisible();
 
   await page.goto("/admin");
   await page.getByRole("link", { name: "Admin Users", exact: true }).click();

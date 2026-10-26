@@ -29,7 +29,7 @@ test.describe("user", () => {
     await page.getByRole("button", { name: "Submit Report" }).click();
 
     await expect(page).toHaveURL(/\/reports$/);
-    await expect(page.getByRole("heading", { name: "My Reports", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "New Report", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Report statistics" })).toHaveCount(0);
     const row = rowOf(page, ACCOUNTS.user.name);
@@ -49,7 +49,7 @@ test.describe("user", () => {
     await page.getByLabel("Church", { exact: true }).fill(ACCOUNTS.user.church_name);
     await page.getByLabel("Area", { exact: true }).fill(ACCOUNTS.user.area_assignment);
     await page.getByLabel("Worker", { exact: true }).fill("No such worker");
-    await expect(page.getByText("You haven't submitted any reports yet.")).toBeVisible();
+    await expect(page.getByText("No reports match these filters.")).toBeVisible();
     await page.getByRole("button", { name: "Clear", exact: true }).click();
     for (const label of ["Worker", "Church", "Area"]) await expect(page.getByLabel(label, { exact: true })).toHaveValue("");
     await expect(page.getByLabel("Month", { exact: true })).toHaveValue(month);
@@ -116,7 +116,7 @@ test.describe("editor", () => {
 
   test("can open and edit someone else's report, but not approve it", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(page.getByText("You haven't submitted any reports yet.")).toBeVisible();
+    await expect(page.getByText("No reports match these filters.")).toBeVisible();
     const id = (await (await request.get("http://localhost:8081/api/v1/reports?limit=1")).json()).data[0].id;
     await page.goto(`/reports/${id}/edit`);
     await expect(page.getByLabel("Worker Name")).toHaveValue("E2E User Edited"); // write_any
@@ -206,9 +206,8 @@ test.describe("admin", () => {
 
   test("the personal list excludes other users' reports even for an admin", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(page.getByRole("heading", { name: "My Reports", exact: true })).toBeVisible();
-    await expect(page.getByText("You haven't submitted any reports yet.")).toBeVisible();
-    await expect(rowOf(page, "E2E User Edited")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
+    await expect(rowOf(page, "E2E User Edited")).toBeVisible();
     await expect(page.getByRole("region", { name: "Report statistics" })).toHaveCount(0);
     const personal = await request.get("http://localhost:8081/api/v1/reports?mine=true");
     expect(personal.status()).toBe(200);
@@ -241,7 +240,7 @@ test.describe("user, later", () => {
     await rowOf(page, "E2E User Edited").getByRole("button", { name: "Delete" }).click();
     await expect(page.getByRole("alertdialog")).toContainText(`Delete ${label}?`);
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByText("You haven't submitted any reports yet.")).toBeVisible();
+    await expect(page.getByText("No reports match these filters.")).toBeVisible();
 
     await page.goto("/reports/new");
     await page.getByRole("button", { name: "Submit Report" }).click();
