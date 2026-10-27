@@ -579,6 +579,10 @@ definitions:
         type: string
       status:
         type: string
+      summary:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary'
+        type: array
       trend:
         items:
           $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint'
@@ -605,6 +609,26 @@ definitions:
         type: array
       year:
         type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary:
+    properties:
+      churches:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch'
+        type: array
+      metric:
+        type: string
+      total:
+        type: number
+        x-nullable: true
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch:
+    properties:
+      church_name:
+        type: string
+      value:
+        type: number
+        x-nullable: true
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint:
     properties:

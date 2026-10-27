@@ -169,6 +169,11 @@ func (r *store) analyticsAttendanceYear(ctx context.Context, q stats.AttendanceQ
 		return stats.AttendanceAnalytics{}, fmt.Errorf("attendance churches: %w", err)
 	}
 
+	summary, err := r.attendanceSummary(ctx, year, startMonth, endMonth, statusWhere)
+	if err != nil {
+		return stats.AttendanceAnalytics{}, err
+	}
+
 	trend := make([]stats.AttendanceTrendPoint, 0, (endMonth-startMonth+1)*5)
 	for month := startMonth; month <= endMonth; month++ {
 		name := report.Months[month-1]
@@ -176,5 +181,70 @@ func (r *store) analyticsAttendanceYear(ctx context.Context, q stats.AttendanceQ
 			trend = append(trend, stats.AttendanceTrendPoint{Month: name, Week: week, Value: values[[2]int{month, week}]})
 		}
 	}
-	return stats.AttendanceAnalytics{Year: year, Metric: q.Metric, Status: q.Status, Period: q.Period, Trend: trend, Churches: churches}, nil
+	return stats.AttendanceAnalytics{Year: year, Metric: q.Metric, Status: q.Status, Period: q.Period, Trend: trend, Churches: churches, Summary: summary}, nil
+}
+
+func (r *store) attendanceSummary(ctx context.Context, year, startMonth, endMonth int, statusWhere string) ([]stats.AttendanceMetricSummary, error) {
+	query, args, err := r.db.Builder.
+		Select("rm.metric", "COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')", "SUM(rm.value)::double precision").
+		From("reports r").
+		Join("report_metrics rm ON rm.report_id = r.id").
+		Where("r.deleted_at IS NULL AND r.year = ? AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN ? AND ? "+statusWhere, year, startMonth, endMonth).
+		GroupBy("1", "2").
+		OrderBy("1", "2").
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build attendance summary query: %w", err)
+	}
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query attendance summary: %w", err)
+	}
+	defer rows.Close()
+
+	valuesByMetric := make(map[string]map[string]float64)
+	churchNames := make([]string, 0)
+	seenChurches := make(map[string]bool)
+	for rows.Next() {
+		var metric, church string
+		var value float64
+		if err := rows.Scan(&metric, &church, &value); err != nil {
+			return nil, fmt.Errorf("scan attendance summary: %w", err)
+		}
+		if valuesByMetric[metric] == nil {
+			valuesByMetric[metric] = make(map[string]float64)
+		}
+		valuesByMetric[metric][church] = value
+		if !seenChurches[church] {
+			seenChurches[church] = true
+			churchNames = append(churchNames, church)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance summary: %w", err)
+	}
+
+	summary := make([]stats.AttendanceMetricSummary, 0, len(report.MetricKeys))
+	for _, metric := range report.MetricKeys {
+		metricValues := valuesByMetric[metric]
+		var total *float64
+		if len(metricValues) > 0 {
+			sum := 0.0
+			for _, value := range metricValues {
+				sum += value
+			}
+			total = &sum
+		}
+		metricChurches := make([]stats.AttendanceSummaryChurch, 0, len(churchNames))
+		for _, church := range churchNames {
+			value, ok := metricValues[church]
+			if ok {
+				metricChurches = append(metricChurches, stats.AttendanceSummaryChurch{ChurchName: church, Value: &value})
+			} else {
+				metricChurches = append(metricChurches, stats.AttendanceSummaryChurch{ChurchName: church})
+			}
+		}
+		summary = append(summary, stats.AttendanceMetricSummary{Metric: metric, Total: total, Churches: metricChurches})
+	}
+	return summary, nil
 }

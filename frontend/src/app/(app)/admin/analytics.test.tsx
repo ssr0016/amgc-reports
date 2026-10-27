@@ -29,6 +29,11 @@ const body: AttendanceAnalytics = {
   period: "full_year",
   trend,
   churches: [{ church_name: "Bethel", value: 26 }],
+  summary: [
+    { metric: "worship_service", total: 26, churches: [{ church_name: "Bethel", value: 26 }] },
+    { metric: "tithes_offering", total: 120.5, churches: [{ church_name: "Bethel", value: 120.5 }] },
+    { metric: "baptism", total: null, churches: [{ church_name: "Bethel", value: null }] },
+  ],
 };
 
 function renderAnalytics() {
@@ -105,6 +110,17 @@ describe("analytics", () => {
     expect(await screen.findByText("+30% vs last year")).toBeInTheDocument();
     expect(screen.getAllByText("2025").length).toBeGreaterThan(0);
     expect(screen.getByRole("table", { name: "Church breakdown data" })).toHaveTextContent("20");
+  });
+
+  it("renders the full metrics summary with dynamic churches and nullable currency values", async () => {
+    renderAnalytics();
+
+    const table = await screen.findByRole("table", { name: "Full metrics summary" });
+    expect(within(table).getByText("Worship Service")).toBeInTheDocument();
+    expect(within(table).getByText("Tithes & Offering")).toBeInTheDocument();
+    expect(within(table).getAllByText("Bethel").length).toBeGreaterThan(0);
+    expect(within(table).getAllByText("₱120.50")).toHaveLength(2);
+    expect(within(table).getAllByText("—")).toHaveLength(2);
   });
 
   it("builds a CSV with escaped KPI and table values", () => {

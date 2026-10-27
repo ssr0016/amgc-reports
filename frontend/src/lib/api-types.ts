@@ -3459,6 +3459,7 @@ export interface components {
             metric?: string;
             period?: string;
             status?: string;
+            summary?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary"][];
             trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"][];
             year?: number;
         };
@@ -3470,6 +3471,15 @@ export interface components {
             churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"][];
             trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"][];
             year?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary": {
+            churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch"][];
+            metric?: string;
+            total?: number | null;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch": {
+            church_name?: string;
+            value?: number | null;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint": {
             month?: string;

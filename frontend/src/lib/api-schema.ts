@@ -52,6 +52,12 @@ export type Tracker = { month: string; year: number; rows: TrackerRow[] };
 
 export type AttendanceTrendPoint = Required<StatsModel<"AttendanceTrendPoint">>;
 export type AttendanceChurch = Required<StatsModel<"AttendanceChurch">>;
+export type AttendanceSummaryChurch = StatsModel<"AttendanceSummaryChurch">;
+export type AttendanceMetricSummary = {
+  metric: string;
+  total: number | null;
+  churches: AttendanceSummaryChurch[];
+};
 export type AttendanceComparison = {
   year: number;
   trend: AttendanceTrendPoint[];
@@ -64,5 +70,6 @@ export type AttendanceAnalytics = {
   period: string;
   trend: AttendanceTrendPoint[];
   churches: AttendanceChurch[];
+  summary: AttendanceMetricSummary[];
   comparison?: AttendanceComparison;
 };

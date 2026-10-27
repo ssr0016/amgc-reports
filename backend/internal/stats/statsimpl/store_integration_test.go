@@ -34,9 +34,14 @@ func TestStore_AnalyticsAttendance(t *testing.T) {
 	ctx := context.Background()
 	create := func(month string, year int, value string) {
 		t.Helper()
+		metrics := map[string]report.MetricWeeks{"worship_service": {Week1: analyticsNum(value)}}
+		if month == "January" && year == 2026 {
+			metrics["tithes_offering"] = report.MetricWeeks{Week1: analyticsNum("120.50")}
+			metrics["baptism"] = report.MetricWeeks{Week1: analyticsNum("0")}
+		}
 		_, err := reports.Create(ctx, worker.ID, year, report.CreateReportRequest{
 			Month:   month,
-			Metrics: map[string]report.MetricWeeks{"worship_service": {Week1: analyticsNum(value)}},
+			Metrics: metrics,
 		})
 		require.NoError(t, err)
 	}
@@ -52,6 +57,21 @@ func TestStore_AnalyticsAttendance(t *testing.T) {
 	require.Len(t, got.Trend, 15)
 	require.Len(t, got.Churches, 1)
 	assert.Equal(t, 2.0, got.Churches[0].Value)
+	require.Len(t, got.Summary, 21)
+	tithes := got.Summary[8]
+	assert.Equal(t, "tithes_offering", tithes.Metric)
+	require.NotNil(t, tithes.Total)
+	assert.Equal(t, 120.50, *tithes.Total)
+	require.Len(t, tithes.Churches, 1)
+	require.NotNil(t, tithes.Churches[0].Value)
+	assert.Equal(t, 120.50, *tithes.Churches[0].Value)
+	baptism := got.Summary[18]
+	require.NotNil(t, baptism.Total)
+	assert.Equal(t, 0.0, *baptism.Total)
+	sundaySchool := got.Summary[1]
+	assert.Nil(t, sundaySchool.Total)
+	require.Len(t, sundaySchool.Churches, 1)
+	assert.Nil(t, sundaySchool.Churches[0].Value)
 	require.NotNil(t, got.Comparison)
 	assert.Equal(t, 2025, got.Comparison.Year)
 	assert.Len(t, got.Comparison.Trend, 15)

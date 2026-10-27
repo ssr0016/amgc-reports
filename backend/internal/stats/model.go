@@ -29,13 +29,14 @@ type AttendanceComparison struct {
 }
 
 type AttendanceAnalytics struct {
-	Year       int                    `json:"year"`
-	Metric     string                 `json:"metric"`
-	Status     string                 `json:"status"`
-	Trend      []AttendanceTrendPoint `json:"trend"`
-	Churches   []AttendanceChurch     `json:"churches"`
-	Period     string                 `json:"period"`
-	Comparison *AttendanceComparison  `json:"comparison,omitempty"`
+	Year       int                       `json:"year"`
+	Metric     string                    `json:"metric"`
+	Status     string                    `json:"status"`
+	Trend      []AttendanceTrendPoint    `json:"trend"`
+	Churches   []AttendanceChurch        `json:"churches"`
+	Summary    []AttendanceMetricSummary `json:"summary"`
+	Period     string                    `json:"period"`
+	Comparison *AttendanceComparison     `json:"comparison,omitempty"`
 }
 
 type AttendanceTrendPoint struct {
@@ -47,6 +48,17 @@ type AttendanceTrendPoint struct {
 type AttendanceChurch struct {
 	ChurchName string  `json:"church_name"`
 	Value      float64 `json:"value"`
+}
+
+type AttendanceMetricSummary struct {
+	Metric   string                    `json:"metric"`
+	Total    *float64                  `json:"total" extensions:"x-nullable"`
+	Churches []AttendanceSummaryChurch `json:"churches"`
+}
+
+type AttendanceSummaryChurch struct {
+	ChurchName string   `json:"church_name"`
+	Value      *float64 `json:"value" extensions:"x-nullable"`
 }
 
 func AnalyticsPeriodBounds(period string) (int, int, bool) {

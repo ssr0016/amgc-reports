@@ -3678,6 +3678,12 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
+                "summary": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary"
+                    }
+                },
                 "trend": {
                     "type": "array",
                     "items": {
@@ -3717,6 +3723,36 @@ const docTemplate = `{
                 },
                 "year": {
                     "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary": {
+            "type": "object",
+            "properties": {
+                "churches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch"
+                    }
+                },
+                "metric": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "number",
+                    "x-nullable": true
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch": {
+            "type": "object",
+            "properties": {
+                "church_name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number",
+                    "x-nullable": true
                 }
             }
         },
