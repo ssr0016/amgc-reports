@@ -2533,6 +2533,34 @@ paths:
       summary: Submit report
       tags:
       - reports
+  /reports/current:
+    get:
+      description: Returns the authenticated user's report for the current filing
+        period.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get current report
+      tags:
+      - reports
   /users:
     get:
       description: Needs users:list. Returns paginated list of users

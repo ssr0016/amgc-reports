@@ -149,6 +149,27 @@ func (s *service) previousMonth() (string, int) {
 	return report.Months[prev.Month()-1], prev.Year()
 }
 
+// Current returns the caller's report for the filing period, if one exists.
+func (s *service) Current(ctx context.Context, userID int64) (*report.ReportResponse, error) {
+	a, err := s.actor(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	month, year := s.previousMonth()
+	reports, _, err := s.reports.List(ctx, report.ListReportsParams{
+		Month: month, Year: year, CreatedBy: userID,
+	}, pagination.Params{Page: 1, Limit: 1})
+	if err != nil {
+		return nil, fmt.Errorf("get current report: %w", err)
+	}
+	if len(reports) == 0 {
+		return nil, report.ErrReportNotFound
+	}
+	resp := reports[0].ToResponse()
+	a.redact(&resp)
+	return &resp, nil
+}
+
 // Create files a report for userID. A missing year defaults to the current
 // year (D-8), or to the previous month's year when that is the month asked for
 // (so December filed in January lands in last year). Without reports:write_any

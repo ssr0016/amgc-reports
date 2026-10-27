@@ -32,6 +32,7 @@ const MaxExportReports = 100
 // (D-1), and one transaction per mutation covering report, metrics and audit
 // (D-10, D-14). ip is recorded in the audit row.
 type Service interface {
+	Current(ctx context.Context, userID int64) (*ReportResponse, error)
 	Create(ctx context.Context, userID int64, ip string, req CreateReportRequest) (*ReportResponse, error)
 	Submit(ctx context.Context, userID int64, ip string, id int64) (*ReportResponse, error)
 	Get(ctx context.Context, userID, id int64) (*ReportResponse, error)

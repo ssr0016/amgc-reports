@@ -41,6 +41,9 @@ func (p permRoles) GetPermissions(context.Context, int64) ([]accesscontrol.Permi
 // okReportSvc answers every call successfully; it proves a request got past the gate.
 type okReportSvc struct{}
 
+func (okReportSvc) Current(context.Context, int64) (*report.ReportResponse, error) {
+	return &report.ReportResponse{}, nil
+}
 func (okReportSvc) Create(context.Context, int64, string, report.CreateReportRequest) (*report.ReportResponse, error) {
 	return &report.ReportResponse{}, nil
 }
@@ -136,6 +139,7 @@ var reportRoutes = []struct {
 	name, method, path, body, perm string
 }{
 	{"list", http.MethodGet, "/api/v1/reports", "", "reports:read"},
+	{"current", http.MethodGet, "/api/v1/reports/current", "", "reports:read"},
 	{"create", http.MethodPost, "/api/v1/reports", `{"month":"May"}`, "reports:write"},
 	{"get", http.MethodGet, "/api/v1/reports/1", "", "reports:read"},
 	{"update", http.MethodPut, "/api/v1/reports/1", `{"month":"May"}`, "reports:write"},

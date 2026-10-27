@@ -1,4 +1,4 @@
-import { api, downloadFile } from "./api";
+import { api, ApiError, downloadFile } from "./api";
 import type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetadata } from "./api-schema";
 
 export type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetadata };
@@ -25,6 +25,15 @@ export function listReports(filters: ReportFilters = {}): Promise<Page<Report>> 
 }
 
 export const getReport = (id: number) => api<Report>(`/reports/${id}`);
+
+export async function getCurrentReport(): Promise<Report | null> {
+  try {
+    return await api<Report>("/reports/current");
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
 
 export const createReport = (input: ReportInput, draft = false) =>
   api<Report>("/reports", { method: "POST", body: { ...input, draft } });

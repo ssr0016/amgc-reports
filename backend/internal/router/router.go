@@ -95,6 +95,7 @@ func Setup(
 	// ============================================================
 	reports := api.Group("/reports", authn, ourmiddleware.RequireAuth(), loadCaller)
 	reports.GET("", reportHandler.ListReports, perm("reports:read"), limits.Read)
+	reports.GET("/current", reportHandler.CurrentReport, perm("reports:read"), limits.Read)
 	// One shared bucket for all four writes (each costs a transaction and an audit
 	// row). It runs after RequirePermission, so only callers who may write use
 	// tokens; a user without the permission cannot exhaust a bucket others share.

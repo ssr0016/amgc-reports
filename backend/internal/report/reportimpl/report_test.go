@@ -170,6 +170,26 @@ func TestReportService_Create(t *testing.T) {
 	})
 }
 
+func TestReportService_Current(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	created, err := f.svc.Create(ctx, alice, "", func() report.CreateReportRequest {
+		r := req("April")
+		r.Draft = true
+		return r
+	}())
+	require.NoError(t, err)
+
+	got, err := f.svc.Current(ctx, alice)
+	require.NoError(t, err)
+	assert.Equal(t, created.ID, got.ID)
+	assert.Equal(t, "April", got.Month)
+	assert.Equal(t, 2026, got.Year)
+
+	_, err = f.svc.Current(ctx, bob)
+	assert.ErrorIs(t, err, report.ErrReportNotFound)
+}
+
 func TestReportService_CreatePeriod(t *testing.T) {
 	ctx := context.Background()
 	at := func(f fixture, t time.Time) { f.svc.now = func() time.Time { return t } }

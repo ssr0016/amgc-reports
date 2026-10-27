@@ -33,6 +33,12 @@ type fakeReportSvc struct {
 	gotExport report.ExportReportsRequest
 	gotPrev   report.ExcelPreviewRequest
 	total     int64
+	current   *report.ReportResponse
+}
+
+func (f *fakeReportSvc) Current(_ context.Context, uid int64) (*report.ReportResponse, error) {
+	f.gotUser = uid
+	return f.current, f.err
 }
 
 func (f *fakeReportSvc) Create(_ context.Context, uid int64, ip string, _ report.CreateReportRequest) (*report.ReportResponse, error) {
@@ -108,6 +114,7 @@ func serveReport(t *testing.T, svc report.Service, userID int64, method, target,
 	})
 	e.POST("/reports", h.CreateReport)
 	e.GET("/reports", h.ListReports)
+	e.GET("/reports/current", h.CurrentReport)
 	e.GET("/reports/:id", h.GetReport)
 	e.PUT("/reports/:id", h.UpdateReport)
 	e.DELETE("/reports/:id", h.SoftDeleteReport)
@@ -184,6 +191,23 @@ func TestReportHandler_NoSessionIs401(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, want 401", rec.Code)
 	}
+}
+
+func TestReportHandler_CurrentReport(t *testing.T) {
+	t.Run("returns the current report", func(t *testing.T) {
+		f := &fakeReportSvc{current: &report.ReportResponse{ID: 12, Month: "September", Year: 2026, Status: "draft"}}
+		rec, _ := serveReport(t, f, 5, http.MethodGet, "/reports/current", "")
+		if rec.Code != http.StatusOK || f.gotUser != 5 || !strings.Contains(rec.Body.String(), `"id":12`) {
+			t.Errorf("status=%d user=%d body=%s", rec.Code, f.gotUser, rec.Body.String())
+		}
+	})
+
+	t.Run("maps no current report to 404", func(t *testing.T) {
+		rec, body := serveReport(t, &fakeReportSvc{err: report.ErrReportNotFound}, 5, http.MethodGet, "/reports/current", "")
+		if rec.Code != http.StatusNotFound || body.Error != "NOT_FOUND" {
+			t.Errorf("status=%d error=%q", rec.Code, body.Error)
+		}
+	})
 }
 
 func TestReportHandler_Success(t *testing.T) {

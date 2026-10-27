@@ -210,6 +210,28 @@ func (h *ReportHandler) ListReports(c echo.Context) error {
 	})
 }
 
+// CurrentReport godoc
+// @Summary      Get current report
+// @Description  Returns the authenticated user's report for the current filing period.
+// @Tags         reports
+// @Produce      json
+// @Security     CookieAuth
+// @Success      200 {object} report.ReportResponse
+// @Failure      401 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /reports/current [get]
+func (h *ReportHandler) CurrentReport(c echo.Context) error {
+	uid, err := h.userID(c)
+	if err != nil {
+		return err
+	}
+	rep, err := h.svc.Current(c.Request().Context(), uid)
+	if err != nil {
+		return reportError(err, "failed to get current report")
+	}
+	return c.JSON(http.StatusOK, rep)
+}
+
 // UpdateReport godoc
 // @Summary      Update report
 // @Description  Replaces the report's fields and its whole metric set. A missing year keeps the current year. Without reports:write_any only the caller's own report can be updated.

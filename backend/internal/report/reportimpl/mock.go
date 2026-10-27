@@ -220,8 +220,12 @@ func (m *MockStore) Dashboard(_ context.Context, month string, year int) ([]repo
 // matchesReport applies the list filters: not deleted, owner, year, month
 // (case-insensitive) and partial case-insensitive worker, area and church.
 func matchesReport(r *report.Report, p report.ListReportsParams) bool {
-	if r.DeletedAt != nil ||
-		(p.CreatedBy != 0 && r.CreatedBy != p.CreatedBy) ||
+	return r.DeletedAt == nil && matchesReportFilters(r, p) &&
+		containsFold(r.Worker, p.Worker) && containsFold(r.AreaAssignment, p.Area) && containsFold(r.ChurchName, p.Church)
+}
+
+func matchesReportFilters(r *report.Report, p report.ListReportsParams) bool {
+	if (p.CreatedBy != 0 && r.CreatedBy != p.CreatedBy) ||
 		(p.Year != 0 && int(r.Year) != p.Year) ||
 		(p.Month != "" && !strings.EqualFold(r.Month, p.Month)) ||
 		(p.Completed != nil && r.Completed != *p.Completed) ||
@@ -229,7 +233,7 @@ func matchesReport(r *report.Report, p report.ListReportsParams) bool {
 		(p.ExcludeDrafts && r.Status == "draft") {
 		return false
 	}
-	return containsFold(r.Worker, p.Worker) && containsFold(r.AreaAssignment, p.Area) && containsFold(r.ChurchName, p.Church)
+	return true
 }
 
 func (m *MockStore) RequestRevision(ctx context.Context, id, approverID int64, adminNotes ...string) (*report.Report, error) {
