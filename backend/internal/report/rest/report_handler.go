@@ -163,6 +163,7 @@ func (h *ReportHandler) GetReport(c echo.Context) error {
 // @Param        area query string false "Partial, case-insensitive match on area assignment"
 // @Param        church query string false "Partial, case-insensitive match on church name"
 // @Param        status query string false "Status: pending, approved or needs_revision"
+// @Param        revised query bool false "Only reports resubmitted after a revision request, any status"
 // @Param        mine query bool false "Only the authenticated user's reports"
 // @Success      200 {object} pagination.Response[report.ReportResponse]
 // @Failure      400 {object} map[string]string
@@ -188,6 +189,11 @@ func (h *ReportHandler) ListReports(c echo.Context) error {
 		}
 		if mine {
 			p.CreatedBy = uid
+		}
+	}
+	if value := c.QueryParam("revised"); value != "" {
+		if p.Revised, err = strconv.ParseBool(value); err != nil {
+			return apperror.BadRequest("invalid revised")
 		}
 	}
 	if y := c.QueryParam("year"); y != "" {

@@ -197,6 +197,9 @@ func listWhere(p report.ListReportsParams) sq.And {
 	if p.ExcludeDrafts {
 		where = append(where, sq.NotEq{"r.status": "draft"})
 	}
+	if p.Revised {
+		where = append(where, sq.NotEq{"r.last_revised_at": nil})
+	}
 	if p.Worker != "" {
 		where = append(where, sq.ILike{"r.worker": "%" + escapeLike(p.Worker) + "%"})
 	}

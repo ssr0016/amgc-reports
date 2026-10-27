@@ -226,6 +226,8 @@ type ListReportsParams struct {
 	// Completed limits the list to approved (true) or pending (false) reports; nil = any.
 	Completed *bool
 	Status    string
+	// Revised limits the list to reports resubmitted after a revision request, whatever their status now.
+	Revised bool
 }
 
 // ToResponse converts a report to its API form. A NUMERIC value is emitted in

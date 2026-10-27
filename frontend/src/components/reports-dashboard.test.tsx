@@ -11,7 +11,7 @@ const rows = [
 const draftRow = { ...rows[0], id: 3, worker: "Draft Worker", status: "draft" } as Report;
 
 function table(selectable = true, tableRows = rows) {
-  return <ReportsTableCard rows={tableRows} selectable={selectable} filters={<span>Filters</span>} actions={() => <span>Preview</span>}><span>Pagination</span></ReportsTableCard>;
+  return <ReportsTableCard rows={tableRows} selectable={selectable} onRevisedChange={() => {}} filters={<span>Filters</span>} actions={() => <span>Preview</span>}><span>Pagination</span></ReportsTableCard>;
 }
 
 describe("reports table", () => {
@@ -50,6 +50,7 @@ describe("reports table", () => {
       <ReportsTableCard
         rows={rows}
         selectable
+        onRevisedChange={() => {}}
         filters={<span>Filters</span>}
         actions={() => <span>Preview</span>}
         bulkActions={{ approve, unapprove }}
@@ -83,6 +84,7 @@ describe("reports table", () => {
       <ReportsTableCard
         rows={rows}
         selectable
+        onRevisedChange={() => {}}
         filters={<span>Filters</span>}
         actions={() => <span>Preview</span>}
         bulkActions={{ approve, unapprove }}

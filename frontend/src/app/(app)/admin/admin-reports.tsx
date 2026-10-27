@@ -56,6 +56,7 @@ export function AdminReports() {
 
   const [period, setPeriod] = useState<{ month: string; year: number }>(defaultPeriod);
   const [page, setPage] = useState(1);
+  const [revised, setRevised] = useState(false);
   const [search, setSearch] = useState({ worker: "", church: "", area: "" });
   const [draft, setDraft] = useState(search);
 
@@ -68,7 +69,7 @@ export function AdminReports() {
     return () => clearTimeout(timer);
   }, [draft, search]);
 
-  const filters = { ...search, month: period.month, year: period.year, page: page > 1 ? page : undefined };
+  const filters = { ...search, month: period.month, year: period.year, revised: revised || undefined, page: page > 1 ? page : undefined };
   const { data, error, isPending, refetch } = useQuery({
     queryKey: ["reports", filters], // the same prefix as /reports, so one invalidation reaches both
     queryFn: () => listReports(filters),
@@ -128,7 +129,7 @@ export function AdminReports() {
         </Button>
       </ReportsHeader>
       <ReportsStats data={error ? undefined : data} />
-      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} bulkActions={can("reports:approve") ? {
+      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} onRevisedChange={(on) => { setRevised(on); setPage(1); }} bulkActions={can("reports:approve") ? {
         busy: bulkToggle.isPending,
         approve: (reports) => bulkToggle.mutateAsync({ reports, action: "approve" }).then(() => undefined),
         unapprove: (reports, adminNotes) => bulkToggle.mutateAsync({ reports, action: "unapprove", adminNotes }).then(() => undefined),

@@ -2421,6 +2421,8 @@ export interface paths {
                     church?: string;
                     /** @description Status: pending, approved or needs_revision */
                     status?: string;
+                    /** @description Only reports resubmitted after a revision request, any status */
+                    revised?: boolean;
                     /** @description Only the authenticated user's reports */
                     mine?: boolean;
                 };

@@ -15,7 +15,7 @@ import { ReportOwnerBadges } from "@/components/report-owner-badges";
 import type { Page, Report } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { getStats } from "@/lib/stats";
-import { CircleCheck, Clock, FilePen, FileText, Filter, Loader2, type LucideIcon } from "lucide-react";
+import { CircleCheck, Clock, FilePen, FileText, Filter, Loader2, RefreshCw, type LucideIcon } from "lucide-react";
 import { StatCard, type StatTone } from "@/components/stat-card";
 
 // Subtle row icon buttons: muted until the row is hovered, then each shows its colour; hovering the icon adds a tint.
@@ -27,6 +27,10 @@ export const tone = {
   red: "group-hover/row:text-red-600 hover:bg-red-500/10 dark:hover:bg-red-500/10 hover:text-red-600 dark:group-hover/row:text-red-400 dark:hover:text-red-400",
 };
 export { dashboardTheme as reportsTheme } from "./dashboard-theme";
+
+// Resubmitted after a revision request, whatever its status now.
+const isRevised = (r: Report) => !!r.last_revised_at;
+const revisedOn = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" });
 
 export function ReportsHeader({ title, heading: Heading = "h2", children }: { title: string; heading?: "h1" | "h2"; children?: ReactNode }) {
   return (
@@ -70,7 +74,7 @@ export function ReportsStats({ data }: { data?: Page<Report> }) {
   );
 }
 
-export function ReportsTableCard({ rows, filters, children, actions, selectable, bulkActions }: {
+export function ReportsTableCard({ rows, filters, children, actions, selectable, bulkActions, onRevisedChange }: {
   rows: Report[];
   filters: ReactNode;
   children: ReactNode;
@@ -81,13 +85,19 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
     approve: (reports: Report[]) => Promise<void>;
     unapprove: (reports: Report[], adminNotes: string) => Promise<void>;
   };
+  /** The Revised tab asks the server for every revised report, so the page refetches. */
+  onRevisedChange: (revised: boolean) => void;
 }) {
   const [status, setStatus] = useState("all");
   const [selectedReports, setSelectedReports] = useState<Report[]>([]);
   const [bulkUnapproveOpen, setBulkUnapproveOpen] = useState(false);
   const [bulkAdminNotes, setBulkAdminNotes] = useState("");
   const reportStatus = (r: Report) => r.status ?? (r.completed ? "approved" : "pending");
-  const visible = rows.filter((r) => status === "all" || reportStatus(r) === status);
+  const visible = rows.filter((r) => status === "all" || (status === "revised" ? isRevised(r) : reportStatus(r) === status));
+  function pickStatus(value: string) {
+    if ((value === "revised") !== (status === "revised")) onRevisedChange(value === "revised");
+    setStatus(value);
+  }
   const selectedIds = new Set(selectedReports.map((r) => r.id));
   const selectedVisible = visible.filter((r) => selectedIds.has(r.id));
   const allSelected = visible.length > 0 && selectedVisible.length === visible.length;
@@ -122,13 +132,13 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 sm:px-6">
         {/* A segmented control: the pressed tab is lifted onto the card colour. */}
         <div role="group" aria-label="Filter status on this page" className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-muted p-1">
-          {["all", "draft", "approved", "pending", "needs_revision"].map((value) => (
-            <Button key={value} variant="ghost" className="rounded-md px-3 text-muted-foreground hover:bg-background/60 aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm dark:hover:bg-background/40" aria-pressed={status === value} onClick={() => setStatus(value)}>
+          {["all", "draft", "approved", "pending", "needs_revision", "revised"].map((value) => (
+            <Button key={value} variant="ghost" className="rounded-md px-3 text-muted-foreground hover:bg-background/60 aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm dark:hover:bg-background/40" aria-pressed={status === value} onClick={() => pickStatus(value)}>
               {value === "needs_revision" ? "Needs Revision" : value[0].toUpperCase() + value.slice(1)}
             </Button>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">Status filters apply to this page</p>
+        <p className="text-xs text-muted-foreground">{status === "revised" ? "Showing every revised report" : "Status filters apply to this page"}</p>
       </div>
       {/* The container must scroll vertically for the header to stick, as on the Logs page. */}
       <div className="min-w-0 p-5 sm:p-6 [&_[data-slot=table-container]]:max-h-[70vh]">
@@ -148,9 +158,16 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
               <TableCell>{r.month}</TableCell><TableCell className="text-right font-mono tabular-nums">{r.year}</TableCell>
               <TableCell>{r.area_assignment || "—"}</TableCell><TableCell>{r.church_name || "—"}</TableCell>
               <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  <ReportStatusBadge status={reportStatus(r)} />
-                  {r.status === "pending" && r.last_revised_at && <Badge variant="outline">Revised</Badge>}
+                <div className="flex flex-col items-start gap-1">
+                  <div className="flex flex-wrap gap-1">
+                    <ReportStatusBadge status={reportStatus(r)} />
+                    {isRevised(r) && (
+                      <Badge className="gap-1 bg-violet-50 font-semibold text-violet-800 ring-1 ring-violet-600/30 ring-inset dark:bg-violet-500/15 dark:text-violet-200 dark:ring-violet-400/40">
+                        <RefreshCw aria-hidden="true" className="size-3" />Revised
+                      </Badge>
+                    )}
+                  </div>
+                  {isRevised(r) && <time dateTime={r.last_revised_at} className="text-xs text-muted-foreground">Revised on {revisedOn.format(new Date(r.last_revised_at!))}</time>}
                 </div>
               </TableCell>
               <TableCell><div className="flex justify-end gap-1">{actions(r)}</div></TableCell>

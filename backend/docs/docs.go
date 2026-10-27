@@ -2132,6 +2132,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
+                        "description": "Only reports resubmitted after a revision request, any status",
+                        "name": "revised",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
                         "description": "Only the authenticated user's reports",
                         "name": "mine",
                         "in": "query"

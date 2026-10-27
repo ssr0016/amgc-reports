@@ -77,6 +77,8 @@ function ReportsList() {
   const params = useSearchParams();
   const { can, user } = useSession();
   const filters = filtersFrom(params);
+  const [revised, setRevised] = useState(false);
+  const query = { ...filters, revised: revised || undefined };
   const allowed = can("reports:read");
   const { approve, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
   const [unapproveTarget, setUnapproveTarget] = useState<Report | null>(null);
@@ -86,8 +88,8 @@ function ReportsList() {
   const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
 
   const { data, error, isPending } = useQuery({
-    queryKey: ["reports", user?.user_id, filters],
-    queryFn: () => listReports(filters),
+    queryKey: ["reports", user?.user_id, query],
+    queryFn: () => listReports(query),
     enabled: allowed,
     placeholderData: keepPreviousData,
     // Fresh for 30 s, so switching tabs back and forth does not refetch every time; the read limit is 60 a minute.
@@ -185,7 +187,12 @@ function ReportsList() {
       <ReportsHeader title="Reports" heading="h1">
         {user?.role === "user" && <Can permission="reports:write">{!currentReport.isPending && !currentReport.isError && <Button asChild className="min-h-11"><Link href={reportAction(currentReport.data).href}>{reportAction(currentReport.data).label}</Link></Button>}</Can>}
       </ReportsHeader>
-      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={false} filters={(
+      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={false} onRevisedChange={(on) => {
+        setRevised(on);
+        const next = new URLSearchParams(params);
+        next.delete("page");
+        router.replace(`/reports?${next}`);
+      }} filters={(
       <form onSubmit={(e) => e.preventDefault()} className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <div className="flex flex-col gap-2">
           <Label htmlFor="month">Month</Label>

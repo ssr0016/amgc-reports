@@ -2202,6 +2202,10 @@ paths:
         in: query
         name: status
         type: string
+      - description: Only reports resubmitted after a revision request, any status
+        in: query
+        name: revised
+        type: boolean
       - description: Only the authenticated user's reports
         in: query
         name: mine

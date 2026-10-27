@@ -230,6 +230,7 @@ func matchesReportFilters(r *report.Report, p report.ListReportsParams) bool {
 		(p.Month != "" && !strings.EqualFold(r.Month, p.Month)) ||
 		(p.Completed != nil && r.Completed != *p.Completed) ||
 		(p.Status != "" && r.Status != p.Status) ||
+		(p.Revised && r.LastRevisedAt == nil) ||
 		(p.ExcludeDrafts && r.Status == "draft") {
 		return false
 	}

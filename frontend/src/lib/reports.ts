@@ -11,6 +11,7 @@ export type ReportFilters = {
   area?: string;
   church?: string;
   status?: "pending" | "approved" | "needs_revision";
+  revised?: boolean;
   page?: number;
   limit?: number;
 };

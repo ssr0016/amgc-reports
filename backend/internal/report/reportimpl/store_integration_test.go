@@ -127,6 +127,11 @@ func TestReportRepo(t *testing.T) {
 		assert.NotNil(t, updated.LastRevisedAt)
 		require.NotNil(t, updated.UserNotes)
 		assert.Equal(t, "I corrected the weekly totals.", *updated.UserNotes)
+
+		got, total, err := repo.List(ctx, report.ListReportsParams{Revised: true}, pagination.Params{Page: 1, Limit: 10})
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, total)
+		assert.Equal(t, jan.ID, got[0].ID)
 	})
 
 	t.Run("toggle approves then unapproves", func(t *testing.T) {

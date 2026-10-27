@@ -105,6 +105,16 @@ describe("admin reports: table", () => {
 		expect(within(row("Worker 1")).getByText("Revised")).toBeInTheDocument();
 	});
 
+	it("asks the server for every revised report from page 1", async () => {
+		h.listReports.mockResolvedValue(page([report(1, { status: "approved", last_revised_at: "2026-10-27T02:00:00Z" })]));
+		renderReports("reports:read");
+		await screen.findByText("Worker 1");
+		await userEvent.click(screen.getByRole("button", { name: "Revised" }));
+		await waitFor(() => expect(h.listReports).toHaveBeenLastCalledWith(expect.objectContaining({ revised: true, page: undefined })));
+		expect(within(row("Worker 1")).getByText("Revised")).toBeInTheDocument();
+		expect(within(row("Worker 1")).getByText("Revised on Oct 27, 2026")).toBeInTheDocument();
+	});
+
   it("has an Excel control named for its row", async () => {
     renderReports("reports:read", "reports:export");
     await screen.findByText("Worker 1");
