@@ -105,7 +105,8 @@ func readAvatar(c echo.Context) ([]byte, error) {
 }
 
 func (h *AvatarHandler) saveAvatar(ctx context.Context, userID int64, contentType string, data []byte) (*user.User, error) {
-	url, err := h.storage.Put(ctx, fmt.Sprintf("avatars/%d/%s", userID, rand.Text()), contentType, data)
+	key := fmt.Sprintf("avatars/%d/%s.%s", userID, rand.Text(), avatarExtensions[contentType])
+	url, err := h.storage.Put(ctx, key, contentType, data)
 	if err != nil {
 		return nil, apperror.Internal("failed to store avatar").WithError(err)
 	}

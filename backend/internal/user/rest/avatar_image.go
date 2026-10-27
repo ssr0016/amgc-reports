@@ -17,10 +17,11 @@ import (
 const maxAvatarDimension = 512
 
 var (
-	avatarFormats = map[string]string{"jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
-	avatarWebP    = riff.FourCC{'W', 'E', 'B', 'P'}
-	avatarVP8     = riff.FourCC{'V', 'P', '8', ' '}
-	avatarVP8L    = riff.FourCC{'V', 'P', '8', 'L'}
+	avatarFormats    = map[string]string{"jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
+	avatarExtensions = map[string]string{"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+	avatarWebP       = riff.FourCC{'W', 'E', 'B', 'P'}
+	avatarVP8        = riff.FourCC{'V', 'P', '8', ' '}
+	avatarVP8L       = riff.FourCC{'V', 'P', '8', 'L'}
 )
 
 func validateAvatarImage(data []byte) (string, error) {

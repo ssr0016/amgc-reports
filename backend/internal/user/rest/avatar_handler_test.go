@@ -116,7 +116,7 @@ func TestAvatarHandler_UploadAvatar(t *testing.T) {
 		st := &fakeAvatarStorage{}
 		rec := serveAvatar(t, st, "avatar", avatarPNG(t, 2, 3))
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-		assert.Regexp(t, `^avatars/1/[A-Za-z0-9_-]+$`, st.key)
+		assert.Regexp(t, `^avatars/1/[A-Za-z0-9_-]+\.png$`, st.key)
 		assert.Equal(t, "image/png", st.contentType)
 		assert.Contains(t, rec.Body.String(), `"avatar_url":"https://cdn.example/`+st.key+`"`)
 	})
