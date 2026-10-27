@@ -108,6 +108,15 @@ describe("reports list: access", () => {
 });
 
 describe("reports list: columns", () => {
+  it("does not render selection controls or bulk actions", async () => {
+    renderList("reports:read", "reports:write");
+    await screen.findByText("Worker 1");
+
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Bulk Actions" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+  });
+
   it("reads Worker, Month, Year, Area, Church, Status, Actions, in that order", async () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");
@@ -124,10 +133,10 @@ describe("reports list: columns", () => {
     );
     renderList("reports:read", "reports:write");
     await screen.findByText("Worker 1");
-    const full = within(row("Worker 1")).getAllByRole("cell").slice(1);
+    const full = within(row("Worker 1")).getAllByRole("cell");
     expect(full.slice(0, 6).map((c) => { const copy = c.cloneNode(true) as HTMLElement; copy.querySelectorAll("[aria-hidden=true]").forEach((node) => node.remove()); return copy.textContent; })).toEqual(["Worker 1", "April", "2026", "Metro Manila", "AMGC Church", "Pending"]);
     expect(within(full[6]).getByRole("link", { name: /^Edit / })).toBeInTheDocument();
-    const bare = within(row("Worker 2")).getAllByRole("cell").slice(1);
+    const bare = within(row("Worker 2")).getAllByRole("cell");
     expect(bare.slice(0, 6).map((c) => { const copy = c.cloneNode(true) as HTMLElement; copy.querySelectorAll("[aria-hidden=true]").forEach((node) => node.remove()); return copy.textContent; })).toEqual(["Worker 2", "April", "2026", "—", "—", "Approved"]);
   });
 });

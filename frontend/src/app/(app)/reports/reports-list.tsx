@@ -184,7 +184,7 @@ function ReportsList() {
       <ReportsHeader title="Reports" heading="h1">
         {user?.role === "user" && <Can permission="reports:write">{!currentReport.isPending && !currentReport.isError && <Button asChild className="min-h-11"><Link href={reportAction(currentReport.data).href}>{reportAction(currentReport.data).label}</Link></Button>}</Can>}
       </ReportsHeader>
-      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} filters={(
+      <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={false} filters={(
       <form onSubmit={(e) => e.preventDefault()} className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <div className="flex flex-col gap-2">
           <Label htmlFor="month">Month</Label>
