@@ -7,7 +7,7 @@ import { BarChart3, ClipboardList, KeyRound, ListChecks, ScrollText, ShieldCheck
 import { cn } from "cn";
 import { adminSections } from "@/lib/admin-navigation";
 import { useSession } from "@/lib/session";
-import { getCurrentReport } from "@/lib/reports";
+import { getCurrentReport, reportAction } from "@/lib/reports";
 
 const ADMIN_ICONS: Record<string, typeof ClipboardList> = {
   reports: ClipboardList, analytics: BarChart3, tracker: ListChecks, users: Users, roles: ShieldCheck, logs: ScrollText,
@@ -24,13 +24,7 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
     enabled: isWorker && can("reports:write"),
     staleTime: 30_000,
   });
-  const reportLabel = currentReport.data?.status === "draft"
-    ? "Continue Draft"
-    : currentReport.data?.status === "needs_revision"
-      ? "Revise Report"
-      : currentReport.data
-        ? "View Report"
-        : "New Report";
+  const action = reportAction(currentReport.data);
   const sections = adminSections(can, isAdmin);
   const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   const requested = pathname.startsWith("/admin/users/") ? "users" : pathname.startsWith("/admin/roles/") ? "roles" : params.get("tab");
@@ -55,10 +49,10 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
           Community Reports
         </Link>
       )}
-      {isWorker && can("reports:write") && (
-        <Link href="/reports/new" aria-current={pathname === "/reports/new" ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === "/reports/new")}>
+      {isWorker && can("reports:write") && !currentReport.isPending && !currentReport.isError && (
+        <Link href={action.href} aria-current={pathname === action.href ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === action.href)}>
           <ClipboardList className="size-4" aria-hidden="true" />
-          {reportLabel}
+          {action.label}
         </Link>
       )}
       {canAdmin && sections.length > 0 && (

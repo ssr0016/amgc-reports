@@ -14,14 +14,17 @@ const h = vi.hoisted(() => ({
   me: { user_id: 1, role: "user", perms: [] as string[] },
   listReports: vi.fn(),
   deleteReport: vi.fn(),
+  getCurrentReport: vi.fn(),
   getReport: vi.fn(),
   toggleComplete: vi.fn(),
+  toast: { success: vi.fn() },
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: h.push, replace: h.replace }),
   useSearchParams: () => new URLSearchParams(h.search),
 }));
+vi.mock("sonner", () => ({ toast: h.toast }));
 vi.mock("@/lib/session", () => ({
   useSession: () => ({ user: { user_id: h.me.user_id, role: h.me.role }, can: (p: string) => h.me.perms.includes(p) }),
 }));
@@ -30,6 +33,7 @@ vi.mock("@/lib/reports", async (orig) => ({
   ...(await orig<typeof import("@/lib/reports")>()),
   listReports: h.listReports,
   deleteReport: h.deleteReport,
+  getCurrentReport: h.getCurrentReport,
   getReport: h.getReport,
   toggleComplete: h.toggleComplete,
 }));
@@ -46,6 +50,7 @@ const page = (data: Report[], extra: Partial<Page<Report>["meta"]> = {}): Page<R
 function renderList(...perms: string[]) {
   h.me.perms = perms;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  vi.spyOn(client, "invalidateQueries");
   const user = userEvent.setup();
   render(
     <QueryClientProvider client={client}>
@@ -64,6 +69,7 @@ beforeEach(() => {
   h.me.user_id = 1;
   h.me.role = "user";
   h.listReports.mockResolvedValue(page([report(1, 1), report(2, 2)]));
+  h.getCurrentReport.mockResolvedValue(null);
 });
 
 describe("reports list: access", () => {
@@ -193,6 +199,19 @@ describe("reports list: gated buttons", () => {
     expect(screen.getByRole("link", { name: "New Report" })).toHaveAttribute("href", "/reports/new");
   });
 
+  it.each([
+    ["draft", "Continue Draft", "/reports/12/edit"],
+    ["pending", "View Report", "/reports/12"],
+    ["approved", "View Report", "/reports/12"],
+    ["needs_revision", "Revise Report", "/reports/12/edit"],
+  ])("updates the reports header for a %s current report", async (status, label, href) => {
+    h.getCurrentReport.mockResolvedValue({ id: 12, status });
+    renderList("reports:read", "reports:write");
+    const link = await screen.findByRole("link", { name: label });
+    expect(link).toHaveAttribute("href", href);
+    expect(screen.queryByRole("link", { name: "New Report" })).not.toBeInTheDocument();
+  });
+
   it("New Report needs reports:write", async () => {
     renderList("reports:read");
     await screen.findByText("Worker 1");
@@ -253,7 +272,7 @@ describe("reports list: delete", () => {
     h.deleteReport.mockResolvedValue(undefined);
     localStorage.setItem(reportStorageKey(1), "draft");
     localStorage.setItem(newReportStorageKey(1, "April", 2026), "draft");
-    const { user } = renderList(...mine);
+    const { user, client } = renderList(...mine);
     await screen.findByText("Worker 1");
     await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
     expect(await screen.findByText("Delete April 2026?")).toBeInTheDocument();
@@ -265,6 +284,9 @@ describe("reports list: delete", () => {
     expect(localStorage.getItem(newReportStorageKey(1, "April", 2026))).toBeNull();
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     await waitFor(() => expect(h.listReports).toHaveBeenCalledTimes(2));
+    expect(h.toast.success).toHaveBeenCalledWith("Report deleted successfully.");
+    expect(h.replace).toHaveBeenCalledWith("/reports");
+    expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["current-report", 1] });
   });
 
   // WCAG 2.4.3: the dialog has no trigger element, so without help focus falls to the page body.

@@ -8,6 +8,7 @@ import { reportStorageKey } from "@/lib/report-draft-storage";
 import { AdminReports } from "./admin-reports";
 
 const h = vi.hoisted(() => ({
+  replace: vi.fn(),
   perms: [] as string[],
   listReports: vi.fn(),
   deleteReport: vi.fn(),
@@ -22,6 +23,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("sonner", () => ({ toast: h.toast }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace }) }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ user: { user_id: 1 }, can: (p: string) => h.perms.includes(p) }) }));
 // Keep the real constants and defaultPeriod; replace only the calls that hit the network.
 vi.mock("@/lib/reports", async (orig) => ({
@@ -49,6 +51,7 @@ const page = (data: Report[], extra: Partial<Page<Report>["meta"]> = {}): Page<R
 function renderReports(...perms: string[]) {
   h.perms = perms;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  vi.spyOn(client, "invalidateQueries");
   const user = userEvent.setup();
   render(
     <QueryClientProvider client={client}>
@@ -224,12 +227,15 @@ describe("admin reports: filters", () => {
   it("deletes a report after confirmation", async () => {
     h.deleteReport.mockResolvedValue(undefined);
     localStorage.setItem(reportStorageKey(1), "draft");
-    const { user } = renderReports("reports:read", "reports:delete", "reports:delete_any");
+    const { user, client } = renderReports("reports:read", "reports:delete", "reports:delete_any");
     await screen.findByText("Worker 1");
     await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(h.deleteReport).toHaveBeenCalledWith(1));
     expect(localStorage.getItem(reportStorageKey(1))).toBeNull();
+    expect(h.toast.success).toHaveBeenCalledWith("Report deleted successfully.");
+    expect(h.replace).toHaveBeenCalledWith("/admin?tab=reports");
+    expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["current-report", 1] });
   });
 
   it("Month lists the twelve months and no Any, so one view is one month", async () => {

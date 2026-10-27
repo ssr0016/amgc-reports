@@ -3,6 +3,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Bell, Check, Download, Eye, Loader2, Pencil, Trash2, Undo2 } from "lucide-react";
 import { ReportsHeader, ReportsStats, ReportsTableCard } from "@/components/reports-dashboard";
 import { AuthField } from "@/components/auth-field";
@@ -48,6 +50,7 @@ const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}`
 // The Reports tab of the admin panel: one month at a time, chosen with the Month and Year dropdowns.
 // They live in state, not the URL, and start on the previous month, the same period as the stats cards.
 export function AdminReports() {
+  const router = useRouter();
   const { can, user } = useSession();
   const allowed = can("reports:read");
 
@@ -84,10 +87,13 @@ export function AdminReports() {
     onSuccess: async (_data, report) => {
       clearReportDraftStorage(report, user?.user_id);
       setTarget(null);
+      toast.success("Report deleted successfully.");
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["current-report", user?.user_id] }),
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
         refreshAdminViews(queryClient),
       ]);
+      router.replace("/admin?tab=reports");
     },
   });
 

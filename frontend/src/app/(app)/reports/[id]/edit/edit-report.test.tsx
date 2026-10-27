@@ -1,21 +1,22 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { getReport, submitReport, updateReport } from "@/lib/reports";
 import { EditReport } from "./edit-report";
 
-const h = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), toast: { success: vi.fn() }, userId: 7 }));
+const h = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), toast: { success: vi.fn() }, userId: 7, deleteReport: vi.fn(), canDelete: true }));
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "12" }),
   useRouter: () => ({ push: h.push, replace: h.replace }),
 }));
 vi.mock("sonner", () => ({ toast: h.toast }));
-vi.mock("@/lib/session", () => ({ useSession: () => ({ user: { user_id: h.userId }, can: () => true }) }));
+vi.mock("@/lib/session", () => ({ useSession: () => ({ user: { user_id: h.userId }, can: (permission: string) => permission === "reports:delete" ? h.canDelete : true }) }));
 vi.mock("@/lib/reports", async (original) => ({
   ...(await original<typeof import("@/lib/reports")>()),
   getReport: vi.fn(),
+  deleteReport: h.deleteReport,
   submitReport: vi.fn(),
   updateReport: vi.fn(),
 }));
@@ -53,6 +54,8 @@ beforeEach(() => {
   vi.mocked(getReport).mockResolvedValue(report);
   vi.mocked(updateReport).mockResolvedValue(report);
   vi.mocked(submitReport).mockResolvedValue(report);
+  h.deleteReport.mockResolvedValue(undefined);
+  h.canDelete = true;
 });
 
 describe("EditReport", () => {
@@ -86,5 +89,24 @@ describe("EditReport", () => {
     expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["reports"] });
     expect(submitReport).not.toHaveBeenCalled();
     expect(h.replace).not.toHaveBeenCalled();
+  });
+
+  it("deletes the report from edit, invalidates current-report, and returns to reports", async () => {
+    const client = renderEdit();
+    await screen.findByRole("button", { name: "Delete Report" });
+    await userEvent.click(screen.getByRole("button", { name: "Delete Report" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete Report" }));
+    await waitFor(() => expect(h.deleteReport).toHaveBeenCalledWith(12));
+    expect(h.toast.success).toHaveBeenCalledWith("Report deleted successfully.");
+    expect(h.replace).toHaveBeenCalledWith("/reports");
+    expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["current-report", 7] });
+  });
+
+  it("hides delete when the caller lacks reports:delete", async () => {
+    h.canDelete = false;
+    renderEdit();
+    await screen.findByRole("button", { name: "Submit" });
+    expect(screen.queryByRole("button", { name: "Delete Report" })).not.toBeInTheDocument();
   });
 });

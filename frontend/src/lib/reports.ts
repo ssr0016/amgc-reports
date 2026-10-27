@@ -26,6 +26,13 @@ export function listReports(filters: ReportFilters = {}): Promise<Page<Report>> 
 
 export const getReport = (id: number) => api<Report>(`/reports/${id}`);
 
+export function reportAction(report: Pick<Report, "id" | "status"> | null | undefined) {
+  if (!report) return { label: "New Report", href: "/reports/new" };
+  if (report.status === "draft") return { label: "Continue Draft", href: `/reports/${report.id}/edit` };
+  if (report.status === "needs_revision") return { label: "Revise Report", href: `/reports/${report.id}/edit` };
+  return { label: "View Report", href: `/reports/${report.id}` };
+}
+
 export async function getCurrentReport(): Promise<Report | null> {
   try {
     return await api<Report>("/reports/current");

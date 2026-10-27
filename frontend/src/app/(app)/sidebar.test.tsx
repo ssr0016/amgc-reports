@@ -7,7 +7,11 @@ const h = vi.hoisted(() => ({ isAdmin: true, canAdmin: true, path: "/reports", t
 const reports = vi.hoisted(() => ({ getCurrentReport: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => h.path, useSearchParams: () => new URLSearchParams({ tab: h.tab }) }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ ...h, can: (p: string) => h.isAdmin || h.permissions.includes(p) }) }));
-vi.mock("@/lib/reports", () => ({ defaultPeriod: () => ({ month: "September", year: 2026 }), getCurrentReport: reports.getCurrentReport }));
+vi.mock("@/lib/reports", async () => ({
+  ...(await vi.importActual<typeof import("@/lib/reports")>("@/lib/reports")),
+  defaultPeriod: () => ({ month: "September", year: 2026 }),
+  getCurrentReport: reports.getCurrentReport,
+}));
 const nav = () => within(screen.getByRole("navigation", { name: "Main" }));
 const renderSidebar = () => render(<QueryClientProvider client={new QueryClient()}><Sidebar /></QueryClientProvider>);
 
@@ -33,9 +37,10 @@ describe("sidebar", () => {
     expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Analytics", "Tracker", "Profile", "Change Password"]);
   });
 
-  it("shows workers reports and settings without admin links", () => {
+  it("shows workers reports and settings without admin links", async () => {
     Object.assign(h, { isAdmin: false, canAdmin: false, user: { role: "user" }, permissions: ["reports:read", "reports:write"] });
     renderSidebar();
+    await screen.findByRole("link", { name: "New Report" });
     expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports", "New Report", "Profile"]);
     expect(nav().queryByText("Admin")).not.toBeInTheDocument();
     expect(nav().queryByRole("link", { name: "Change Password" })).not.toBeInTheDocument();
@@ -69,6 +74,7 @@ describe("sidebar", () => {
     Object.assign(h, { isAdmin: false, canAdmin: false, user: { role: "user" }, permissions: ["reports:read", "reports:write"] });
     reports.getCurrentReport.mockResolvedValue({ id: 12, month: "September", year: 2026, status });
     renderSidebar();
-    expect(await screen.findByRole("link", { name: label })).toHaveAttribute("href", "/reports/new");
+    const link = await screen.findByRole("link", { name: label });
+    expect(link).toHaveAttribute("href", status === "needs_revision" || status === "draft" ? "/reports/12/edit" : status === "pending" || status === "approved" ? "/reports/12" : "/reports/new");
   });
 });

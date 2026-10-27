@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NewReport } from "./new-report";
 
 const session = vi.hoisted(() => ({ role: "user", write: true }));
-const reports = vi.hoisted(() => ({ getCurrentReport: vi.fn(), createReport: vi.fn() }));
+const reports = vi.hoisted(() => ({ getCurrentReport: vi.fn(), createReport: vi.fn(), toast: { success: vi.fn() } }));
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
+vi.mock("sonner", () => ({ toast: reports.toast }));
 vi.mock("@/lib/reports", async () => ({
   ...(await vi.importActual<typeof import("@/lib/reports")>("@/lib/reports")),
   getCurrentReport: reports.getCurrentReport,

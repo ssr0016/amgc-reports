@@ -11,6 +11,7 @@ import {
   previewExcel,
   toggleComplete,
   requestRevision,
+  reportAction,
   submitReport,
   updateReport,
 } from "./reports";
@@ -26,6 +27,18 @@ describe("defaultPeriod", () => {
     ["2026-03-01T00:00:00Z", "February", 2026],
   ])("%s -> %s %i", (now, month, year) => {
     expect(defaultPeriod(new Date(now))).toEqual({ month, year });
+  });
+});
+
+describe("reportAction", () => {
+  it.each([
+    [null, "New Report", "/reports/new"],
+    [{ id: 12, status: "draft" }, "Continue Draft", "/reports/12/edit"],
+    [{ id: 12, status: "pending" }, "View Report", "/reports/12"],
+    [{ id: 12, status: "approved" }, "View Report", "/reports/12"],
+    [{ id: 12, status: "needs_revision" }, "Revise Report", "/reports/12/edit"],
+  ])("maps %o to %s at %s", (report, label, href) => {
+    expect(reportAction(report as never)).toEqual({ label, href });
   });
 });
 

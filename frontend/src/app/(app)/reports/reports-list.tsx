@@ -31,9 +31,11 @@ import {
   defaultPeriod,
   exportReport,
   deleteReport,
+  getCurrentReport,
   FIRST_YEAR,
   listReports,
   MONTHS,
+  reportAction,
   type Report,
   type ReportFilters,
 } from "@/lib/reports";
@@ -91,6 +93,12 @@ function ReportsList() {
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
+  const currentReport = useQuery({
+    queryKey: ["current-report", user?.user_id],
+    queryFn: getCurrentReport,
+    enabled: user?.role === "user" && can("reports:write"),
+    staleTime: 30_000,
+  });
 
   // The report the delete dialog is asking about, if any.
   const queryClient = useQueryClient();
@@ -108,10 +116,15 @@ function ReportsList() {
     onSuccess: async (_data, report) => {
       clearReportDraftStorage(report, user?.user_id);
       setTarget(null);
-      toast.success("Report deleted");
+      toast.success("Report deleted successfully.");
       // Deleting the last row of a later page would leave an empty page behind.
       const lastOnPage = (filters.page ?? 1) > 1 && data?.data.length === 1;
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["current-report", user?.user_id] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
+        refreshAdminViews(queryClient),
+      ]);
+      router.replace("/reports");
       if (lastOnPage) goToPage((filters.page ?? 1) - 1);
     },
   });
@@ -169,7 +182,7 @@ function ReportsList() {
   return (
     <>
       <ReportsHeader title="Reports" heading="h1">
-        {user?.role === "user" && <Can permission="reports:write"><Button asChild className="min-h-11"><Link href="/reports/new">New Report</Link></Button></Can>}
+        {user?.role === "user" && <Can permission="reports:write">{!currentReport.isPending && !currentReport.isError && <Button asChild className="min-h-11"><Link href={reportAction(currentReport.data).href}>{reportAction(currentReport.data).label}</Link></Button>}</Can>}
       </ReportsHeader>
       <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} filters={(
       <form onSubmit={(e) => e.preventDefault()} className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-6">
