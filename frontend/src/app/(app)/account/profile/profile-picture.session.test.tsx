@@ -42,7 +42,7 @@ it("updates the session, profile picture, and menu immediately after uploading, 
   }));
   const app = (
     <SessionProvider>
-      <ProfileMenu />
+      <ProfileMenu onSignOut={vi.fn()} />
       <ProfilePicture />
       <SessionAvatar />
     </SessionProvider>

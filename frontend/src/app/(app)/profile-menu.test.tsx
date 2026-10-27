@@ -11,14 +11,14 @@ vi.mock("@/lib/session", () => ({
 describe("profile menu", () => {
   it("is one button showing the name and role, with the email as its title", () => {
     h.role = "admin";
-    render(<ProfileMenu />);
+    render(<ProfileMenu onSignOut={vi.fn()} />);
     const trigger = screen.getByRole("button", { name: "Ana · admin" });
     expect(trigger).toHaveAttribute("title", "a@b.c");
   });
 
   it("reads 'no role' for a user without one", () => {
     h.role = "";
-    render(<ProfileMenu />);
+    render(<ProfileMenu onSignOut={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Ana · no role" })).toBeInTheDocument();
   });
 
@@ -43,7 +43,7 @@ describe("profile menu", () => {
   it("opens from the keyboard, and Escape closes it and returns focus to the button", async () => {
     h.role = "admin";
     const user = userEvent.setup();
-    render(<ProfileMenu />);
+    render(<ProfileMenu onSignOut={vi.fn()} />);
     const trigger = screen.getByRole("button", { name: "Ana · admin" });
     await user.tab();
     expect(trigger).toHaveFocus();

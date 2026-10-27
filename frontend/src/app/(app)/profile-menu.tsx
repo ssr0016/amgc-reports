@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useSession } from "@/lib/session";
 
 // The avatar and name are one button; e2e/auth.spec.ts looks for the "{name} · {role}" text.
-export function ProfileMenu({ onSignOut }: { onSignOut?: () => void }) {
+export function ProfileMenu({ onSignOut }: { onSignOut: () => void }) {
   const { user } = useSession();
   return (
     <DropdownMenu>

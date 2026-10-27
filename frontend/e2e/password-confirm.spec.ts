@@ -16,7 +16,7 @@ test("a mismatch on the change-password page is shown on Confirm password and se
   await page.getByLabel("Current password").fill("anything");
   await page.getByLabel("New password").fill(strong);
   await page.getByLabel("Confirm password").fill(`${strong}x`);
-  await page.getByRole("button", { name: "Change password" }).click();
+  await page.getByRole("button", { name: "Change Password" }).click();
 
   const note = page.getByText("Confirm password does not match");
   await expect(note).toBeVisible();

@@ -19,7 +19,7 @@ async function fill(current = "Old!Passw0rd", next = "New!Passw0rd#1", confirm =
   if (confirm) await user.type(screen.getByLabelText("Confirm password"), confirm);
   return user;
 }
-const submit = () => screen.getByRole("button", { name: /Change password|Changing/ });
+const submit = () => screen.getByRole("button", { name: /Change Password|Changing/ });
 
 describe("ChangePassword", () => {
   it("asks for all three passwords before calling the API", async () => {

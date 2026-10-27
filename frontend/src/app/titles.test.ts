@@ -10,7 +10,7 @@ describe("page titles", () => {
     ["./(app)/admin/page", "Admin"],
     ["./(app)/admin/users/new/page", "New user"],
     ["./(app)/admin/users/[id]/edit/page", "Edit user"],
-    ["./(app)/account/password/page", "Change password"],
+    ["./(app)/account/password/page", "Change Password"],
     ["./login/layout", "Sign in"],
   ])("%s is %s", async (path, title) => {
     const mod = await import(/* @vite-ignore */ path);

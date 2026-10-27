@@ -24,7 +24,6 @@ describe("app header", () => {
     const header = within(screen.getByRole("banner"));
     expect(header.getAllByRole("link").map((a) => a.textContent)).toEqual(["AMGCReports"]);
     expect(header.getByRole("button", { name: "Ana · admin" })).toBeInTheDocument();
-    expect(header.getByRole("button", { name: "Ana · admin" })).toBeInTheDocument();
     for (const name of ["Admin", "Users", "Account"]) {
       expect(header.queryByRole("link", { name })).not.toBeInTheDocument();
     }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
@@ -24,11 +23,6 @@ type PoolSettings struct {
 type DB struct {
 	Pool    *pgxpool.Pool
 	Builder sq.StatementBuilderType
-}
-
-// New creates a DB using DATABASE_URL from environment (backward compatible).
-func New(ctx context.Context) (*DB, error) {
-	return NewWithURL(ctx, os.Getenv("DATABASE_URL"))
 }
 
 // NewWithURL creates a DB using the provided URL and the default pool settings.

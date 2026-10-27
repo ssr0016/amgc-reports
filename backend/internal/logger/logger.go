@@ -53,17 +53,6 @@ func New(cfg Config) *slog.Logger {
 	return slog.New(handler)
 }
 
-// WithRequestID returns a logger with the request ID from context.
-func WithRequestID(ctx context.Context, log *slog.Logger) *slog.Logger {
-	if ctx == nil {
-		return log
-	}
-	if reqID, ok := ctx.Value(RequestIDKey).(string); ok && reqID != "" {
-		return log.With("request_id", reqID)
-	}
-	return log
-}
-
 // FromContext returns a logger from context, or the default logger.
 func FromContext(ctx context.Context) *slog.Logger {
 	if ctx == nil {

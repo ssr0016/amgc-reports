@@ -15,28 +15,6 @@ type ErrorResponse struct {
 	Details map[string]string `json:"details,omitempty"`
 }
 
-// WriteError writes an error response to the Echo context.
-func WriteError(c echo.Context, err error) error {
-	appErr, ok := As(err)
-	if !ok {
-		// Unknown error → internal server error
-		appErr = Internal("internal server error").WithError(err)
-	}
-
-	// Hide internal error messages in production
-	if os.Getenv("APP_ENV") == "production" && appErr.HTTPStatus >= 500 {
-		appErr.Message = "internal server error"
-	}
-
-	resp := ErrorResponse{
-		Error:   string(appErr.Code),
-		Message: appErr.Message,
-		Details: appErr.Details,
-	}
-
-	return c.JSON(appErr.HTTPStatus, resp)
-}
-
 // ErrorHandler is the custom Echo HTTP error handler.
 func ErrorHandler(err error, c echo.Context) {
 	// If response already committed, skip

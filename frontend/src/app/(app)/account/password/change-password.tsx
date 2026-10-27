@@ -61,7 +61,7 @@ export function ChangePassword() {
 
   return (
     <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none">
-      <h1 className="text-2xl font-medium tracking-tight">Change password</h1>
+      <h1 className="text-2xl font-medium tracking-tight">Change Password</h1>
       <Card className="p-4 sm:p-6">
       <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <AuthField
@@ -92,7 +92,7 @@ export function ChangePassword() {
           </p>
         )}
         <Button type="submit" disabled={pending || wait > 0}>
-          {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Changing…</> : "Change password"}
+          {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Changing…</> : "Change Password"}
         </Button>
       </form>
       </Card>

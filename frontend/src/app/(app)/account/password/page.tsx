@@ -1,6 +1,6 @@
 import { ChangePassword } from "./change-password";
 
-export const metadata = { title: "Change password" };
+export const metadata = { title: "Change Password" };
 
 // A Client Component page cannot export `instant`, so this Server Component
 // page does. The form loads after navigation by design (it needs the session).

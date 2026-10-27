@@ -146,7 +146,7 @@ for (const scheme of ["light", "dark"] as const) {
         await page.getByLabel("Current password").fill("anything");
         await page.getByLabel("New password").fill("E2eConfirm!78901");
         await page.getByLabel("Confirm password").fill("E2eConfirm!78902");
-        await page.getByRole("button", { name: "Change password" }).click();
+        await page.getByRole("button", { name: "Change Password" }).click();
         await expect(page.getByText("Confirm password does not match")).toBeVisible();
         await scan(page);
 

@@ -22,7 +22,7 @@ export function ProfilePicture() {
   const [error, setError] = useState("");
   const [wait, setWait] = useCountdown();
 
-  if (!user) return <main id="main-content" className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6`}><h1 className="text-2xl font-medium tracking-tight">Profile picture</h1><ProfileSkeleton /></main>;
+  if (!user) return <main id="main-content" className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6`}><h1 className="text-2xl font-medium tracking-tight">Profile</h1><ProfileSkeleton /></main>;
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,7 +57,7 @@ export function ProfilePicture() {
 
   return (
     <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <h1 className="text-2xl font-medium tracking-tight">Profile picture</h1>
+      <h1 className="text-2xl font-medium tracking-tight">Profile</h1>
       <Card className="p-4 sm:p-6">
         <h2 className="text-lg font-medium tracking-tight">Account details</h2>
         <p className="text-sm text-muted-foreground">These details are managed by your admin.</p>

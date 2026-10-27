@@ -6,7 +6,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
-import { HOME } from "@/lib/auth-form";
+import { HOME } from "@/lib/routes";
 import { useSession } from "@/lib/session";
 import { ProfileMenu } from "./profile-menu";
 import { Sidebar } from "./sidebar";
