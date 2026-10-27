@@ -168,7 +168,7 @@ test.describe("admin", () => {
   // Approval refreshes the shared list and its page-level counts.
   test("approves and sends a report back for revision, and the stats cards follow", async ({ page }) => {
     await page.goto("/admin");
-    await expect(page.getByRole("heading", { name: "All Reports", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "All reports", exact: true })).toBeVisible();
     const card = (name: string) =>
       page
         .getByRole("region", { name: "Report statistics" })
