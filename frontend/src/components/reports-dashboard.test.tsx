@@ -8,6 +8,7 @@ const rows = [
   { id: 1, worker: "Maria Santos", month: "September", year: 2026, completed: false },
   { id: 2, worker: "Jose Reyes", month: "September", year: 2026, completed: true },
 ] as Report[];
+const draftRow = { ...rows[0], id: 3, worker: "Draft Worker", status: "draft" } as Report;
 
 function table(selectable = true, tableRows = rows) {
   return <ReportsTableCard rows={tableRows} selectable={selectable} filters={<span>Filters</span>} actions={() => <span>Preview</span>}><span>Pagination</span></ReportsTableCard>;
@@ -63,6 +64,15 @@ describe("reports table", () => {
     await waitFor(() => expect(approve).toHaveBeenCalledWith(rows));
     expect(screen.queryByRole("complementary", { name: "Bulk Actions" })).not.toBeInTheDocument();
     expect(unapprove).not.toHaveBeenCalled();
+  });
+
+  it("shows drafts as drafts and filters them separately from submitted reports", async () => {
+    const user = userEvent.setup();
+    render(table(false, [draftRow, rows[1]]));
+    expect(screen.getAllByText("Draft").length).toBeGreaterThanOrEqual(1);
+    await user.click(screen.getByRole("button", { name: "Draft" }));
+    expect(screen.getByText("Draft Worker")).toBeInTheDocument();
+    expect(screen.queryByText("Jose Reyes")).not.toBeInTheDocument();
   });
 
   it("requires notes before bulk unapproving", async () => {

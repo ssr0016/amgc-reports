@@ -72,7 +72,8 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
   const [selectedReports, setSelectedReports] = useState<Report[]>([]);
   const [bulkUnapproveOpen, setBulkUnapproveOpen] = useState(false);
   const [bulkAdminNotes, setBulkAdminNotes] = useState("");
-  const visible = rows.filter((r) => status === "all" || (r.status ?? (r.completed ? "approved" : "pending")) === status);
+  const reportStatus = (r: Report) => r.status ?? (r.completed ? "approved" : "pending");
+  const visible = rows.filter((r) => status === "all" || reportStatus(r) === status);
   const selectedIds = new Set(selectedReports.map((r) => r.id));
   const selectedVisible = visible.filter((r) => selectedIds.has(r.id));
   const allSelected = visible.length > 0 && selectedVisible.length === visible.length;
@@ -100,7 +101,7 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
       <div className="border-b p-4">{filters}</div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2">
         <div role="group" aria-label="Filter status on this page" className="flex gap-1">
-          {["all", "approved", "pending", "needs_revision"].map((value) => (
+          {["all", "draft", "approved", "pending", "needs_revision"].map((value) => (
             <Button key={value} variant={status === value ? "secondary" : "ghost"} className="min-h-11" aria-pressed={status === value} onClick={() => setStatus(value)}>
               {value === "needs_revision" ? "Needs Revision" : value[0].toUpperCase() + value.slice(1)}
             </Button>
@@ -125,7 +126,7 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
               <TableCell>{r.area_assignment || "—"}</TableCell><TableCell>{r.church_name || "—"}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
-                  <Badge className={(r.status ?? (r.completed ? "approved" : "pending")) === "approved" ? "border-transparent bg-[var(--approved)]/10 text-[var(--approved)]" : (r.status ?? "pending") === "needs_revision" ? "border-transparent bg-red-100 text-red-700" : "border-transparent bg-[var(--pending)]/10 text-[var(--pending)]"}>{(r.status ?? (r.completed ? "approved" : "pending")) === "needs_revision" ? "Needs Revision" : (r.status ?? (r.completed ? "approved" : "pending")) === "approved" ? "Approved" : "Pending"}</Badge>
+                  <Badge className={reportStatus(r) === "approved" ? "border-transparent bg-[var(--approved)]/10 text-[var(--approved)]" : reportStatus(r) === "needs_revision" ? "border-transparent bg-red-100 text-red-700" : reportStatus(r) === "draft" ? "border-transparent bg-slate-100 text-slate-700" : "border-transparent bg-[var(--pending)]/10 text-[var(--pending)]"}>{reportStatus(r) === "needs_revision" ? "Needs Revision" : reportStatus(r) === "approved" ? "Approved" : reportStatus(r) === "draft" ? "Draft" : "Pending"}</Badge>
                   {r.status === "pending" && r.last_revised_at && <Badge variant="outline">Revised</Badge>}
                 </div>
               </TableCell>

@@ -31,7 +31,13 @@ export function NewReport() {
       {user?.role === "user" && can("reports:write") ? (
         <ReportForm
           initial={initial}
+          draft
           submitLabel="Submit Report"
+          onSaveDraft={async (input) => {
+            const draft = await createReport(input, true);
+            toast.success("Draft saved");
+            router.replace(`/reports/${draft.id}/edit`);
+          }}
           lockedPeriod={period}
           onSubmit={async (input) => {
             await createReport(input);

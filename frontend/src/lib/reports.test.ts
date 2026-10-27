@@ -11,6 +11,7 @@ import {
   previewExcel,
   toggleComplete,
   requestRevision,
+  submitReport,
   updateReport,
 } from "./reports";
 
@@ -49,17 +50,19 @@ describe("reports API", () => {
     expect(at(f, 0)[0]).toBe("/reports?month=May&year=2026&page=2");
   });
 
-  it("uses the right verb and path for get, create, update, delete and approve", async () => {
-    const f = stub({}, { csrf_token: "t" }, {}, {}, {}, { status: 0 }, {});
+  it("uses the right verb and path for get, create, update, submit and approve", async () => {
+    const f = stub({}, { csrf_token: "t" }, {}, {}, {}, {}, { status: 0 }, {});
     await getReport(3);
     await createReport({ month: "May" } as never);
     await updateReport(3, { month: "May" } as never);
+    await submitReport(3);
     await toggleComplete(3);
     await requestRevision(3, "Needs more detail");
-    expect([0, 2, 3, 4].map((i) => at(f, i).join(" "))).toEqual([
+    expect([0, 2, 3, 4, 5].map((i) => at(f, i).join(" "))).toEqual([
       "/reports/3 GET",
       "/reports POST",
       "/reports/3 PUT",
+      "/reports/3/submit PATCH",
       "/reports/3/complete PATCH",
     ]);
     const revisionCall = f.mock.calls.find((call) => String(call[0]).includes("/reports/3/revision"));

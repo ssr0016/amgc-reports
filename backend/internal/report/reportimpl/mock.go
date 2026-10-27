@@ -28,6 +28,7 @@ type MockStore struct {
 	GetFunc             func(ctx context.Context, id int64) (*report.Report, error)
 	ListFunc            func(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error)
 	UpdateFunc          func(ctx context.Context, id int64, year int, req report.UpdateReportRequest) (*report.Report, error)
+	SubmitFunc          func(ctx context.Context, id int64) (*report.Report, error)
 	SoftDeleteFunc      func(ctx context.Context, id int64) error
 	ToggleCompleteFunc  func(ctx context.Context, id, approverID int64, adminNotes ...string) (*report.Report, error)
 	RequestRevisionFunc func(ctx context.Context, id, approverID int64, adminNotes ...string) (*report.Report, error)
@@ -128,6 +129,9 @@ func (m *MockStore) Create(ctx context.Context, userID int64, year int, req repo
 		Metrics: mockMetrics(req.Metrics), CreatedAt: now, UpdatedAt: now,
 	}
 	r.Status = "pending"
+	if req.Draft {
+		r.Status = "draft"
+	}
 	m.reports[r.ID] = r
 	m.nextID++
 	return copyReport(r), nil
@@ -144,6 +148,21 @@ func (m *MockStore) Get(ctx context.Context, id int64) (*report.Report, error) {
 		return copyReport(r), nil
 	}
 	return nil, nil
+}
+
+func (m *MockStore) Submit(ctx context.Context, id int64) (*report.Report, error) {
+	if m.SubmitFunc != nil {
+		return m.SubmitFunc(ctx, id)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	r := m.active(id)
+	if r == nil || r.Status != "draft" {
+		return nil, fmt.Errorf("report: %w", database.ErrNotFound)
+	}
+	r.Status = "pending"
+	r.UpdatedAt = time.Now()
+	return copyReport(r), nil
 }
 
 func (m *MockStore) List(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error) {
@@ -176,7 +195,7 @@ func (m *MockStore) Dashboard(_ context.Context, month string, year int) ([]repo
 	for _, acc := range m.Accounts {
 		row := report.DashboardRow{Church: acc.Church, Status: report.StatusNoReport}
 		for _, r := range m.reports {
-			if r.DeletedAt == nil && r.CreatedBy == acc.ID && int(r.Year) == year && strings.EqualFold(r.Month, month) {
+			if r.DeletedAt == nil && r.Status != "draft" && r.CreatedBy == acc.ID && int(r.Year) == year && strings.EqualFold(r.Month, month) {
 				row.Month, row.Year, row.Status = r.Month, int(r.Year), r.Status
 				switch row.Status {
 				case "approved":
@@ -206,7 +225,8 @@ func matchesReport(r *report.Report, p report.ListReportsParams) bool {
 		(p.Year != 0 && int(r.Year) != p.Year) ||
 		(p.Month != "" && !strings.EqualFold(r.Month, p.Month)) ||
 		(p.Completed != nil && r.Completed != *p.Completed) ||
-		(p.Status != "" && r.Status != p.Status) {
+		(p.Status != "" && r.Status != p.Status) ||
+		(p.ExcludeDrafts && r.Status == "draft") {
 		return false
 	}
 	return containsFold(r.Worker, p.Worker) && containsFold(r.AreaAssignment, p.Area) && containsFold(r.ChurchName, p.Church)
@@ -261,7 +281,6 @@ func (m *MockStore) Update(ctx context.Context, id int64, year int, req report.U
 		return nil, fmt.Errorf("update report: %w", err)
 	}
 	r.Month, r.Year = req.Month, y
-	r.Worker, r.AreaAssignment, r.ChurchName = ptr(req.Worker), ptr(req.AreaAssignment), ptr(req.ChurchName)
 	r.Names, r.NarrativeReport = ptr(req.Names), ptr(req.NarrativeReport)
 	r.Challenges, r.PrayerRequest = ptr(req.Challenges), ptr(req.PrayerRequest)
 	r.Metrics = mockMetrics(req.Metrics)

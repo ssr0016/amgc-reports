@@ -2,13 +2,13 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./sidebar";
 
-const h = vi.hoisted(() => ({ isAdmin: true, canAdmin: true, path: "/reports", tab: "", permissions: [] as string[] }));
+const h = vi.hoisted(() => ({ isAdmin: true, canAdmin: true, path: "/reports", tab: "", permissions: [] as string[], user: { role: "admin" } }));
 vi.mock("next/navigation", () => ({ usePathname: () => h.path, useSearchParams: () => new URLSearchParams({ tab: h.tab }) }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ ...h, can: (p: string) => h.isAdmin || h.permissions.includes(p) }) }));
 const nav = () => within(screen.getByRole("navigation", { name: "Main" }));
 
 describe("sidebar", () => {
-  beforeEach(() => { Object.assign(h, { isAdmin: true, canAdmin: true, path: "/reports", tab: "", permissions: [] }); });
+  beforeEach(() => { Object.assign(h, { isAdmin: true, canAdmin: true, path: "/reports", tab: "", permissions: [], user: { role: "admin" } }); });
 
   it("names the reports link Community Reports", () => {
     render(<Sidebar />);
@@ -30,9 +30,11 @@ describe("sidebar", () => {
   });
 
   it("shows workers reports and settings without admin links", () => {
-    h.isAdmin = h.canAdmin = false;
+    Object.assign(h, { isAdmin: false, canAdmin: false, user: { role: "user" }, permissions: ["reports:read", "reports:write"] });
     render(<Sidebar />);
-    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Profile", "Change Password"]);
+    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports", "New Report", "Profile"]);
+    expect(nav().queryByText("Admin")).not.toBeInTheDocument();
+    expect(nav().queryByRole("link", { name: "Change Password" })).not.toBeInTheDocument();
   });
 
   it.each([

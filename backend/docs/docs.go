@@ -2179,7 +2179,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Files a monthly report for the current user. A missing year defaults to the current year.",
+                "description": "Creates a monthly report for the current user. Set draft=true to save it privately.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2642,6 +2642,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/reports/{id}/submit": {
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Submits the owner's private draft for admin review.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reports"
+                ],
+                "summary": "Submit report",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Report ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/users": {
             "get": {
                 "security": [
@@ -3007,6 +3050,9 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 150
                 },
+                "draft": {
+                    "type": "boolean"
+                },
                 "metrics": {
                     "type": "object",
                     "additionalProperties": {
@@ -3323,6 +3369,7 @@ const docTemplate = `{
                 "status": {
                     "type": "string",
                     "enum": [
+                        "draft",
                         "pending",
                         "approved",
                         "needs_revision"
@@ -3393,6 +3440,7 @@ const docTemplate = `{
                 "status": {
                     "type": "string",
                     "enum": [
+                        "draft",
                         "pending",
                         "approved",
                         "needs_revision"
@@ -3519,6 +3567,9 @@ const docTemplate = `{
                 "church_name": {
                     "type": "string",
                     "maxLength": 150
+                },
+                "draft": {
+                    "type": "boolean"
                 },
                 "metrics": {
                     "type": "object",

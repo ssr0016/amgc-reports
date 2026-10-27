@@ -7,8 +7,8 @@ import (
 )
 
 func TestActions(t *testing.T) {
-	if got := len(Actions); got != 21 {
-		t.Fatalf("len(Actions) = %d, want 21", got)
+	if got := len(Actions); got != 22 {
+		t.Fatalf("len(Actions) = %d, want 22", got)
 	}
 	seen := map[string]bool{}
 	for _, a := range Actions {

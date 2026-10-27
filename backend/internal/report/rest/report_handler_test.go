@@ -40,6 +40,11 @@ func (f *fakeReportSvc) Create(_ context.Context, uid int64, ip string, _ report
 	return &report.ReportResponse{ID: 1}, f.err
 }
 
+func (f *fakeReportSvc) Submit(_ context.Context, uid int64, ip string, id int64) (*report.ReportResponse, error) {
+	f.gotUser, f.gotIP, f.gotID = uid, ip, id
+	return &report.ReportResponse{ID: id, Status: "pending"}, f.err
+}
+
 func (f *fakeReportSvc) Get(_ context.Context, uid, id int64) (*report.ReportResponse, error) {
 	f.gotUser, f.gotID = uid, id
 	return &report.ReportResponse{ID: id}, f.err

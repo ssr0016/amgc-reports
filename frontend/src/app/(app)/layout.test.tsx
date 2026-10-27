@@ -6,7 +6,7 @@ import AppLayout from "./layout";
 const h = vi.hoisted(() => ({ status: "authenticated" }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports", useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/session", () => ({
-  useSession: () => ({ status: h.status, user: { name: "Ana", email: "a@b.c", role: "user" }, isAdmin: false, canAdmin: false, can: () => false, signOut: vi.fn() }),
+  useSession: () => ({ status: h.status, user: { name: "Ana", email: "a@b.c", role: "user" }, isAdmin: false, canAdmin: false, can: (permission: string) => permission === "reports:read" || permission === "reports:write", signOut: vi.fn() }),
 }));
 
 describe("app layout", () => {
@@ -22,7 +22,7 @@ describe("app layout", () => {
   it("gives a non-admin reports and account settings", () => {
     render(<AppLayout>content</AppLayout>);
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Profile", "Change Password"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports", "New Report", "Profile"]);
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
   });
 

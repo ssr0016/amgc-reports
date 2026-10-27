@@ -67,7 +67,8 @@ func newFixture() fixture {
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
 		switch id {
 		case alice:
-			return &user.User{ID: alice, Name: "Alice", RoleID: roleU, Role: &accesscontrol.Role{Name: "user"}}, nil
+			church := "Gospel Bearer"
+			return &user.User{ID: alice, Name: "Ana", RoleID: roleU, ChurchName: &church, Role: &accesscontrol.Role{Name: "user"}}, nil
 		case bob:
 			return &user.User{ID: bob, Name: "Bob", RoleID: roleE, Role: &accesscontrol.Role{Name: "editor"}}, nil
 		case carol:
@@ -112,6 +113,31 @@ func TestReportService_Create(t *testing.T) {
 		assert.Equal(t, "user", *e.PerformedByRole)
 		assert.Equal(t, "10.0.0.1", *e.IPAddress)
 		assert.Equal(t, map[string]any{"month": "April", "year": 2026, "count": 1}, e.Details)
+	})
+
+	t.Run("drafts use profile metadata and stay private until submitted", func(t *testing.T) {
+		f := newFixture()
+		f.svc.now = func() time.Time { return time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC) }
+		r := req("April")
+		r.Draft = true
+		r.Worker, r.AreaAssignment, r.ChurchName = "Tampered", "Wrong Area", "Wrong Church"
+
+		created, err := f.svc.Create(ctx, alice, "", r)
+		require.NoError(t, err)
+		assert.Equal(t, "draft", created.Status)
+		assert.Equal(t, "Ana", created.Worker)
+		assert.Empty(t, created.AreaAssignment)
+		assert.Equal(t, "Gospel Bearer", created.ChurchName)
+
+		_, err = f.svc.Get(ctx, bob, created.ID)
+		require.ErrorIs(t, err, report.ErrReportNotFound)
+
+		_, err = f.svc.Submit(ctx, alice, "", created.ID)
+		require.NoError(t, err)
+		got, err := f.svc.Get(ctx, bob, created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "pending", got.Status)
+		assert.Equal(t, audit.ActionSubmitReport, f.audit.Entries()[1].Action)
 	})
 
 	t.Run("explicit year wins", func(t *testing.T) {
@@ -257,13 +283,13 @@ func TestReportService_Update(t *testing.T) {
 	require.NoError(t, err)
 
 	upd := report.UpdateReportRequest(req("April"))
-	upd.Worker = "" // empty string clears the field (D-8)
+	upd.Worker = "" // profile metadata is not editable through report updates
 	upd.Metrics = map[string]report.MetricWeeks{"training": {Week2: &v2}}
 	got, err := f.svc.Update(ctx, alice, "", created.ID, upd)
 	require.NoError(t, err)
 
 	assert.Equal(t, 2026, got.Year, "missing year keeps the current one")
-	assert.Empty(t, got.Worker)
+	assert.Equal(t, "Ana", got.Worker)
 	assert.NotContains(t, got.Metrics, "outreach", "metric set is replaced, not merged")
 	assert.Contains(t, got.Metrics, "training")
 

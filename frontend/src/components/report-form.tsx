@@ -25,12 +25,6 @@ import {
 } from "@/lib/report-form";
 import { MONTHS, type ReportInput } from "@/lib/reports";
 
-const shortTexts = [
-  ["worker", "Worker Name", "e.g. Juan Dela Cruz"],
-  ["area_assignment", "Area Assignment", "e.g. Metro Manila"],
-  ["church_name", "Church Name", "e.g. AMGC Church"],
-] as const;
-
 // [name, label, placeholder, help line under the field]
 const longTexts = [
   ["names", "Names of New Believers", "Juan dela Cruz, Maria Santos", "e.g., Juan dela Cruz, Maria Santos (Separate names with commas)."],
@@ -51,6 +45,8 @@ const headingClass = "text-lg font-medium tracking-tight";
 export function ReportForm({
   initial,
   submitLabel,
+  draft = false,
+  onSaveDraft,
   revision = false,
   lockedPeriod,
   readOnly = false,
@@ -60,6 +56,8 @@ export function ReportForm({
 }: {
   initial: FormState;
   submitLabel: string;
+  draft?: boolean;
+  onSaveDraft?: (input: ReportInput) => Promise<void>;
   revision?: boolean;
   // When set, month and year cannot be changed and must match it.
   lockedPeriod?: { month: string; year: number };
@@ -133,8 +131,10 @@ export function ReportForm({
     });
   }, []);
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const submitter = (e.nativeEvent as SubmitEvent).submitter;
+    const intent = submitter instanceof HTMLButtonElement ? submitter.value : "submit";
     const found = validate(form, lockedPeriod);
     setErrors(found);
     setGeneral(Object.keys(found).length ? "Fix the highlighted fields and try again." : "");
@@ -147,7 +147,9 @@ export function ReportForm({
     try {
       const input = toInput(form);
       if (revision) input.user_notes = userNotes;
-      await onSubmit(input);
+      if (intent === "draft" && onSaveDraft) await onSaveDraft(input);
+      else await onSubmit(input);
+      setPending(false);
       setSaved(true);
     } catch (err) {
       setPending(false);
@@ -221,17 +223,22 @@ export function ReportForm({
               hint={lockedPeriod ? "Fixed for this report." : undefined}
               error={errors.year}
             />
-            {shortTexts.map(([name, label, placeholder]) => (
-              <AuthField
-                key={name}
-                name={name}
-                label={label}
-                placeholder={placeholder}
-                value={form[name]}
-                onChange={(e) => setField(name, e.target.value)}
-                error={errors[name]}
-              />
-            ))}
+            <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 sm:col-span-2">
+              <p className="text-sm font-medium">Worker Profile</p>
+              <dl className="grid gap-3 sm:grid-cols-3">
+                {([
+                  ["Worker Name", form.worker],
+                  ["Area Assignment", form.area_assignment],
+                  ["Church Name", form.church_name],
+                ] as const).map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs text-muted-foreground">{label}</dt>
+                    <dd>{value || "Not assigned"}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="text-xs text-muted-foreground">These details come from your profile and cannot be changed in a report.</p>
+            </div>
           </div>
         </section>
 
@@ -269,7 +276,7 @@ export function ReportForm({
               </h2>
               {i === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  Leave a week blank if it was not reported. Enter 0 if it was reported as zero.
+                  Fill in only the weeks when an activity happened. Leave a week blank when there was no activity; enter 0 when the activity happened but the count was zero.
                 </p>
               )}
               {/* table-fixed gives every section the same column widths; min-w keeps phones scrolling sideways */}
@@ -346,13 +353,18 @@ export function ReportForm({
           {wait > 0 && ` Try again in ${wait}s.`}
         </p>
       )}
-      <div className="flex flex-col gap-2 sm:flex-row">
-        {!readOnly && (
-          <Button type="submit" disabled={pending || wait > 0}>
-            {pending ? "Saving…" : submitLabel}
+      <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-2 border-t bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:px-6">
+        {!readOnly && draft && onSaveDraft && (
+          <Button type="submit" value="draft" variant="outline" disabled={pending || wait > 0}>
+            {pending ? "Saving…" : "Save Draft"}
           </Button>
         )}
-        <Button type="button" variant="outline" onClick={cancel} disabled={pending}>
+        {!readOnly && (
+          <Button type="submit" value="submit" disabled={pending || wait > 0}>
+            {pending ? "Saving…" : draft ? "Submit Report" : submitLabel}
+          </Button>
+        )}
+        <Button type="button" variant="ghost" onClick={cancel} disabled={pending}>
           {readOnly ? "Back" : "Cancel"}
         </Button>
       </div>

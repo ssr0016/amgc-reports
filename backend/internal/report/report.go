@@ -33,6 +33,7 @@ const MaxExportReports = 100
 // (D-10, D-14). ip is recorded in the audit row.
 type Service interface {
 	Create(ctx context.Context, userID int64, ip string, req CreateReportRequest) (*ReportResponse, error)
+	Submit(ctx context.Context, userID int64, ip string, id int64) (*ReportResponse, error)
 	Get(ctx context.Context, userID, id int64) (*ReportResponse, error)
 	List(ctx context.Context, userID int64, p ListReportsParams, pg pagination.Params) ([]ReportResponse, int64, error)
 	Update(ctx context.Context, userID int64, ip string, id int64, req UpdateReportRequest) (*ReportResponse, error)
@@ -56,6 +57,7 @@ type Store interface {
 	Get(ctx context.Context, id int64) (*Report, error)
 	List(ctx context.Context, p ListReportsParams, pg pagination.Params) ([]*Report, int64, error)
 	Update(ctx context.Context, id int64, year int, req UpdateReportRequest) (*Report, error)
+	Submit(ctx context.Context, id int64) (*Report, error)
 	SoftDelete(ctx context.Context, id int64) error
 	ToggleComplete(ctx context.Context, id, approverID int64, adminNotes ...string) (*Report, error)
 	RequestRevision(ctx context.Context, id, approverID int64, adminNotes ...string) (*Report, error)

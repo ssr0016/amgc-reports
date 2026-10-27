@@ -6,7 +6,7 @@ import { NewReport } from "./new-report";
 const session = vi.hoisted(() => ({ role: "user", write: true }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock("@/lib/session", () => ({
-  useSession: () => ({ user: { role: session.role }, can: () => session.write }),
+  useSession: () => ({ user: { role: session.role, name: "Ana", area_assignment: "North", church_name: "AMGC Church" }, can: () => session.write }),
 }));
 
 describe("new report access", () => {
@@ -23,6 +23,7 @@ describe("new report access", () => {
     session.write = write;
     render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
     if (allowed) {
+      expect(screen.getByRole("button", { name: "Save Draft" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Submit Report" })).toBeInTheDocument();
     } else {
       expect(screen.queryByRole("button", { name: "Submit Report" })).not.toBeInTheDocument();

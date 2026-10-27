@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { ReportForm } from "@/components/report-form";
 import { ApiError } from "@/lib/api";
 import { fromReport, isRestricted } from "@/lib/report-form";
-import { getReport, updateReport } from "@/lib/reports";
+import { getReport, submitReport, updateReport } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
 
@@ -49,14 +49,25 @@ export function EditReport() {
     body = (
       <ReportForm
         initial={fromReport(data)}
+        draft={data.status === "draft"}
         submitLabel="Save Changes"
+        onSaveDraft={data.status === "draft" ? async (input) => {
+          await updateReport(reportId, input);
+          toast.success("Draft saved");
+          await queryClient.invalidateQueries({ queryKey: ["report", reportId] });
+        } : undefined}
         revision={data.status === "needs_revision"}
         lockedPeriod={{ month: data.month, year: data.year }}
         readOnly={!editable}
         restricted={isRestricted(data, user?.user_id, can)}
         onSubmit={async (input) => {
           await updateReport(reportId, input);
-          toast.success("Report saved");
+          if (data.status === "draft") {
+            await submitReport(reportId);
+            toast.success("Report submitted");
+          } else {
+            toast.success("Report saved");
+          }
           await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
           router.replace("/reports");
         }}
