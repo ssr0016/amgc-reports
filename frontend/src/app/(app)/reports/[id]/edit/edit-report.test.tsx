@@ -21,10 +21,11 @@ vi.mock("@/lib/reports", async (original) => ({
   updateReport: vi.fn(),
 }));
 vi.mock("@/components/report-form", () => ({
-  ReportForm: ({ onAutoSave, onSubmit }: { onAutoSave?: (input: unknown) => Promise<void>; onSubmit: (input: unknown) => Promise<void> }) => (
+  ReportForm: ({ onAutoSave, onSubmit, endAction }: { onAutoSave?: (input: unknown) => Promise<void>; onSubmit: (input: unknown) => Promise<void>; endAction?: React.ReactNode }) => (
     <div>
       {onAutoSave && <button onClick={() => void onAutoSave({}).catch(() => undefined)}>Auto-save</button>}
       <button onClick={() => void onSubmit({}).catch(() => undefined)}>Submit</button>
+      {endAction}
     </div>
   ),
 }));

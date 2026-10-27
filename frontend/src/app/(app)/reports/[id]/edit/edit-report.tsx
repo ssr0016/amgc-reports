@@ -136,6 +136,18 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
           router.replace("/reports");
         }}
         onCancel={() => router.push("/reports")}
+        endAction={
+          deletable && data ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setConfirmDelete(true)}
+              disabled={del.isPending}
+            >
+              Delete Report
+            </Button>
+          ) : undefined
+        }
       />
     );
   }
@@ -146,9 +158,6 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
       {body}
       {deletable && data && (
         <>
-          <Button type="button" variant="destructive" className="self-start" onClick={() => setConfirmDelete(true)} disabled={del.isPending}>
-            Delete Report
-          </Button>
           <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
             <AlertDialogContent>
               <AlertDialogHeader>

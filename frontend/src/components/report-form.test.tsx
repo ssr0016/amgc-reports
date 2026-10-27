@@ -45,6 +45,12 @@ describe("ReportForm", () => {
 		expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
 	});
 
+	it("places an end action on the far side of the footer on larger screens", () => {
+		setup({ endAction: <button type="button">Delete Report</button> });
+
+		expect(screen.getByRole("button", { name: "Delete Report" }).parentElement).toHaveClass("sm:ml-auto");
+	});
+
 	it("labels the single action Resubmit Report for revisions", () => {
 		setup({ revision: true });
 		expect(screen.getByRole("button", { name: "Resubmit Report" })).toBeInTheDocument();

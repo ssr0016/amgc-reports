@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { useFocusFirstError } from "@/lib/form-focus";
 import { AuthField } from "@/components/auth-field";
@@ -54,6 +55,7 @@ export function ReportForm({
   restricted = false,
   onSubmit,
   onCancel,
+  endAction,
 }: {
   initial: FormState;
   submitLabel: string;
@@ -69,6 +71,7 @@ export function ReportForm({
   restricted?: boolean;
   onSubmit: (input: ReportInput) => Promise<void>;
   onCancel: () => void;
+  endAction?: ReactNode;
 }) {
   const [start] = useState(initial);
   const [form, setForm] = useState(initial);
@@ -432,14 +435,17 @@ export function ReportForm({
         </p>
       )}
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-2 border-t bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:px-6">
-        {!readOnly && (
-          <Button type="submit" value="submit" disabled={pending || wait > 0} aria-busy={pending}>
-            {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Submitting…</> : draft ? "Submit Report" : revision ? "Resubmit Report" : submitLabel}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {!readOnly && (
+            <Button type="submit" value="submit" disabled={pending || wait > 0} aria-busy={pending}>
+              {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Submitting…</> : draft ? "Submit Report" : revision ? "Resubmit Report" : submitLabel}
+            </Button>
+          )}
+          <Button type="button" variant="ghost" onClick={cancel} disabled={pending}>
+            {readOnly ? "Back" : "Cancel"}
           </Button>
-        )}
-        <Button type="button" variant="ghost" onClick={cancel} disabled={pending}>
-          {readOnly ? "Back" : "Cancel"}
-        </Button>
+        </div>
+        {endAction && <div className="sm:ml-auto">{endAction}</div>}
       </div>
     </form>
   );
