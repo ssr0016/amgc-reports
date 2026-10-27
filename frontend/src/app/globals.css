@@ -51,7 +51,6 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
-
 :root {
   color-scheme: dark;
   --background: #1c1c1c;
@@ -112,7 +111,6 @@
     outline-offset: 3px;
   }
 }
-
 @layer components {
   [data-slot="button"], [data-slot="alert-dialog-action"], [data-slot="alert-dialog-cancel"] {
     min-height: 44px;
@@ -155,97 +153,3 @@
   }
 }
 
-@page {
-  size: A4 landscape;
-  margin: 10mm;
-}
-
-.analytics-report {
-  display: none;
-  width: 1120px;
-  padding: 24px;
-  background: #fff;
-  color: #111827;
-  --background: #fff;
-  --foreground: #111827;
-  --card: #fff;
-  --card-foreground: #111827;
-  --muted-foreground: #4b5563;
-  --border: #d1d5db;
-}
-
-.analytics-report-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  border-bottom: 2px solid #111827;
-  padding-bottom: 0.75rem;
-}
-
-.analytics-report-header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.analytics-report-header p {
-  margin: 0.25rem 0 0;
-  color: #4b5563;
-  font-size: 0.875rem;
-}
-
-.analytics-pdf-avoid {
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-@media print {
-  body {
-    margin: 0;
-    background: #fff !important;
-    color: #111827 !important;
-  }
-
-  nav,
-  aside,
-  .app-top-nav,
-  .analytics-screen-header,
-  .analytics-print-hide,
-  .analytics-screen-only,
-  .analytics-admin-heading,
-  .analytics-admin-layout > [aria-label="Statistics"] {
-    display: none !important;
-  }
-
-  .analytics-admin-layout {
-    max-width: none !important;
-    padding: 0 !important;
-    gap: 0 !important;
-  }
-
-  .analytics-admin-section,
-  .analytics-admin-card {
-    display: contents !important;
-  }
-
-  .analytics-report {
-    display: flex !important;
-    width: auto !important;
-    padding: 0 !important;
-    gap: 1rem !important;
-    background: #fff !important;
-    color: #111827 !important;
-  }
-
-  .analytics-report [data-slot="card"] {
-    break-inside: avoid;
-    background: #fff !important;
-    color: #111827 !important;
-    box-shadow: none !important;
-  }
-
-  .analytics-report th,
-  .analytics-report td {
-    border-color: #d1d5db !important;
-  }
-}

@@ -48,7 +48,6 @@ function renderAnalytics() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.spyOn(window, "print").mockImplementation(() => undefined);
   h.getAttendanceAnalytics.mockResolvedValue(body);
   h.getStats.mockResolvedValue({ churches_total: 3 });
 });
@@ -70,15 +69,6 @@ describe("analytics", () => {
     expect(screen.getByLabelText("Period")).toHaveValue("full_year");
     expect(screen.getByLabelText("Compare with previous year")).not.toBeChecked();
     expect(h.getAttendanceAnalytics).toHaveBeenLastCalledWith(new Date().getFullYear(), "worship_service", "approved", "full_year", false);
-  });
-
-  it("downloads the selected analytics report as a PDF", async () => {
-    const { user } = renderAnalytics();
-
-    await screen.findByText("Weekly trend");
-    await user.click(screen.getByRole("button", { name: "Download PDF" }));
-
-    expect(window.print).toHaveBeenCalledOnce();
   });
 
   it("refetches when filters change and exposes equivalent table data", async () => {
@@ -138,12 +128,22 @@ describe("analytics", () => {
     expect(within(table).getAllByText("—")).toHaveLength(2);
   });
 
-  it("renders the dashboard summary and full metrics summary on screen", async () => {
+  it("renders the analytics sections once in the requested order", async () => {
     renderAnalytics();
 
     await screen.findByText("Weekly trend");
-    expect(screen.getAllByRole("region", { name: "Analytics summary" })).toHaveLength(2);
-    expect(screen.getAllByRole("table", { name: "Full metrics summary" })).toHaveLength(2);
+    expect(screen.getAllByRole("region", { name: "Analytics summary" })).toHaveLength(1);
+    expect(screen.getAllByRole("table", { name: "Full metrics summary" })).toHaveLength(1);
+    const sections = [
+      screen.getByRole("region", { name: "Analytics summary" }),
+      screen.getByText("Weekly trend"),
+      screen.getByRole("heading", { name: "Data table" }),
+      screen.getByRole("heading", { name: "Church table" }),
+      screen.getByRole("heading", { name: "Full Metrics Summary" }),
+    ];
+    sections.slice(0, -1).forEach((section, index) => {
+      expect(Boolean(section.compareDocumentPosition(sections[index + 1]) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    });
   });
 
   it("builds a CSV with escaped KPI and table values", () => {
