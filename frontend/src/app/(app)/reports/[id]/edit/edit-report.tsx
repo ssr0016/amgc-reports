@@ -1,25 +1,14 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ReportForm } from "@/components/report-form";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { fromReport, isRestricted } from "@/lib/report-form";
-import { deleteReport, getReport, submitReport, updateReport } from "@/lib/reports";
+import { getReport, submitReport, updateReport } from "@/lib/reports";
 import { reportStorageKey } from "@/lib/report-draft-storage";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
@@ -33,7 +22,6 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
   const valid = Number.isInteger(reportId) && reportId > 0;
   const allowed = can("reports:read");
   const [deleted, setDeleted] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // gcTime 0: PUT replaces everything, so the form must start from a fresh
   // load, never from a cached copy that may be out of date.
@@ -45,21 +33,6 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
     refetchOnWindowFocus: true,
   });
 
-  const del = useMutation({
-    mutationFn: () => deleteReport(reportId),
-    onSuccess: async () => {
-      setConfirmDelete(false);
-      setDeleted(true);
-      toast.success("Report deleted successfully.");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["report", reportId] }),
-        queryClient.invalidateQueries({ queryKey: ["current-report", user?.user_id] }),
-        queryClient.invalidateQueries({ queryKey: ["reports"] }),
-        refreshAdminViews(queryClient),
-      ]);
-      router.replace("/reports");
-    },
-  });
 
   async function markDeleted() {
     setDeleted(true);
@@ -78,7 +51,6 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
   // Anyone who may read a report may open it; only its owner, or someone with write_any, may change it.
   // The server enforces the same rule (404 on save), so this only keeps the form from pretending.
   const editable = !viewOnly && (!data || (can("reports:write") && (data.created_by === user?.user_id || can("reports:write_any"))));
-  const deletable = editable && !!data && can("reports:delete") && (data.created_by === user?.user_id || can("reports:delete_any"));
 
   let body: React.ReactNode;
   if (!allowed) {
@@ -136,18 +108,6 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
           router.replace("/reports");
         }}
         onCancel={() => router.push("/reports")}
-        endAction={
-          deletable && data ? (
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => setConfirmDelete(true)}
-              disabled={del.isPending}
-            >
-              Delete Report
-            </Button>
-          ) : undefined
-        }
       />
     );
   }
@@ -156,25 +116,6 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
     <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
       <h1 className="text-2xl font-medium tracking-tight">{editable ? "Edit report" : "View report"}</h1>
       {body}
-      {deletable && data && (
-        <>
-          <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete this report?</AlertDialogTitle>
-                <AlertDialogDescription>This permanently deletes your {data.month} {data.year} report.</AlertDialogDescription>
-              </AlertDialogHeader>
-              {del.isError && <p role="alert" className="text-sm text-destructive">Could not delete the report. Please try again.</p>}
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={del.isPending}>Cancel</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" disabled={del.isPending} onClick={() => del.mutate()}>
-                  {del.isPending ? "Deleting…" : "Delete Report"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-      )}
     </main>
   );
 }

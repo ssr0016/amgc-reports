@@ -1,22 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./sidebar";
 
 const h = vi.hoisted(() => ({ isAdmin: true, canAdmin: true, path: "/reports", tab: "", permissions: [] as string[], user: { role: "admin" } }));
-const reports = vi.hoisted(() => ({ getCurrentReport: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => h.path, useSearchParams: () => new URLSearchParams({ tab: h.tab }) }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ ...h, can: (p: string) => h.isAdmin || h.permissions.includes(p) }) }));
-vi.mock("@/lib/reports", async () => ({
-  ...(await vi.importActual<typeof import("@/lib/reports")>("@/lib/reports")),
-  defaultPeriod: () => ({ month: "September", year: 2026 }),
-  getCurrentReport: reports.getCurrentReport,
-}));
 const nav = () => within(screen.getByRole("navigation", { name: "Main" }));
 const renderSidebar = () => render(<QueryClientProvider client={new QueryClient()}><Sidebar /></QueryClientProvider>);
 
 describe("sidebar", () => {
-  beforeEach(() => { Object.assign(h, { isAdmin: true, canAdmin: true, path: "/reports", tab: "", permissions: [], user: { role: "admin" } }); reports.getCurrentReport.mockResolvedValue(null); });
+  beforeEach(() => { Object.assign(h, { isAdmin: true, canAdmin: true, path: "/reports", tab: "", permissions: [], user: { role: "admin" } }); });
 
   it("names the reports link Community Reports", () => {
     renderSidebar();
@@ -40,8 +34,7 @@ describe("sidebar", () => {
   it("shows workers reports and settings without admin links", async () => {
     Object.assign(h, { isAdmin: false, canAdmin: false, user: { role: "user" }, permissions: ["reports:read", "reports:write"] });
     renderSidebar();
-    await screen.findByRole("link", { name: "New Report" });
-    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports", "New Report", "Profile"]);
+    await waitFor(() => expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports", "Profile"]));
     expect(nav().queryByText("Admin")).not.toBeInTheDocument();
     expect(nav().queryByRole("link", { name: "Change Password" })).not.toBeInTheDocument();
   });
@@ -65,16 +58,4 @@ describe("sidebar", () => {
     expect(nav().getByRole("link", { name: "Admin Analytics" })).toHaveAttribute("aria-current", "page");
   });
 
-  it.each([
-    ["draft", "Continue Draft"],
-    ["pending", "View Report"],
-    ["approved", "View Report"],
-    ["needs_revision", "Revise Report"],
-  ])("labels the current report %s", async (status, label) => {
-    Object.assign(h, { isAdmin: false, canAdmin: false, user: { role: "user" }, permissions: ["reports:read", "reports:write"] });
-    reports.getCurrentReport.mockResolvedValue({ id: 12, month: "September", year: 2026, status });
-    renderSidebar();
-    const link = await screen.findByRole("link", { name: label });
-    expect(link).toHaveAttribute("href", status === "needs_revision" || status === "draft" ? "/reports/12/edit" : status === "pending" || status === "approved" ? "/reports/12" : "/reports/new");
-  });
 });

@@ -1,23 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryProvider } from "@/lib/query";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import AppLayout from "./layout";
 
 const h = vi.hoisted(() => ({ status: "authenticated" }));
-const reports = vi.hoisted(() => ({ getCurrentReport: vi.fn() }));
 const renderLayout = () => render(<QueryProvider><AppLayout>content</AppLayout></QueryProvider>);
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports", useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/session", () => ({
   useSession: () => ({ status: h.status, user: { name: "Ana", email: "a@b.c", role: "user" }, isAdmin: false, canAdmin: false, can: (permission: string) => permission === "reports:read" || permission === "reports:write", signOut: vi.fn() }),
 }));
-vi.mock("@/lib/reports", async () => ({
-  ...(await vi.importActual<typeof import("@/lib/reports")>("@/lib/reports")),
-  getCurrentReport: reports.getCurrentReport,
-}));
 
 describe("app layout", () => {
-  beforeEach(() => reports.getCurrentReport.mockResolvedValue(null));
   // WCAG 2.4.1: a way past the header on every page.
   it("starts with a skip link to the main content", () => {
     renderLayout();
@@ -30,7 +24,7 @@ describe("app layout", () => {
   it("gives a non-admin reports and account settings", () => {
     renderLayout();
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports", "New Report", "Profile"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports", "Profile"]);
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
   });
 

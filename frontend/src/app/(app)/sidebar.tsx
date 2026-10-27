@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import { usePathname, useSearchParams } from "next/navigation";
 import { BarChart3, ClipboardList, KeyRound, ListChecks, ScrollText, ShieldCheck, UserRound, Users } from "lucide-react";
 import { cn } from "cn";
 import { adminSections } from "@/lib/admin-navigation";
 import { useSession } from "@/lib/session";
-import { getCurrentReport, reportAction } from "@/lib/reports";
 
 const ADMIN_ICONS: Record<string, typeof ClipboardList> = {
   reports: ClipboardList, analytics: BarChart3, tracker: ListChecks, users: Users, roles: ShieldCheck, logs: ScrollText,
@@ -18,13 +16,6 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
   const params = useSearchParams();
   const { can, isAdmin, canAdmin, user } = useSession();
   const isWorker = user?.role === "user";
-  const currentReport = useQuery({
-    queryKey: ["current-report", user?.user_id],
-    queryFn: getCurrentReport,
-    enabled: isWorker && can("reports:write"),
-    staleTime: 30_000,
-  });
-  const action = reportAction(currentReport.data);
   const sections = adminSections(can, isAdmin);
   const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   const requested = pathname.startsWith("/admin/users/") ? "users" : pathname.startsWith("/admin/roles/") ? "roles" : params.get("tab");
@@ -47,12 +38,6 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
         >
           <ClipboardList className="size-4" aria-hidden="true" />
           Community Reports
-        </Link>
-      )}
-      {isWorker && can("reports:write") && !currentReport.isPending && !currentReport.isError && (
-        <Link href={action.href} aria-current={pathname === action.href ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === action.href)}>
-          <ClipboardList className="size-4" aria-hidden="true" />
-          {action.label}
         </Link>
       )}
       {canAdmin && sections.length > 0 && (
