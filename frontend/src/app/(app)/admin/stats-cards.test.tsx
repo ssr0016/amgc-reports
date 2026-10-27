@@ -80,18 +80,15 @@ describe("StatsCards", () => {
     expect(screen.queryByText("Pending", { selector: "[data-slot=card-description]" })).not.toBeInTheDocument();
   });
 
-  it("shows a card per role and per status on the Users tab, zeros and custom roles included", async () => {
+  it("shows Total Users and one breakdown card each for roles and statuses, zeros hidden", async () => {
     h.getStats.mockResolvedValue(stats());
     renderCards(true);
     await screen.findByRole("region", { name: "Statistics" });
-    expect(screen.getByRole("heading", { name: "By role" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "By status" })).toBeInTheDocument();
-    for (const [label, n] of [
-      ["Total Users", "7"], ["user", "5"], ["admin", "2"], ["reviewer", "0"],
-      ["Active", "5"], ["Inactive", "1"], ["Disciplinary", "1"], ["Deceased", "0"],
-    ]) {
-      expect(within(card(label)).getByText(n)).toBeInTheDocument();
-    }
+    expect(within(card("Total Users")).getByText("7")).toBeInTheDocument();
+    const rows = (label: string) =>
+      within(card(label)).getAllByRole("term").map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]);
+    expect(rows("Roles Breakdown")).toEqual([["user", "5"], ["admin", "2"]]);
+    expect(rows("Statuses Breakdown")).toEqual([["Active", "5"], ["Inactive", "1"], ["Disciplinary", "1"]]);
     expect(screen.queryByText("Expected Reports", { selector: "[data-slot=card-description]" })).not.toBeInTheDocument();
   });
 

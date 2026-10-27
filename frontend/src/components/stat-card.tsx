@@ -13,17 +13,20 @@ const TONE = {
 
 export type StatTone = keyof typeof TONE;
 
-export function StatCard({ label, value, icon: Icon, tone, note }: { label: string; value: ReactNode; icon: LucideIcon; tone: StatTone; note?: ReactNode }) {
+// value is optional so a breakdown card can carry its rows in note alone.
+export function StatCard({ label, value, icon: Icon, tone, note }: { label: string; value?: ReactNode; icon: LucideIcon; tone: StatTone; note?: ReactNode }) {
   return (
     <Card
       className={`group border-white/[0.06] bg-card/80 bg-linear-to-b from-white/[0.03] to-transparent shadow-sm ring-1 ring-transparent transition-shadow duration-200 hover:shadow-lg ${TONE[tone].glow}`}
     >
       <CardHeader className="gap-2">
         <CardDescription className="text-xs font-medium tracking-wide uppercase">{label}</CardDescription>
-        <CardTitle className="flex items-center gap-2 text-3xl font-semibold tracking-tight tabular-nums">
-          <span aria-hidden="true" className={`size-1.5 rounded-full ${TONE[tone].dot}`} />
-          {value}
-        </CardTitle>
+        {value !== undefined && (
+          <CardTitle className="flex items-center gap-2 text-3xl font-semibold tracking-tight tabular-nums">
+            <span aria-hidden="true" className={`size-1.5 rounded-full ${TONE[tone].dot}`} />
+            {value}
+          </CardTitle>
+        )}
         <CardAction>
           <span aria-hidden="true" className={`grid size-11 place-items-center rounded-lg transition-transform duration-200 motion-safe:group-hover:scale-110 ${TONE[tone].tile}`}>
             <Icon className="size-6" />
