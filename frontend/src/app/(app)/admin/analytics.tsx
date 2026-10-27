@@ -14,7 +14,7 @@ import { ErrorRetry } from "@/components/error-retry";
 import { Loading } from "@/components/loading";
 import { ANALYTICS_PERIODS, getAttendanceAnalytics, type AnalyticsPeriod, type AttendanceAnalytics, type AttendanceStatus } from "@/lib/analytics";
 import { METRICS } from "@/lib/report-form";
-import { FIRST_YEAR } from "@/lib/reports";
+import { FIRST_YEAR, MONTHS } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { getStats } from "@/lib/stats";
 
@@ -27,6 +27,17 @@ const formatSummaryValue = (metric: string, value: number | null | undefined) =>
   return formatValue(value);
 };
 const periodLabel = (period: AnalyticsPeriod) => ANALYTICS_PERIODS.find((item) => item.value === period)?.label ?? period;
+const periodBounds: Record<AnalyticsPeriod, [number, number]> = {
+  full_year: [1, 12], q1: [1, 3], q2: [4, 6], q3: [7, 9], q4: [10, 12],
+  january: [1, 1], february: [2, 2], march: [3, 3], april: [4, 4],
+  may: [5, 5], june: [6, 6], july: [7, 7], august: [8, 8],
+  september: [9, 9], october: [10, 10], november: [11, 11], december: [12, 12],
+};
+const inPeriod = (month: string, period: AnalyticsPeriod) => {
+  const monthNumber = MONTHS.indexOf(month as (typeof MONTHS)[number]) + 1;
+  const [start, end] = periodBounds[period];
+  return monthNumber >= start && monthNumber <= end;
+};
 const changeText = (current: number, previous?: number) => {
   if (previous === undefined) return "";
   if (previous === 0) return current === 0 ? "0% vs last year" : "New vs last year";
@@ -50,8 +61,13 @@ const csvCell = (value: unknown) => {
 
 export function buildAnalyticsCsv({ data, metricLabel, yearlyTotal, peakMonth, activeChurches, totalChurches }: CsvInput) {
   const comparison = data.comparison;
-  const previousTotal = comparison?.trend.reduce((total, point) => total + point.value, 0);
-  const previousMonthlyTotals = comparison?.trend.reduce<Record<string, number>>((totals, point) => {
+  const period = data.period as AnalyticsPeriod;
+  const periodText = `${periodLabel(period)} ${data.year}`;
+  const statusText = data.status === "approved" ? "Approved" : "All Submitted";
+  const currentTrend = data.trend.filter((point) => inPeriod(point.month, period));
+  const comparisonTrend = comparison?.trend.filter((point) => inPeriod(point.month, period));
+  const previousTotal = comparisonTrend?.reduce((total, point) => total + point.value, 0);
+  const previousMonthlyTotals = comparisonTrend?.reduce<Record<string, number>>((totals, point) => {
     totals[point.month] = (totals[point.month] ?? 0) + point.value;
     return totals;
   }, {});
@@ -60,10 +76,11 @@ export function buildAnalyticsCsv({ data, metricLabel, yearlyTotal, peakMonth, a
     : ["", 0] as [string, number];
   const previousActiveChurches = comparison?.churches.filter((church) => church.value > 0).length;
   const previousYear = comparison?.year;
-  const previousTrend = new Map(comparison?.trend.map((point) => [`${point.month}-${point.week}`, point.value]));
+  const previousTrend = new Map(comparisonTrend?.map((point) => [`${point.month}-${point.week}`, point.value]));
   const churchNames = [...new Set([...data.churches.map((church) => church.church_name), ...(comparison?.churches.map((church) => church.church_name) ?? [])])];
   const currentChurches = new Map(data.churches.map((church) => [church.church_name, church.value]));
   const previousChurches = new Map(comparison?.churches.map((church) => [church.church_name, church.value]));
+  const summaryChurchNames = [...new Set(data.summary.flatMap((row) => row.churches.map((church) => church.church_name)))];
   const rows: unknown[][] = [
     ["Analytics", `${metricLabel} · ${data.year} · ${periodLabel(data.period as AnalyticsPeriod)}`],
     [],
@@ -72,13 +89,21 @@ export function buildAnalyticsCsv({ data, metricLabel, yearlyTotal, peakMonth, a
     ["Peak Month", peakMonth[0], ...(previousYear ? [previousPeakMonth[0], changeText(peakMonth[1], previousPeakMonth[1])] : [])],
     ["Active Churches", `${activeChurches} out of ${totalChurches}`, ...(previousYear ? [previousActiveChurches, changeText(activeChurches, previousActiveChurches)] : [])],
     [],
-    ["Weekly trend"],
+    [`--- WEEKLY TREND (${periodText} - ${statusText}) ---`],
     ["Month", "Week", String(data.year), ...(previousYear ? [String(previousYear)] : [])],
-    ...data.trend.filter((point) => point.value !== 0 || (previousTrend.get(`${point.month}-${point.week}`) ?? 0) !== 0).map((point) => [point.month, point.week, point.value, ...(previousYear ? [previousTrend.get(`${point.month}-${point.week}`) ?? 0] : [])]),
+    ...currentTrend.filter((point) => point.value !== 0 || previousTrend.get(`${point.month}-${point.week}`) !== undefined).map((point) => [point.month, point.week, point.value, ...(previousYear ? [previousTrend.get(`${point.month}-${point.week}`) ?? ""] : [])]),
+    [],
+    [`--- FULL METRICS SUMMARY (${periodText} - ${statusText}) ---`],
+    ["Metric Name", "Total for Period", ...summaryChurchNames],
+    ...data.summary.map((row) => {
+      const values = new Map(row.churches.map((church) => [church.church_name, church.value]));
+      const label = METRICS.find((item) => item.key === row.metric)?.label ?? row.metric;
+      return [label, row.total ?? "", ...summaryChurchNames.map((church) => values.get(church) ?? "")];
+    }),
     [],
     ["Church breakdown"],
     ["Church", String(data.year), ...(previousYear ? [String(previousYear)] : [])],
-    ...churchNames.map((name) => [name, currentChurches.get(name) ?? 0, ...(previousYear ? [previousChurches.get(name) ?? 0] : [])]),
+    ...churchNames.map((name) => [name, currentChurches.get(name) ?? "", ...(previousYear ? [previousChurches.get(name) ?? ""] : [])]),
   ];
   return `${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}\r\n`;
 }

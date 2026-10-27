@@ -139,4 +139,38 @@ describe("analytics", () => {
     expect(csv).toContain("Church breakdown");
     expect(csv).toContain('"Grace, ""North""",26');
   });
+
+  it("uses the selected period in section headers and excludes other months", () => {
+    const csv = buildAnalyticsCsv({
+      data: {
+        ...body,
+        period: "q1",
+        trend: [...trend, { month: "April", week: 1, value: 99 }],
+      },
+      metricLabel: "Worship Service",
+      yearlyTotal: 26,
+      peakMonth: ["January", 26],
+      activeChurches: 1,
+      totalChurches: 3,
+    });
+
+    expect(csv).toContain("--- FULL METRICS SUMMARY (Q1 2026 - Approved) ---");
+    expect(csv).toContain("--- WEEKLY TREND (Q1 2026 - Approved) ---");
+    expect(csv).toContain("January,1,12");
+    expect(csv).not.toContain("April,1,99");
+  });
+
+  it("writes blank CSV cells for missing summary values", () => {
+    const csv = buildAnalyticsCsv({
+      data: body,
+      metricLabel: "Worship Service",
+      yearlyTotal: 26,
+      peakMonth: ["January", 26],
+      activeChurches: 1,
+      totalChurches: 3,
+    });
+
+    expect(csv).toContain("Baptism,,");
+    expect(csv).not.toContain("Baptism,—");
+  });
 });
