@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Loader2, Lock, Plus } from "lucide-react";
+import { KeyRound, Loader2, Lock, Plus, Shield, ShieldPlus } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import {
@@ -21,10 +21,11 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ErrorRetry } from "@/components/error-retry";
-import { TableSkeleton } from "@/components/loading-skeletons";
+import { KpiSkeleton, TableSkeleton } from "@/components/loading-skeletons";
 import { EmptyState } from "@/components/empty-state";
 import { pageOf, Pagination } from "@/components/pagination";
 import { panelCard } from "@/components/panel-section";
+import { StatCard } from "@/components/stat-card";
 import { ApiError } from "@/lib/api";
 import { errorText } from "@/lib/auth-form";
 import { deleteRole, isBuiltIn, type RoleDetail } from "@/lib/roles";
@@ -37,6 +38,29 @@ const lift = "transition-[color,background-color,box-shadow] duration-150 hover:
 // Paged in the browser: listRoles loads every role for the dropdowns too.
 const PAGE_SIZE = 10;
 
+// The same key as the role dropdowns on the user pages, so a change here reaches them.
+const rolesQuery = { queryKey: ["roles"], queryFn: listRoles, staleTime: 5 * 60_000 };
+
+// The Roles tab's cards. They share the panel's query, so no extra request is made.
+export function RoleStats() {
+  const { isAdmin } = useSession();
+  const { data, isPending, isError } = useQuery({ ...rolesQuery, enabled: isAdmin });
+  // The panel below already shows the error or the not-allowed message.
+  if (!isAdmin || isError) return null;
+  if (isPending) return <KpiSkeleton />;
+  const system = data.filter((r) => isBuiltIn(r.name)).length;
+  // Distinct by id: admin holds every permission, so a plain sum would count most of them twice.
+  const permissions = new Set(data.flatMap((r) => r.permissions?.map((p) => p.id) ?? [])).size;
+  return (
+    <section aria-label="Statistics" className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
+      <StatCard label="Total Roles" value={data.length} icon={Shield} tone="neutral" />
+      <StatCard label="Custom Roles" value={data.length - system} icon={ShieldPlus} tone="green" />
+      <StatCard label="System Roles" value={system} icon={Lock} tone="sky" />
+      <StatCard label="Total Permissions" value={permissions} icon={KeyRound} tone="amber" />
+    </section>
+  );
+}
+
 // The Roles tab of /admin (D-A21): custom roles, then the read-only system roles, each in its own card under an h3.
 export function RolesPanel() {
   const { isAdmin, can } = useSession();
@@ -45,13 +69,7 @@ export function RolesPanel() {
   const [viewing, setViewing] = useState<RoleDetail | null>(null);
   const [page, setPage] = useState(1);
   const opener = useRef<HTMLElement | null>(null);
-  // The same key as the role dropdowns on the user pages, so a change here reaches them.
-  const { data, error, isPending, refetch } = useQuery({
-    queryKey: ["roles"],
-    queryFn: listRoles,
-    enabled: isAdmin,
-    staleTime: 5 * 60_000,
-  });
+  const { data, error, isPending, refetch } = useQuery({ ...rolesQuery, enabled: isAdmin });
 
   let body: React.ReactNode;
   if (!isAdmin || (error instanceof ApiError && error.status === 403)) {

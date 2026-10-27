@@ -15,7 +15,7 @@ vi.mock("./users/users-list", () => ({ UsersPanel: () => <p>users panel</p> }));
 vi.mock("./audit-logs", () => ({ AuditLogs: () => <p>audit logs</p> }));
 vi.mock("./tracker", () => ({ Tracker: () => <p>tracker</p> }));
 vi.mock("./analytics", () => ({ Analytics: () => <p>analytics</p> }));
-vi.mock("./roles", () => ({ RolesPanel: () => <p>roles panel</p> }));
+vi.mock("./roles", () => ({ RolesPanel: () => <p>roles panel</p>, RoleStats: () => <p>stats</p> }));
 
 describe("AdminPanel", () => {
   beforeEach(() => { Object.assign(h, { isAdmin: true, permissions: [], tab: "" }); });

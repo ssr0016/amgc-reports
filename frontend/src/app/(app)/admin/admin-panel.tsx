@@ -8,7 +8,7 @@ import { reportsTheme } from "@/components/reports-dashboard";
 import { AdminReports } from "./admin-reports";
 import { Analytics } from "./analytics";
 import { AuditLogs } from "./audit-logs";
-import { RolesPanel } from "./roles";
+import { RoleStats, RolesPanel } from "./roles";
 import { StatsCards } from "./stats-cards";
 import { Tracker } from "./tracker";
 import { UsersPanel } from "./users/users-list";
@@ -38,7 +38,7 @@ export function AdminPanel() {
       {canAdmin && tab ? (
         <>
           {/* Tracker has its own month-scoped summary, so the global cards would duplicate or contradict it. */}
-          {tab !== "reports" && tab !== "tracker" && <StatsCards users={tab === "users"} />}
+          {tab === "roles" ? <RoleStats /> : tab !== "reports" && tab !== "tracker" && <StatsCards users={tab === "users"} />}
           <section aria-label={tabs.find((t) => t.value === tab)?.label} className={`${analyticsTab ? "analytics-admin-section" : ""} min-w-0`}>
             {tab === "reports" ? panels[tab] : <Card className={`${analyticsTab ? "analytics-admin-card" : ""} p-4 sm:p-6`}>{panels[tab]}</Card>}
           </section>

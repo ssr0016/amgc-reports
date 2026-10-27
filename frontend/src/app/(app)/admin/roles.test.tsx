@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { deleteRole } from "@/lib/roles";
 import { listRoles, listUsers } from "@/lib/users";
-import { RolesPanel } from "./roles";
+import { RoleStats, RolesPanel } from "./roles";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 const session = vi.hoisted(() => ({ isAdmin: true, perms: ["roles:write"] as string[] }));
@@ -78,6 +78,20 @@ describe("Roles tab", () => {
     const names = (t: HTMLElement) => within(t).getAllByRole("row").slice(1).map((r) => r.firstChild?.firstChild?.textContent);
     expect(names(custom)).toEqual(["Reviewer", "Unused"]);
     expect(names(system)).toEqual(["admin"]);
+  });
+
+  it("RoleStats counts roles by kind and distinct permissions", async () => {
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <RoleStats />
+      </QueryClientProvider>,
+    );
+    const card = async (label: string) =>
+      (await screen.findByText(label, { selector: "[data-slot=card-description]" })).closest("[data-slot=card]") as HTMLElement;
+    expect(await card("Total Roles")).toHaveTextContent("3");
+    expect(await card("Custom Roles")).toHaveTextContent("2");
+    expect(await card("System Roles")).toHaveTextContent("1");
+    expect(await card("Total Permissions")).toHaveTextContent("2");
   });
 
   it("with no custom roles, says so", async () => {
