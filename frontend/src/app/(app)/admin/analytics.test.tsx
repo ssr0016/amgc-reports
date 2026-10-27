@@ -1,15 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AttendanceAnalytics } from "@/lib/analytics";
 import { Analytics, buildAnalyticsCsv } from "./analytics";
 
 const h = vi.hoisted(() => ({
   getAttendanceAnalytics: vi.fn(),
   getStats: vi.fn(),
-  html2pdf: vi.fn(),
-  pdf: { set: vi.fn(), from: vi.fn(), save: vi.fn() },
 }));
 vi.mock("@/lib/analytics", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/analytics")>()),
@@ -17,7 +15,6 @@ vi.mock("@/lib/analytics", async (importOriginal) => ({
 }));
 vi.mock("@/lib/stats", () => ({ getStats: h.getStats }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ can: () => true }) }));
-vi.mock("html2pdf.js", () => ({ default: h.html2pdf }));
 vi.mock("recharts", () => {
   const Chart = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
   return { Bar: Chart, BarChart: Chart, CartesianGrid: Chart, Line: Chart, LineChart: Chart, ResponsiveContainer: Chart, Tooltip: Chart, XAxis: Chart, YAxis: Chart };
@@ -51,13 +48,12 @@ function renderAnalytics() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  h.pdf.set.mockReturnValue(h.pdf);
-  h.pdf.from.mockReturnValue(h.pdf);
-  h.pdf.save.mockResolvedValue(undefined);
-  h.html2pdf.mockReturnValue(h.pdf);
+  vi.spyOn(window, "print").mockImplementation(() => undefined);
   h.getAttendanceAnalytics.mockResolvedValue(body);
   h.getStats.mockResolvedValue({ churches_total: 3 });
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("analytics", () => {
   it("loads with current-year, Worship Service, and Approved defaults", async () => {
@@ -82,9 +78,7 @@ describe("analytics", () => {
     await screen.findByText("Weekly trend");
     await user.click(screen.getByRole("button", { name: "Download PDF" }));
 
-    expect(h.html2pdf).toHaveBeenCalledOnce();
-    expect(h.pdf.from).toHaveBeenCalledWith(document.getElementById("analytics-report"));
-    expect(h.pdf.save).toHaveBeenCalledOnce();
+    expect(window.print).toHaveBeenCalledOnce();
   });
 
   it("refetches when filters change and exposes equivalent table data", async () => {

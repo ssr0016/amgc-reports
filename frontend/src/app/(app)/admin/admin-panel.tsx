@@ -30,15 +30,16 @@ export function AdminPanel() {
   };
   // A missing, unknown or not-allowed ?tab= lands on the first allowed tab.
   const tab = tabs.find((t) => t.value === param)?.value ?? tabs[0]?.value;
+  const analyticsTab = tab === "analytics";
 
   return (
-    <main id="main-content" tabIndex={-1} className={`${tab === "reports" ? reportsTheme : ""} mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <h1 className="text-2xl font-medium tracking-tight">Admin{tab && ` / ${tabs.find((t) => t.value === tab)?.label}`}</h1>
+    <main id="main-content" tabIndex={-1} className={`${analyticsTab ? "analytics-admin-layout" : ""} ${tab === "reports" ? reportsTheme : ""} mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
+      <h1 className={`${analyticsTab ? "analytics-admin-heading" : ""} text-2xl font-medium tracking-tight`}>Admin{tab && ` / ${tabs.find((t) => t.value === tab)?.label}`}</h1>
       {canAdmin && tab ? (
         <>
           {tab !== "reports" && <StatsCards />}
-          <section aria-label={tabs.find((t) => t.value === tab)?.label} className="min-w-0">
-            {tab === "reports" ? panels[tab] : <Card className="p-4 sm:p-6">{panels[tab]}</Card>}
+          <section aria-label={tabs.find((t) => t.value === tab)?.label} className={`${analyticsTab ? "analytics-admin-section" : ""} min-w-0`}>
+            {tab === "reports" ? panels[tab] : <Card className={`${analyticsTab ? "analytics-admin-card" : ""} p-4 sm:p-6`}>{panels[tab]}</Card>}
           </section>
         </>
       ) : (

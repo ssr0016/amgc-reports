@@ -3,7 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import { useState } from "react";
-import html2pdf from "html2pdf.js";
 import { Download } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipContentProps } from "recharts";
@@ -118,7 +117,6 @@ export function Analytics() {
   const [metric, setMetric] = useState("worship_service");
   const [status, setStatus] = useState<AttendanceStatus>("approved");
   const [compare, setCompare] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { data, error, isPending, refetch } = useQuery({
     queryKey: ["analytics-attendance", year, metric, status, period, compare],
     queryFn: () => getAttendanceAnalytics(year, metric, status, period, compare),
@@ -185,37 +183,16 @@ export function Analytics() {
     URL.revokeObjectURL(url);
   };
 
-  const downloadPdf = async () => {
-    const report = document.getElementById("analytics-report");
-    if (!data || !report || isGeneratingPdf) return;
-
-    setIsGeneratingPdf(true);
-    try {
-      const pdfOptions = {
-        margin: 10,
-        filename: `analytics-${year}-${period}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-        pagebreak: { mode: ["css", "legacy"], avoid: [".analytics-pdf-avoid"] },
-      } as Parameters<InstanceType<typeof html2pdf.Worker>["set"]>[0] & {
-        pagebreak: { mode: ("css" | "legacy")[]; avoid: string[] };
-      };
-      await html2pdf()
-        .set(pdfOptions)
-        .from(report)
-        .save();
-    } finally {
-      setIsGeneratingPdf(false);
-    }
+  const downloadPdf = () => {
+    if (data) window.print();
   };
 
   const fullMetricsSummary = <section aria-labelledby="full-metrics-summary-heading" className="flex flex-col gap-3"><div><h2 id="full-metrics-summary-heading" className="text-base font-medium">Full Metrics Summary</h2><p className="text-sm text-muted-foreground">All metrics for {periodLabel(period)} {year} · {status === "approved" ? "Approved" : "All Submitted"}</p></div><div className="overflow-x-auto rounded-lg border"><Table aria-label="Full metrics summary"><TableCaption>Metric totals with church-level breakdown.</TableCaption><TableHeader><TableRow><TableHead>Metric Name</TableHead><TableHead className="text-right">Total for Period</TableHead>{summaryChurchNames.map((church) => <TableHead key={church} className="text-right">{church}</TableHead>)}</TableRow></TableHeader><TableBody>{(data?.summary ?? []).map((row) => { const label = METRICS.find((item) => item.key === row.metric)?.label ?? row.metric; const values = new Map(row.churches.map((church) => [church.church_name, church.value])); return <TableRow key={row.metric} className="analytics-pdf-avoid"><TableCell className="font-medium">{label}</TableCell><TableCell className="text-right tabular-nums">{formatSummaryValue(row.metric, row.total)}</TableCell>{summaryChurchNames.map((church) => <TableCell key={church} className="text-right tabular-nums">{formatSummaryValue(row.metric, values.get(church))}</TableCell>)}</TableRow>; })}</TableBody></Table></div></section>;
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-xl font-medium tracking-tight">Analytics</h2><p className="mt-1 text-sm text-muted-foreground">Attendance trends and church totals.</p></div><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={downloadPdf} disabled={!data || isGeneratingPdf}><Download aria-hidden="true" />{isGeneratingPdf ? "Generating PDF…" : "Download PDF"}</Button><Button type="button" variant="outline" onClick={exportCsv} disabled={!data}><Download aria-hidden="true" />Export to CSV</Button></div></header>
-      <form onSubmit={(event) => event.preventDefault()} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <header className="analytics-screen-header flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-xl font-medium tracking-tight">Analytics</h2><p className="mt-1 text-sm text-muted-foreground">Attendance trends and church totals.</p></div><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={downloadPdf} disabled={!data}><Download aria-hidden="true" />Download PDF</Button><Button type="button" variant="outline" onClick={exportCsv} disabled={!data}><Download aria-hidden="true" />Export to CSV</Button></div></header>
+      <form onSubmit={(event) => event.preventDefault()} className="analytics-print-hide grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="flex flex-col gap-2"><Label htmlFor="analytics-year">Year</Label><NativeSelect id="analytics-year" value={year} onChange={(event) => setYear(Number(event.target.value))}>{years.map((option) => <option key={option} value={option}>{option}</option>)}</NativeSelect></div>
         <div className="flex flex-col gap-2"><Label htmlFor="analytics-period">Period</Label><NativeSelect id="analytics-period" value={period} onChange={(event) => setPeriod(event.target.value as AnalyticsPeriod)}>{ANALYTICS_PERIODS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</NativeSelect></div>
         <div className="flex flex-col gap-2"><Label htmlFor="analytics-metric">Metric</Label><NativeSelect id="analytics-metric" value={metric} onChange={(event) => setMetric(event.target.value)}>{METRICS.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}</NativeSelect></div>
@@ -233,7 +210,7 @@ export function Analytics() {
           </section>
             {fullMetricsSummary}
           </div>
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="analytics-print-hide grid gap-6 xl:grid-cols-2">
             <Card><CardHeader><CardTitle>Weekly trend</CardTitle><CardDescription>{metricLabel} across all churches · {periodLabel(period)} {year} · {status === "approved" ? "Approved" : "All Submitted"}</CardDescription></CardHeader><CardContent>{!hasTrendValues ? <p role="status" className="flex h-72 items-center justify-center text-sm text-muted-foreground">No data available for this selection</p> : <div aria-label={`${metricLabel} weekly trend chart`} role="img" className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={trendData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" /><XAxis dataKey="label" interval="preserveStartEnd" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} label={{ value: metricLabel, angle: -90, position: "insideLeft" }} /><Tooltip content={renderTooltip} /><Line type="monotone" dataKey="value" name={`${year} ${metricLabel}`} stroke="var(--primary)" strokeWidth={2} dot={{ r: 3, fill: "var(--primary)" }} />{comparison && <Line type="monotone" dataKey="previousValue" name={`${comparison.year} ${metricLabel}`} stroke="var(--muted-foreground)" strokeDasharray="6 4" strokeWidth={2} dot={false} />}</LineChart></ResponsiveContainer></div>}</CardContent></Card>
             <Card><CardHeader><CardTitle>Church breakdown</CardTitle><CardDescription>Total {metricLabel} reported by church · {periodLabel(period)} {year}</CardDescription></CardHeader><CardContent>{!hasChurchValues ? <p role="status" className="flex h-72 items-center justify-center text-sm text-muted-foreground">No data available for this selection</p> : <div aria-label={`${metricLabel} church breakdown chart`} role="img" className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={churchData} layout="vertical" margin={{ top: 8, right: 8, left: 8, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" /><XAxis type="number" allowDecimals={false} label={{ value: metricLabel, position: "insideBottom", offset: -4 }} /><YAxis dataKey="church_name" type="category" width={100} tick={{ fontSize: 11 }} /><Tooltip content={renderTooltip} /><Bar dataKey="value" name={`${year} ${metricLabel}`} fill="var(--primary)" />{comparison && <Bar dataKey="previousValue" name={`${comparison.year} ${metricLabel}`} fill="var(--muted-foreground)" />}</BarChart></ResponsiveContainer></div>}</CardContent></Card>
           </div>
