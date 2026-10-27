@@ -17,24 +17,25 @@ describe("sidebar", () => {
     expect(nav().getByRole("link", { name: "Community Reports" })).toHaveAttribute("href", "/reports");
   });
 
-  it("groups all admin destinations and keeps account links last", () => {
+  it("groups all main destinations without account links", () => {
     renderSidebar();
     expect(nav().getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "/reports", "/admin?tab=reports", "/admin?tab=analytics", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs", "/account/profile", "/account/password",
+      "/reports", "/admin?tab=reports", "/admin?tab=analytics", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs",
     ]);
+    expect(nav().queryByText("Settings")).not.toBeInTheDocument();
   });
 
   it("shows a custom role only its allowed admin destinations", () => {
     h.isAdmin = false;
     h.permissions = ["tracker:read", "roles:write"];
     renderSidebar();
-    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Analytics", "Tracker", "Profile", "Change Password"]);
+    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Analytics", "Tracker"]);
   });
 
-  it("shows workers reports and settings without admin links", async () => {
+  it("shows workers reports without admin or account links", async () => {
     Object.assign(h, { isAdmin: false, canAdmin: false, user: { role: "user" }, permissions: ["reports:read", "reports:write"] });
     renderSidebar();
-    await waitFor(() => expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports", "Profile"]));
+    await waitFor(() => expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports"]));
     expect(nav().queryByText("Admin")).not.toBeInTheDocument();
     expect(nav().queryByRole("link", { name: "Change Password" })).not.toBeInTheDocument();
   });
@@ -43,7 +44,7 @@ describe("sidebar", () => {
     ["/reports/new", "", "Community Reports"], ["/reports/5/edit", "", "Community Reports"],
     ["/admin", "", "Admin All Reports"], ["/admin", "logs", "Admin Logs"],
     ["/admin", "unknown", "Admin All Reports"], ["/admin/users/new", "", "Admin Users"],
-    ["/admin/roles/3/edit", "", "Admin Roles"], ["/account/profile", "", "Profile"], ["/account/password", "", "Change Password"],
+    ["/admin/roles/3/edit", "", "Admin Roles"],
   ])("marks one current link on %s?tab=%s", (path, tab, name) => {
     Object.assign(h, { path, tab });
     renderSidebar();

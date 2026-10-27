@@ -219,7 +219,7 @@ test.describe("keyboard", () => {
 
     test("the skip link is the first tab stop, shows on focus and moves focus to the main content", async ({ page }) => {
       await page.goto("/reports");
-      await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+      await expect(page.getByRole("button", { name: / · admin$/ })).toBeVisible();
       await page.keyboard.press("Tab");
       const skip = page.getByRole("link", { name: "Skip to main content" });
       await expect(skip).toBeFocused();
@@ -321,7 +321,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
       test(name, async ({ page }) => {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1, name: ready })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+        await expect(page.getByRole("button", { name: / · admin$/ })).toBeVisible();
         if (path === "/admin") {
           await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible();
           await expect(page.getByText("Loading…")).toHaveCount(0); // the reports list too

@@ -1,4 +1,4 @@
-import { test as base, type APIRequestContext, type APIResponse } from "@playwright/test";
+import { test as base, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
 import { defaultPeriod, MONTHS } from "../src/lib/reports";
 
 export const API = "http://localhost:8081/api/v1";
@@ -49,6 +49,15 @@ export const test = base.extend<{ clientIp: string }>({
   },
 });
 export { expect } from "@playwright/test";
+
+export async function openProfileMenu(page: Page) {
+  await page.getByRole("button", { name: / · / }).click();
+}
+
+export async function signOut(page: Page) {
+  await openProfileMenu(page);
+  await page.getByRole("menuitem", { name: "Sign Out" }).click();
+}
 
 // A write through the API, with the CSRF token the server wants.
 export async function send(

@@ -21,10 +21,11 @@ describe("app layout", () => {
     expect(screen.getAllByRole("link")[0]).toBe(skip);
   });
 
-  it("gives a non-admin reports and account settings", () => {
+  it("gives a non-admin only the community reports link", () => {
     renderLayout();
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports", "Profile"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Community Reports"]);
+    expect(within(nav).queryByText("Settings")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
   });
 
@@ -56,7 +57,7 @@ describe("app layout", () => {
     renderLayout();
     const menu = screen.getByRole("button", { name: "Menu" });
     await user.click(menu);
-    await user.click(within(screen.getByRole("dialog")).getByRole("link", { name: "Profile" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("link", { name: "Community Reports" }));
     expect(menu).toHaveAttribute("aria-expanded", "false");
   });
 

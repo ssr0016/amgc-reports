@@ -1,4 +1,4 @@
-import { API, authFile, clientIp, expect, send, test } from "./support";
+import { API, authFile, clientIp, expect, send, signOut, test } from "./support";
 
 // A refresh token is single use, so this spec signs in as an account of its own: the
 // saved sign-ins other specs share must not be rotated under them.
@@ -59,7 +59,7 @@ test("signing out ends the sign-in: the refresh token no longer works", async ({
   await signIn(page);
   const refresh = (await cookieNamed(context, "refresh_token"))?.value;
 
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/login/);
 
   // Put the old refresh cookie back, as a thief who copied it would.

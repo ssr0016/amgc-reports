@@ -67,17 +67,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <ProfileMenu />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
+            <ProfileMenu
+              onSignOut={() => {
                 signingOut.current = true;
                 void signOut();
               }}
-            >
-              Sign out
-            </Button>
+            />
           </div>
         </div>
       </header>

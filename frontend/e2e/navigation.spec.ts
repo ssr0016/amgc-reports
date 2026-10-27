@@ -1,13 +1,13 @@
-import { ACCOUNTS, authFile, expect, test } from "./support";
+import { authFile, expect, openProfileMenu, test } from "./support";
 
 const mainNav = (page: import("@playwright/test").Page) => page.getByRole("navigation", { name: "Main" });
 
 test.describe("sidebar, as admin", () => {
   test.use({ storageState: authFile("admin") });
 
-  test("lists reports, admin sections and settings, and marks the current page", async ({ page }) => {
+  test("lists reports and admin sections, and marks the current page", async ({ page }) => {
     await page.goto("/admin");
-    await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports", "All Reports", "Tracker", "Users", "Roles", "Logs", "Profile", "Change Password"]);
+    await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports", "All Reports", "Tracker", "Users", "Roles", "Logs"]);
     await expect(mainNav(page).getByRole("link", { name: "Admin All Reports", exact: true })).toHaveAttribute("aria-current", "page");
     await mainNav(page).getByRole("link", { name: "Community Reports" }).click();
     await expect(page).toHaveURL(/\/reports$/);
@@ -38,10 +38,10 @@ test.describe("sidebar, as admin", () => {
 
   test("the avatar menu opens and leads to the password page", async ({ page }) => {
     await page.goto("/reports");
-    await page.getByRole("button", { name: `${ACCOUNTS.admin.name} · admin` }).click();
-    await page.getByRole("menuitem", { name: "Change password" }).click();
+    await openProfileMenu(page);
+    await page.getByRole("menuitem", { name: "Change Password" }).click();
     await expect(page).toHaveURL(/\/account\/password$/);
-    await expect(mainNav(page).getByRole("link", { name: "Change Password" })).toHaveAttribute("aria-current", "page");
+    await expect(mainNav(page).getByRole("link", { name: "Change Password" })).toHaveCount(0);
   });
 
   test("on a wide screen the Menu button is not shown", async ({ page }) => {
@@ -73,9 +73,9 @@ for (const role of ["editor", "user"] as const) {
   test.describe(`sidebar, as ${role}`, () => {
     test.use({ storageState: authFile(role) });
 
-    test("shows reports and account settings", async ({ page }) => {
+    test("shows only community reports", async ({ page }) => {
       await page.goto("/reports");
-      await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports", "Profile", "Change Password"]);
+      await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports"]);
       await page.goto("/account/profile");
       await mainNav(page).getByRole("link", { name: "Community Reports" }).click();
       await expect(page).toHaveURL(/\/reports$/);

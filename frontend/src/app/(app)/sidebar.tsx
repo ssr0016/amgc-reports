@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { BarChart3, ClipboardList, KeyRound, ListChecks, ScrollText, ShieldCheck, UserRound, Users } from "lucide-react";
+import { BarChart3, ClipboardList, ListChecks, ScrollText, ShieldCheck, Users } from "lucide-react";
 import { cn } from "cn";
 import { adminSections } from "@/lib/admin-navigation";
 import { useSession } from "@/lib/session";
@@ -14,8 +14,7 @@ const ADMIN_ICONS: Record<string, typeof ClipboardList> = {
 export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavigate?: () => void }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const { can, isAdmin, canAdmin, user } = useSession();
-  const isWorker = user?.role === "user";
+  const { can, isAdmin, canAdmin } = useSession();
   const sections = adminSections(can, isAdmin);
   const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   const requested = pathname.startsWith("/admin/users/") ? "users" : pathname.startsWith("/admin/roles/") ? "roles" : params.get("tab");
@@ -55,17 +54,6 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
           })}
         </section>
       )}
-      <section aria-labelledby={`${label}-settings`} className="mt-auto flex flex-col gap-1 border-t pt-4">
-        <h2 id={`${label}-settings`} className="mb-1 px-3 text-xs font-medium text-muted-foreground">Settings</h2>
-        <Link href="/account/profile" aria-current={pathname === "/account/profile" ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === "/account/profile")}>
-          <UserRound className="size-4" aria-hidden="true" />Profile
-        </Link>
-        {!isWorker && (
-          <Link href="/account/password" aria-current={pathname === "/account/password" ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === "/account/password")}>
-            <KeyRound className="size-4" aria-hidden="true" />Change Password
-          </Link>
-        )}
-      </section>
     </nav>
   );
 }

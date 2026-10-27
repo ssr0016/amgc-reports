@@ -1,4 +1,4 @@
-import { API, authFile, clientIp, expect, send, test } from "./support";
+import { API, authFile, clientIp, expect, send, signOut, test } from "./support";
 
 // Changing a password ends the account's other sessions, so this uses an account of its
 // own; the saved sessions the other specs share stay valid.
@@ -36,7 +36,7 @@ test.describe.configure({ mode: "serial" });
 test("a wrong current password is shown on that field and keeps you signed in", async ({ page }) => {
   await signIn(page, account.password);
   await page.getByRole("button", { name: `${account.name} · user` }).click();
-  await page.getByRole("menuitem", { name: "Change password" }).click();
+  await page.getByRole("menuitem", { name: "Change Password" }).click();
   await expect(page).toHaveURL(/\/account\/password$/);
   await page.getByLabel("Current password").fill("not-the-password");
   await page.getByLabel("New password").fill(next);
@@ -62,7 +62,7 @@ test("changing the password keeps this session and the new password signs in", a
   await page.goto("/reports");
   await expect(page.getByText(`${account.name} · user`)).toBeVisible();
 
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/login$/);
   await signIn(page, account.password);
   await expect(page.locator("form").getByRole("alert")).toHaveText("Invalid email or password.");

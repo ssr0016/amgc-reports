@@ -22,18 +22,22 @@ describe("profile menu", () => {
     expect(screen.getByRole("button", { name: "Ana · no role" })).toBeInTheDocument();
   });
 
-  it("opens with profile picture and password links", async () => {
+  it("opens with profile, password, and sign out actions", async () => {
     h.role = "admin";
     const user = userEvent.setup();
-    render(<ProfileMenu />);
+    const onSignOut = vi.fn();
+    render(<ProfileMenu onSignOut={onSignOut} />);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Ana · admin" }));
     const items = screen.getAllByRole("menuitem");
-    expect(items).toHaveLength(2);
-    expect(items[0]).toHaveAccessibleName("Profile picture");
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveAccessibleName("Profile");
     expect(items[0]).toHaveAttribute("href", "/account/profile");
-    expect(items[1]).toHaveAccessibleName("Change password");
+    expect(items[1]).toHaveAccessibleName("Change Password");
     expect(items[1]).toHaveAttribute("href", "/account/password");
+    expect(items[2]).toHaveAccessibleName("Sign Out");
+    await user.click(items[2]);
+    expect(onSignOut).toHaveBeenCalledOnce();
   });
 
   it("opens from the keyboard, and Escape closes it and returns focus to the button", async () => {

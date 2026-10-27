@@ -1,4 +1,4 @@
-import { ACCOUNTS, expect, test } from "./support";
+import { ACCOUNTS, expect, signOut, test } from "./support";
 
 test.describe("signed out", () => {
   test("a private page sends you to the login with a way back", async ({ page }) => {
@@ -22,8 +22,8 @@ test.describe("signed out", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(page.getByText(`${ACCOUNTS.user.name} · user`)).toBeVisible();
-    // A plain user sees reports and account settings without admin links.
-    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["Community Reports", "Profile", "Change Password"]);
+    // A plain user sees only community reports without admin links.
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["Community Reports"]);
     await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toHaveCount(0);
   });
 
@@ -67,7 +67,7 @@ test.describe("signed in", () => {
     await page.getByLabel("Password", { exact: true }).fill(ACCOUNTS.admin.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByText(`${ACCOUNTS.admin.name} · admin`)).toBeVisible();
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login/);
     await page.goto("/reports");
     await expect(page).toHaveURL(/\/login/);
@@ -82,7 +82,7 @@ test.describe("signed in", () => {
     await page.goto("/login");
     await signIn(ACCOUNTS.user);
     await expect(page.getByText(`${ACCOUNTS.user.name} · user`)).toBeVisible();
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login/);
     // No full page load anywhere: cacheComponents keeps the first visit's login page alive, so it
     // must come back reset, not stuck on "Signing in…" with the last password.
@@ -105,7 +105,7 @@ test.describe("signed in", () => {
     await page.goto("/login?next=/admin");
     await signIn(ACCOUNTS.admin);
     await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login$/);
 
     await signIn(ACCOUNTS.user);
