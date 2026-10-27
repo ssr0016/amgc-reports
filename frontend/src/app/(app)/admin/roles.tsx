@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, Plus } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,16 +24,20 @@ import { ErrorRetry } from "@/components/error-retry";
 import { TableSkeleton } from "@/components/loading-skeletons";
 import { EmptyState } from "@/components/empty-state";
 import { pageOf, Pagination } from "@/components/pagination";
+import { panelCard } from "@/components/panel-section";
 import { ApiError } from "@/lib/api";
 import { errorText } from "@/lib/auth-form";
 import { deleteRole, isBuiltIn, type RoleDetail } from "@/lib/roles";
 import { useSession } from "@/lib/session";
 import { listRoles, listUsers } from "@/lib/users";
 
+// Same hover lift as the New user button on the Users tab.
+const lift = "transition-[color,background-color,box-shadow] duration-150 hover:shadow-md hover:shadow-black/30";
+
 // Paged in the browser: listRoles loads every role for the dropdowns too.
 const PAGE_SIZE = 10;
 
-// The Roles tab of /admin (D-A21): custom roles, then the read-only system roles, each under its own h2.
+// The Roles tab of /admin (D-A21): custom roles, then the read-only system roles, each in its own card under an h3.
 export function RolesPanel() {
   const { isAdmin, can } = useSession();
   const writable = can("roles:write");
@@ -77,15 +82,19 @@ export function RolesPanel() {
             return (
               <TableRow key={r.id}>
                 <TableCell>
-                  {r.name}
+                  <span className="font-medium">{r.name}</span>
                   {builtIn && (
-                    <Badge variant="secondary" className="ml-2" title="System roles cannot be edited or deleted">
-                      <Lock aria-hidden="true" />
+                    // Tinted like UserStatusBadge: light pair, reversed in the dark theme, both above 4.5:1.
+                    <span
+                      title="System roles cannot be edited or deleted"
+                      className="ml-2 inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium whitespace-nowrap text-sky-900 ring-1 ring-current/15 ring-inset dark:bg-sky-950 dark:text-sky-200"
+                    >
+                      <Lock aria-hidden="true" className="size-3" />
                       System
-                    </Badge>
+                    </span>
                   )}
                 </TableCell>
-                <TableCell>{r.description || "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{r.description || "—"}</TableCell>
                 <TableCell className="text-right font-mono tabular-nums">
                   {r.user_count > 0 ? (
                     <Button
@@ -140,28 +149,35 @@ export function RolesPanel() {
     // Custom roles first: they are the ones an admin configures (D-A23).
     body = (
       <>
-        <section className="flex flex-col gap-2">
-          <h2 id="custom-roles" className="text-lg font-medium">
-            Custom roles
-          </h2>
-          {custom.rows.length > 0 ? (
-            <>
-              {roleTable(custom.rows, "custom-roles")}
-              <Pagination page={custom.page} totalPages={custom.totalPages} onPageChange={setPage} />
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">No custom roles yet.</p>
-          )}
-        </section>
-        <section className="flex flex-col gap-2">
-          <h2 id="system-roles" className="text-lg font-medium">
-            System roles
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Built into the app. They can be viewed but not edited or deleted.
-          </p>
-          {roleTable(system, "system-roles")}
-        </section>
+        <Card className={panelCard}>
+          <div className="border-b p-5 sm:p-6">
+            <h3 id="custom-roles" className="text-base font-medium">
+              Custom roles
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">Roles you create, each with its own set of permissions.</p>
+          </div>
+          <div className="min-w-0 p-5 sm:p-6">
+            {custom.rows.length > 0 ? (
+              <>
+                {roleTable(custom.rows, "custom-roles")}
+                <Pagination page={custom.page} totalPages={custom.totalPages} onPageChange={setPage} />
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No custom roles yet.</p>
+            )}
+          </div>
+        </Card>
+        <Card className={panelCard}>
+          <div className="border-b p-5 sm:p-6">
+            <h3 id="system-roles" className="text-base font-medium">
+              System roles
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Built into the app. They can be viewed but not edited or deleted.
+            </p>
+          </div>
+          <div className="min-w-0 p-5 sm:p-6">{roleTable(system, "system-roles")}</div>
+        </Card>
         <DeleteRoleDialog role={deleting} roles={data} opener={opener} onClose={() => setDeleting(null)} />
         <RoleUsersDialog role={viewing} opener={opener} onClose={() => setViewing(null)} />
       </>
@@ -169,14 +185,18 @@ export function RolesPanel() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {isAdmin && writable && (
-        <div className="flex justify-end">
-          <Button asChild>
-            <Link href="/admin/roles/new">New role</Link>
-          </Button>
+    <div className="flex min-w-0 flex-col gap-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Roles</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Control what each role can see and do.</p>
         </div>
-      )}
+        {isAdmin && writable && (
+          <Button asChild className={`min-h-11 px-4 ${lift}`}>
+            <Link href="/admin/roles/new"><Plus aria-hidden="true" />New role</Link>
+          </Button>
+        )}
+      </header>
       {body}
     </div>
   );

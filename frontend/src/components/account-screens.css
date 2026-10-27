@@ -3,8 +3,15 @@
   align-items: flex-start;
   gap: 12px;
   min-height: 44px;
-  padding: 8px;
-  border-radius: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: background-color 150ms, border-color 150ms;
+}
+
+.permission-option:has(input:checked) {
+  border-color: color-mix(in oklab, var(--approved) 45%, transparent);
+  background: color-mix(in oklab, var(--approved) 8%, transparent);
 }
 
 .permission-option:has(input:enabled) {

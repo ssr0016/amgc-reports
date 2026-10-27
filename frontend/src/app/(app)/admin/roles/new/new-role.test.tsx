@@ -39,6 +39,7 @@ describe("New role", () => {
     const reports = await screen.findByRole("group", { name: "Reports" });
     expect(within(reports).getByRole("checkbox", { name: /View anyone's.*reports:read_any/ })).toBeInTheDocument();
     expect(screen.getAllByRole("group").map((g) => g.querySelector("legend")?.textContent)).toEqual([
+      "Role details",
       "Reports",
       "Users",
       "Admin",

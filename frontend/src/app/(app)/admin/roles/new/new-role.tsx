@@ -42,7 +42,10 @@ export function NewRole() {
 
   return (
     <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <h1 className="text-2xl font-medium tracking-tight">New role</h1>
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight">New role</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Pick a name and the permissions this role grants.</p>
+      </header>
       {body}
     </main>
   );
