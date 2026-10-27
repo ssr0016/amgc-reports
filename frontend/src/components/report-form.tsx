@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useFocusFirstError } from "@/lib/form-focus";
 import { AuthField } from "@/components/auth-field";
@@ -42,12 +42,12 @@ const longTexts = [
 const sectionClass = "flex min-w-0 flex-col gap-5 rounded-lg border bg-card p-4 sm:p-6";
 const headingClass = "text-lg font-medium tracking-tight";
 
-// A failed save leaves the form as it is, so nothing the user typed is lost.
 export function ReportForm({
   initial,
   submitLabel,
   draft = false,
-  onSaveDraft,
+  onAutoSave,
+  storageKey,
   revision = false,
   lockedPeriod,
   readOnly = false,
@@ -58,7 +58,8 @@ export function ReportForm({
   initial: FormState;
   submitLabel: string;
   draft?: boolean;
-  onSaveDraft?: (input: ReportInput) => Promise<void>;
+  onAutoSave?: (input: ReportInput) => Promise<{ id?: number } | void>;
+  storageKey?: string;
   revision?: boolean;
   // When set, month and year cannot be changed and must match it.
   lockedPeriod?: { month: string; year: number };
@@ -78,9 +79,60 @@ export function ReportForm({
   const [general, setGeneral] = useState("");
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [hydrated, setHydrated] = useState(!storageKey || readOnly);
+  const [recovered, setRecovered] = useState(false);
+  const [lastAutoSaved, setLastAutoSaved] = useState<Date | null>(null);
+  const skipStorageWrite = useRef(false);
   const [wait, setWait] = useCountdown();
   const [formRef, focusError] = useFocusFirstError<HTMLFormElement>();
   const dirty = !saved && changed.size > 0;
+
+  useEffect(() => {
+    if (!storageKey || readOnly) return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const data = JSON.parse(raw) as { form?: FormState; userNotes?: string };
+        if (data.form) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only available after client hydration.
+          setForm(data.form);
+          setUserNotes(data.userNotes ?? "");
+          setChanged(new Set(["recovered"]));
+          setRecovered(true);
+        }
+      }
+    } catch {
+      localStorage.removeItem(storageKey);
+    }
+    setHydrated(true);
+  }, [readOnly, storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || readOnly || !hydrated || !changed.size) return;
+    if (skipStorageWrite.current) {
+      skipStorageWrite.current = false;
+      return;
+    }
+    localStorage.setItem(storageKey, JSON.stringify({ form, userNotes }));
+  }, [changed.size, form, hydrated, readOnly, storageKey, userNotes]);
+
+  useEffect(() => {
+    if (!onAutoSave || readOnly || !hydrated || !dirty) return;
+    const timer = window.setTimeout(async () => {
+      const input = toInput(form);
+      if (revision) input.user_notes = userNotes;
+      try {
+        await onAutoSave(input);
+        if (storageKey) localStorage.removeItem(storageKey);
+        setLastAutoSaved(new Date());
+        setRecovered(false);
+        setSaved(true);
+      } catch {
+        // Local storage remains the recovery path when the background request fails.
+      }
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [dirty, form, hydrated, onAutoSave, readOnly, revision, storageKey, userNotes]);
 
   // Covers closing the tab or refreshing; in-app navigation is guarded by Cancel.
   useEffect(() => {
@@ -107,6 +159,7 @@ export function ReportForm({
 
   function setField(name: keyof Omit<FormState, "metrics">, value: string) {
     setForm((f) => ({ ...f, [name]: value }));
+    setSaved(false);
     markChanged(name, value !== start[name]);
     clearError(name);
   }
@@ -114,6 +167,7 @@ export function ReportForm({
   const setWeek = useCallback(
     (metric: string, week: (typeof WEEKS)[number], value: string) => {
       setForm((f) => ({ ...f, metrics: { ...f.metrics, [metric]: { ...f.metrics[metric], [week]: value } } }));
+      setSaved(false);
       markChanged(metricErrorKey(metric, week), value !== (start.metrics[metric]?.[week] ?? ""));
       clearError(metricErrorKey(metric, week), `metrics.${metric}`);
     },
@@ -134,8 +188,6 @@ export function ReportForm({
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const submitter = (e.nativeEvent as SubmitEvent).submitter;
-    const intent = submitter instanceof HTMLButtonElement ? submitter.value : "submit";
     const found = validate(form, lockedPeriod);
     setErrors(found);
     setGeneral(Object.keys(found).length ? "Fix the highlighted fields and try again." : "");
@@ -145,15 +197,17 @@ export function ReportForm({
     }
 
     setPending(true);
+    setSaved(true);
     try {
       const input = toInput(form);
       if (revision) input.user_notes = userNotes;
-      if (intent === "draft" && onSaveDraft) await onSaveDraft(input);
-      else await onSubmit(input);
+      await onSubmit(input);
       setPending(false);
+      if (storageKey) localStorage.removeItem(storageKey);
       setSaved(true);
     } catch (err) {
       setPending(false);
+      setSaved(false);
       if (err instanceof ApiError && err.isConflict) {
         setErrors({ month: "You already have a report for this month and year." });
         setGeneral("");
@@ -171,6 +225,16 @@ export function ReportForm({
 
   function cancel() {
     if (!dirty || confirm("Discard your changes?")) onCancel();
+  }
+
+  function discardRecovery() {
+    skipStorageWrite.current = true;
+    if (storageKey) localStorage.removeItem(storageKey);
+    setForm(start);
+    setUserNotes("");
+    setChanged(new Set());
+    setRecovered(false);
+    setSaved(true);
   }
 
   const weekErrors = METRICS.flatMap((m) =>
@@ -252,6 +316,7 @@ export function ReportForm({
               value={userNotes}
               onChange={(e) => {
                 setUserNotes(e.target.value);
+                setSaved(false);
                 markChanged("user_notes", e.target.value !== "");
               }}
               maxLength={5000}
@@ -354,15 +419,20 @@ export function ReportForm({
           {wait > 0 && ` Try again in ${wait}s.`}
         </p>
       )}
+      {recovered && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Recovered unsaved changes. <button type="button" className="font-medium text-foreground underline underline-offset-4" onClick={discardRecovery}>Discard</button>
+        </p>
+      )}
+      {lastAutoSaved && (
+        <p role="status" className="text-xs text-muted-foreground">
+          Auto-saved at {lastAutoSaved.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        </p>
+      )}
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-2 border-t bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:px-6">
-        {!readOnly && draft && onSaveDraft && (
-          <Button type="submit" value="draft" variant="outline" disabled={pending || wait > 0} aria-busy={pending}>
-            {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving draft…</> : "Save Draft"}
-          </Button>
-        )}
         {!readOnly && (
           <Button type="submit" value="submit" disabled={pending || wait > 0} aria-busy={pending}>
-            {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Submitting…</> : draft ? "Submit Report" : submitLabel}
+            {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Submitting…</> : draft ? "Submit Report" : revision ? "Resubmit Report" : submitLabel}
           </Button>
         )}
         <Button type="button" variant="ghost" onClick={cancel} disabled={pending}>

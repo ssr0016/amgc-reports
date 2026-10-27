@@ -76,14 +76,14 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
       <ReportForm
         initial={fromReport(data)}
         draft={data.status === "draft"}
-        submitLabel="Save Changes"
-        onSaveDraft={data.status === "draft" ? async (input) => {
+        submitLabel="Submit Report"
+        storageKey={`report:${reportId}`}
+        onAutoSave={editable && (data.status === "draft" || data.status === "needs_revision") ? async (input) => {
           try {
             await updateReport(reportId, input);
           } catch (err) {
             await handleMutationError(err);
           }
-          toast.success("Draft saved");
           await queryClient.invalidateQueries({ queryKey: ["report", reportId] });
         } : undefined}
         revision={data.status === "needs_revision"}
@@ -93,9 +93,9 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
         onSubmit={async (input) => {
           try {
             await updateReport(reportId, input);
-            if (data.status === "draft") {
+            if (data.status === "draft" || data.status === "needs_revision") {
               await submitReport(reportId);
-              toast.success("Report submitted");
+              toast.success(data.status === "needs_revision" ? "Report resubmitted" : "Report submitted");
             } else {
               toast.success("Report saved");
             }

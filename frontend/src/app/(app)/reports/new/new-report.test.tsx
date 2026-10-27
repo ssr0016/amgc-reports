@@ -1,28 +1,29 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import userEvent from "@testing-library/user-event";
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NewReport } from "./new-report";
 
 const session = vi.hoisted(() => ({ role: "user", write: true }));
-const reports = vi.hoisted(() => ({ getCurrentReport: vi.fn(), deleteReport: vi.fn() }));
+const reports = vi.hoisted(() => ({ getCurrentReport: vi.fn(), createReport: vi.fn() }));
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("@/lib/reports", async () => ({
   ...(await vi.importActual<typeof import("@/lib/reports")>("@/lib/reports")),
   getCurrentReport: reports.getCurrentReport,
-  deleteReport: reports.deleteReport,
+  createReport: reports.createReport,
 }));
 vi.mock("@/lib/session", () => ({
   useSession: () => ({ user: { role: session.role, name: "Ana", area_assignment: "North", church_name: "AMGC Church" }, can: () => session.write }),
 }));
 
 describe("new report access", () => {
+  afterEach(() => vi.useRealTimers());
+
   beforeEach(() => {
     Object.assign(session, { role: "user", write: true });
     navigation.replace.mockReset();
     reports.getCurrentReport.mockResolvedValue(null);
-    reports.deleteReport.mockResolvedValue(undefined);
+    reports.createReport.mockResolvedValue({ id: 21 });
   });
 
   it.each([
@@ -38,41 +39,38 @@ describe("new report access", () => {
     session.write = write;
     render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
     if (allowed) {
-      expect(await screen.findByRole("button", { name: "Save Draft" })).toBeInTheDocument();
       expect(await screen.findByRole("button", { name: "Submit Report" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Save Draft" })).not.toBeInTheDocument();
     } else {
       expect(screen.queryByRole("button", { name: "Submit Report" })).not.toBeInTheDocument();
       expect(screen.getByText("You are not allowed to create reports.")).toBeInTheDocument();
     }
   });
 
-  it("shows the draft decision card", async () => {
+  it("opens an existing draft directly", async () => {
     reports.getCurrentReport.mockResolvedValue({ id: 12, month: "September", year: 2026, status: "draft" });
     render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
-    expect(await screen.findByText("You have a draft for September 2026.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Continue Draft" })).toHaveAttribute("href", "/reports/12/edit");
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/reports/12/edit"));
+    expect(screen.queryByText("Start New")).not.toBeInTheDocument();
+  });
+
+  it("creates a server draft after three seconds of inactivity", async () => {
+    render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
+    const challenges = await screen.findByLabelText("Challenges");
+    vi.useFakeTimers();
+    fireEvent.change(challenges, { target: { value: "Auto-save me" } });
+    await act(() => vi.advanceTimersByTimeAsync(3000));
+    expect(reports.createReport).toHaveBeenCalledWith(expect.objectContaining({ challenges: "Auto-save me" }), true);
+    expect(navigation.replace).toHaveBeenCalledWith("/reports/21/edit");
   });
 
   it.each([
     ["pending", "You already submitted a report for September 2026.", "View Report", "/reports/13"],
     ["approved", "You already submitted a report for September 2026.", "View Report", "/reports/13"],
     ["needs_revision", "Your report for September 2026 needs revision. Please check the admin notes and update it.", "Revise Report", "/reports/13/edit"],
-  ])("shows the %s decision card", async (status, message, label, href) => {
+  ])("opens the %s report directly", async (status, _message, _label, href) => {
     reports.getCurrentReport.mockResolvedValue({ id: 13, month: "September", year: 2026, status });
     render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
-    expect(await screen.findByText(message)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: label })).toHaveAttribute("href", href);
-  });
-
-  it("confirms Start New before deleting the draft and opening the form", async () => {
-    const user = userEvent.setup();
-    reports.getCurrentReport.mockResolvedValue({ id: 12, month: "September", year: 2026, status: "draft" });
-    render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
-    await user.click(await screen.findByRole("button", { name: "Start New" }));
-    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-    expect(reports.deleteReport).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Delete draft" }));
-    expect(reports.deleteReport).toHaveBeenCalledWith(12);
-    expect(await screen.findByRole("button", { name: "Save Draft" })).toBeInTheDocument();
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith(href));
   });
 });

@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { emptyForm, type FormState } from "@/lib/report-form";
 import { ReportForm } from "./report-form";
@@ -8,10 +8,10 @@ import { ReportForm } from "./report-form";
 const period = { month: "April", year: 2026 };
 const initial = (): FormState => ({ ...emptyForm({ worker: "Ana" }), month: "April", year: "2026" });
 
-function setup(props: Partial<React.ComponentProps<typeof ReportForm>> = {}) {
+function setup(props: Partial<React.ComponentProps<typeof ReportForm>> = {}, fakeTimers = false) {
   const onSubmit = vi.fn().mockResolvedValue(undefined);
   const onCancel = vi.fn();
-  const user = userEvent.setup();
+  const user = userEvent.setup(fakeTimers ? { advanceTimers: vi.advanceTimersByTime } : undefined);
   render(
     <ReportForm initial={initial()} submitLabel="Save report" lockedPeriod={period} onSubmit={onSubmit} onCancel={onCancel} {...props} />,
   );
@@ -20,7 +20,11 @@ function setup(props: Partial<React.ComponentProps<typeof ReportForm>> = {}) {
 
 const metric = (label: string, week: number) => screen.getByLabelText(`${label}, week ${week}`);
 
-afterEach(() => vi.restoreAllMocks());
+beforeEach(() => localStorage.clear());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("ReportForm", () => {
 	it("renders profile metadata as read-only text", () => {
@@ -34,19 +38,49 @@ describe("ReportForm", () => {
 		expect(screen.queryByLabelText("Church Name")).not.toBeInTheDocument();
 	});
 
-	it("shows draft and submit actions in the sticky footer", () => {
-		setup({ draft: true, onSaveDraft: vi.fn().mockResolvedValue(undefined) });
-		expect(screen.getByRole("button", { name: "Save Draft" })).toBeInTheDocument();
+	it("shows only the submit action in the sticky footer", () => {
+		setup({ draft: true, onAutoSave: vi.fn().mockResolvedValue(undefined) });
+		expect(screen.queryByRole("button", { name: "Save Draft" })).not.toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Submit Report" })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
 	});
 
-	it("re-enables draft actions after a draft save succeeds", async () => {
-		const onSaveDraft = vi.fn().mockResolvedValue(undefined);
-		const { user } = setup({ draft: true, onSaveDraft });
-		await user.click(screen.getByRole("button", { name: "Save Draft" }));
-		expect(onSaveDraft).toHaveBeenCalledOnce();
-		expect(screen.getByRole("button", { name: "Save Draft" })).toBeEnabled();
+	it("labels the single action Resubmit Report for revisions", () => {
+		setup({ revision: true });
+		expect(screen.getByRole("button", { name: "Resubmit Report" })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "Save Changes" })).not.toBeInTheDocument();
+	});
+
+	it("recovers local changes and discards them on request", async () => {
+		const recovered = { ...initial(), challenges: "Keep this locally" };
+		localStorage.setItem("report:April:2026", JSON.stringify({ form: recovered, userNotes: "" }));
+		const { user } = setup({ storageKey: "report:April:2026" });
+		expect(await screen.findByText("Recovered unsaved changes.")).toBeInTheDocument();
+		expect(screen.getByLabelText("Challenges")).toHaveValue("Keep this locally");
+		await user.click(screen.getByRole("button", { name: "Discard" }));
+		expect(screen.getByLabelText("Challenges")).toHaveValue("");
+		expect(localStorage.getItem("report:April:2026")).toBeNull();
+	});
+
+	it("debounces server autosave until three seconds after the last change", async () => {
+		vi.useFakeTimers();
+		const onAutoSave = vi.fn().mockResolvedValue(undefined);
+		setup({ storageKey: "report:April:2026", onAutoSave });
+		fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "x" } });
+		vi.advanceTimersByTime(2999);
+		expect(onAutoSave).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(onAutoSave).toHaveBeenCalledOnce();
+		expect(onAutoSave.mock.calls[0][0]).toMatchObject({ challenges: "x" });
+	});
+
+	it("shows the time of the last successful autosave", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-10-27T10:30:00Z"));
+		setup({ storageKey: "report:April:2026", onAutoSave: vi.fn().mockResolvedValue(undefined) });
+		fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "x" } });
+		await act(() => vi.advanceTimersByTimeAsync(3000));
+		expect(screen.getByText(/Auto-saved at/)).toBeInTheDocument();
 	});
 
 	it("explains how to leave inactive weeks blank", () => {
@@ -65,18 +99,6 @@ describe("ReportForm", () => {
     expect(screen.getByLabelText("Prayer Request")).toHaveAccessibleDescription(
       "List your prayer requests here so the team can pray for you.",
     );
-  });
-
-  it("shows a spinner and disables both report actions while saving", async () => {
-    let resolve!: () => void;
-    const onSaveDraft = vi.fn().mockReturnValueOnce(new Promise<void>((done) => { resolve = done; }));
-    const { user } = setup({ draft: true, onSaveDraft });
-    await user.click(screen.getByRole("button", { name: "Save Draft" }));
-    const button = screen.getByRole("button", { name: "Saving draft…" });
-    expect(button).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Submitting…" })).toBeDisabled();
-    expect(button.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-    resolve();
   });
 
   it("submits the typed values, sending only the weeks that have a value", async () => {

@@ -20,9 +20,9 @@ vi.mock("@/lib/reports", async (original) => ({
   updateReport: vi.fn(),
 }));
 vi.mock("@/components/report-form", () => ({
-  ReportForm: ({ onSaveDraft, onSubmit }: { onSaveDraft?: (input: unknown) => Promise<void>; onSubmit: (input: unknown) => Promise<void> }) => (
+  ReportForm: ({ onAutoSave, onSubmit }: { onAutoSave?: (input: unknown) => Promise<void>; onSubmit: (input: unknown) => Promise<void> }) => (
     <div>
-      {onSaveDraft && <button onClick={() => void onSaveDraft({}).catch(() => undefined)}>Save Draft</button>}
+      {onAutoSave && <button onClick={() => void onAutoSave({}).catch(() => undefined)}>Auto-save</button>}
       <button onClick={() => void onSubmit({}).catch(() => undefined)}>Submit</button>
     </div>
   ),
@@ -69,7 +69,14 @@ describe("EditReport", () => {
     expect((client.getQueryCache().find({ queryKey: ["report", 12] })?.options as { refetchOnWindowFocus?: boolean }).refetchOnWindowFocus).toBe(true);
   });
 
-  it.each(["Save Draft", "Submit"])("turns a %s 404 into a deleted state and invalidates stale caches", async (action) => {
+  it("updates an existing draft through autosave", async () => {
+    renderEdit();
+    await userEvent.click(await screen.findByRole("button", { name: "Auto-save" }));
+    await waitFor(() => expect(updateReport).toHaveBeenCalledWith(12, {}));
+    expect(submitReport).not.toHaveBeenCalled();
+  });
+
+  it.each(["Auto-save", "Submit"])("turns a %s 404 into a deleted state and invalidates stale caches", async (action) => {
     vi.mocked(updateReport).mockRejectedValue(new ApiError(404, "NOT_FOUND", "gone"));
     const client = renderEdit();
     await userEvent.click(await screen.findByRole("button", { name: action }));
