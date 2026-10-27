@@ -19,10 +19,11 @@ export function UserStatusBadge({ status }: { status: string }) {
       data-testid="user-status"
       data-status={status}
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ring-1 ring-current/15 ring-inset",
         TONE[status] ?? "bg-muted text-foreground",
       )}
     >
+      <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
       {statusLabel(status)}
     </span>
   );

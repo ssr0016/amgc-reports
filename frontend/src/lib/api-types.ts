@@ -3349,6 +3349,7 @@ export interface components {
             reports_needs_revision?: number;
             reports_pending?: number;
             reports_total?: number;
+            users_active?: number;
             users_total?: number;
             year?: number;
         };

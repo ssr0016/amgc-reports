@@ -16,6 +16,7 @@ const stats = (over = {}) => ({
   reports_approved: 1,
   reports_pending: 2,
   users_total: 7,
+  users_active: 5,
   admins_total: 2,
   expected_reports: 5,
   no_report: 2,
@@ -23,10 +24,10 @@ const stats = (over = {}) => ({
   ...over,
 });
 
-const renderCards = () =>
+const renderCards = (users = false) =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <StatsCards />
+      <StatsCards users={users} />
     </QueryClientProvider>,
   );
 
@@ -66,6 +67,17 @@ describe("StatsCards", () => {
     expect(within(card("Total Churches")).getByText("4")).toBeInTheDocument();
     expect(screen.queryByText("Approved", { selector: "[data-slot=card-description]" })).not.toBeInTheDocument();
     expect(screen.queryByText("Pending", { selector: "[data-slot=card-description]" })).not.toBeInTheDocument();
+  });
+
+  it("shows user counts on the Users tab", async () => {
+    h.getStats.mockResolvedValue(stats());
+    renderCards(true);
+    await screen.findByRole("region", { name: "Statistics" });
+    expect(within(card("Total Users")).getByText("7")).toBeInTheDocument();
+    expect(within(card("Active Users")).getByText("5")).toBeInTheDocument();
+    expect(within(card("Admins")).getByText("2")).toBeInTheDocument();
+    expect(within(card("Not Active")).getByText("2")).toBeInTheDocument();
+    expect(screen.queryByText("Expected Reports", { selector: "[data-slot=card-description]" })).not.toBeInTheDocument();
   });
 
   it("shows zero as 0, not blank", async () => {

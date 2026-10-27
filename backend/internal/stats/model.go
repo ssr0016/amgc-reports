@@ -90,6 +90,7 @@ type AdminStats struct {
 	ReportsPending       int64  `json:"reports_pending"`
 	ReportsNeedsRevision int64  `json:"reports_needs_revision"`
 	UsersTotal           int64  `json:"users_total"`
+	UsersActive          int64  `json:"users_active"`
 	AdminsTotal          int64  `json:"admins_total"`
 	ExpectedReports      int64  `json:"expected_reports"`
 	NoReport             int64  `json:"no_report"`

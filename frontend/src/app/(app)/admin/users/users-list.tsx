@@ -37,6 +37,9 @@ import { TableSkeleton } from "@/components/loading-skeletons";
 // The list endpoint has no pages, so it returns at most this many.
 const LIMIT = 100;
 
+// Hover lift for this page's buttons; the shared Button only transitions colours.
+const lift = "transition-[color,background-color,box-shadow] duration-150 hover:shadow-md hover:shadow-black/30";
+
 // The Users tab of /admin; it brings no landmark or heading of its own.
 export function UsersPanel() {
   const { isAdmin, can, user } = useSession();
@@ -99,7 +102,7 @@ export function UsersPanel() {
     body = (
       <>
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-muted shadow-[0_1px_0_var(--border)] [&_th]:h-11 [&_th]:text-xs [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:uppercase">
             <TableRow>
               <TableHead>
                 <span className="sr-only">Avatar</span>
@@ -131,7 +134,7 @@ export function UsersPanel() {
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell>{u.email}</TableCell>
+                <TableCell className="text-muted-foreground">{u.email}</TableCell>
                 <TableCell><Badge variant="secondary">{roleName.get(u.role_id) ?? `#${u.role_id}`}</Badge></TableCell>
                 <TableCell>
                   <UserStatusBadge status={u.status} />
@@ -146,21 +149,21 @@ export function UsersPanel() {
                 {isAdmin && (
                   <TableCell>
                     <div className="flex justify-end gap-2">
-                      <Button asChild variant="outline" size="sm" className="min-h-11">
+                      <Button asChild variant="outline" size="sm" className={`min-h-11 ${lift}`}>
                         <Link href={`/admin/users/${u.id}/edit`}>
                           Edit{" "}
                           <span className="sr-only">{u.name}</span>
                         </Link>
                       </Button>
                       {u.deleted_at ? (
-                        <Button variant="outline" size="sm" className="min-h-11" disabled={restoring.includes(u.id)} onClick={() => restore.mutate(u)}>
+                        <Button variant="outline" size="sm" className={`min-h-11 ${lift}`} disabled={restoring.includes(u.id)} onClick={() => restore.mutate(u)}>
                           {restoring.includes(u.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : "Restore"} <span className="sr-only">{u.name}</span>
                         </Button>
                       ) : (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="min-h-11"
+                          className={`min-h-11 ${lift}`}
                           disabled={u.id === user?.user_id}
                           aria-describedby={u.id === user?.user_id ? "delete-self-note" : undefined}
                           onClick={() => setDeleting(u)}
@@ -192,17 +195,17 @@ export function UsersPanel() {
         <>
           <header className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-medium tracking-tight">Users</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
               <p className="mt-2 text-sm text-muted-foreground">Manage church workers and their account access.</p>
             </div>
             {isAdmin && (
-              <Button asChild className="min-h-11 px-4">
+              <Button asChild className={`min-h-11 px-4 ${lift}`}>
                 <Link href="/admin/users/new"><UserPlus aria-hidden="true" />New user</Link>
               </Button>
             )}
           </header>
           <Card className="gap-0 rounded-lg py-0">
-            <div className="grid items-end gap-4 border-b p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid items-end gap-5 border-b p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
               <div className="flex min-w-0 flex-col gap-2">
                 <Label htmlFor="email-search">Email</Label>
                 <div className="relative">
@@ -243,7 +246,8 @@ export function UsersPanel() {
                 </NativeSelect>
               </div>
             </div>
-            <div className="min-w-0 p-4">{body}</div>
+            {/* The container must scroll vertically for the header to stick. */}
+            <div className="min-w-0 p-5 sm:p-6 [&_[data-slot=table-container]]:max-h-[70vh]">{body}</div>
           </Card>
         </>
       )}

@@ -182,6 +182,7 @@ func TestStore_Counts(t *testing.T) {
 		got, err := store.Counts(ctx, "January", 2026)
 		require.NoError(t, err)
 		assert.EqualValues(t, 3, got.UsersTotal)
+		assert.EqualValues(t, 3, got.UsersActive)
 		assert.EqualValues(t, 1, got.AdminsTotal)
 	})
 }

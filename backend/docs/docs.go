@@ -2986,6 +2986,9 @@ const docTemplate = `{
                 "reports_total": {
                     "type": "integer"
                 },
+                "users_active": {
+                    "type": "integer"
+                },
                 "users_total": {
                     "type": "integer"
                 },
