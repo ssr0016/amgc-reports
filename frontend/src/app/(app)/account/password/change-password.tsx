@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, KeyRound, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
+import { dashboardTheme } from "@/components/dashboard-theme";
+import { PanelSection, panelCard } from "@/components/panel-section";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { changePassword } from "@/lib/auth";
@@ -60,42 +63,56 @@ export function ChangePassword() {
   };
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none">
-      <h1 className="text-2xl font-medium tracking-tight">Change Password</h1>
-      <Card className="p-4 sm:p-6">
-      <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        <AuthField
-          name="current_password"
-          label={LABELS.current_password}
-          type="password"
-          autoComplete="current-password"
-          error={field("current_password")}
-        />
-        <AuthField
-          name="new_password"
-          label={LABELS.new_password}
-          type="password"
-          autoComplete="new-password"
-          error={field("new_password")}
-        />
-        <AuthField
-          name="confirm_password"
-          label={LABELS.confirm_password}
-          type="password"
-          autoComplete="new-password"
-          error={field("confirm_password")}
-        />
-        {error?.message && (
-          <p role="alert" className="text-sm text-destructive">
-            {error.message}
-            {wait > 0 && ` Try again in ${wait}s.`}
-          </p>
-        )}
-        <Button type="submit" disabled={pending || wait > 0}>
-          {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Changing…</> : "Change Password"}
-        </Button>
+    <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight">Change Password</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Use a strong password you don&apos;t use anywhere else.</p>
+      </header>
+      <form ref={formRef} onSubmit={onSubmit} noValidate>
+        <Card className={panelCard}>
+          <PanelSection title="Password" icon={Lock} description="Enter your current password, then choose a new one.">
+            <AuthField
+              name="current_password"
+              label={LABELS.current_password}
+              type="password"
+              autoComplete="current-password"
+              icon={Lock}
+              error={field("current_password")}
+            />
+            <AuthField
+              name="new_password"
+              label={LABELS.new_password}
+              type="password"
+              autoComplete="new-password"
+              icon={KeyRound}
+              error={field("new_password")}
+            />
+            <AuthField
+              name="confirm_password"
+              label={LABELS.confirm_password}
+              type="password"
+              autoComplete="new-password"
+              icon={KeyRound}
+              error={field("confirm_password")}
+            />
+            {error?.message && (
+              <p role="alert" className="text-sm text-destructive">
+                {error.message}
+                {wait > 0 && ` Try again in ${wait}s.`}
+              </p>
+            )}
+          </PanelSection>
+          {/* Same footer as UserForm: primary action on top on phones, on the right on wider screens. */}
+          <div className="flex flex-col-reverse gap-2 border-t bg-muted/30 p-5 sm:flex-row sm:justify-between sm:p-6">
+            <Button asChild variant="outline" className="min-h-11 px-4">
+              <Link href="/account/profile"><ArrowLeft aria-hidden="true" />Back to Profile</Link>
+            </Button>
+            <Button type="submit" className="min-h-11 px-4" disabled={pending || wait > 0}>
+              {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Changing…</> : "Change Password"}
+            </Button>
+          </div>
+        </Card>
       </form>
-      </Card>
     </main>
   );
 }
