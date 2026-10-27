@@ -77,6 +77,7 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
     body = (
       <ReportForm
         initial={fromReport(data)}
+        initialUserNotes={data.user_notes ?? ""}
         draft={data.status === "draft"}
         submitLabel="Submit Report"
         storageKey={reportStorageKey(reportId)}

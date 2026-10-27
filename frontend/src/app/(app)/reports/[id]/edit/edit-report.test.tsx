@@ -20,8 +20,9 @@ vi.mock("@/lib/reports", async (original) => ({
   updateReport: vi.fn(),
 }));
 vi.mock("@/components/report-form", () => ({
-  ReportForm: ({ onAutoSave, onSubmit, endAction }: { onAutoSave?: (input: unknown) => Promise<void>; onSubmit: (input: unknown) => Promise<void>; endAction?: React.ReactNode }) => (
+  ReportForm: ({ onAutoSave, onSubmit, endAction, initialUserNotes }: { onAutoSave?: (input: unknown) => Promise<void>; onSubmit: (input: unknown) => Promise<void>; endAction?: React.ReactNode; initialUserNotes?: string }) => (
     <div>
+      <output data-testid="initial-user-notes">{initialUserNotes}</output>
       {onAutoSave && <button onClick={() => void onAutoSave({}).catch(() => undefined)}>Auto-save</button>}
       <button onClick={() => void onSubmit({}).catch(() => undefined)}>Submit</button>
       {endAction}
@@ -40,6 +41,7 @@ const report = {
   metrics: {},
   created_at: "2026-10-01T00:00:00Z",
   updated_at: "2026-10-01T00:00:00Z",
+  user_notes: "Please explain the corrected totals.",
 } as never;
 
 function renderEdit() {
@@ -75,6 +77,11 @@ describe("EditReport", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Auto-save" }));
     await waitFor(() => expect(updateReport).toHaveBeenCalledWith(12, {}));
     expect(submitReport).not.toHaveBeenCalled();
+  });
+
+  it("hydrates revision notes from the server into the form", async () => {
+    renderEdit();
+    expect(await screen.findByTestId("initial-user-notes")).toHaveTextContent("Please explain the corrected totals.");
   });
 
   it.each(["Auto-save", "Submit"])("turns a %s 404 into a deleted state and invalidates stale caches", async (action) => {

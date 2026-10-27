@@ -45,6 +45,7 @@ const headingClass = "text-lg font-medium tracking-tight";
 
 export function ReportForm({
   initial,
+  initialUserNotes = "",
   submitLabel,
   draft = false,
   onAutoSave,
@@ -58,6 +59,7 @@ export function ReportForm({
   endAction,
 }: {
   initial: FormState;
+  initialUserNotes?: string;
   submitLabel: string;
   draft?: boolean;
   onAutoSave?: (input: ReportInput) => Promise<{ id?: number } | void>;
@@ -75,7 +77,7 @@ export function ReportForm({
 }) {
   const [start] = useState(initial);
   const [form, setForm] = useState(initial);
-  const [userNotes, setUserNotes] = useState("");
+  const [userNotes, setUserNotes] = useState(initialUserNotes);
   // Keys of the fields that differ from start, so dirty is not a whole-form compare per keystroke.
   const [changed, setChanged] = useState<ReadonlySet<string>>(() => new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -95,13 +97,18 @@ export function ReportForm({
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
-        const data = JSON.parse(raw) as { context?: string; form?: FormState; userNotes?: string };
+        const data = JSON.parse(raw) as {
+          context?: string;
+          form?: FormState;
+          user_notes?: string;
+          userNotes?: string;
+        };
         if (data.context !== storageKey) {
           localStorage.removeItem(storageKey);
         } else if (data.form) {
           // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only available after client hydration.
           setForm(data.form);
-          setUserNotes(data.userNotes ?? "");
+          setUserNotes(data.user_notes ?? data.userNotes ?? "");
           setChanged(new Set(["recovered"]));
           setRecovered(true);
         }
@@ -118,14 +125,14 @@ export function ReportForm({
       skipStorageWrite.current = false;
       return;
     }
-    localStorage.setItem(storageKey, JSON.stringify({ context: storageKey, form, userNotes }));
+    localStorage.setItem(storageKey, JSON.stringify({ context: storageKey, form, user_notes: userNotes }));
   }, [changed.size, form, hydrated, readOnly, storageKey, userNotes]);
 
   useEffect(() => {
     if (!onAutoSave || readOnly || !hydrated || !dirty) return;
     const timer = window.setTimeout(async () => {
       const input = toInput(form);
-      if (revision) input.user_notes = userNotes;
+      input.user_notes = userNotes;
       try {
         await onAutoSave(input);
         if (storageKey) localStorage.removeItem(storageKey);
@@ -205,7 +212,7 @@ export function ReportForm({
     setSaved(true);
     try {
       const input = toInput(form);
-      if (revision) input.user_notes = userNotes;
+      input.user_notes = userNotes;
       await onSubmit(input);
       setPending(false);
       if (storageKey) localStorage.removeItem(storageKey);

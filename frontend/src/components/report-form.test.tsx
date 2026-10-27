@@ -59,12 +59,14 @@ describe("ReportForm", () => {
 
 	it("recovers local changes and discards them on request", async () => {
 		const recovered = { ...initial(), challenges: "Keep this locally" };
-		localStorage.setItem("report:April:2026", JSON.stringify({ context: "report:April:2026", form: recovered, userNotes: "" }));
-		const { user } = setup({ storageKey: "report:April:2026" });
+    localStorage.setItem("report:April:2026", JSON.stringify({ context: "report:April:2026", form: recovered, user_notes: "Explain the revision" }));
+    const { user } = setup({ storageKey: "report:April:2026", revision: true });
 		expect(await screen.findByText("Recovered unsaved changes.")).toBeInTheDocument();
 		expect(screen.getByLabelText("Challenges")).toHaveValue("Keep this locally");
+    expect(screen.getByLabelText("Your Notes / Explanation for Revision")).toHaveValue("Explain the revision");
 		await user.click(screen.getByRole("button", { name: "Discard" }));
 		expect(screen.getByLabelText("Challenges")).toHaveValue("");
+    expect(screen.getByLabelText("Your Notes / Explanation for Revision")).toHaveValue("");
 		expect(localStorage.getItem("report:April:2026")).toBeNull();
 	});
 
@@ -94,6 +96,19 @@ describe("ReportForm", () => {
 		expect(onAutoSave).toHaveBeenCalledOnce();
 		expect(onAutoSave.mock.calls[0][0]).toMatchObject({ challenges: "x" });
 	});
+
+  it("preserves revision notes in localStorage and server autosave when another field changes", async () => {
+    vi.useFakeTimers();
+    const onAutoSave = vi.fn().mockResolvedValue(undefined);
+    setup({ storageKey: "report:April:2026", onAutoSave, revision: true });
+    fireEvent.change(screen.getByLabelText("Your Notes / Explanation for Revision"), { target: { value: "Updated weekly totals" } });
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "x" } });
+
+    expect(JSON.parse(localStorage.getItem("report:April:2026")!).user_notes).toBe("Updated weekly totals");
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(onAutoSave.mock.calls[0][0]).toMatchObject({ challenges: "x", user_notes: "Updated weekly totals" });
+  });
 
 	it("shows the time of the last successful autosave", async () => {
 		vi.useFakeTimers();
