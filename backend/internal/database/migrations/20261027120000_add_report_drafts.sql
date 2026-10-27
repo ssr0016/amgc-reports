@@ -27,6 +27,8 @@ ALTER TABLE audit_logs ADD CONSTRAINT chk_audit_logs_action CHECK (action IN (
     'ADMIN_RESET_PASSWORD', 'DELETE_USER', 'RESTORE_USER',
     'LOGIN', 'LOGOUT', 'LOGIN_FAILED',
     'CREATE_ROLE', 'UPDATE_ROLE', 'DELETE_ROLE', 'CHANGE_USER_ROLE')) NOT VALID;
+-- The pre-draft schema has no 'draft' status; keep the data as pending rather than lose it.
+UPDATE reports SET status = 'pending' WHERE status = 'draft';
 ALTER TABLE reports DROP CONSTRAINT chk_reports_status;
 ALTER TABLE reports ADD CONSTRAINT chk_reports_status
     CHECK (status IN ('pending', 'approved', 'needs_revision'));
