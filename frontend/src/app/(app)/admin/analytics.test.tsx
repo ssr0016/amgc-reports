@@ -5,13 +5,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AttendanceAnalytics } from "@/lib/analytics";
 import { Analytics, buildAnalyticsCsv } from "./analytics";
 
-const h = vi.hoisted(() => ({ getAttendanceAnalytics: vi.fn(), getStats: vi.fn() }));
+const h = vi.hoisted(() => ({
+  getAttendanceAnalytics: vi.fn(),
+  getStats: vi.fn(),
+  html2pdf: vi.fn(),
+  pdf: { set: vi.fn(), from: vi.fn(), save: vi.fn() },
+}));
 vi.mock("@/lib/analytics", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/analytics")>()),
   getAttendanceAnalytics: h.getAttendanceAnalytics,
 }));
 vi.mock("@/lib/stats", () => ({ getStats: h.getStats }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ can: () => true }) }));
+vi.mock("html2pdf.js", () => ({ default: h.html2pdf }));
 vi.mock("recharts", () => {
   const Chart = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
   return { Bar: Chart, BarChart: Chart, CartesianGrid: Chart, Line: Chart, LineChart: Chart, ResponsiveContainer: Chart, Tooltip: Chart, XAxis: Chart, YAxis: Chart };
@@ -45,6 +51,10 @@ function renderAnalytics() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.pdf.set.mockReturnValue(h.pdf);
+  h.pdf.from.mockReturnValue(h.pdf);
+  h.pdf.save.mockResolvedValue(undefined);
+  h.html2pdf.mockReturnValue(h.pdf);
   h.getAttendanceAnalytics.mockResolvedValue(body);
   h.getStats.mockResolvedValue({ churches_total: 3 });
 });
@@ -66,15 +76,15 @@ describe("analytics", () => {
     expect(h.getAttendanceAnalytics).toHaveBeenLastCalledWith(new Date().getFullYear(), "worship_service", "approved", "full_year", false);
   });
 
-  it("prints the selected analytics report", async () => {
-    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+  it("downloads the selected analytics report as a PDF", async () => {
     const { user } = renderAnalytics();
 
     await screen.findByText("Weekly trend");
     await user.click(screen.getByRole("button", { name: "Download PDF" }));
 
-    expect(print).toHaveBeenCalledOnce();
-    print.mockRestore();
+    expect(h.html2pdf).toHaveBeenCalledOnce();
+    expect(h.pdf.from).toHaveBeenCalledWith(document.getElementById("analytics-report"));
+    expect(h.pdf.save).toHaveBeenCalledOnce();
   });
 
   it("refetches when filters change and exposes equivalent table data", async () => {

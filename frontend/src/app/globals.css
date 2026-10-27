@@ -155,79 +155,51 @@
   }
 }
 
-.analytics-printable {
-  page: analytics;
+.analytics-report {
+  width: 1120px;
+  padding: 24px;
+  background: #fff;
+  color: #111827;
+  --background: #fff;
+  --foreground: #111827;
+  --card: #fff;
+  --card-foreground: #111827;
+  --muted-foreground: #4b5563;
+  --border: #d1d5db;
 }
 
-@page analytics {
-  size: A4 landscape;
-  margin: 12mm;
+.analytics-report-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 0.75rem;
 }
 
-.analytics-print-header {
-  display: none;
+.analytics-report-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
 }
 
-@media print {
-  body {
-    background: #fff !important;
-    color: #111827 !important;
-  }
+.analytics-report-header p {
+  margin: 0.25rem 0 0;
+  color: #4b5563;
+  font-size: 0.875rem;
+}
 
-  .analytics-printable {
-    --background: #fff;
-    --foreground: #111827;
-    --card: #fff;
-    --card-foreground: #111827;
-    --muted-foreground: #4b5563;
-    --border: #d1d5db;
-    background: #fff !important;
-    color: #111827 !important;
-  }
+.analytics-pdf-avoid {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
 
-  .analytics-print-hide {
-    display: none !important;
-  }
+.analytics-report [data-slot="card"] {
+  background: #fff !important;
+  color: #111827 !important;
+  box-shadow: none !important;
+}
 
-  .analytics-print-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    border-bottom: 2px solid #111827;
-    padding-bottom: 0.75rem;
-  }
-
-  .analytics-print-header img {
-    width: 3rem;
-    height: 3rem;
-    object-fit: contain;
-  }
-
-  .analytics-print-header h1 {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-  }
-
-  .analytics-print-header p {
-    margin: 0.25rem 0 0;
-    color: #4b5563;
-    font-size: 0.875rem;
-  }
-
-  .analytics-printable [data-slot="card"] {
-    break-inside: avoid;
-    background: #fff !important;
-    color: #111827 !important;
-    box-shadow: none !important;
-  }
-
-  .analytics-printable table {
-    color: #111827 !important;
-  }
-
-  .analytics-printable th,
-  .analytics-printable td {
-    border-color: #d1d5db !important;
-  }
+.analytics-report th,
+.analytics-report td {
+  border-color: #d1d5db !important;
 }
