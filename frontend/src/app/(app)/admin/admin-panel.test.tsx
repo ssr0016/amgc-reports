@@ -31,7 +31,7 @@ describe("AdminPanel", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`Admin / ${name}`);
     expect(within(screen.getByRole("region", { name })).getByText(text)).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByText("stats") !== null).toBe(name !== "Reports" && name !== "Tracker");
+    expect(screen.queryByText("stats") !== null).toBe(!["Reports", "Tracker", "Logs"].includes(name));
   });
 
   it.each([

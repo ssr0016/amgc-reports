@@ -1,9 +1,11 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Filter } from "lucide-react";
 import { Fragment, useState } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,15 +25,15 @@ import { TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
 import { Pagination } from "@/components/pagination";
 
-// Light tint with dark text (and the reverse in the dark theme) to stay above 4.5:1 for axe.
+// Soft tint, dark text and a faint ring (light text in the dark theme) to stay above 4.5:1 for axe.
 const TONE: Record<string, string> = {
-  create: "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200",
-  change: "bg-muted text-foreground",
-  delete: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
-  approve: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
-  download: "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200",
-  security: "bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-100",
-  warning: "bg-yellow-100 text-yellow-900 dark:bg-yellow-950 dark:text-yellow-200",
+  create: "bg-teal-50 text-teal-800 ring-teal-600/20 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-400/30",
+  change: "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30",
+  delete: "bg-red-50 text-red-800 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/30",
+  approve: "bg-green-50 text-green-800 ring-green-600/20 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/30",
+  download: "bg-violet-50 text-violet-800 ring-violet-600/20 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-400/30",
+  security: "bg-blue-50 text-blue-800 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/30",
+  warning: "bg-orange-50 text-orange-800 ring-orange-600/20 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/30",
 };
 
 const target = (l: AuditLog) => l.target_name || (l.target_id ? `#${l.target_id}` : "—");
@@ -77,8 +79,12 @@ export function AuditLogs() {
 
   const meta = data?.meta;
   return (
-    <div className="flex flex-col gap-6">
-      <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <Card className="gap-0 rounded-lg py-0">
+      <form onSubmit={(e) => e.preventDefault()} className="grid items-end gap-5 border-b p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
+        <p className="col-span-full flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Filter aria-hidden="true" className="size-4" />
+          Filter events
+        </p>
         <div className="flex flex-col gap-2">
           <Label htmlFor="logs-month">Month</Label>
           <NativeSelect id="logs-month" value={period.month} onChange={(e) => filter({ month: e.target.value })}>
@@ -112,124 +118,127 @@ export function AuditLogs() {
         </div>
       </form>
 
-      {isPending ? (
-        <TableSkeleton columns={4} />
-      ) : error ? (
-        <ErrorRetry message={error.message} onRetry={() => refetch()} />
-      ) : data && data.data.length === 0 ? (
-        <EmptyState title="No audit logs found" description="No activity matches the selected filters." />
-      ) : (
-        data && (
-          <>
-            <p role="status" className="text-sm text-muted-foreground">
-              {meta?.total} total logs
-            </p>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>Actor</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Target</TableHead>
-                  <TableHead>Details</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.data.map((l) => {
-                  const expanded = open.has(l.id);
-                  const panelId = `log-details-${l.id}`;
-                  const rows = detailRows(l.action, l.details as Record<string, unknown>);
-                  return (
-                    <Fragment key={l.id}>
-                      <TableRow>
-                        <TableCell className="font-mono whitespace-nowrap tabular-nums">{formatTimestamp(l.created_at)}</TableCell>
-                        <TableCell>
-                          {l.performed_by_name ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span>{l.performed_by_name}</span>
-                              {l.performed_by_role && (
-                                <span className="text-xs text-muted-foreground">{l.performed_by_role}</span>
-                              )}
-                            </div>
-                          ) : (
-                            "—"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={cn(
-                              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-                              TONE[actionGroup(l.action) ?? ""] ?? "bg-muted text-foreground",
+      {/* The container must scroll vertically for the header to stick. */}
+      <div className="min-w-0 p-5 sm:p-6 [&_[data-slot=table-container]]:max-h-[70vh]">
+        {isPending ? (
+          <TableSkeleton columns={4} />
+        ) : error ? (
+          <ErrorRetry message={error.message} onRetry={() => refetch()} />
+        ) : data && data.data.length === 0 ? (
+          <EmptyState title="No audit logs found" description="No activity matches the selected filters." />
+        ) : (
+          data && (
+            <>
+              <p role="status" className="mb-3 text-right text-sm text-muted-foreground tabular-nums">
+                {meta?.total} total logs
+              </p>
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-muted shadow-[0_1px_0_var(--border)] [&_th]:h-11 [&_th]:text-xs [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:uppercase">
+                  <TableRow>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>Actor</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Target</TableHead>
+                    <TableHead>Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.data.map((l) => {
+                    const expanded = open.has(l.id);
+                    const panelId = `log-details-${l.id}`;
+                    const rows = detailRows(l.action, l.details as Record<string, unknown>);
+                    return (
+                      <Fragment key={l.id}>
+                        <TableRow>
+                          <TableCell className="font-mono whitespace-nowrap tabular-nums">{formatTimestamp(l.created_at)}</TableCell>
+                          <TableCell>
+                            {l.performed_by_name ? (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span>{l.performed_by_name}</span>
+                                {l.performed_by_role && (
+                                  <span className="text-xs text-muted-foreground">{l.performed_by_role}</span>
+                                )}
+                              </div>
+                            ) : (
+                              "—"
                             )}
-                          >
-                            {actionLabel(l.action)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {l.target_name || l.target_id ? (
-                            <div className="flex flex-col">
-                              <span className="text-xs text-muted-foreground">{l.target_type}</span>
-                              <span className="break-all">{target(l)}</span>
-                            </div>
-                          ) : (
-                            "—"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {/* A fixed label: aria-expanded tells whether the row is open. */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            aria-expanded={expanded}
-                            aria-controls={panelId}
-                            onClick={() => toggle(l.id)}
-                          >
-                            View details
-                            <span className="sr-only">
-                              {" "}
-                              for {actionLabel(l.action)}, {target(l)}, {formatTimestamp(l.created_at)}
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ring-1 ring-inset",
+                                TONE[actionGroup(l.action) ?? ""] ?? "bg-muted text-foreground ring-border",
+                              )}
+                            >
+                              {actionLabel(l.action)}
                             </span>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                      {expanded && (
-                        <TableRow id={panelId} className="bg-muted/40 hover:bg-muted/40">
-                          <TableCell colSpan={5} className="whitespace-normal">
-                            <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm">
-                              <dt className="text-muted-foreground">Time</dt>
-                              <dd className="font-mono tabular-nums">{formatTimestamp(l.created_at, true)}</dd>
-                              <dt className="text-muted-foreground">Actor</dt>
-                              <dd>
-                                {l.performed_by_name
-                                  ? `${l.performed_by_name}${l.performed_by_role ? ` (${l.performed_by_role})` : ""}`
-                                  : "—"}
-                              </dd>
-                              <dt className="text-muted-foreground">Target</dt>
-                              <dd className="break-all">
-                                {l.target_type}
-                                {l.target_name ? `, ${l.target_name}` : ""}
-                                {l.target_id ? `, ID ${l.target_id}` : ""}
-                              </dd>
-                              {rows.map(([label, value]) => (
-                                <Fragment key={label}>
-                                  <dt className="text-muted-foreground">{label}</dt>
-                                  <dd className="break-words">{value}</dd>
-                                </Fragment>
-                              ))}
-                            </dl>
-                            {rows.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No further details.</p>}
+                          </TableCell>
+                          <TableCell>
+                            {l.target_name || l.target_id ? (
+                              <div className="flex flex-col">
+                                <span className="text-xs text-muted-foreground">{l.target_type}</span>
+                                <span className="break-all">{target(l)}</span>
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {/* A fixed label: aria-expanded tells whether the row is open. */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              aria-expanded={expanded}
+                              aria-controls={panelId}
+                              onClick={() => toggle(l.id)}
+                            >
+                              View details
+                              <span className="sr-only">
+                                {" "}
+                                for {actionLabel(l.action)}, {target(l)}, {formatTimestamp(l.created_at)}
+                              </span>
+                            </Button>
                           </TableCell>
                         </TableRow>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            {meta && <Pagination page={meta.page!} totalPages={meta.total_pages!} onPageChange={setPage} />}
-          </>
-        )
-      )}
-    </div>
+                        {expanded && (
+                          <TableRow id={panelId} className="bg-muted/40 hover:bg-muted/40">
+                            <TableCell colSpan={5} className="whitespace-normal">
+                              <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm">
+                                <dt className="text-muted-foreground">Time</dt>
+                                <dd className="font-mono tabular-nums">{formatTimestamp(l.created_at, true)}</dd>
+                                <dt className="text-muted-foreground">Actor</dt>
+                                <dd>
+                                  {l.performed_by_name
+                                    ? `${l.performed_by_name}${l.performed_by_role ? ` (${l.performed_by_role})` : ""}`
+                                    : "—"}
+                                </dd>
+                                <dt className="text-muted-foreground">Target</dt>
+                                <dd className="break-all">
+                                  {l.target_type}
+                                  {l.target_name ? `, ${l.target_name}` : ""}
+                                  {l.target_id ? `, ID ${l.target_id}` : ""}
+                                </dd>
+                                {rows.map(([label, value]) => (
+                                  <Fragment key={label}>
+                                    <dt className="text-muted-foreground">{label}</dt>
+                                    <dd className="break-words">{value}</dd>
+                                  </Fragment>
+                                ))}
+                              </dl>
+                              {rows.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No further details.</p>}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              {meta && <Pagination page={meta.page!} totalPages={meta.total_pages!} onPageChange={setPage} />}
+            </>
+          )
+        )}
+      </div>
+    </Card>
   );
 }

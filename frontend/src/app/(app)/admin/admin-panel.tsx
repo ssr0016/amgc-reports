@@ -37,10 +37,11 @@ export function AdminPanel() {
       <h1 className={`${analyticsTab ? "analytics-admin-heading" : ""} text-2xl font-medium tracking-tight`}>Admin{tab && ` / ${tabs.find((t) => t.value === tab)?.label}`}</h1>
       {canAdmin && tab ? (
         <>
-          {/* Tracker has its own month-scoped summary, so the global cards would duplicate or contradict it. */}
-          {tab === "roles" ? <RoleStats /> : tab !== "reports" && tab !== "tracker" && <StatsCards users={tab === "users"} />}
+          {/* Tracker has its own month-scoped summary, so the global cards would duplicate or contradict it.
+              Logs is for finding events, not a summary, so it shows no cards. */}
+          {tab === "roles" ? <RoleStats /> : !["reports", "tracker", "logs"].includes(tab) && <StatsCards users={tab === "users"} />}
           <section aria-label={tabs.find((t) => t.value === tab)?.label} className={`${analyticsTab ? "analytics-admin-section" : ""} min-w-0`}>
-            {tab === "reports" ? panels[tab] : <Card className={`${analyticsTab ? "analytics-admin-card" : ""} p-4 sm:p-6`}>{panels[tab]}</Card>}
+            {tab === "reports" || tab === "logs" ? panels[tab] : <Card className={`${analyticsTab ? "analytics-admin-card" : ""} p-4 sm:p-6`}>{panels[tab]}</Card>}
           </section>
         </>
       ) : (
