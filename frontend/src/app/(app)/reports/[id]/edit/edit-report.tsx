@@ -10,7 +10,7 @@ import { getReport, submitReport, updateReport } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
 
-export function EditReport() {
+export function EditReport({ viewOnly = false }: { viewOnly?: boolean }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { can, user } = useSession();
@@ -29,7 +29,7 @@ export function EditReport() {
 
   // Anyone who may read a report may open it; only its owner, or someone with write_any, may change it.
   // The server enforces the same rule (404 on save), so this only keeps the form from pretending.
-  const editable = !data || (can("reports:write") && (data.created_by === user?.user_id || can("reports:write_any")));
+  const editable = !viewOnly && (!data || (can("reports:write") && (data.created_by === user?.user_id || can("reports:write_any"))));
 
   let body: React.ReactNode;
   if (!allowed) {
