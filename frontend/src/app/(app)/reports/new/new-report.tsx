@@ -2,11 +2,9 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import Link from "next/link";
 import { ReportForm } from "@/components/report-form";
-import { Button } from "@/components/ui/button";
 import { emptyForm } from "@/lib/report-form";
 import { createReport, defaultPeriod, listReports } from "@/lib/reports";
 import { useSession } from "@/lib/session";
@@ -35,6 +33,12 @@ export function NewReport() {
   });
   const report = existing.data?.data[0];
 
+  useEffect(() => {
+    if (report) {
+      router.replace(report.status === "draft" ? `/reports/${report.id}/edit` : `/reports/${report.id}`);
+    }
+  }, [report, router]);
+
   return (
     <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
       <h1 className="text-2xl font-medium tracking-tight">New report</h1>
@@ -45,20 +49,7 @@ export function NewReport() {
       ) : existing.isError ? (
         <p role="alert" className="text-sm text-destructive">Could not check this reporting period. Please try again.</p>
       ) : report ? (
-        <section className="rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-medium">
-            {report.status === "draft" ? "Draft already started" : "Report already exists"}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            You already have a report for {period.month} {period.year}.
-            {report.status === "draft" ? " Continue your draft to finish and submit it." : " Open it to review or make allowed changes."}
-          </p>
-          <Button asChild className="mt-4">
-            <Link href={report.status === "draft" ? `/reports/${report.id}/edit` : `/reports/${report.id}`}>
-              {report.status === "draft" ? "Continue Draft" : "Open Report"}
-            </Link>
-          </Button>
-        </section>
+        <p role="status" className="text-sm text-muted-foreground">Opening your existing report…</p>
       ) : (
         <ReportForm
           initial={initial}
