@@ -43,6 +43,7 @@ import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
 import { clearReportDraftStorage } from "@/lib/report-draft-storage";
 import { EmptyState } from "@/components/empty-state";
+import { ReportStatusBadge } from "@/components/report-status-badge";
 import { TableSkeleton } from "@/components/loading-skeletons";
 import { Pagination } from "@/components/pagination";
 
@@ -125,7 +126,6 @@ function ReportsList() {
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
         refreshAdminViews(queryClient),
       ]);
-      router.replace("/reports");
       if (lastOnPage) goToPage((filters.page ?? 1) - 1);
     },
   });
@@ -291,7 +291,7 @@ function ReportsList() {
         <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); (opener.current?.isConnected ? opener.current : document.getElementById("main-content"))?.focus(); }}>
           <AlertDialogHeader><AlertDialogTitle>Report Preview</AlertDialogTitle><AlertDialogDescription>Submission metadata</AlertDialogDescription></AlertDialogHeader>
           <dl className="grid grid-cols-2 gap-3 text-sm">
-            {[["Worker", metadataPreview?.worker], ["Month", metadataPreview?.month], ["Year", metadataPreview?.year], ["Area", metadataPreview?.area_assignment], ["Church", metadataPreview?.church_name], ["Status", metadataPreview?.completed ? "Approved" : "Pending"]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd>{value || "—"}</dd></div>)}
+            {([["Worker", metadataPreview?.worker], ["Month", metadataPreview?.month], ["Year", metadataPreview?.year], ["Area", metadataPreview?.area_assignment], ["Church", metadataPreview?.church_name], ["Status", metadataPreview && <ReportStatusBadge status={metadataPreview.status ?? (metadataPreview.completed ? "approved" : "pending")} />]] as [string, React.ReactNode][]).map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd>{value || "—"}</dd></div>)}
           </dl>
           <AlertDialogFooter><AlertDialogCancel>Close</AlertDialogCancel></AlertDialogFooter>
         </AlertDialogContent>

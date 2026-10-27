@@ -293,8 +293,20 @@ describe("reports list: delete", () => {
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     await waitFor(() => expect(h.listReports).toHaveBeenCalledTimes(2));
     expect(h.toast.success).toHaveBeenCalledWith("Report deleted successfully.");
-    expect(h.replace).toHaveBeenCalledWith("/reports");
     expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["current-report", 1] });
+  });
+
+  it("keeps the filters in the URL after a delete", async () => {
+    h.search = "month=March&year=2026&worker=Ana&church=Central";
+    h.deleteReport.mockResolvedValue(undefined);
+    const { user } = renderList(...mine);
+    await screen.findByText("Worker 1");
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith("Report deleted successfully."));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(h.replace).not.toHaveBeenCalled();
+    expect(h.push).not.toHaveBeenCalled();
   });
 
   // WCAG 2.4.3: the dialog has no trigger element, so without help focus falls to the page body.
@@ -493,5 +505,14 @@ describe("reports list: metadata preview", () => {
     expect(h.getReport).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("shows Needs Revision, not Pending, for a report sent back", async () => {
+    h.listReports.mockResolvedValue(page([report(1, 2, { status: "needs_revision" })]));
+    const { user } = renderList("reports:read", "reports:read_any");
+    await user.click(await screen.findByRole("button", { name: "Preview April 2026, Worker 1" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Report Preview" });
+    expect(within(dialog).getByText("Needs Revision")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Pending")).not.toBeInTheDocument();
   });
 });

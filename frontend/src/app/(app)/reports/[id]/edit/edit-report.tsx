@@ -2,11 +2,12 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ReportForm } from "@/components/report-form";
 import { ApiError } from "@/lib/api";
+import { safeNext } from "@/lib/auth-form";
 import { fromReport, isRestricted } from "@/lib/report-form";
 import { getReport, updateReport } from "@/lib/reports";
 import { reportStorageKey } from "@/lib/report-draft-storage";
@@ -22,6 +23,8 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
   const valid = Number.isInteger(reportId) && reportId > 0;
   const allowed = can("reports:read");
   const [deleted, setDeleted] = useState(false);
+  // Where the editor came from (the admin Reports tab adds ?from=); same-site paths only.
+  const back = safeNext(useSearchParams().get("from"), "/reports");
 
   // gcTime 0: PUT replaces everything, so the form must start from a fresh
   // load, never from a cached copy that may be out of date.
@@ -60,8 +63,8 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
     body = (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">This report has been deleted</p>
-        <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/reports">
-          Back to Community Reports
+        <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href={back}>
+          {back === "/reports" ? "Back to Community Reports" : "Back to All Reports"}
         </Link>
       </div>
     );
@@ -97,15 +100,15 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
             await handleMutationError(err);
           }
           await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
-          router.replace("/reports");
+          router.replace(back);
         }}
-        onCancel={() => router.push("/reports")}
+        onCancel={() => router.push(back)}
       />
     );
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
+    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none">
       <h1 className="text-2xl font-medium tracking-tight">{editable ? "Edit report" : "View report"}</h1>
       {body}
     </main>

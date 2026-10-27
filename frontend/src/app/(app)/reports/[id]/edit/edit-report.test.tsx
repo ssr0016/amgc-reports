@@ -6,10 +6,11 @@ import { ApiError } from "@/lib/api";
 import { getReport, updateReport } from "@/lib/reports";
 import { EditReport } from "./edit-report";
 
-const h = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), toast: { success: vi.fn() }, userId: 7 }));
+const h = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), toast: { success: vi.fn() }, userId: 7, search: "" }));
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "12" }),
   useRouter: () => ({ push: h.push, replace: h.replace }),
+  useSearchParams: () => new URLSearchParams(h.search),
 }));
 vi.mock("sonner", () => ({ toast: h.toast }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ user: { user_id: h.userId }, can: () => true }) }));
@@ -51,6 +52,7 @@ function renderEdit() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.search = "";
   vi.mocked(getReport).mockResolvedValue(report);
   vi.mocked(updateReport).mockResolvedValue(report);
 });
@@ -109,5 +111,26 @@ describe("EditReport", () => {
     renderEdit();
     await screen.findByRole("button", { name: "Submit" });
     expect(screen.queryByRole("button", { name: "Delete Report" })).not.toBeInTheDocument();
+  });
+
+  it("returns to the page in ?from= after a save", async () => {
+    h.search = `from=${encodeURIComponent("/admin?tab=reports")}`;
+    renderEdit();
+    await userEvent.click(await screen.findByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/admin?tab=reports"));
+  });
+
+  it("ignores a ?from= that leaves the site", async () => {
+    h.search = `from=${encodeURIComponent("//evil.example/x")}`;
+    renderEdit();
+    await userEvent.click(await screen.findByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/reports"));
+  });
+
+  it("the deleted state links back to ?from=", async () => {
+    h.search = `from=${encodeURIComponent("/admin?tab=reports")}`;
+    vi.mocked(getReport).mockRejectedValue(new ApiError(404, "NOT_FOUND", "Report not found"));
+    renderEdit();
+    expect(await screen.findByRole("link", { name: "Back to All Reports" })).toHaveAttribute("href", "/admin?tab=reports");
   });
 });
