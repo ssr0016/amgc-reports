@@ -79,6 +79,27 @@ describe("EditReport", () => {
     expect(submitReport).not.toHaveBeenCalled();
   });
 
+  it("submits a draft: the save, then the submit", async () => {
+    renderEdit();
+    await userEvent.click(await screen.findByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(submitReport).toHaveBeenCalledWith(12));
+    expect(updateReport).toHaveBeenCalledWith(12, {});
+    expect(h.toast.success).toHaveBeenCalledWith("Report submitted");
+  });
+
+  it("resubmits a Needs Revision report with the save alone, and offers no autosave", async () => {
+    vi.mocked(getReport).mockResolvedValue({ ...(report as object), status: "needs_revision" } as never);
+    renderEdit();
+    await screen.findByRole("button", { name: "Submit" });
+    expect(screen.queryByRole("button", { name: "Auto-save" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/reports"));
+    expect(updateReport).toHaveBeenCalledWith(12, {});
+    expect(submitReport).not.toHaveBeenCalled();
+    expect(h.toast.success).toHaveBeenCalledWith("Report resubmitted");
+    expect(screen.queryByText("This report has been deleted")).not.toBeInTheDocument();
+  });
+
   it("hydrates revision notes from the server into the form", async () => {
     renderEdit();
     expect(await screen.findByTestId("initial-user-notes")).toHaveTextContent("Please explain the corrected totals.");

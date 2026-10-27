@@ -81,7 +81,8 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
         draft={data.status === "draft"}
         submitLabel="Submit Report"
         storageKey={reportStorageKey(reportId)}
-        onAutoSave={editable && (data.status === "draft" || data.status === "needs_revision") ? async (input) => {
+        // Drafts only: saving a Needs Revision report returns it to Pending, so an autosave would resubmit it half-done.
+        onAutoSave={editable && data.status === "draft" ? async (input) => {
           try {
             await updateReport(reportId, input);
           } catch (err) {
@@ -96,9 +97,12 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
         onSubmit={async (input) => {
           try {
             await updateReport(reportId, input);
-            if (data.status === "draft" || data.status === "needs_revision") {
+            // The PUT already moves a Needs Revision report back to Pending; submit only accepts drafts.
+            if (data.status === "draft") {
               await submitReport(reportId);
-              toast.success(data.status === "needs_revision" ? "Report resubmitted" : "Report submitted");
+              toast.success("Report submitted");
+            } else if (data.status === "needs_revision") {
+              toast.success("Report resubmitted");
             } else {
               toast.success("Report saved");
             }

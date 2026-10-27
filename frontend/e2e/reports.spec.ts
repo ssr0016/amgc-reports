@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { ACCOUNTS, authFile, earlierPeriod, expect, previousPeriod, send, test } from "./support";
+import { ACCOUNTS, API, authFile, earlierPeriod, expect, previousPeriod, send, test } from "./support";
 
 const period = previousPeriod();
 const label = `${period.month} ${period.year}`;
@@ -243,6 +243,26 @@ test.describe("admin", () => {
 
 test.describe("user, later", () => {
   test.use({ storageState: authFile("user") });
+
+  test("revises the report sent back for revision and resubmits it to Pending", async ({ page, request }) => {
+    await page.goto("/reports");
+    await expect(rowOf(page, ACCOUNTS.user.name).getByText("Needs Revision")).toBeVisible();
+    await page.getByRole("link", { name: "Revise Report" }).click();
+    await expect(page).toHaveURL(/\/reports\/\d+\/edit$/);
+    const id = page.url().match(/\/reports\/(\d+)\/edit$/)![1];
+    const status = async () => (await (await request.get(`${API}/reports/${id}`)).json()).status;
+
+    await page.getByLabel("Challenges", { exact: true }).fill("Corrected totals");
+    // Longer than the 3 s autosave delay: a Needs Revision report must not resubmit itself.
+    await page.waitForTimeout(3500);
+    expect(await status()).toBe("needs_revision");
+
+    await page.getByRole("button", { name: "Submit Report" }).click();
+    await expect(page.getByText("Report resubmitted")).toBeVisible();
+    await expect(page).toHaveURL(/\/reports$/);
+    await expect(rowOf(page, ACCOUNTS.user.name).getByText("Pending")).toBeVisible();
+    expect(await status()).toBe("pending");
+  });
 
   test("deletes the report after confirming, and can file the month again", async ({ page }) => {
     await page.goto("/reports");
