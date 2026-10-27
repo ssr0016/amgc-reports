@@ -93,14 +93,12 @@ function ReportsList() {
     enabled: allowed,
     placeholderData: keepPreviousData,
     // Fresh for 30 s, so switching tabs back and forth does not refetch every time; the read limit is 60 a minute.
-    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
   const currentReport = useQuery({
     queryKey: ["current-report", user?.user_id],
     queryFn: getCurrentReport,
     enabled: user?.role === "user" && can("reports:write"),
-    staleTime: 30_000,
   });
 
   // The report the delete dialog is asking about, if any.

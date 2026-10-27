@@ -25,11 +25,12 @@ describe("AdminPanel", () => {
     ["reports", "Reports", "admin reports"], ["tracker", "Tracker", "tracker"],
     ["analytics", "Analytics", "analytics"],
     ["users", "Users", "users panel"], ["roles", "Roles", "roles panel"], ["logs", "Logs", "audit logs"],
-  ])("renders only the selected section for ?tab=%s", (tab, name, text) => {
+  ])("renders only the selected section for ?tab=%s", async (tab, name, text) => {
     h.tab = tab;
     render(<AdminPanel />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`Admin / ${name}`);
-    expect(within(screen.getByRole("region", { name })).getByText(text)).toBeInTheDocument();
+    // findByText: Analytics is loaded with next/dynamic, so it arrives a tick later.
+    expect(await within(screen.getByRole("region", { name })).findByText(text)).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByText("stats") !== null).toBe(!["Reports", "Tracker", "Logs"].includes(name));
   });

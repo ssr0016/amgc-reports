@@ -30,7 +30,6 @@ export function NewReport() {
     queryKey: ["current-report", user?.user_id],
     queryFn: getCurrentReport,
     enabled: allowed,
-    staleTime: 30_000,
   });
   const report = existing.data;
   useEffect(() => {

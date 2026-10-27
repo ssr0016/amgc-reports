@@ -121,13 +121,12 @@ export function Analytics() {
     queryKey: ["analytics-attendance", year, metric, status, period, compare],
     queryFn: () => getAttendanceAnalytics(year, metric, status, period, compare),
     enabled: allowed,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000, // the charts change only when a report does, and refreshAdminViews invalidates them then
   });
   const { data: stats } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: getStats,
     enabled: allowed,
-    staleTime: 30_000,
   });
 
   if (!allowed) return <p className="text-sm text-muted-foreground">You are not allowed to view analytics.</p>;

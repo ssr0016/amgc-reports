@@ -5,11 +5,12 @@ import { toast } from "sonner";
 import { ApiError } from "./api";
 
 // No retries: api.ts already retries a stale CSRF token, and a retry would spend
-// the per-user rate limit. No refetch on focus, for the same reason.
+// the per-user rate limit. No refetch on focus, for the same reason. Data counts as fresh for 30s,
+// so switching tabs does not refetch; mutations invalidate what they change.
 // A failed load also says so in a toast when the cause is the network or the server; the screen
 // still shows its own error. Other statuses (401, 403, 404) are handled where they happen.
 export const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, staleTime: 30_000 } },
   queryCache: new QueryCache({
     onError: (err) => {
       if (!(err instanceof ApiError)) return;
@@ -29,10 +30,11 @@ export function usePendingVariables<T>(mutationKey: readonly unknown[]): T[] {
   return useMutationState({ filters: { mutationKey, status: "pending" }, select: (m) => m.state.variables as T });
 }
 
-// A report or account change moves the admin cards and the Tracker too. Invalidating marks them
-// stale, so each refetches when it is next shown; nothing polls.
+// A report or account change moves the admin cards, the Tracker and Analytics too. Invalidating
+// marks them stale, so each refetches when it is next shown; nothing polls.
 export const refreshAdminViews = (client: QueryClient) =>
   Promise.all([
     client.invalidateQueries({ queryKey: ["admin-stats"] }),
     client.invalidateQueries({ queryKey: ["tracker"] }),
+    client.invalidateQueries({ queryKey: ["analytics-attendance"] }),
   ]);

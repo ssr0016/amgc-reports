@@ -51,7 +51,6 @@ export function AuditLogs() {
     queryKey: ["audit-logs", filters],
     queryFn: () => listAuditLogs(filters),
     placeholderData: keepPreviousData,
-    staleTime: 30_000,
   });
 
   const thisYear = new Date().getFullYear();

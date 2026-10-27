@@ -85,7 +85,6 @@ export function UsersPanel() {
     queryFn: () => listUsers(email, status, role ? Number(role) : undefined, page, PAGE_SIZE),
     enabled: allowed,
     placeholderData: keepPreviousData,
-    staleTime: 30_000,
   });
   // If this fails, or for a non-admin, the list still renders, with the role shown as #id.
   const roles = useQuery({ queryKey: ["roles"], queryFn: listRoles, enabled: isAdmin, staleTime: 5 * 60_000 });

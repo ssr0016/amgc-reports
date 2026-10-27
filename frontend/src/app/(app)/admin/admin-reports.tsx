@@ -75,7 +75,6 @@ export function AdminReports() {
     queryFn: () => listReports(filters),
     enabled: allowed,
     placeholderData: keepPreviousData,
-    staleTime: 30_000,
   });
 
   const { approve, revision, bulkToggle, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();

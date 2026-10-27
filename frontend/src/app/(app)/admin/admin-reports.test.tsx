@@ -443,6 +443,18 @@ describe("admin reports: approve", () => {
     expect(h.toast.success).toHaveBeenCalledWith("Revision requested: September 2026");
   });
 
+  it("Request Revision shows Needs Revision before the server answers", async () => {
+    let resolve!: (v: unknown) => void;
+    h.requestRevision.mockReturnValue(new Promise((r) => { resolve = r; }));
+    const { user } = renderReports("reports:read", "reports:approve");
+    await screen.findByText("Worker 1");
+    await user.click(within(row("Worker 1")).getByRole("button", { name: /^Request Revision / }));
+    await user.type(screen.getByRole("textbox", { name: /reason/i }), "Missing totals");
+    await user.click(screen.getByRole("button", { name: /Request Revision/ }));
+    expect(await within(row("Worker 1")).findByText("Needs Revision")).toBeInTheDocument();
+    resolve({ id: 1, completed: false, status: "needs_revision" });
+  });
+
   it("a Pending row offers Approve and a Approved row offers Unapprove, each named for its row", async () => {
     h.listReports.mockResolvedValue(page([report(1, { completed: true }), report(2)]));
     renderReports("reports:read", "reports:approve");

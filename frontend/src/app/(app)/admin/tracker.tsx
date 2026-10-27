@@ -43,7 +43,6 @@ export function Tracker() {
     queryKey: ["tracker", period.month, period.year],
     queryFn: () => getTracker(period.month, period.year),
     placeholderData: keepPreviousData,
-    staleTime: 30_000,
   });
 
   const thisYear = new Date().getFullYear();

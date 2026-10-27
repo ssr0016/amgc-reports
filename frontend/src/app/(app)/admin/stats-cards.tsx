@@ -43,7 +43,6 @@ export function StatsCards({ users = false }: { users?: boolean }) {
     queryKey: ["admin-stats"],
     queryFn: getStats,
     enabled: allowed,
-    staleTime: 30_000,
   });
 
   if (!allowed) return null;

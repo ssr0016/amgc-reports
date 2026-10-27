@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ApiError, saveFile } from "@/lib/api";
 import { errorText } from "@/lib/auth-form";
-import { exportReport, requestRevision, toggleComplete, type Report } from "@/lib/reports";
+import { exportReport, requestRevision, toggleComplete, type Page, type Report } from "@/lib/reports";
 import { refreshAdminViews, usePendingVariables } from "@/lib/query";
 import type { PreviewTarget } from "@/app/(app)/admin/excel-preview-dialog";
 
@@ -60,12 +60,22 @@ export function useReportActions() {
   const revision = useMutation({
     mutationKey: ["request-revision"],
     mutationFn: ({ report, adminNotes = "" }: { report: Report; adminNotes?: string }) => requestRevision(report.id, adminNotes),
-    onSuccess: (_, { report: r }) => {
-      toast.success(`Revision requested: ${r.month} ${r.year}`);
-      refreshAdminViews(queryClient);
-      return queryClient.invalidateQueries({ queryKey: ["reports"] });
+    // Unlike approve (a server-side toggle), a revision always lands on the same state, so the row can show it at once.
+    onMutate: async ({ report, adminNotes = "" }) => {
+      await queryClient.cancelQueries({ queryKey: ["reports"] });
+      const previous = queryClient.getQueriesData<Page<Report>>({ queryKey: ["reports"] });
+      queryClient.setQueriesData<Page<Report>>({ queryKey: ["reports"] }, (old) => old && {
+        ...old,
+        data: old.data.map((r) => (r.id === report.id ? { ...r, status: "needs_revision", completed: false, admin_notes: adminNotes } : r)),
+      });
+      return { previous };
     },
-    onError: (err, { report: r }) => toast.error(errorText(err, `Could not request revision for ${r.month} ${r.year}.`)),
+    onSuccess: (_, { report: r }) => toast.success(`Revision requested: ${r.month} ${r.year}`),
+    onError: (err, { report: r }, ctx) => {
+      ctx?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      toast.error(errorText(err, `Could not request revision for ${r.month} ${r.year}.`));
+    },
+    onSettled: () => Promise.all([refreshAdminViews(queryClient), queryClient.invalidateQueries({ queryKey: ["reports"] })]),
   });
   const revisionBusy = usePendingVariables<{ report: Report }>(["request-revision"]).map(({ report }) => report.id);
 
