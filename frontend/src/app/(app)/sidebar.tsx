@@ -14,7 +14,8 @@ const ADMIN_ICONS: Record<string, typeof ClipboardList> = {
 export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavigate?: () => void }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const { can, isAdmin, canAdmin } = useSession();
+  const { can, isAdmin, canAdmin, user } = useSession();
+  const isWorker = user?.role === "user";
   const sections = adminSections(can, isAdmin);
   const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   const requested = pathname.startsWith("/admin/users/") ? "users" : pathname.startsWith("/admin/roles/") ? "roles" : params.get("tab");
@@ -39,6 +40,12 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
           Community Reports
         </Link>
       )}
+      {isWorker && can("reports:write") && (
+        <Link href="/reports/new" aria-current={pathname === "/reports/new" ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === "/reports/new")}>
+          <ClipboardList className="size-4" aria-hidden="true" />
+          New Report
+        </Link>
+      )}
       {canAdmin && sections.length > 0 && (
         <section aria-labelledby={`${label}-admin`} className="flex flex-col gap-1">
           <h2 id={`${label}-admin`} className="mb-1 px-3 text-xs font-medium text-muted-foreground">Admin</h2>
@@ -59,9 +66,11 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
         <Link href="/account/profile" aria-current={pathname === "/account/profile" ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === "/account/profile")}>
           <UserRound className="size-4" aria-hidden="true" />Profile
         </Link>
-        <Link href="/account/password" aria-current={pathname === "/account/password" ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === "/account/password")}>
-          <KeyRound className="size-4" aria-hidden="true" />Change Password
-        </Link>
+        {!isWorker && (
+          <Link href="/account/password" aria-current={pathname === "/account/password" ? "page" : undefined} onClick={onNavigate} className={linkClass(pathname === "/account/password")}>
+            <KeyRound className="size-4" aria-hidden="true" />Change Password
+          </Link>
+        )}
       </section>
     </nav>
   );

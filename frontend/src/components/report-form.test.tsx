@@ -23,6 +23,37 @@ const metric = (label: string, week: number) => screen.getByLabelText(`${label},
 afterEach(() => vi.restoreAllMocks());
 
 describe("ReportForm", () => {
+	it("renders profile metadata as read-only text", () => {
+		setup({ initial: { ...initial(), area_assignment: "North", church_name: "AMGC Church" } });
+		expect(screen.getByText("Worker Profile")).toBeInTheDocument();
+		expect(screen.getByText("Ana")).toBeInTheDocument();
+		expect(screen.getByText("North")).toBeInTheDocument();
+		expect(screen.getByText("AMGC Church")).toBeInTheDocument();
+		expect(screen.queryByLabelText("Worker Name")).not.toBeInTheDocument();
+		expect(screen.queryByLabelText("Area Assignment")).not.toBeInTheDocument();
+		expect(screen.queryByLabelText("Church Name")).not.toBeInTheDocument();
+	});
+
+	it("shows draft and submit actions in the sticky footer", () => {
+		setup({ draft: true, onSaveDraft: vi.fn().mockResolvedValue(undefined) });
+		expect(screen.getByRole("button", { name: "Save Draft" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Submit Report" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+	});
+
+	it("re-enables draft actions after a draft save succeeds", async () => {
+		const onSaveDraft = vi.fn().mockResolvedValue(undefined);
+		const { user } = setup({ draft: true, onSaveDraft });
+		await user.click(screen.getByRole("button", { name: "Save Draft" }));
+		expect(onSaveDraft).toHaveBeenCalledOnce();
+		expect(screen.getByRole("button", { name: "Save Draft" })).toBeEnabled();
+	});
+
+	it("explains how to leave inactive weeks blank", () => {
+		setup();
+		expect(screen.getByText("Fill in only the weeks when an activity happened. Leave a week blank when there was no activity; enter 0 when the activity happened but the count was zero.")).toBeInTheDocument();
+	});
+
   it("describes each long-text field with its help line", () => {
     setup();
     expect(screen.getByLabelText("Narrative Report")).toHaveAccessibleDescription(
@@ -94,7 +125,7 @@ describe("ReportForm", () => {
   });
 
   it("maps 422 details onto their fields", async () => {
-    const err = new ApiError(422, "VALIDATION_ERROR", "bad", { worker: "Too long", "metrics[outreach]": "Bad metric" });
+    const err = new ApiError(422, "VALIDATION_ERROR", "bad", { challenges: "Too long", "metrics[outreach]": "Bad metric" });
     const { user } = setup({ onSubmit: vi.fn().mockRejectedValue(err) });
     await user.click(screen.getByRole("button", { name: "Save report" }));
     expect(await screen.findByText("Too long")).toBeInTheDocument();
@@ -211,12 +242,12 @@ describe("ReportForm", () => {
       expect(metric("Tithes & Offering", 1)).toHaveFocus();
     });
 
-    it("focuses the field a 422 names", async () => {
-      const err = new ApiError(422, "VALIDATION_ERROR", "bad", { worker: "Too long" });
+  it("focuses the editable field a 422 names", async () => {
+    const err = new ApiError(422, "VALIDATION_ERROR", "bad", { challenges: "Too long" });
       const { user } = setup({ onSubmit: vi.fn().mockRejectedValue(err) });
       await user.click(screen.getByRole("button", { name: "Save report" }));
       await screen.findByText("Too long");
-      expect(screen.getByLabelText("Worker Name")).toHaveFocus();
+    expect(screen.getByLabelText("Challenges")).toHaveFocus();
     });
 
     it("a 409 on the locked month focuses its message, since the select is disabled", async () => {

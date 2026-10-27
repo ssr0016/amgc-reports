@@ -103,6 +103,8 @@ definitions:
       church_name:
         maxLength: 150
         type: string
+      draft:
+        type: boolean
       metrics:
         additionalProperties:
           $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks'
@@ -333,6 +335,7 @@ definitions:
         type: integer
       status:
         enum:
+        - draft
         - pending
         - approved
         - needs_revision
@@ -380,6 +383,7 @@ definitions:
         type: string
       status:
         enum:
+        - draft
         - pending
         - approved
         - needs_revision
@@ -464,6 +468,8 @@ definitions:
       church_name:
         maxLength: 150
         type: string
+      draft:
+        type: boolean
       metrics:
         additionalProperties:
           $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks'
@@ -2194,8 +2200,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Files a monthly report for the current user. A missing year defaults
-        to the current year.
+      description: Creates a monthly report for the current user. Set draft=true to
+        save it privately.
       parameters:
       - description: Report payload
         in: body
@@ -2498,6 +2504,33 @@ paths:
       security:
       - CookieAuth: []
       summary: Request report revision
+      tags:
+      - reports
+  /reports/{id}/submit:
+    patch:
+      description: Submits the owner's private draft for admin review.
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Submit report
       tags:
       - reports
   /users:

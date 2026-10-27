@@ -83,7 +83,7 @@ func (s *service) actor(ctx context.Context, userID int64) (*actor, error) {
 
 // canSee reports whether a may act on rep given the _any permission name.
 func (a *actor) canSee(rep *report.Report, anyPerm string) bool {
-	return rep != nil && (rep.CreatedBy == a.user.ID || a.perms[anyPerm])
+	return rep != nil && (rep.CreatedBy == a.user.ID || (rep.Status != "draft" && a.perms[anyPerm]))
 }
 
 // redact removes what D-18 keeps from readers who neither own the report nor
@@ -158,6 +158,9 @@ func (s *service) Create(ctx context.Context, userID int64, ip string, req repor
 	if err != nil {
 		return nil, err
 	}
+	req.Worker = a.user.Name
+	req.AreaAssignment = deref(a.user.AreaAssignment)
+	req.ChurchName = deref(a.user.ChurchName)
 	prevMonth, prevYear := s.previousMonth()
 	year := s.now().In(s.loc).Year()
 	if req.Month == prevMonth {
@@ -177,6 +180,30 @@ func (s *service) Create(ctx context.Context, userID int64, ip string, req repor
 			return err
 		}
 		return s.audit.Insert(ctx, a.auditEntry(ip, audit.ActionCreateReport, rep))
+	})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return respond(rep), nil
+}
+
+// Submit changes an owner's private draft into an open report for review.
+func (s *service) Submit(ctx context.Context, userID int64, ip string, id int64) (*report.ReportResponse, error) {
+	a, err := s.actor(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	existing, err := s.load(ctx, a, id, "reports:write_any")
+	if err != nil || existing.Status != "draft" {
+		return nil, report.ErrReportNotFound
+	}
+	var rep *report.Report
+	err = s.tx.InTransaction(ctx, func(ctx context.Context) error {
+		var err error
+		if rep, err = s.reports.Submit(ctx, id); err != nil {
+			return err
+		}
+		return s.audit.Insert(ctx, a.auditEntry(ip, audit.ActionSubmitReport, rep))
 	})
 	if err != nil {
 		return nil, mapErr(err)
@@ -207,6 +234,8 @@ func (s *service) List(ctx context.Context, userID int64, p report.ListReportsPa
 	}
 	if !a.perms["reports:read_any"] {
 		p.CreatedBy = userID
+	} else {
+		p.ExcludeDrafts = true
 	}
 	reports, total, err := s.reports.List(ctx, p, pg)
 	if err != nil {

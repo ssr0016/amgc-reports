@@ -101,6 +101,7 @@ func Setup(
 	reports.POST("", reportHandler.CreateReport, ourmiddleware.RequireRole("user"), perm("reports:write"), limits.Write)
 	reports.GET("/:id", reportHandler.GetReport, perm("reports:read"), limits.Read)
 	reports.PUT("/:id", reportHandler.UpdateReport, perm("reports:write"), limits.Write)
+	reports.PATCH("/:id/submit", reportHandler.SubmitReport, perm("reports:write"), limits.Write)
 	reports.DELETE("/:id", reportHandler.SoftDeleteReport, perm("reports:delete"), limits.Write)
 	reports.PATCH("/:id/complete", reportHandler.ToggleComplete, perm("reports:approve"), limits.Write)
 	reports.PATCH("/:id/revision", reportHandler.RequestRevision, perm("reports:approve"), limits.Write)

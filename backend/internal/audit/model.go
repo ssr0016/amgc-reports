@@ -13,6 +13,7 @@ import (
 const (
 	ActionCreateReport       = "CREATE_REPORT"
 	ActionUpdateReport       = "UPDATE_REPORT"
+	ActionSubmitReport       = "SUBMIT_REPORT"
 	ActionDeleteReport       = "DELETE_REPORT"
 	ActionApproveReport      = "APPROVE_REPORT"
 	ActionUnapproveReport    = "UNAPPROVE_REPORT"
@@ -51,7 +52,7 @@ const (
 
 // Actions lists every action above; a test compares it with the CHECK constraint.
 var Actions = []string{
-	ActionCreateReport, ActionUpdateReport, ActionDeleteReport,
+	ActionCreateReport, ActionUpdateReport, ActionSubmitReport, ActionDeleteReport,
 	ActionApproveReport, ActionUnapproveReport,
 	ActionDownloadSingle, ActionDownloadBulk,
 	ActionCreateUser, ActionUpdateUser, ActionChangePassword, ActionChangeUserStatus,
@@ -65,6 +66,7 @@ var Actions = []string{
 var DetailKeys = map[string][]string{
 	ActionCreateReport:       {"month", "year", "count"},
 	ActionUpdateReport:       {"month", "year", "count"},
+	ActionSubmitReport:       {"month", "year", "count"},
 	ActionDeleteReport:       {"month", "year", "count"},
 	ActionApproveReport:      {"month", "year", "count"},
 	ActionUnapproveReport:    {"month", "year", "count"},

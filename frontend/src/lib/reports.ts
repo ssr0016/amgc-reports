@@ -26,8 +26,11 @@ export function listReports(filters: ReportFilters = {}): Promise<Page<Report>> 
 
 export const getReport = (id: number) => api<Report>(`/reports/${id}`);
 
-export const createReport = (input: ReportInput) =>
-  api<Report>("/reports", { method: "POST", body: input });
+export const createReport = (input: ReportInput, draft = false) =>
+  api<Report>("/reports", { method: "POST", body: { ...input, draft } });
+
+export const submitReport = (id: number) =>
+  api<Report>(`/reports/${id}/submit`, { method: "PATCH" });
 
 // PUT replaces the whole report, including its metric set.
 export const updateReport = (id: number, input: ReportInput) =>
