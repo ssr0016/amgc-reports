@@ -66,6 +66,17 @@ describe("analytics", () => {
     expect(h.getAttendanceAnalytics).toHaveBeenLastCalledWith(new Date().getFullYear(), "worship_service", "approved", "full_year", false);
   });
 
+  it("prints the selected analytics report", async () => {
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+    const { user } = renderAnalytics();
+
+    await screen.findByText("Weekly trend");
+    await user.click(screen.getByRole("button", { name: "Download PDF" }));
+
+    expect(print).toHaveBeenCalledOnce();
+    print.mockRestore();
+  });
+
   it("refetches when filters change and exposes equivalent table data", async () => {
     const { user } = renderAnalytics();
     await screen.findByText("Weekly trend");
