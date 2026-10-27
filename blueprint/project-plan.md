@@ -20,20 +20,24 @@ Church workers submit weekly reports. Admins review and approve them.
 
 - **Reports:** one report per month, 5 weeks, 21 metrics per week.
   - Worker, area and church are prefilled from the user profile.
-  - Status runs Pending → Approved.
+  - Status runs Draft → Pending → Approved or Needs Revision. A draft is private to its owner until submitted; a Needs Revision report returns to Pending when the worker saves it.
+  - Autosave, one current report per filing period (`GET /reports/current`), admin notes and the worker's revision notes.
   - Soft delete, plus an audit log.
 - **Previous-month rule (D-F8):** the month is evaluated in PHT. Only admin can late-file.
 - **Auth:** session login with CSRF, `/auth/me`, email verification tokens, password reset (API), and change-password (API + UI).
 - **RBAC:** roles, permissions and role-permission assignment, enforced by `RequirePermission` and `RequireRole`.
-- **Admin users:** admin CRUD for user accounts.
+- **Admin users:** admin CRUD for user accounts, status (active, inactive, disciplinary, deceased), soft delete and restore, admin password reset.
+- **Admin panel:** stats cards; Reports tab with bulk approve and unapprove; Tracker (submission and review status); Users; Roles (custom roles, D-A21); Logs (audit trail); Analytics (attendance charts, period comparison, CSV and PDF export).
+- **Community Reports:** every worker sees the community's reports (D-18 redaction applies), separate from their own.
+- **Profile pictures:** avatar upload (`POST /users/me/avatar`, R2 storage).
 - **Platform:** rate limiting, body limit, trusted-proxy client IP, Prometheus metrics, health endpoint, Swagger/OpenAPI docs.
-- **Excel export:** admin-only single and bulk download in the legacy layout (`cf0fcb6`, F-05 fix `d9e32a3`).
-- **Audit:** 14 actions — `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT`, `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL`, `CHANGE_USER_STATUS` (22a), `DELETE_USER` and `RESTORE_USER` (22b), `ADMIN_RESET_PASSWORD` (22e).
+- **Excel export:** single and bulk download in the legacy layout with a read-only preview (`reports:export`; `cf0fcb6`, F-05 fix `d9e32a3`).
+- **Audit:** 22 actions: `CREATE_REPORT`, `UPDATE_REPORT`, `SUBMIT_REPORT` (42e), `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT`, `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL`, `CHANGE_USER_STATUS` (22a), `DELETE_USER` and `RESTORE_USER` (22b), `ADMIN_RESET_PASSWORD` (22e), `LOGIN`, `LOGOUT` and `LOGIN_FAILED` (21a), `CREATE_ROLE`, `UPDATE_ROLE`, `DELETE_ROLE` and `CHANGE_USER_ROLE` (37a).
 
 ## Data
 
-- PostgreSQL, migrated with goose (`backend/internal/database/migrations/`). Latest: `20261021120000_add_user_soft_delete`. Added since F-1: `20261016120000_add_user_status` (22a), `20261017120000_allow_admin_reset_password_audit_action` (22e), `20261021100000_create_refresh_tokens`, `20261021120000_add_user_soft_delete` (22b).
-- Core tables: users, roles, permissions, role_permissions, reports (soft delete), audit log, verification tokens, password resets, sessions.
+- PostgreSQL, migrated with goose (`backend/internal/database/migrations/`). Latest: `20261027120000_add_report_drafts`. Added since F-1: `20261016120000_add_user_status` (22a), `20261017120000_allow_admin_reset_password_audit_action` (22e), `20261021100000_create_refresh_tokens`, `20261021120000_add_user_soft_delete` (22b), `20261022120000_allow_login_audit_actions` (21a), `20261022200000_allow_role_audit_actions` (37a), `20261023120000_drop_duplicate_indexes`, `20261024120000_add_user_avatar_url` (33), `20261026120000_add_report_status`, `20261026130000_add_report_admin_notes`, `20261026140000_add_report_revision_tracking` and `20261027120000_add_report_drafts` (42).
+- Core tables: users (status, soft delete, avatar URL), roles, permissions, role_permissions, reports (soft delete; status `draft`, `pending`, `approved` or `needs_revision`; admin and user notes), report metrics, audit log, verification tokens, password resets, sessions, refresh tokens. Drafts are a report status, not a table of their own.
 - Seed data runs on API start (permissions, roles, admin account).
 
 ## Tech
@@ -43,7 +47,7 @@ Church workers submit weekly reports. Admins review and approve them.
 | Backend | Go 1.26, Echo, pgx, goose, swaggo, golangci-lint v2.13.2, air |
 | Frontend | Next.js 16.4, React 19.3, TypeScript 5, Tailwind 4, shadcn/Radix, TanStack Query |
 | API contract | Swagger → OpenAPI → `openapi-typescript` (`npm run gen:api`); CI fails on drift |
-| Tests | Go unit + testcontainers integration; Vitest (144) + Playwright (47, incl. axe a11y) |
+| Tests | Go unit + testcontainers integration; Vitest (575) + Playwright (110, incl. axe a11y) |
 | CI | `.github/workflows/ci.yml`: lint, test, integration, build, gosec, frontend, e2e |
 | Hosting | Render (backend), Neon (Postgres); Frontend: Vercel (app.<domain>); Docker compose for local/prod |
 
@@ -63,7 +67,7 @@ None. Internal tool. `TODO (confirm)`
 
 - **D-F7:** the Cloudflare proxy breaks IP-based rate limits; deferred, not set up yet.
 - **E-1:** email delivery is not built. Password recovery and reset-password UI are blocked on it.
-- **Domain:** `amgreports.com` is taken; F0 domain setup is still open.
+- **Domain:** `amgreports.com` is taken, so `amgcreports.com` was chosen (build plan #16); F0 domain setup is deferred.
 
 ## Open decisions
 

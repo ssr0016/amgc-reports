@@ -179,11 +179,11 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Why:** there are 24 churches, so the dataset is small; no backend change and about 3h instead of 5h.
 - **Where:** `UsersPanel` in `frontend/src/app/(app)/admin/users/users-list.tsx`, shared by the Users tab and the standalone page.
 
-### D-A9 Navigation is a left sidebar; the profile menu holds Change password
-**Date:** 2026-10-16 · **Status:** Decided by the owner (admin panel feature 20f)
+### D-A9 Navigation is a left sidebar; the profile menu holds the account links and Sign out
+**Date:** 2026-10-16, updated 2026-10-27 · **Status:** Decided by the owner (admin panel feature 20f; account menu `be683f0`)
 
-- **Decision:** every signed-in page has a left sidebar (`<nav aria-label="Main">`): Reports for everyone, Admin for admins only. Tracker and Logs are not rendered until Phase B. The top bar keeps the app name, the profile menu (avatar, name and role) and Sign out. the profile menu links to Profile picture and Change password; the "Account", "Admin" and "Users" header links are gone. There is no Users link: the list is the Users tab of `/admin`.
-- **Small screens:** below `md` (768 px, so also at 320 px) the sidebar is hidden behind a "Menu" button (`aria-expanded`, `aria-controls`). Opening it pushes the page content down rather than overlaying it. The build-plan said "at 320 px"; the owner chose `md`.
+- **Decision:** every signed-in page has a left sidebar (`<nav aria-label="Main">`): Reports for everyone, Admin for admins only. Tracker and Logs are not rendered until Phase B. The top bar keeps the app name and the profile menu (avatar, name and role), which holds Profile, Change Password and Sign Out; the "Account", "Admin" and "Users" header links are gone. There is no Users link: the list is the Users tab of `/admin`.
+- **Small screens:** below `lg` (1024 px, so also at 320 px) the sidebar is hidden behind a "Menu" button (`aria-expanded`, `aria-controls`). It opens a modal drawer (Radix Dialog) over the page from the left, with focus trapped and a Close button; it closes on navigation and when the window grows past `lg`. The build-plan said "at 320 px"; the owner first chose `md` with the menu pushing content down, and later moved to `lg` with an overlay.
 - **One way to the users list:** the Users tab of `/admin` (D-19). `/admin/users` now redirects to `/admin?tab=users`, so old links and bookmarks work; `?tab=users` only picks the tab on arrival (tab state is otherwise in memory, 20a). `/admin/users/new` and `/admin/users/[id]/edit` stay, and the sidebar marks Admin on them. This reverses the earlier choice to keep both routes.
 - **Why:** one place for navigation that grows with Phase B, and a header that no longer wraps at 320 px for an admin.
 - **Consequence:** hiding Admin is a convenience; the pages and the API still enforce the role. Routes, titles and the API are unchanged. Frontend only: `sidebar.tsx`, `profile-menu.tsx`, `components/ui/dropdown-menu.tsx` and `layout.tsx` in `frontend/src/app/(app)/`.

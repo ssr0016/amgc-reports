@@ -77,17 +77,17 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 1. A worker creates a report for a month. Only the previous month (Asia/Manila) is allowed, unless the caller has `reports:write_any` (D-F8).
 2. The report holds 5 weeks × 21 metrics. Worker, area and church come from the profile.
-3. Status starts Pending. Only `reports:approve` (admin) approves or unapproves.
+3. Status is `draft` (private to the owner, `draft: true` on create), `pending`, `approved` or `needs_revision`. `PATCH /reports/:id/submit` moves a draft to Pending. Only `reports:approve` (admin) approves, unapproves (to Needs Revision) or requests a revision; saving a Needs Revision report returns it to Pending.
 4. Delete is a soft delete.
 5. Each mutation writes one audit row in the same transaction (D-10, D-14).
 
 ## Audit actions
 
-21 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it. `details` is an allow-list per action (`audit.DetailKeys`): `Insert` refuses any other key, so the audited change rolls back rather than store a password, token or report text (D-A20). Admins read the trail through `GET /admin/audit-logs` and the Logs tab; the IP address is stored but never returned (D-A4).
+22 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it. `details` is an allow-list per action (`audit.DetailKeys`): `Insert` refuses any other key, so the audited change rolls back rather than store a password, token or report text (D-A20). Admins read the trail through `GET /admin/audit-logs` and the Logs tab; the IP address is stored but never returned (D-A4).
 
 | Group | Actions |
 |---|---|
-| Reports | `CREATE_REPORT`, `UPDATE_REPORT`, `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT` |
+| Reports | `CREATE_REPORT`, `UPDATE_REPORT`, `SUBMIT_REPORT` (a draft sent for review), `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT` (also written by a revision request) |
 | Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS`, `CHANGE_USER_ROLE` (`{from, to}` role names), `ADMIN_RESET_PASSWORD`, `DELETE_USER`, `RESTORE_USER` |
 | Roles | `CREATE_ROLE` (`{name, permissions}`), `UPDATE_ROLE` (`{from, to}` when renamed, `{added, removed}`), `DELETE_ROLE` (`{name}`, plus `reassigned_to` when its users were moved, D-A22); target type `Role` (D-A21) |
 | Sign-in | `LOGIN` (same transaction as the session's refresh token), `LOGOUT` (only when a live session ends; best effort after the revoke commits, so a failed audit never undoes a sign-out), `LOGIN_FAILED` (best effort, `details` `{reason}`; no actor, and no target or typed email for an unknown or deleted account) |
@@ -95,7 +95,7 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 ## Migration history
 
-goose, in `backend/internal/database/migrations/`. 28 migrations.
+goose, in `backend/internal/database/migrations/`. 32 migrations.
 
 | Era | Migrations |
 |---|---|
@@ -111,7 +111,9 @@ goose, in `backend/internal/database/migrations/`. 28 migrations.
 | 2026-10-21 | `20261021100000_create_refresh_tokens`, `…120000_add_user_soft_delete` (`DELETE_USER`, `RESTORE_USER`) |
 | 2026-10-22 | `20261022120000_allow_login_audit_actions` (`LOGIN`, `LOGOUT`, `LOGIN_FAILED`), `…200000_allow_role_audit_actions` (`CREATE_ROLE`, `UPDATE_ROLE`, `DELETE_ROLE`, `CHANGE_USER_ROLE`) |
 | 2026-10-23 | `20261023120000_drop_duplicate_indexes` (five indexes that repeated a UNIQUE constraint's own index) |
-| Latest, 2026-10-24 | `20261024120000_add_user_avatar_url` (optional public profile-picture URL) |
+| 2026-10-24 | `20261024120000_add_user_avatar_url` (optional public profile-picture URL) |
+| 2026-10-26 | `20261026120000_add_report_status` (`reports.status`: pending, approved, needs_revision), `…130000_add_report_admin_notes`, `…140000_add_report_revision_tracking` (`last_revised_at`, `user_notes`) |
+| Latest, 2026-10-27 | `20261027120000_add_report_drafts` (`draft` status, `SUBMIT_REPORT`) |
 
 ## CI
 

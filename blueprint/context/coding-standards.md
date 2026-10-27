@@ -1,8 +1,7 @@
 # Coding Standards
 
-> Your conventions. Edit these once to match your stack. The defaults below
-> assume Next.js + TypeScript + Tailwind + Prisma; change or trim anything that
-> doesn't fit your project.
+> AMGCReports conventions: a Go (Echo, pgx, goose) API and a Next.js 16 +
+> TypeScript + Tailwind 4 frontend that calls it through TanStack Query.
 >
 > Run `/onboard` after installing the Blueprint. It tunes this file to the real
 > project stack, along with `AGENTS.md`, `CLAUDE.md` when present,
@@ -25,26 +24,22 @@
 
 ## Next.js
 
-- Server components by default
-- Only use `'use client'` when needed (interactivity, hooks, browser APIs)
-- Use Server Actions for form submissions and simple mutations
-- Use API routes when you need:
-  - Webhooks (Clerk, GitHub, etc.)
-  - File uploads with progress tracking
-  - Long-running operations
-  - Specific HTTP status codes or headers
-  - Endpoints for future mobile/CLI clients
-  - Third-party integrations
-- Otherwise, fetch data directly in server components
-- Dynamic routes for item/collection pages
+- Read `frontend/AGENTS.md` before using a Next.js API: Next.js 16 differs from older versions
+- `page.tsx` files are Server Components: they export `metadata` (and `instant = false` when the screen needs the session) and render one Client Component screen
+- Wrap a screen that calls `useSearchParams` in `<Suspense>` (`cacheComponents` is on)
+- Screens that read or change data are Client Components (`'use client'`): the session lives in the browser (`useSession`, `/auth/me`), so pages do not fetch on the server
+- No Server Actions and no route handlers: every read and write goes to the Go API
+- `src/proxy.ts` only turns away visitors without the `signed_in` hint; the `(app)` layout guards private pages
+- Dynamic routes for item pages (`reports/[id]`, `admin/users/[id]/edit`)
 
 ## File Organization
 
-- Components: `src/components/[feature]/ComponentName.tsx`
-- Pages: `src/app/[route]/page.tsx`
-- Server Actions: `src/actions/[feature].ts`
-- Types: `src/types/[feature].ts`
-- Lib/Utils: `src/lib/[utility].ts`
+- Pages: `src/app/(app)/[route]/page.tsx`, with the screen beside it in kebab-case (`reports-list.tsx`)
+- Shared components: `src/components/` (kebab-case files; shadcn primitives in `src/components/ui/`)
+- API clients per domain: `src/lib/[domain].ts` (`reports.ts`, `users.ts`)
+- API types: generated `src/lib/api-types.ts` (never edit by hand; `npm run gen:api`), re-exported through `src/lib/api-schema.ts`
+- Tests next to the source (`*.test.ts(x)`); Playwright specs in `frontend/e2e/`
+- Backend: `internal/<domain>/` (contracts, models), `<domain>impl/` (service, store), `rest/` (Echo handlers); see `backend/CONTRIBUTING.md`
 
 ## Naming
 
@@ -64,23 +59,24 @@
 
 ## Database
 
-- Use Prisma ORM for all database operations
-- Always use `prisma migrate dev` for schema changes (not `db push`)
-- Run `prisma migrate status` before committing to verify migrations are in sync
-- Production deployments must run `prisma migrate deploy` before the app starts
+- PostgreSQL through pgx; each domain's `store.go` builds SQL with squirrel and placeholders, never string-concatenated input
+- Schema changes are goose migrations in `backend/internal/database/migrations/`, named `YYYYMMDDHHMMSS_description.sql`, each with Up and Down
+- Run `make migrate-status` before committing to verify migrations are in sync
+- Production does not auto-migrate: run `make migrate-up` against Neon before pushing `main` (Render Free has no Pre-Deploy Command)
+- Permissions and role grants are seed data in `seed.go`, not migrations
+- A new audit action needs its CHECK-constraint migration in the same deploy as the code that writes it
 
 ## Data Fetching
 
-- Server components fetch directly with Prisma
-- Client components use Server Actions
-- Validate all inputs with Zod
-- Scope every user-owned query by the authenticated Clerk user id (`clerkUserId`); never trust a client-supplied user id
+- Client components call the API through the typed clients in `src/lib/`; `api.ts` adds the CSRF token and turns failures into `ApiError`
+- Wrap reads in TanStack Query `useQuery` and writes in `useMutation`; the shared `queryClient` (`src/lib/query.tsx`) does not retry or refetch on focus, so the per-user rate limit is not spent twice
+- The Go API validates every input (`validator` tags, 422 with field `details`); client-side form checks (`src/lib/report-form.ts`) are for fast feedback only
+- The API scopes every query by the session's user and permissions; never trust a client-supplied user id
 
 ## Error Handling
 
-- Use try/catch in Server Actions
-- Return `{ success, data, error }` pattern from actions
-- Display user-friendly error messages via toast
+- Backend: return errors through `apperror`; handlers map service sentinels to status codes, and audit rows are written in the same transaction as the change
+- Frontend: show `ApiError.details` on the matching form field and other failures in a Sonner toast; `queryClient` already toasts network and 5xx load failures
 
 ## Testing
 
@@ -126,7 +122,7 @@ of the switch; the skills and `ai-interaction.md` only point back here.
   hardcoded tool name.
 
 Stack binding (swap for yours): a TypeScript app uses Vitest, `vi.mock()` for
-external dependencies (Prisma, Clerk, etc.), and `vi.useFakeTimers()` for
+external dependencies (the API clients in `src/lib/`, `next/navigation`), and `vi.useFakeTimers()` for
 time-dependent logic; a Python app would use pytest; a Go app `go test`.
 
 ## Browser Verification

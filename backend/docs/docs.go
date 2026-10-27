@@ -2321,14 +2321,6 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Optional admin note",
-                        "name": "body",
-                        "in": "body",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest"
-                        }
                     }
                 ],
                 "responses": {
@@ -2559,6 +2551,14 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Optional admin note",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest"
+                        }
                     }
                 ],
                 "responses": {

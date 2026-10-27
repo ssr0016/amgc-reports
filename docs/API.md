@@ -80,6 +80,12 @@ Response (200):
 
 GET /users/:id
 
+### Upload My Profile Picture
+
+POST /users/me/avatar (any signed-in user; the write rate limiter)
+
+`multipart/form-data` with one `avatar` file: JPEG, PNG or WebP, at most 512 pixels per side. The whole request is capped at 1 MiB (413 above it), so the client downscales first (`resizeAvatar`). Replaces the caller's picture and answers 200 with the user, whose `avatar_url` is the new public URL; the old file is removed from storage. 422 for another type or a larger image, 503 when picture storage (R2) is not configured.
+
 ## Admin Endpoints
 
 Each route names its gate (37b). Account management (`/admin/users*`), roles and permissions require the `admin` role; the review areas (stats, Tracker, audit logs, Excel) need a permission instead, so a custom role can use them. The plain `user` role's `users:read` and `reports:read_any` open none of them.
@@ -118,6 +124,10 @@ The old `POST /admin/roles/:id/permissions` and `DELETE /admin/roles/:id/permiss
 ### List Permissions (paginated)
 
 GET /admin/permissions?page=1&limit=10&resource=users
+
+### Get and Delete Permission
+
+GET /admin/permissions/:id (admin role) → 200 with the permission. DELETE /admin/permissions/:id (admin role) → 204. Both answer 400 for a non-numeric id and 404 for an unknown permission. Permissions are seed data (`seed.go`); deleting one is not audited.
 
 ### Change User Role
 
@@ -173,6 +183,12 @@ PUT /admin/users/:id/status (admin role and `users:write`)
 
 `status` is `active`, `inactive`, `disciplinary` or `deceased`. Only an active account can sign in; moving a user away from active ends all of their sessions. Response (200): the user. 400 for a bad id, 403 when the target is your own account, 404 for an unknown user, 409 when it would leave no active admin, 422 for another `status` value. The same status as now is 200 and writes nothing. Audited as `CHANGE_USER_STATUS` (`from`, `to`, `sessions_revoked`).
 
+### Delete and Restore User (D-A11)
+
+DELETE /admin/users/:id (admin role and `users:write`), optional body `{"reason": "..."}` (at most 500 characters): a soft delete. The account cannot sign in, its sessions end, and its email stays reserved. Audited as `DELETE_USER`.
+
+POST /admin/users/:id/restore (admin role and `users:write`) → 200 with the user. Clears the deleted mark, so the user can sign in again if their status is active; the status does not change. A user who is not deleted answers 200 and changes and audits nothing; otherwise audited as `RESTORE_USER`. 400 for a bad id, 404 for an unknown user.
+
 ### Reset User Password
 
 POST /admin/users/:id/reset-password (admin role and `users:write`)
@@ -208,34 +224,46 @@ Counts for the admin panel cards. `month` (English name, case-insensitive) and `
  "year": 2026,
  "reports_total": 3,
  "reports_approved": 1,
- "reports_pending": 2,
+ "reports_pending": 1,
+ "reports_needs_revision": 1,
  "users_total": 7,
- "admins_total": 2
+ "admins_total": 2,
+ "expected_reports": 5,
+ "no_report": 2,
+ "churches_total": 5
  }
 
-`users_total` and `admins_total` count every account that is not deleted, whatever the month (D-A24). Errors: 400 for a year that is not a positive number, 401 without a session, 403 for any role but admin, 422 when only one of month and year is sent or the month is not a month name.
+Report counts leave drafts out; `reports_pending` is filed and waiting for review. `expected_reports` counts active church accounts (the `user` role, not deleted, with a church name), `no_report` those with no filed report for the month, and `churches_total` their distinct church names. `users_total` and `admins_total` count every account that is not deleted, whatever the month (D-A24). Errors: 400 for a year that is not a positive number, 401 without a session, 403 without `tracker:read`, 422 when only one of month and year is sent or the month is not a month name.
 
 ### Tracker (`tracker:read`)
 
 GET /admin/tracker?month=September&year=2026
 
-Who has reported for one month (D-A3), for the admin panel's Tracker tab. One row per church account (D-A24): the `user` role, not deleted, with a church name, whatever its status (inactive, disciplinary and deceased accounts are included). Admins, editors, custom roles and accounts with no church name are not tracked. `status` comes from the account's active report for the month: `approved`, `for_review` (filed, not approved) or `not_submitted` (none). Rows are ordered by church name, then name. The period rules and errors are those of `/admin/stats`; 403 without `tracker:read`. Rate limited like report reads. No report text.
+Who has reported for one month (D-A3), for the admin panel's Tracker tab. One row per church account (D-A24): the `user` role, not deleted, with a church name, whatever its status (inactive, disciplinary and deceased accounts are included). Admins, editors, custom roles and accounts with no church name are not tracked. `submission_status` is `submitted` when the account has a filed (non-draft) report for the month, otherwise `no_report`; `review_status` is that report's `approved`, `pending` or `needs_revision`, and is left out when there is no report. Rows are ordered by church name, then name. The period rules and errors are those of `/admin/stats`; 403 without `tracker:read`. Rate limited like report reads. No report text.
 
  {
  "month": "September",
  "year": 2026,
  "rows": [
- { "user_id": 7, "name": "Juan Cruz", "email": "juan@example.org", "church_name": "Cavite", "user_status": "active", "status": "for_review" }
+ { "user_id": 7, "name": "Juan Cruz", "email": "juan@example.org", "church_name": "Cavite", "user_status": "active", "submission_status": "submitted", "review_status": "pending" }
  ]
  }
 
 `church_name` is `""` when the account has none; `rows` is `[]` when nobody is tracked.
 
+### Attendance Analytics (`tracker:read`)
+
+GET /admin/analytics/attendance?year=2026&metric=worship_service&status=approved&period=q1&compare=true
+
+Weekly totals of one metric for the Analytics tab. `year` and `metric` (one of the 21 metric keys) are required. `status` is `approved` (default) or `all` (pending, needs revision and approved; drafts never count). `period` is `full_year` (default), `q1` to `q4`, or a lowercase month name. `compare=true` adds `comparison`, the same period of the previous year. Rate limited like report reads; counts only, no report text.
+
+Response (200): `{year, metric, status, period, trend, churches, summary, comparison?}`. `trend` has one `{month, week, value}` per reported week, `churches` one `{church_name, value}` per church, and `summary` the period's total for every metric with a per-church breakdown (`total` and `value` are `null` when nothing was reported). Errors: 400 for a bad year, metric, `compare` or period, 401 without a session, 403 without `tracker:read`.
+
 ### Audit Logs (`audit:read`)
 
 GET /admin/audit-logs?month=October&year=2026&action=LOGIN_FAILED&page=1&limit=50
 
-One page of the audit trail for one month in Asia/Manila, newest first. `month` (English name, case-insensitive) and `year` (2000 to 2100) are required; `action` is optional and must be one of the 17 audit actions. `limit` defaults to 50 here (at most 100). Rate limited like report reads. Read-only: no other method is routed, and viewing writes no audit row. The IP address is never returned (D-A4), and `details` holds only the action's allow-listed keys (D-A20).
+One page of the audit trail for one month in Asia/Manila, newest first. `month` (English name, case-insensitive) and `year` (2000 to 2100) are required; `action` is optional and must be one of the 22 audit actions. `limit` defaults to 50 here (at most 100). Rate limited like report reads. Read-only: no other method is routed, and viewing writes no audit row. The IP address is never returned (D-A4), and `details` holds only the action's allow-listed keys (D-A20).
 
  {
  "data": [
@@ -254,7 +282,7 @@ One page of the audit trail for one month in Asia/Manila, newest first. `month` 
  "meta": {"page": 1, "limit": 50, "total": 1, "total_pages": 1}
  }
 
-Actor name and role are what was stored when the action happened. A failed login has no actor; one for an unknown or deleted email has no target either. Errors: 400 for a year that is not a number, 401 without a session, 403 for any role but admin, 422 for a bad month or year (`details.month`) or an unknown action (`details.action`).
+Actor name and role are what was stored when the action happened. A failed login has no actor; one for an unknown or deleted email has no target either. Errors: 400 for a year that is not a number, 401 without a session, 403 without `audit:read`, 422 for a bad month or year (`details.month`) or an unknown action (`details.action`).
 
 ### Export Reports to Excel (`reports:export`)
 
@@ -305,9 +333,14 @@ Every full report response (list, get, create and update) includes `owner_status
 | GET | /reports | `reports:read` | `reports:read_any` lists everyone's reports |
 | POST | /reports | `reports:write` | |
 | GET | /reports/:id | `reports:read` | `reports:read_any` |
+| GET | /reports/current | `reports:read` | none: always the caller's own |
 | PUT | /reports/:id | `reports:write` | `reports:write_any` |
+| PATCH | /reports/:id/submit | `reports:write` | `reports:write_any` |
 | DELETE | /reports/:id | `reports:delete` | `reports:delete_any` |
 | PATCH | /reports/:id/complete | `reports:approve` | none: works on any report by ID |
+| PATCH | /reports/:id/revision | `reports:approve` | none: works on any report by ID |
+
+Every report has a `status`: `draft` (private to its owner), `pending` (filed, waiting for review), `approved` or `needs_revision`. `completed` is `true` exactly when the status is `approved`. Reviews add `admin_notes`; a worker's reply to a revision request is `user_notes`, and `last_revised_at` records when they saved it. Readers with `reports:read_any` never see other people's drafts, and drafts are not counted in stats, the Tracker or analytics.
 
 Note: IDs may have gaps. A failed create consumes a sequence value, so do not assume contiguous IDs.
 
@@ -333,7 +366,7 @@ POST /reports
       }
     }
 
-Only `month` is required. `year` defaults to the current year (2000 to 2100). Empty strings are stored as NULL (D-8) and left out of responses. Metric keys are the 21 snake_case keys (for example `worship_service`, `tithes_offering`, `family_day`; see 05-Backend-Schema.md section 2.4). Weeks are `week1` to `week5`; send only the weeks you have. A week that is absent means "not reported", which is different from `0`. Values are JSON numbers from 0 to 9999999999.99 with at most 2 decimals.
+Only `month` is required. `"draft": true` saves a private draft (status `draft`; send it for review with PATCH /reports/:id/submit); otherwise the report starts as `pending`. `user_notes` (at most 5000 characters) is optional. `year` defaults to the current year (2000 to 2100). Empty strings are stored as NULL (D-8) and left out of responses. Metric keys are the 21 snake_case keys (for example `worship_service`, `tithes_offering`, `family_day`; see 05-Backend-Schema.md section 2.4). Weeks are `week1` to `week5`; send only the weeks you have. A week that is absent means "not reported", which is different from `0`. Values are JSON numbers from 0 to 9999999999.99 with at most 2 decimals.
 
 Response (201): a report.
 
@@ -348,6 +381,7 @@ Response (201): a report.
         "outreach": {"week2": 0}
       },
       "completed": false,
+      "status": "pending",
       "created_at": "2026-01-01T00:00:00Z",
       "updated_at": "2026-01-01T00:00:00Z"
     }
@@ -356,9 +390,9 @@ Numbers keep the database scale, so `0.5` comes back as `0.50`. `completed_at` a
 
 ### List Reports
 
-GET /reports?page=1&limit=20&month=January&year=2026&worker=ana&area=north&church=grace
+GET /reports?page=1&limit=20&month=January&year=2026&worker=ana&area=north&church=grace&status=pending&mine=true
 
-Newest first. `month` matches the month name ignoring case; `worker`, `area` and `church` are partial, case-insensitive matches (`%` and `_` are treated literally). `limit` is 1 to 100. Without `reports:read_any` the list contains only your own reports.
+Newest first. `status` is `pending`, `approved` or `needs_revision`; `mine=true` keeps only your own reports. `month` matches the month name ignoring case; `worker`, `area` and `church` are partial, case-insensitive matches (`%` and `_` are treated literally). `limit` is 1 to 100. Without `reports:read_any` the list contains only your own reports.
 
 Response (200):
 
@@ -373,11 +407,23 @@ GET /reports/:id
 
 Response (200): a report. 404 if it does not exist, was deleted, or belongs to someone else (without `reports:read_any`).
 
+### Get Current Report
+
+GET /reports/current
+
+Your own report for the filing period (the previous month in Asia/Manila), in any status, drafts included. Response (200): a report. 404 when you have none, so the client can offer to start one instead of creating a duplicate.
+
+### Submit Report
+
+PATCH /reports/:id/submit
+
+No body. Moves your draft to `pending` and audits `SUBMIT_REPORT` in the same transaction. Response (200): the report. 404 when the report is missing, deleted, not yours (without `reports:write_any`) or not a draft.
+
 ### Update Report
 
 PUT /reports/:id
 
-Same body as create. This replaces the report: every text field you leave out is cleared, and the whole `metrics` set is replaced. Send every field. A missing `year` keeps the report's current year. Response (200): the updated report. Errors: 404 (as for get), 409 if the new month and year collide with another of your reports, 422.
+Same body as create. This replaces the report: every text field you leave out is cleared, and the whole `metrics` set is replaced. Send every field. A missing `year` keeps the report's current year. Saving a `needs_revision` report moves it back to `pending`, stamps `last_revised_at` and stores `user_notes`. Response (200): the updated report. Errors: 404 (as for get), 409 if the new month and year collide with another of your reports, 422.
 
 ### Delete Report
 
@@ -389,11 +435,17 @@ Soft delete. Response: 204 with no body. 404 if missing, already deleted, or som
 
 PATCH /reports/:id/complete
 
-No body. Flips the completed flag: an open report becomes completed, a completed one is reopened. Response (200) has metadata only, never report text:
+Optional body `{"admin_notes": "..."}` (at most 5000 characters). Approves an open report, or unapproves an approved one into `needs_revision` (audited as `APPROVE_REPORT` or `UNAPPROVE_REPORT`). The note is kept on unapprove and cleared on approve; the API accepts an empty note, but the UI requires one to unapprove, one report or in bulk. Response (200) has metadata only, never report text:
 
-    {"id": 1, "completed": true, "completed_at": "2026-01-02T00:00:00Z", "completed_by": 3}
+    {"id": 1, "completed": true, "status": "approved", "completed_at": "2026-01-02T00:00:00Z", "completed_by": 3}
 
-When reopened, `completed` is `false` and the other two fields are left out. Use GET /reports/:id to read the report. 404 if it is missing or deleted.
+When unapproved, `completed` is `false`, `status` is `needs_revision` and the other two fields are left out. Use GET /reports/:id to read the report. 404 if it is missing or deleted.
+
+### Request Revision
+
+PATCH /reports/:id/revision
+
+Optional body `{"admin_notes": "..."}`. Moves any report to `needs_revision`, clears its approval and stores the note; audited as `UNAPPROVE_REPORT`. Response (200): the same metadata as approve. 404 if it is missing or deleted.
 
 ### Reports Rate Limit
 

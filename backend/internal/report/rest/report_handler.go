@@ -127,7 +127,6 @@ func (h *ReportHandler) SubmitReport(c echo.Context) error {
 // @Produce      json
 // @Security     CookieAuth
 // @Param        id path int true "Report ID"
-// @Param        body body report.StatusRequest false "Optional admin note"
 // @Success      200 {object} report.ReportResponse
 // @Failure      400 {object} map[string]string
 // @Failure      401 {object} map[string]string
@@ -306,6 +305,7 @@ func (h *ReportHandler) SoftDeleteReport(c echo.Context) error {
 // @Produce      json
 // @Security     CookieAuth
 // @Param        id path int true "Report ID"
+// @Param        body body report.StatusRequest false "Optional admin note"
 // @Success      200 {object} report.ReportMetadata
 // @Failure      400 {object} map[string]string
 // @Failure      401 {object} map[string]string

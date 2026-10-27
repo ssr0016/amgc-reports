@@ -2647,7 +2647,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: components["requestBodies"]["github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest"];
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -2904,7 +2904,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: components["requestBodies"]["github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest"];
             responses: {
                 /** @description OK */
                 200: {

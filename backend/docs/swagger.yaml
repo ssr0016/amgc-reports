@@ -2302,11 +2302,6 @@ paths:
         name: id
         required: true
         type: integer
-      - description: Optional admin note
-        in: body
-        name: body
-        schema:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest'
       produces:
       - application/json
       responses:
@@ -2419,6 +2414,11 @@ paths:
         name: id
         required: true
         type: integer
+      - description: Optional admin note
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest'
       produces:
       - application/json
       responses:
