@@ -59,7 +59,7 @@ describe("Excel preview dialog", () => {
   it("says it is loading, with Download disabled", () => {
     h.previewExcel.mockReturnValue(new Promise(() => {}));
     renderDialog();
-    expect(screen.getByRole("status")).toHaveTextContent("Loading preview…");
+    expect(screen.getByRole("status", { name: "Loading table" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download" })).toBeDisabled();
   });
 

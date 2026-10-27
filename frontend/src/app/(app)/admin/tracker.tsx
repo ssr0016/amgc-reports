@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ApiError } from "@/lib/api";
 import { defaultPeriod, FIRST_YEAR, MONTHS } from "@/lib/reports";
 import { getTracker, REVIEW_STATUSES, SUBMISSION_STATUSES, trackerCounts, trackerLabel } from "@/lib/tracker";
-import { Loading } from "@/components/loading";
+import { EmptyState } from "@/components/empty-state";
+import { KpiSkeleton, TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
 
 // Light tint with dark text (and the reverse in the dark theme) to stay above 4.5:1 for axe.
@@ -113,11 +114,11 @@ export function Tracker() {
       </form>
 
       {isPending ? (
-        <Loading />
+        <div className="flex flex-col gap-6"><KpiSkeleton count={6} /><TableSkeleton columns={4} /></div>
       ) : error ? (
         <ErrorRetry message={error.message} onRetry={() => refetch()} />
       ) : rows.length === 0 ? (
-        <p role="status" className="text-sm text-muted-foreground">No church workers to track.</p>
+        <EmptyState title="No church workers to track" description="Active church workers will appear here once they are assigned." />
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2">
@@ -154,7 +155,7 @@ export function Tracker() {
             {shown.length} of {rows.length} workers
           </p>
           {shown.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No workers match.</p>
+            <EmptyState title="No workers match" description="Try clearing the search or status filters." />
           ) : (
             <Table>
               <TableHeader>

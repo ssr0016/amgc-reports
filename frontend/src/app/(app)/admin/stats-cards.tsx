@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStats } from "@/lib/stats";
 import { useSession } from "@/lib/session";
-import { Loading } from "@/components/loading";
+import { KpiSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
 
 // The numbers are text, so nothing here relies on colour. Counts only: the endpoint sends no report text.
@@ -23,7 +23,7 @@ export function StatsCards() {
     return <ErrorRetry message={error.message} onRetry={() => refetch()} />;
   }
   if (isPending) {
-    return <Loading />;
+    return <KpiSkeleton />;
   }
 
   const cards = [

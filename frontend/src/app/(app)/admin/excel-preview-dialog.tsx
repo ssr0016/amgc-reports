@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -18,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ApiError } from "@/lib/api";
 import { retryText } from "@/lib/auth-form";
 import { getReport, previewExcel } from "@/lib/reports";
-import { Loading } from "@/components/loading";
+import { TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
 import { ReportStatusBadge } from "@/components/report-status-badge";
 
@@ -76,7 +77,7 @@ export function ExcelPreviewDialog({
         </AlertDialogHeader>
 
         {isPending ? (
-          <Loading>Loading preview…</Loading>
+          <TableSkeleton columns={3} rows={4} />
         ) : error ? (
           <ErrorRetry
             message={error instanceof ApiError ? retryText(error) : "Could not load the preview. Try again."}
@@ -127,7 +128,7 @@ export function ExcelPreviewDialog({
             aria-busy={downloading}
             onClick={download}
           >
-            {downloading ? "Downloading…" : "Download"}
+            {downloading ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Downloading…</> : "Download"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

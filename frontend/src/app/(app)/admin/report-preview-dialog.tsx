@@ -13,7 +13,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getReport, type Report } from "@/lib/reports";
 import { WEEKS } from "@/lib/report-form";
-import { Loading } from "@/components/loading";
+import { TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
 import { ReportStatusBadge } from "@/components/report-status-badge";
 
@@ -65,13 +65,13 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
         <AlertDialogHeader className="sr-only">
           <AlertDialogTitle>Report Preview</AlertDialogTitle>
           <AlertDialogDescription>
-            {report ? `${report.month} ${report.year} — ${report.worker || "No worker"}` : "Loading report…"}
+            {report ? `${report.month} ${report.year} — ${report.worker || "No worker"}` : "Report preview"}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         {isPending ? (
           <div className="py-8">
-            <Loading />
+            <TableSkeleton columns={4} rows={6} />
           </div>
         ) : error ? (
           <ErrorRetry message={error.message} onRetry={() => refetch()} />

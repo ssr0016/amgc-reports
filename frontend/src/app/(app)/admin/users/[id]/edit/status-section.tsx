@@ -2,6 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -119,7 +120,7 @@ export function StatusSection({
             <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
             {/* A plain Button, not AlertDialogAction: that one closes the dialog on click, and a failed change must be shown. */}
             <Button onClick={apply} disabled={pending}>
-              {pending ? "Saving…" : "Change status"}
+              {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving…</> : "Change status"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

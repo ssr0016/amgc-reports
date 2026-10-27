@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useFocusFirstError } from "@/lib/form-focus";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
@@ -203,7 +204,7 @@ export function UserForm({
       )}
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="submit" disabled={pending || wait > 0}>
-          {pending ? "Saving…" : submitLabel}
+          {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving…</> : submitLabel}
         </Button>
         <Button type="button" variant="outline" onClick={cancel} disabled={pending}>
           Cancel

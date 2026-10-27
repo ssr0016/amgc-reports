@@ -7,6 +7,7 @@ import { UserForm } from "@/components/user-form";
 import { useSession } from "@/lib/session";
 import { createUser, listRoles } from "@/lib/users";
 import { refreshAdminViews } from "@/lib/query";
+import { TableSkeleton } from "@/components/loading-skeletons";
 
 export function NewUser() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export function NewUser() {
   } else if (roles.isPending) {
     // UserForm reads the roles once, on mount, so it waits for them. If they failed it still
     // renders, without the select, and the server picks the default role.
-    body = <p role="status" className="text-sm text-muted-foreground">Loading…</p>;
+    body = <TableSkeleton columns={2} rows={4} />;
   } else {
     body = (
       <UserForm

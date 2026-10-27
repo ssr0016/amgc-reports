@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { dashboardTheme } from "@/components/dashboard-theme";
 import { AuthField } from "@/components/auth-field";
@@ -76,8 +77,8 @@ export default function LoginPage() {
                 </p>
               )}
               {/* Still "Signing in…" while the redirect away from here runs. */}
-              <Button type="submit" className="mt-1 min-h-11 w-full" disabled={pending || wait > 0 || status === "authenticated"}>
-                {pending || status === "authenticated" ? "Signing in…" : "Sign in"}
+              <Button type="submit" className="mt-1 min-h-11 w-full" disabled={pending || wait > 0 || status === "authenticated"} aria-busy={pending}>
+                {pending || status === "authenticated" ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Signing in…</> : "Sign in"}
               </Button>
             </form>
           </CardContent>

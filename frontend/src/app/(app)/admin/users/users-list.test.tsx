@@ -59,7 +59,7 @@ describe("users list", () => {
 
   it("loading is a status message", () => {
     wrap(<UsersPanel />);
-    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+    expect(screen.getByRole("status", { name: "Loading table" })).toBeInTheDocument();
   });
 
   it("marks only the signed-in user's row with a You badge", async () => {
@@ -83,7 +83,7 @@ describe("users list", () => {
     wrap(<UsersPanel />);
     await screen.findByRole("link", { name: "Edit Ana Cruz" });
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: "2" } });
-    expect(await screen.findByText("No users match.")).toBeInTheDocument();
+    expect(await screen.findByText("No users match")).toBeInTheDocument();
   });
 
   it("the embeddable panel has no main landmark or heading of its own", async () => {

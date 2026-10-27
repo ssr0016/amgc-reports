@@ -10,6 +10,7 @@ import { HOME } from "@/lib/auth-form";
 import { useSession } from "@/lib/session";
 import { ProfileMenu } from "./profile-menu";
 import { Sidebar } from "./sidebar";
+import { ProfileSkeleton } from "@/components/loading-skeletons";
 
 // Client-side guard: the API's session cookies cannot tell proxy.ts whether a session is
 // live (plan section 1.2), so nothing private renders until /auth/me answers. proxy.ts
@@ -38,7 +39,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [status, router]);
 
   if (status !== "authenticated") {
-    return <main className="flex flex-1 items-center justify-center">Loading…</main>;
+    return <main className="flex flex-1 items-center justify-center p-6"><ProfileSkeleton /></main>;
   }
   return (
     <>

@@ -67,6 +67,18 @@ describe("ReportForm", () => {
     );
   });
 
+  it("shows a spinner and disables both report actions while saving", async () => {
+    let resolve!: () => void;
+    const onSaveDraft = vi.fn().mockReturnValueOnce(new Promise<void>((done) => { resolve = done; }));
+    const { user } = setup({ draft: true, onSaveDraft });
+    await user.click(screen.getByRole("button", { name: "Save Draft" }));
+    const button = screen.getByRole("button", { name: "Saving draft…" });
+    expect(button).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Submitting…" })).toBeDisabled();
+    expect(button.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    resolve();
+  });
+
   it("submits the typed values, sending only the weeks that have a value", async () => {
     const { user, onSubmit } = setup();
     await user.type(metric("Outreach", 1), "0");

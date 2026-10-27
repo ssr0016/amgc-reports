@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ErrorRetry } from "@/components/error-retry";
-import { Loading } from "@/components/loading";
+import { TableSkeleton } from "@/components/loading-skeletons";
 import { dashboardTheme } from "@/components/dashboard-theme";
 import { RoleForm } from "@/components/role-form";
 import { createRole, listPermissions } from "@/lib/roles";
@@ -23,7 +23,7 @@ export function NewRole() {
   } else if (perms.error) {
     body = <ErrorRetry message={perms.error.message} onRetry={() => perms.refetch()} />;
   } else if (perms.isPending) {
-    body = <Loading />;
+    body = <TableSkeleton columns={2} rows={3} />;
   } else {
     body = (
       <RoleForm

@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useFocusFirstError } from "@/lib/form-focus";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
@@ -355,13 +356,13 @@ export function ReportForm({
       )}
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-2 border-t bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:px-6">
         {!readOnly && draft && onSaveDraft && (
-          <Button type="submit" value="draft" variant="outline" disabled={pending || wait > 0}>
-            {pending ? "Saving…" : "Save Draft"}
+          <Button type="submit" value="draft" variant="outline" disabled={pending || wait > 0} aria-busy={pending}>
+            {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving draft…</> : "Save Draft"}
           </Button>
         )}
         {!readOnly && (
-          <Button type="submit" value="submit" disabled={pending || wait > 0}>
-            {pending ? "Saving…" : draft ? "Submit Report" : submitLabel}
+          <Button type="submit" value="submit" disabled={pending || wait > 0} aria-busy={pending}>
+            {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Submitting…</> : draft ? "Submit Report" : submitLabel}
           </Button>
         )}
         <Button type="button" variant="ghost" onClick={cancel} disabled={pending}>

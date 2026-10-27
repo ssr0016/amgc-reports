@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { GlobalActivityIndicator } from "@/components/global-activity-indicator";
 import { QueryProvider } from "@/lib/query";
 import { SessionProvider } from "@/lib/session";
 import "./globals.css";
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <QueryProvider>
+          <GlobalActivityIndicator />
           <SessionProvider>{children}</SessionProvider>
           <Toaster />
         </QueryProvider>

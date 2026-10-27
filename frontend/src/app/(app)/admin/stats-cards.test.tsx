@@ -51,7 +51,7 @@ describe("StatsCards", () => {
   it("announces loading as a status message", () => {
     h.getStats.mockReturnValue(new Promise(() => {}));
     renderCards();
-    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+    expect(screen.getByRole("status", { name: "Loading summary" })).toBeInTheDocument();
   });
 
   it("shows the four master-data cards with their numbers and the period", async () => {

@@ -14,6 +14,7 @@ import { ReportOwnerBadges } from "@/components/report-owner-badges";
 import type { Page, Report } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { getStats } from "@/lib/stats";
+import { Loader2 } from "lucide-react";
 export { dashboardTheme as reportsTheme } from "./dashboard-theme";
 
 export function ReportsHeader({ title, heading: Heading = "h2", children }: { title: string; heading?: "h1" | "h2"; children?: ReactNode }) {
@@ -142,7 +143,7 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
           <p role="status" className="text-sm"><span className="font-mono tabular-nums">{selectedReports.length}</span> selected</p>
           {bulkActions && (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => void runBulk("approve")}>Bulk Approve</Button>
+              <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => void runBulk("approve")}>{bulkActions.busy ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Updating…</> : "Bulk Approve"}</Button>
               <Button variant="outline" disabled={bulkActions.busy} aria-busy={bulkActions.busy} onClick={() => { setBulkAdminNotes(""); setBulkUnapproveOpen(true); }}>Bulk Unapprove</Button>
             </div>
           )}
@@ -159,7 +160,7 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
           <Textarea id="bulk-admin-notes" aria-label="Admin Notes" required value={bulkAdminNotes} onChange={(event) => setBulkAdminNotes(event.target.value)} maxLength={5000} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={bulkActions?.busy}>Cancel</AlertDialogCancel>
-            <Button disabled={bulkActions?.busy || !bulkAdminNotes.trim()} onClick={() => { setBulkUnapproveOpen(false); void runBulk("unapprove", bulkAdminNotes.trim()); }}>Bulk Unapprove</Button>
+            <Button disabled={bulkActions?.busy || !bulkAdminNotes.trim()} aria-busy={bulkActions?.busy} onClick={() => { setBulkUnapproveOpen(false); void runBulk("unapprove", bulkAdminNotes.trim()); }}>{bulkActions?.busy ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Updating…</> : "Bulk Unapprove"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

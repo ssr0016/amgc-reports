@@ -53,7 +53,7 @@ describe("Roles tab", () => {
 
   it("loading is a status message", () => {
     wrap();
-    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+    expect(screen.getByRole("status", { name: "Loading table" })).toBeInTheDocument();
   });
 
   it("a failed load shows Retry, which asks again", async () => {

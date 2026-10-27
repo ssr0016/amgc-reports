@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Lock } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import {
@@ -20,7 +20,8 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ErrorRetry } from "@/components/error-retry";
-import { Loading } from "@/components/loading";
+import { TableSkeleton } from "@/components/loading-skeletons";
+import { EmptyState } from "@/components/empty-state";
 import { ApiError } from "@/lib/api";
 import { errorText } from "@/lib/auth-form";
 import { deleteRole, isBuiltIn, type RoleDetail } from "@/lib/roles";
@@ -48,7 +49,7 @@ export function RolesPanel() {
   } else if (error) {
     body = <ErrorRetry message={error.message} onRetry={() => refetch()} />;
   } else if (isPending) {
-    body = <Loading />;
+    body = <TableSkeleton columns={5} rows={4} />;
   } else {
     const roleTable = (roles: RoleDetail[], heading: string) => (
       <Table aria-labelledby={heading}>
@@ -259,7 +260,7 @@ function DeleteRoleDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <Button onClick={() => role && del.mutate(role)} disabled={pending || (count > 0 && !target)}>
-            {pending ? "Deleting…" : count > 0 ? "Move users and delete" : "Delete role"}
+            {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Deleting…</> : count > 0 ? "Move users and delete" : "Delete role"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -289,9 +290,9 @@ function RoleUsersDialog({
   if (error) {
     body = <ErrorRetry message={error.message} onRetry={() => refetch()} />;
   } else if (isPending) {
-    body = <Loading />;
+    body = <TableSkeleton columns={2} rows={3} />;
   } else if (data.length === 0) {
-    body = <p className="text-sm text-muted-foreground">No account holds this role.</p>;
+    body = <EmptyState title="No accounts hold this role" description="Users assigned to this role will appear here." />;
   } else {
     body = (
       <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">

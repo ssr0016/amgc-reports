@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -82,7 +83,7 @@ export function RoleSection({ user }: { user: Pick<User, "id" | "name" | "role_i
           )}
           <div>
             <Button type="button" onClick={save} disabled={pending || !roles.data || Number(selected) === current}>
-              {pending ? "Saving…" : "Update role"}
+              {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving…</> : "Update role"}
             </Button>
           </div>
         </>

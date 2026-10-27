@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
@@ -132,7 +133,7 @@ export function RoleForm({
       <div className="flex flex-wrap gap-3 border-t pt-4 [&_button]:min-h-11">
         {!readOnly && (
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : submitLabel}
+            {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving…</> : submitLabel}
           </Button>
         )}
         <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>

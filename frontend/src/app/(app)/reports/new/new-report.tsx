@@ -22,6 +22,7 @@ import { emptyForm } from "@/lib/report-form";
 import { createReport, defaultPeriod, deleteReport, getCurrentReport } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
+import { Loader2 } from "lucide-react";
 
 export function NewReport() {
   const router = useRouter();
@@ -106,7 +107,7 @@ export function NewReport() {
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={deleteDraft.isPending}>Keep Draft</AlertDialogCancel>
                 <AlertDialogAction variant="destructive" disabled={deleteDraft.isPending} onClick={() => deleteDraft.mutate()}>
-                  {deleteDraft.isPending ? "Deleting…" : "Delete draft"}
+                  {deleteDraft.isPending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Deleting…</> : "Delete draft"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

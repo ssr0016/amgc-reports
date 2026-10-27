@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Button } from "@/components/ui/button";
@@ -91,7 +92,7 @@ export function ChangePassword() {
           </p>
         )}
         <Button type="submit" disabled={pending || wait > 0}>
-          {pending ? "Changing…" : "Change password"}
+          {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Changing…</> : "Change password"}
         </Button>
       </form>
       </Card>

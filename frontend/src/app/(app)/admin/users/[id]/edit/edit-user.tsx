@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { UserForm } from "@/components/user-form";
 import { ApiError } from "@/lib/api";
@@ -11,12 +11,13 @@ import { ResetPasswordSection } from "./reset-password-section";
 import { RoleSection } from "./role-section";
 import { StatusSection } from "./status-section";
 import { refreshAdminViews } from "@/lib/query";
+import { TableSkeleton } from "@/components/loading-skeletons";
 
-export function EditUser() {
+export function EditUser({ id }: { id: number }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAdmin } = useSession();
-  const userId = Number(useParams<{ id: string }>().id);
+  const userId = id;
   const valid = Number.isInteger(userId) && userId > 0;
 
   // gcTime 0: PUT replaces name, area and church, so the form must start from a fresh load.
@@ -39,7 +40,7 @@ export function EditUser() {
       </p>
     );
   } else if (isPending) {
-    body = <p role="status" className="text-sm text-muted-foreground">Loading…</p>;
+    body = <TableSkeleton columns={2} rows={5} />;
   } else {
     body = (
       <>

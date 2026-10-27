@@ -65,7 +65,7 @@ describe("app layout", () => {
     renderLayout();
     expect(screen.queryByRole("link", { name: "Skip to main content" })).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
-    expect(screen.getByRole("main")).toHaveTextContent("Loading…");
+    expect(screen.getByRole("status", { name: "Loading profile" })).toBeInTheDocument();
     h.status = "authenticated";
   });
 });

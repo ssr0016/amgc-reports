@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { dashboardTheme } from "@/components/dashboard-theme";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,12 +14,15 @@ import { resizeAvatar, uploadAvatar } from "@/lib/avatar";
 import { useCountdown } from "@/lib/auth-form";
 import { queryClient } from "@/lib/query";
 import { useSession } from "@/lib/session";
+import { ProfileSkeleton } from "@/components/loading-skeletons";
 
 export function ProfilePicture() {
   const { user, updateAvatar } = useSession();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [wait, setWait] = useCountdown();
+
+  if (!user) return <main id="main-content" className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6`}><h1 className="text-2xl font-medium tracking-tight">Profile picture</h1><ProfileSkeleton /></main>;
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,7 +88,7 @@ export function ProfilePicture() {
               <p id="avatar-help" className="text-sm text-muted-foreground">JPEG, PNG or WebP. Resized to fit within 512 × 512 pixels before upload. Transparency is saved on white.</p>
               <p id="avatar-error" role="alert" className="text-sm text-destructive">{error}{wait > 0 && ` Try again in ${wait}s.`}</p>
             </div>
-            <Button type="submit" className="min-h-11 self-start px-4" disabled={pending || wait > 0}>{pending ? "Uploading…" : "Save picture"}</Button>
+            <Button type="submit" className="min-h-11 self-start px-4" disabled={pending || wait > 0}>{pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Uploading…</> : "Save picture"}</Button>
           </form>
         </CardContent>
       </Card>

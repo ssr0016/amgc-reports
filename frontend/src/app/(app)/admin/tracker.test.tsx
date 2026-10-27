@@ -54,7 +54,7 @@ beforeEach(() => {
 describe("tracker", () => {
   it("shows loading, then starts on the previous Manila month", async () => {
     renderTracker();
-    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+    expect(screen.getByRole("status", { name: "Loading table" })).toBeInTheDocument();
     await screen.findByText("Ana");
     expect(screen.getByLabelText("Month")).toHaveValue("September");
     expect(screen.getByLabelText("Year")).toHaveValue("2026");
@@ -111,21 +111,21 @@ describe("tracker", () => {
     await user.selectOptions(screen.getByLabelText("Review status"), "needs_revision");
     expect(names()).toEqual(["Evaeva@example.org"]);
     await user.selectOptions(screen.getByLabelText("Submission status"), "no_report");
-    expect(screen.getByText("No workers match.")).toBeInTheDocument();
+    expect(screen.getByText("No workers match")).toBeInTheDocument();
   });
 
   it("says when no worker matches", async () => {
     const { user } = renderTracker();
     await screen.findByText("Ana");
     await user.type(screen.getByLabelText("Search"), "nobody");
-    expect(screen.getByText("No workers match.")).toBeInTheDocument();
+    expect(screen.getByText("No workers match")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("says when there is nobody to track, with no progress bar", async () => {
     h.getTracker.mockResolvedValue(body([]));
     renderTracker();
-    expect(await screen.findByText("No church workers to track.")).toBeInTheDocument();
+    expect(await screen.findByText("No church workers to track")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 

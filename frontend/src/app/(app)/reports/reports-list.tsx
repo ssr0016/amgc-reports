@@ -7,7 +7,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
-import { Check, Download, Eye, Pencil, Trash2, Undo2 } from "lucide-react";
+import { Check, Download, Eye, Loader2, Pencil, Trash2, Undo2 } from "lucide-react";
 import { reportsTheme, ReportsHeader, ReportsTableCard } from "@/components/reports-dashboard";
 import { useReportActions } from "@/components/use-report-actions";
 import { ExcelPreviewDialog } from "../admin/excel-preview-dialog";
@@ -39,6 +39,8 @@ import {
 } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
+import { EmptyState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeletons";
 
 const textFields = [
   ["worker", "e.g. Juan Dela Cruz"],
@@ -229,20 +231,24 @@ function ReportsList() {
         <>
           <Button variant="ghost" size="icon" className="size-11" aria-label={`Preview ${rowName(r)}`} title="Preview" onClick={(e) => { opener.current = e.currentTarget; if (mine(r) || can("reports:approve") || can("reports:write_any")) setReportPreview(r.id); else setMetadataPreview(r); }}><Eye aria-hidden="true" /></Button>
           {canEdit(r) && !can("reports:approve") && <Button asChild variant="ghost" size="icon" className="size-11"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
-          <Can permission="reports:approve"><Button variant="ghost" size="icon" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => { if (r.completed) { setAdminNotes(""); setUnapproveTarget(r); } else approve.mutate({ report: r }); }}>{r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
+          <Can permission="reports:approve"><Button variant="ghost" size="icon" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => { if (r.completed) { setAdminNotes(""); setUnapproveTarget(r); } else approve.mutate({ report: r }); }}>{busy.includes(r.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
           <Can permission="reports:export"><Button variant="ghost" size="icon" className="size-11" aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
           {canDelete(r) && <Button variant="ghost" size="icon" className="size-11 text-destructive" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={(e) => { opener.current = e.currentTarget; del.reset(); setTarget({ id: r.id, period: `${r.month} ${r.year}` }); }}><Trash2 aria-hidden="true" /></Button>}
         </>
       )}>
 
       {isPending && allowed ? (
-        <p role="status" className="text-sm text-muted-foreground">Loading…</p>
+        <TableSkeleton columns={6} />
       ) : error ? (
         <p role="alert" className="text-sm text-destructive">
           {error.message}
         </p>
       ) : data && data.data.length === 0 ? (
-        <p role="status" className="text-sm text-muted-foreground">No reports match these filters.</p>
+        <EmptyState
+          title="No reports found"
+          description="Try changing your filters or create a report for this period."
+          action={user?.role === "user" && can("reports:write") ? { href: "/reports/new", label: "Create report" } : undefined}
+        />
       ) : (
         data && (
           <>
@@ -291,7 +297,7 @@ function ReportsList() {
           <Textarea id="reports-admin-notes" aria-label="Admin Notes" required value={adminNotes} onChange={(event) => setAdminNotes(event.target.value)} maxLength={5000} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy.length > 0}>Cancel</AlertDialogCancel>
-            <Button disabled={busy.length > 0 || !adminNotes.trim()} onClick={() => { if (!unapproveTarget) return; const report = unapproveTarget; setUnapproveTarget(null); approve.mutate({ report, adminNotes: adminNotes.trim() }); }}>Unapprove</Button>
+            <Button disabled={busy.length > 0 || !adminNotes.trim()} aria-busy={busy.length > 0} onClick={() => { if (!unapproveTarget) return; const report = unapproveTarget; setUnapproveTarget(null); approve.mutate({ report, adminNotes: adminNotes.trim() }); }}>{busy.length > 0 ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Unapproving…</> : "Unapprove"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -315,8 +321,8 @@ function ReportsList() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             {/* A plain Button, not AlertDialogAction: that one closes the dialog on click, and a failed delete must keep it open. */}
-            <Button variant="destructive" onClick={() => target && del.mutate(target.id)} disabled={deleting}>
-              {deleting ? "Deleting…" : "Delete"}
+            <Button variant="destructive" onClick={() => target && del.mutate(target.id)} disabled={deleting} aria-busy={deleting}>
+              {deleting ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Deleting…</> : "Delete"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -328,7 +334,7 @@ function ReportsList() {
 export function Reports() {
   return (
     <main id="main-content" tabIndex={-1} className={`${reportsTheme} mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">Loading…</p>}>
+      <Suspense fallback={<TableSkeleton columns={6} rows={3} />}>
         <ReportsList />
       </Suspense>
     </main>

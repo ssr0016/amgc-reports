@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import LoginPage from "./page";
@@ -56,5 +57,19 @@ describe("login page", () => {
   it("keeps one generic text for a wrong password", async () => {
     await submitWith(new ApiError(401, "UNAUTHORIZED", "invalid email or password"));
     expect(await screen.findByText("Invalid email or password.")).toBeInTheDocument();
+  });
+
+  it("shows a busy sign-in button while authentication is pending", async () => {
+    let resolve!: () => void;
+    h.signIn.mockReturnValueOnce(new Promise<void>((done) => { resolve = done; }));
+    const user = userEvent.setup();
+    render(<LoginPage />);
+    await user.type(screen.getByLabelText("Email"), "a@b.c");
+    await user.type(screen.getByLabelText("Password", { exact: true }), "x");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    const button = screen.getByRole("button", { name: "Signing in…" });
+    expect(button).toBeDisabled();
+    expect(button.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    resolve();
   });
 });

@@ -1,7 +1,9 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 import { ReportForm } from "@/components/report-form";
 import { ApiError } from "@/lib/api";
@@ -9,14 +11,16 @@ import { fromReport, isRestricted } from "@/lib/report-form";
 import { getReport, submitReport, updateReport } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
+import { TableSkeleton } from "@/components/loading-skeletons";
 
-export function EditReport({ viewOnly = false }: { viewOnly?: boolean }) {
+export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: number }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { can, user } = useSession();
-  const reportId = Number(useParams<{ id: string }>().id);
+  const reportId = id;
   const valid = Number.isInteger(reportId) && reportId > 0;
   const allowed = can("reports:read");
+  const [deleted, setDeleted] = useState(false);
 
   // gcTime 0: PUT replaces everything, so the form must start from a fresh
   // load, never from a cached copy that may be out of date.
@@ -25,7 +29,22 @@ export function EditReport({ viewOnly = false }: { viewOnly?: boolean }) {
     queryFn: () => getReport(reportId),
     enabled: valid && allowed,
     gcTime: 0,
+    refetchOnWindowFocus: true,
   });
+
+  async function markDeleted() {
+    setDeleted(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["report", reportId] }),
+      queryClient.invalidateQueries({ queryKey: ["current-report", user?.user_id] }),
+      queryClient.invalidateQueries({ queryKey: ["reports"] }),
+    ]);
+  }
+
+  async function handleMutationError(err: unknown): Promise<never> {
+    if (err instanceof ApiError && err.status === 404) await markDeleted();
+    throw err;
+  }
 
   // Anyone who may read a report may open it; only its owner, or someone with write_any, may change it.
   // The server enforces the same rule (404 on save), so this only keeps the form from pretending.
@@ -34,9 +53,16 @@ export function EditReport({ viewOnly = false }: { viewOnly?: boolean }) {
   let body: React.ReactNode;
   if (!allowed) {
     body = <p className="text-sm text-muted-foreground">You are not allowed to view reports.</p>;
-  } else if (!valid || (error instanceof ApiError && error.status === 404)) {
+  } else if (!valid || deleted || (error instanceof ApiError && error.status === 404)) {
     // The API gives 404 for missing, deleted and not-yours alike, by design.
-    body = <p className="text-sm text-muted-foreground">Report not found.</p>;
+    body = (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">This report has been deleted</p>
+        <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/reports">
+          Back to Community Reports
+        </Link>
+      </div>
+    );
   } else if (error) {
     body = (
       <p role="alert" className="text-sm text-destructive">
@@ -44,7 +70,7 @@ export function EditReport({ viewOnly = false }: { viewOnly?: boolean }) {
       </p>
     );
   } else if (isPending) {
-    body = <p role="status" className="text-sm text-muted-foreground">Loading…</p>;
+    body = <TableSkeleton columns={2} rows={4} />;
   } else {
     body = (
       <ReportForm
@@ -52,7 +78,11 @@ export function EditReport({ viewOnly = false }: { viewOnly?: boolean }) {
         draft={data.status === "draft"}
         submitLabel="Save Changes"
         onSaveDraft={data.status === "draft" ? async (input) => {
-          await updateReport(reportId, input);
+          try {
+            await updateReport(reportId, input);
+          } catch (err) {
+            await handleMutationError(err);
+          }
           toast.success("Draft saved");
           await queryClient.invalidateQueries({ queryKey: ["report", reportId] });
         } : undefined}
@@ -61,12 +91,16 @@ export function EditReport({ viewOnly = false }: { viewOnly?: boolean }) {
         readOnly={!editable}
         restricted={isRestricted(data, user?.user_id, can)}
         onSubmit={async (input) => {
-          await updateReport(reportId, input);
-          if (data.status === "draft") {
-            await submitReport(reportId);
-            toast.success("Report submitted");
-          } else {
-            toast.success("Report saved");
+          try {
+            await updateReport(reportId, input);
+            if (data.status === "draft") {
+              await submitReport(reportId);
+              toast.success("Report submitted");
+            } else {
+              toast.success("Report saved");
+            }
+          } catch (err) {
+            await handleMutationError(err);
           }
           await Promise.all([queryClient.invalidateQueries({ queryKey: ["reports"] }), refreshAdminViews(queryClient)]);
           router.replace("/reports");

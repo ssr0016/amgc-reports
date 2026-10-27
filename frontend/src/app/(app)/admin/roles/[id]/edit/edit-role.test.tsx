@@ -29,7 +29,7 @@ function renderEdit() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <EditRole />
+      <EditRole id={4} />
     </QueryClientProvider>,
   );
 }

@@ -57,7 +57,7 @@ afterEach(() => vi.restoreAllMocks());
 describe("analytics", () => {
   it("loads with current-year, Worship Service, and Approved defaults", async () => {
     renderAnalytics();
-    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+    expect(screen.getByRole("status", { name: "Loading analytics" })).toBeInTheDocument();
     await screen.findByText("Weekly trend");
     const summary = screen.getAllByRole("region", { name: "Analytics summary" })[0];
     expect(within(summary).getByText("26")).toBeInTheDocument();

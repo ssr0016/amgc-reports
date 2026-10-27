@@ -95,7 +95,7 @@ describe("reports list: access", () => {
   it("says when nothing matches", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderList("reports:read");
-    expect(await screen.findByText("No reports match these filters.")).toBeInTheDocument();
+    expect(await screen.findByText("No reports found")).toBeInTheDocument();
   });
 });
 
@@ -153,13 +153,13 @@ describe("reports list: live regions", () => {
   it("loading and the empty state are status messages", async () => {
     h.listReports.mockReturnValue(new Promise(() => {}));
     renderList("reports:read");
-    expect(await screen.findByRole("status")).toHaveTextContent("Loading…");
+    expect(await screen.findByRole("status", { name: "Loading table" })).toBeInTheDocument();
   });
 
   it("says when nothing matches, as a status", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderList("reports:read");
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("No reports match these filters."));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("No reports found"));
   });
 
   it("the page summary is announced when it changes", async () => {

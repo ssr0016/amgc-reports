@@ -1,22 +1,22 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ErrorRetry } from "@/components/error-retry";
-import { Loading } from "@/components/loading";
+import { TableSkeleton } from "@/components/loading-skeletons";
 import { dashboardTheme } from "@/components/dashboard-theme";
 import { RoleForm } from "@/components/role-form";
 import { ApiError } from "@/lib/api";
 import { getRole, isBuiltIn, listPermissions, updateRole } from "@/lib/roles";
 import { useSession } from "@/lib/session";
 
-export function EditRole() {
+export function EditRole({ id }: { id: number }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAdmin, can } = useSession();
   const allowed = isAdmin && can("roles:write");
-  const roleId = Number(useParams<{ id: string }>().id);
+  const roleId = id;
   const valid = Number.isInteger(roleId) && roleId > 0;
 
   // gcTime 0: PUT replaces the whole role, so the form must start from a fresh load.
@@ -32,7 +32,7 @@ export function EditRole() {
   } else if (error) {
     body = <ErrorRetry message={error.message} onRetry={() => (role.error ? role.refetch() : perms.refetch())} />;
   } else if (!role.data || !perms.data) {
-    body = <Loading />;
+    body = <TableSkeleton columns={2} rows={4} />;
   } else {
     body = (
       <RoleForm

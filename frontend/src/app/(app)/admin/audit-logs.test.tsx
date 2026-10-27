@@ -170,8 +170,8 @@ describe("audit logs: states", () => {
   it("shows loading, then the empty message", async () => {
     h.listAuditLogs.mockResolvedValue(page([]));
     renderLogs();
-    expect(screen.getByText("Loading…")).toBeInTheDocument();
-    expect(await screen.findByText("No logs match these filters.")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading table" })).toBeInTheDocument();
+    expect(await screen.findByText("No audit logs found")).toBeInTheDocument();
   });
 
   it("shows the error with a retry that asks again", async () => {

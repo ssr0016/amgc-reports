@@ -30,7 +30,7 @@ function renderEdit() {
   const invalidate = vi.spyOn(client, "invalidateQueries");
   const view = render(
     <QueryClientProvider client={client}>
-      <EditUser />
+      <EditUser id={7} />
     </QueryClientProvider>,
   );
   return { ...view, invalidate };

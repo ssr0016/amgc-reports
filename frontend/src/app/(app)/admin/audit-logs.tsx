@@ -18,7 +18,8 @@ import {
   type AuditLog,
 } from "@/lib/audit-logs";
 import { currentPeriod, FIRST_YEAR, MONTHS } from "@/lib/reports";
-import { Loading } from "@/components/loading";
+import { EmptyState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
 
 // Light tint with dark text (and the reverse in the dark theme) to stay above 4.5:1 for axe.
@@ -111,11 +112,11 @@ export function AuditLogs() {
       </form>
 
       {isPending ? (
-        <Loading />
+        <TableSkeleton columns={4} />
       ) : error ? (
         <ErrorRetry message={error.message} onRetry={() => refetch()} />
       ) : data && data.data.length === 0 ? (
-        <p role="status" className="text-sm text-muted-foreground">No logs match these filters.</p>
+        <EmptyState title="No audit logs found" description="No activity matches the selected filters." />
       ) : (
         data && (
           <>

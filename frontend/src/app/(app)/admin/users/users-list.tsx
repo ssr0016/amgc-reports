@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Search, UserPlus } from "lucide-react";
+import { Loader2, Search, UserPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,10 +28,11 @@ import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { deleteUser, listRoles, listUsers, restoreUser, type User } from "@/lib/users";
 import { STATUS_LABEL, USER_STATUSES } from "@/lib/user-status";
-import { Loading } from "@/components/loading";
 import { ErrorRetry } from "@/components/error-retry";
 import { errorText } from "@/lib/auth-form";
 import { refreshAdminViews, usePendingVariables } from "@/lib/query";
+import { EmptyState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeletons";
 
 // The list endpoint has no pages, so it returns at most this many.
 const LIMIT = 100;
@@ -91,9 +92,9 @@ export function UsersPanel() {
   } else if (error) {
     body = <ErrorRetry message={error.message} onRetry={() => refetch()} />;
   } else if (isPending) {
-    body = <Loading />;
+    body = <TableSkeleton columns={isAdmin ? 8 : 7} />;
   } else if (rows.length === 0) {
-    body = <p role="status" className="text-sm text-muted-foreground">No users match.</p>;
+    body = <EmptyState title="No users match" description="Try changing the search or status filters." action={isAdmin ? { href: "/admin/users/new", label: "Add user" } : undefined} />;
   } else {
     body = (
       <>
@@ -153,7 +154,7 @@ export function UsersPanel() {
                       </Button>
                       {u.deleted_at ? (
                         <Button variant="outline" size="sm" className="min-h-11" disabled={restoring.includes(u.id)} onClick={() => restore.mutate(u)}>
-                          Restore <span className="sr-only">{u.name}</span>
+                          {restoring.includes(u.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : "Restore"} <span className="sr-only">{u.name}</span>
                         </Button>
                       ) : (
                         <Button
@@ -305,8 +306,8 @@ function DeleteUserDialog({ user, onClose }: { user: User | null; onClose: () =>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <Button onClick={() => user && del.mutate(user)} disabled={pending}>
-            {pending ? "Deleting…" : "Delete user"}
+          <Button onClick={() => user && del.mutate(user)} disabled={pending} aria-busy={pending}>
+            {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Deleting…</> : "Delete user"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

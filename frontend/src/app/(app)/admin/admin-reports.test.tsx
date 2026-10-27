@@ -134,13 +134,13 @@ describe("admin reports: header and states", () => {
   it("loading is a status message", () => {
     h.listReports.mockReturnValue(new Promise(() => {}));
     renderReports("reports:read");
-    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+    expect(screen.getByRole("status", { name: "Loading table" })).toBeInTheDocument();
   });
 
   it("an empty period says so, as a status, and keeps the table frame", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderReports("reports:read");
-    expect(await screen.findByText("No reports match these filters.")).toBeInTheDocument();
+    expect(await screen.findByText("No reports match these filters")).toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
@@ -285,7 +285,7 @@ describe("admin reports: Download Bulk", () => {
   it("is disabled when the period has no reports", async () => {
     h.listReports.mockResolvedValue(page([]));
     renderReports("reports:read", "reports:export");
-    await screen.findByText("No reports match these filters.");
+    await screen.findByText("No reports match these filters");
     expect(screen.getByRole("button", { name: "Download Bulk" })).toBeDisabled();
   });
 });

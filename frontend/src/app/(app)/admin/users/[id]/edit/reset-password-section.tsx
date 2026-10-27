@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import {
@@ -185,7 +186,7 @@ export function ResetPasswordSection({ user }: { user: Pick<User, "id" | "name">
                 <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
                 {/* A plain submit Button, not AlertDialogAction: that one closes the dialog on click, and a failed reset must be shown. */}
                 <Button type="submit" disabled={pending || wait > 0}>
-                  {pending ? "Resetting…" : "Reset password"}
+                  {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Resetting…</> : "Reset password"}
                 </Button>
               </AlertDialogFooter>
             </form>
