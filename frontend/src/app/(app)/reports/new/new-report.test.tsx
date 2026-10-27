@@ -5,7 +5,8 @@ import { NewReport } from "./new-report";
 
 const session = vi.hoisted(() => ({ role: "user", write: true }));
 const reports = vi.hoisted(() => ({ listReports: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("@/lib/reports", async () => ({
   ...(await vi.importActual<typeof import("@/lib/reports")>("@/lib/reports")),
   listReports: reports.listReports,
@@ -17,6 +18,7 @@ vi.mock("@/lib/session", () => ({
 describe("new report access", () => {
   beforeEach(() => {
     Object.assign(session, { role: "user", write: true });
+    navigation.replace.mockReset();
     reports.listReports.mockResolvedValue({ data: [], meta: {} });
   });
 
@@ -41,19 +43,17 @@ describe("new report access", () => {
     }
   });
 
-  it("offers the existing draft instead of rendering a second form", async () => {
+  it("redirects an existing draft to its edit page", async () => {
     reports.listReports.mockResolvedValue({ data: [{ id: 12, status: "draft" }], meta: {} });
     render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
-    expect(await screen.findByRole("heading", { name: "Draft already started" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Continue Draft" })).toHaveAttribute("href", "/reports/12/edit");
-    expect(screen.queryByRole("button", { name: "Submit Report" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Opening your existing report…")).toBeInTheDocument();
+    expect(navigation.replace).toHaveBeenCalledWith("/reports/12/edit");
   });
 
-  it("offers the existing report in view mode instead of rendering a second form", async () => {
+  it("redirects an existing report to its view page", async () => {
     reports.listReports.mockResolvedValue({ data: [{ id: 13, status: "pending" }], meta: {} });
     render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
-    expect(await screen.findByRole("heading", { name: "Report already exists" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Report" })).toHaveAttribute("href", "/reports/13");
-    expect(screen.queryByRole("button", { name: "Submit Report" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Opening your existing report…")).toBeInTheDocument();
+    expect(navigation.replace).toHaveBeenCalledWith("/reports/13");
   });
 });
