@@ -57,6 +57,12 @@ describe("ReportForm", () => {
 		expect(screen.queryByRole("button", { name: "Save Changes" })).not.toBeInTheDocument();
 	});
 
+  it("shows existing revision notes even when the report status is not needs_revision", () => {
+    setup({ initialUserNotes: "Existing explanation" });
+
+    expect(screen.getByLabelText("Your Notes / Explanation for Revision")).toHaveValue("Existing explanation");
+  });
+
 	it("recovers local changes and discards them on request", async () => {
 		const recovered = { ...initial(), challenges: "Keep this locally" };
     localStorage.setItem("report:April:2026", JSON.stringify({ context: "report:April:2026", form: recovered, user_notes: "Explain the revision" }));

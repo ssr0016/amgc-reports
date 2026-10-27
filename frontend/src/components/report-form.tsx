@@ -91,6 +91,7 @@ export function ReportForm({
   const [wait, setWait] = useCountdown();
   const [formRef, focusError] = useFocusFirstError<HTMLFormElement>();
   const dirty = !saved && changed.size > 0;
+  const showUserNotes = revision || userNotes !== "";
 
   useEffect(() => {
     if (!storageKey || readOnly) return;
@@ -319,7 +320,7 @@ export function ReportForm({
           </div>
         </section>
 
-        {revision && !readOnly && (
+        {showUserNotes && (
           <section className={sectionClass}>
             <h2 className={headingClass}>Revision Notes</h2>
             <Label htmlFor="user-notes">Your Notes / Explanation for Revision</Label>
