@@ -60,7 +60,7 @@ describe("analytics", () => {
     renderAnalytics();
     expect(screen.getByRole("status")).toHaveTextContent("Loading…");
     await screen.findByText("Weekly trend");
-    const summary = screen.getByRole("region", { name: "Analytics summary" });
+    const summary = screen.getAllByRole("region", { name: "Analytics summary" })[0];
     expect(within(summary).getByText("26")).toBeInTheDocument();
     expect(within(summary).getByText("January")).toBeInTheDocument();
     expect(within(summary).getByText("1 out of 3 churches")).toBeInTheDocument();
@@ -122,7 +122,7 @@ describe("analytics", () => {
 
     renderAnalytics();
 
-    expect(await screen.findByText("+30% vs last year")).toBeInTheDocument();
+    expect(await screen.findAllByText("+30% vs last year")).not.toHaveLength(0);
     expect(screen.getAllByText("2025").length).toBeGreaterThan(0);
     expect(screen.getByRole("table", { name: "Church breakdown data" })).toHaveTextContent("20");
   });
@@ -130,12 +130,20 @@ describe("analytics", () => {
   it("renders the full metrics summary with dynamic churches and nullable currency values", async () => {
     renderAnalytics();
 
-    const table = await screen.findByRole("table", { name: "Full metrics summary" });
+    const table = (await screen.findAllByRole("table", { name: "Full metrics summary" }))[0];
     expect(within(table).getByText("Worship Service")).toBeInTheDocument();
     expect(within(table).getByText("Tithes & Offering")).toBeInTheDocument();
     expect(within(table).getAllByText("Bethel").length).toBeGreaterThan(0);
     expect(within(table).getAllByText("₱120.50")).toHaveLength(2);
     expect(within(table).getAllByText("—")).toHaveLength(2);
+  });
+
+  it("renders the dashboard summary and full metrics summary on screen", async () => {
+    renderAnalytics();
+
+    await screen.findByText("Weekly trend");
+    expect(screen.getAllByRole("region", { name: "Analytics summary" })).toHaveLength(2);
+    expect(screen.getAllByRole("table", { name: "Full metrics summary" })).toHaveLength(2);
   });
 
   it("builds a CSV with escaped KPI and table values", () => {

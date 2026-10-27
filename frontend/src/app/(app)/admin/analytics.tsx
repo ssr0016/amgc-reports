@@ -187,6 +187,11 @@ export function Analytics() {
     if (data) window.print();
   };
 
+  const analyticsSummary = <section aria-label="Analytics summary" className="grid gap-4 md:grid-cols-3">
+    <Card size="sm"><CardHeader><CardDescription>Total {periodLabel(period)} Sum</CardDescription><CardTitle className="font-mono text-2xl tabular-nums">{formatValue(yearlyTotal)}</CardTitle></CardHeader><CardContent className="text-muted-foreground">{metricLabel} · {year}{comparison && <p>{changeText(yearlyTotal, previousTotal)} · vs {comparison.year}</p>}</CardContent></Card>
+    <Card size="sm"><CardHeader><CardDescription>Peak Month</CardDescription><CardTitle className="text-2xl">{peakMonth[0] || "—"}</CardTitle></CardHeader><CardContent className="text-muted-foreground">{peakMonth[0] ? `${formatValue(peakMonth[1])} ${metricLabel.toLowerCase()}` : "No data available"}{comparison && <p>{changeText(peakMonth[1], previousPeakMonth?.[1])}</p>}</CardContent></Card>
+    <Card size="sm"><CardHeader><CardDescription>Active Churches</CardDescription><CardTitle className="text-2xl">{activeChurches} out of {stats?.churches_total ?? "—"} churches</CardTitle></CardHeader><CardContent className="text-muted-foreground">Reported a value greater than 0{comparison && <p>{changeText(activeChurches, previousActiveChurches)}</p>}</CardContent></Card>
+  </section>;
   const fullMetricsSummary = <section aria-labelledby="full-metrics-summary-heading" className="flex flex-col gap-3"><div><h2 id="full-metrics-summary-heading" className="text-base font-medium">Full Metrics Summary</h2><p className="text-sm text-muted-foreground">All metrics for {periodLabel(period)} {year} · {status === "approved" ? "Approved" : "All Submitted"}</p></div><div className="overflow-x-auto rounded-lg border"><Table aria-label="Full metrics summary"><TableCaption>Metric totals with church-level breakdown.</TableCaption><TableHeader><TableRow><TableHead>Metric Name</TableHead><TableHead className="text-right">Total for Period</TableHead>{summaryChurchNames.map((church) => <TableHead key={church} className="text-right">{church}</TableHead>)}</TableRow></TableHeader><TableBody>{(data?.summary ?? []).map((row) => { const label = METRICS.find((item) => item.key === row.metric)?.label ?? row.metric; const values = new Map(row.churches.map((church) => [church.church_name, church.value])); return <TableRow key={row.metric} className="analytics-pdf-avoid"><TableCell className="font-medium">{label}</TableCell><TableCell className="text-right tabular-nums">{formatSummaryValue(row.metric, row.total)}</TableCell>{summaryChurchNames.map((church) => <TableCell key={church} className="text-right tabular-nums">{formatSummaryValue(row.metric, values.get(church))}</TableCell>)}</TableRow>; })}</TableBody></Table></div></section>;
 
   return (
@@ -203,11 +208,11 @@ export function Analytics() {
         <>
           <div id="analytics-report" className="analytics-report flex flex-col gap-6">
             <div className="analytics-report-header"><Image src="/amgc-logo.png" alt="AMGCReports" width={48} height={48} priority /><div><h1>Attendance Analytics Report</h1><p>{year} · {periodLabel(period)} · {status === "approved" ? "Approved" : "All Submitted"}</p></div></div>
-            <section aria-label="Analytics summary" className="grid gap-4 md:grid-cols-3">
-            <Card size="sm" className="analytics-pdf-avoid"><CardHeader><CardDescription>Total {periodLabel(period)} Sum</CardDescription><CardTitle className="font-mono text-2xl tabular-nums">{formatValue(yearlyTotal)}</CardTitle></CardHeader><CardContent className="text-muted-foreground">{metricLabel} · {year}{comparison && <p>{changeText(yearlyTotal, previousTotal)} · vs {comparison.year}</p>}</CardContent></Card>
-            <Card size="sm" className="analytics-pdf-avoid"><CardHeader><CardDescription>Peak Month</CardDescription><CardTitle className="text-2xl">{peakMonth[0] || "—"}</CardTitle></CardHeader><CardContent className="text-muted-foreground">{peakMonth[0] ? `${formatValue(peakMonth[1])} ${metricLabel.toLowerCase()}` : "No data available"}{comparison && <p>{changeText(peakMonth[1], previousPeakMonth?.[1])}</p>}</CardContent></Card>
-            <Card size="sm" className="analytics-pdf-avoid"><CardHeader><CardDescription>Active Churches</CardDescription><CardTitle className="text-2xl">{activeChurches} out of {stats?.churches_total ?? "—"} churches</CardTitle></CardHeader><CardContent className="text-muted-foreground">Reported a value greater than 0{comparison && <p>{changeText(activeChurches, previousActiveChurches)}</p>}</CardContent></Card>
-          </section>
+            {analyticsSummary}
+            {fullMetricsSummary}
+          </div>
+          <div className="analytics-screen-only flex flex-col gap-6">
+            {analyticsSummary}
             {fullMetricsSummary}
           </div>
           <div className="analytics-print-hide grid gap-6 xl:grid-cols-2">

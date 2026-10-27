@@ -161,6 +161,7 @@
 }
 
 .analytics-report {
+  display: none;
   width: 1120px;
   padding: 24px;
   background: #fff;
@@ -198,17 +199,6 @@
   page-break-inside: avoid;
 }
 
-.analytics-report [data-slot="card"] {
-  background: #fff !important;
-  color: #111827 !important;
-  box-shadow: none !important;
-}
-
-.analytics-report th,
-.analytics-report td {
-  border-color: #d1d5db !important;
-}
-
 @media print {
   body {
     margin: 0;
@@ -239,6 +229,7 @@
   }
 
   .analytics-report {
+    display: flex !important;
     width: auto !important;
     padding: 0 !important;
     gap: 1rem !important;
@@ -251,5 +242,10 @@
     background: #fff !important;
     color: #111827 !important;
     box-shadow: none !important;
+  }
+
+  .analytics-report th,
+  .analytics-report td {
+    border-color: #d1d5db !important;
   }
 }
