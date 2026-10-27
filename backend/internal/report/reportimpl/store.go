@@ -209,22 +209,23 @@ func listWhere(p report.ListReportsParams) sq.And {
 	return where
 }
 
+// rowWithTotal scans a trailing COUNT(*) OVER() column into total, after the columns scanReport reads.
+type rowWithTotal struct {
+	pgx.Row
+	total *int64
+}
+
+func (w rowWithTotal) Scan(dest ...any) error { return w.Row.Scan(append(dest, w.total)...) }
+
 // List returns one page of reports (newest first) with metrics, and the total
-// count of matching reports.
+// count of matching reports. The total comes from COUNT(*) OVER() on the page query,
+// which equals a plain count because created_by is NOT NULL with a foreign key, so
+// the users join drops no row.
 func (r *store) List(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error) {
 	where := listWhere(p)
 
-	countQ, countArgs, err := r.db.Builder.Select("COUNT(*)").From("reports r").Where(where).ToSql()
-	if err != nil {
-		return nil, 0, fmt.Errorf("build count query: %w", err)
-	}
-	var total int64
-	if err := r.db.Querier(ctx).QueryRow(ctx, countQ, countArgs...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count reports: %w", err)
-	}
-
 	listQ, listArgs, err := r.db.Builder.
-		Select(reportColumnsWithAlias("r"), "u.status", "u.deleted_at").
+		Select(reportColumnsWithAlias("r"), "u.status", "u.deleted_at", "COUNT(*) OVER()").
 		From("reports r").
 		Join("users u ON u.id = r.created_by").
 		Where(where).
@@ -241,8 +242,9 @@ func (r *store) List(ctx context.Context, p report.ListReportsParams, pg paginat
 	}
 	defer rows.Close()
 	reports := []*report.Report{}
+	var total int64
 	for rows.Next() {
-		rep, err := scanReport(rows, true)
+		rep, err := scanReport(rowWithTotal{Row: rows, total: &total}, true)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -252,6 +254,16 @@ func (r *store) List(ctx context.Context, p report.ListReportsParams, pg paginat
 		return nil, 0, fmt.Errorf("list reports: %w", err)
 	}
 	rows.Close()
+	// A page past the end has no rows to carry the total; only then is it counted separately.
+	if len(reports) == 0 && pg.Offset() > 0 {
+		countQ, countArgs, err := r.db.Builder.Select("COUNT(*)").From("reports r").Where(where).ToSql()
+		if err != nil {
+			return nil, 0, fmt.Errorf("build count query: %w", err)
+		}
+		if err := r.db.Querier(ctx).QueryRow(ctx, countQ, countArgs...).Scan(&total); err != nil {
+			return nil, 0, fmt.Errorf("count reports: %w", err)
+		}
+	}
 	if err := r.loadMetrics(ctx, reports); err != nil {
 		return nil, 0, err
 	}

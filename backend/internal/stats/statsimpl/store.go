@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
@@ -95,20 +96,32 @@ func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.Tr
 	return out, nil
 }
 
+// AnalyticsAttendance reads the year, and the year before when q.Compare, concurrently.
+// Its reads run in parallel on separate pool connections, so it must not be called
+// inside a transaction: a pgx.Tx is one connection and cannot run queries concurrently.
 func (r *store) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
-	current, err := r.analyticsAttendanceYear(ctx, q, q.Year)
-	if err != nil {
+	var current, previous stats.AttendanceAnalytics
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) {
+		current, err = r.analyticsAttendanceYear(gctx, q, q.Year)
+		return err
+	})
+	if q.Compare {
+		g.Go(func() (err error) {
+			previous, err = r.analyticsAttendanceYear(gctx, q, q.Year-1)
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
 		return stats.AttendanceAnalytics{}, err
 	}
 	if q.Compare {
-		previous, err := r.analyticsAttendanceYear(ctx, q, q.Year-1)
-		if err != nil {
-			return stats.AttendanceAnalytics{}, err
-		}
 		current.Comparison = &stats.AttendanceComparison{Year: q.Year - 1, Trend: previous.Trend, Churches: previous.Churches}
 	}
 	return current, nil
 }
+
+const attendancePeriodWhere = "AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN ? AND ?"
 
 func (r *store) analyticsAttendanceYear(ctx context.Context, q stats.AttendanceQuery, year int) (stats.AttendanceAnalytics, error) {
 	statusWhere := "AND r.status = 'approved'"
@@ -116,66 +129,26 @@ func (r *store) analyticsAttendanceYear(ctx context.Context, q stats.AttendanceQ
 		statusWhere = "AND r.status IN ('pending', 'needs_revision', 'approved')"
 	}
 	startMonth, endMonth, _ := stats.AnalyticsPeriodBounds(q.Period)
-	periodWhere := "AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN ? AND ?"
-	trendQuery, trendArgs, err := r.db.Builder.
-		Select("EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int", "rm.week_no", "SUM(rm.value)::double precision").
-		From("reports r").
-		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+periodWhere+" "+statusWhere, year, q.Metric, startMonth, endMonth).
-		GroupBy("1", "2").
-		OrderBy("1", "2").
-		ToSql()
-	if err != nil {
-		return stats.AttendanceAnalytics{}, fmt.Errorf("build attendance trend query: %w", err)
-	}
-	rows, err := r.db.Querier(ctx).Query(ctx, trendQuery, trendArgs...)
-	if err != nil {
-		return stats.AttendanceAnalytics{}, fmt.Errorf("query attendance trend: %w", err)
-	}
-	defer rows.Close()
-	values := make(map[[2]int]float64)
-	for rows.Next() {
-		var month, week int
-		var value float64
-		if err := rows.Scan(&month, &week, &value); err != nil {
-			return stats.AttendanceAnalytics{}, fmt.Errorf("scan attendance trend: %w", err)
-		}
-		values[[2]int{month, week}] = value
-	}
-	if err := rows.Err(); err != nil {
-		return stats.AttendanceAnalytics{}, fmt.Errorf("attendance trend: %w", err)
-	}
 
-	churchQuery, churchArgs, err := r.db.Builder.
-		Select("COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')", "SUM(rm.value)::double precision").
-		From("reports r").
-		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+periodWhere+" "+statusWhere, year, q.Metric, startMonth, endMonth).
-		GroupBy("1").
-		OrderBy("1").
-		ToSql()
-	if err != nil {
-		return stats.AttendanceAnalytics{}, fmt.Errorf("build attendance church query: %w", err)
-	}
-	churchRows, err := r.db.Querier(ctx).Query(ctx, churchQuery, churchArgs...)
-	if err != nil {
-		return stats.AttendanceAnalytics{}, fmt.Errorf("query attendance churches: %w", err)
-	}
-	defer churchRows.Close()
-	churches := []stats.AttendanceChurch{}
-	for churchRows.Next() {
-		var church stats.AttendanceChurch
-		if err := churchRows.Scan(&church.ChurchName, &church.Value); err != nil {
-			return stats.AttendanceAnalytics{}, fmt.Errorf("scan attendance church: %w", err)
-		}
-		churches = append(churches, church)
-	}
-	if err := churchRows.Err(); err != nil {
-		return stats.AttendanceAnalytics{}, fmt.Errorf("attendance churches: %w", err)
-	}
-
-	summary, err := r.attendanceSummary(ctx, year, startMonth, endMonth, statusWhere)
-	if err != nil {
+	var (
+		values   map[[2]int]float64
+		churches []stats.AttendanceChurch
+		summary  []stats.AttendanceMetricSummary
+	)
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) {
+		values, err = r.attendanceTrend(gctx, q.Metric, year, startMonth, endMonth, statusWhere)
+		return err
+	})
+	g.Go(func() (err error) {
+		churches, err = r.attendanceChurches(gctx, q.Metric, year, startMonth, endMonth, statusWhere)
+		return err
+	})
+	g.Go(func() (err error) {
+		summary, err = r.attendanceSummary(gctx, year, startMonth, endMonth, statusWhere)
+		return err
+	})
+	if err := g.Wait(); err != nil {
 		return stats.AttendanceAnalytics{}, err
 	}
 
@@ -187,6 +160,71 @@ func (r *store) analyticsAttendanceYear(ctx context.Context, q stats.AttendanceQ
 		}
 	}
 	return stats.AttendanceAnalytics{Year: year, Metric: q.Metric, Status: q.Status, Period: q.Period, Trend: trend, Churches: churches, Summary: summary}, nil
+}
+
+// attendanceTrend sums metric per (month, week) for the period.
+func (r *store) attendanceTrend(ctx context.Context, metric string, year, startMonth, endMonth int, statusWhere string) (map[[2]int]float64, error) {
+	query, args, err := r.db.Builder.
+		Select("EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int", "rm.week_no", "SUM(rm.value)::double precision").
+		From("reports r").
+		Join("report_metrics rm ON rm.report_id = r.id").
+		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+attendancePeriodWhere+" "+statusWhere, year, metric, startMonth, endMonth).
+		GroupBy("1", "2").
+		OrderBy("1", "2").
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build attendance trend query: %w", err)
+	}
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query attendance trend: %w", err)
+	}
+	defer rows.Close()
+	values := make(map[[2]int]float64)
+	for rows.Next() {
+		var month, week int
+		var value float64
+		if err := rows.Scan(&month, &week, &value); err != nil {
+			return nil, fmt.Errorf("scan attendance trend: %w", err)
+		}
+		values[[2]int{month, week}] = value
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance trend: %w", err)
+	}
+	return values, nil
+}
+
+// attendanceChurches sums metric per church for the period.
+func (r *store) attendanceChurches(ctx context.Context, metric string, year, startMonth, endMonth int, statusWhere string) ([]stats.AttendanceChurch, error) {
+	query, args, err := r.db.Builder.
+		Select("COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')", "SUM(rm.value)::double precision").
+		From("reports r").
+		Join("report_metrics rm ON rm.report_id = r.id").
+		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+attendancePeriodWhere+" "+statusWhere, year, metric, startMonth, endMonth).
+		GroupBy("1").
+		OrderBy("1").
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build attendance church query: %w", err)
+	}
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query attendance churches: %w", err)
+	}
+	defer rows.Close()
+	churches := []stats.AttendanceChurch{}
+	for rows.Next() {
+		var church stats.AttendanceChurch
+		if err := rows.Scan(&church.ChurchName, &church.Value); err != nil {
+			return nil, fmt.Errorf("scan attendance church: %w", err)
+		}
+		churches = append(churches, church)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance churches: %w", err)
+	}
+	return churches, nil
 }
 
 func (r *store) attendanceSummary(ctx context.Context, year, startMonth, endMonth int, statusWhere string) ([]stats.AttendanceMetricSummary, error) {

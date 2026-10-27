@@ -86,6 +86,12 @@ func TestReportRepo(t *testing.T) {
 		require.NoError(t, err)
 		assert.EqualValues(t, 2, total)
 		assert.Len(t, got, 1)
+
+		// Past the last page there is no row to carry COUNT(*) OVER(), but the total still holds.
+		got, total, err = repo.List(ctx, report.ListReportsParams{}, pagination.Params{Page: 5, Limit: 1})
+		require.NoError(t, err)
+		assert.EqualValues(t, 2, total)
+		assert.Empty(t, got)
 	})
 
 	t.Run("list can be limited to one owner", func(t *testing.T) {
