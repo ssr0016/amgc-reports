@@ -132,7 +132,7 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 sm:px-6">
         {/* A segmented control: the pressed tab is lifted onto the card colour. */}
         <div role="group" aria-label="Filter status on this page" className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-muted p-1">
-          {["all", "draft", "approved", "pending", "needs_revision", "revised"].map((value) => (
+          {["all", "approved", "pending", "needs_revision", "revised"].map((value) => (
             <Button key={value} variant="ghost" className="rounded-md px-3 text-muted-foreground hover:bg-background/60 aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm dark:hover:bg-background/40" aria-pressed={status === value} onClick={() => pickStatus(value)}>
               {value === "needs_revision" ? "Needs Revision" : value[0].toUpperCase() + value.slice(1)}
             </Button>

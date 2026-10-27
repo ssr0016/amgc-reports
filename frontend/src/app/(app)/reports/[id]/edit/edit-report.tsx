@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { ReportForm } from "@/components/report-form";
 import { ApiError } from "@/lib/api";
 import { fromReport, isRestricted } from "@/lib/report-form";
-import { getReport, submitReport, updateReport } from "@/lib/reports";
+import { getReport, updateReport } from "@/lib/reports";
 import { reportStorageKey } from "@/lib/report-draft-storage";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
@@ -78,18 +78,8 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
       <ReportForm
         initial={fromReport(data)}
         initialUserNotes={data.user_notes ?? ""}
-        draft={data.status === "draft"}
         submitLabel="Submit Report"
         storageKey={reportStorageKey(reportId)}
-        // Drafts only: saving a Needs Revision report returns it to Pending, so an autosave would resubmit it half-done.
-        onAutoSave={editable && data.status === "draft" ? async (input) => {
-          try {
-            await updateReport(reportId, input);
-          } catch (err) {
-            await handleMutationError(err);
-          }
-          await queryClient.invalidateQueries({ queryKey: ["report", reportId] });
-        } : undefined}
         revision={data.status === "needs_revision"}
         lockedPeriod={{ month: data.month, year: data.year }}
         readOnly={!editable}
@@ -97,11 +87,8 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
         onSubmit={async (input) => {
           try {
             await updateReport(reportId, input);
-            // The PUT already moves a Needs Revision report back to Pending; submit only accepts drafts.
-            if (data.status === "draft") {
-              await submitReport(reportId);
-              toast.success("Report submitted");
-            } else if (data.status === "needs_revision") {
+            // The PUT already moves a Needs Revision report back to Pending.
+            if (data.status === "needs_revision") {
               toast.success("Report resubmitted");
             } else {
               toast.success("Report saved");

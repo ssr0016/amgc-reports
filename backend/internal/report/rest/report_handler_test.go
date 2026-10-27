@@ -46,11 +46,6 @@ func (f *fakeReportSvc) Create(_ context.Context, uid int64, ip string, _ report
 	return &report.ReportResponse{ID: 1}, f.err
 }
 
-func (f *fakeReportSvc) Submit(_ context.Context, uid int64, ip string, id int64) (*report.ReportResponse, error) {
-	f.gotUser, f.gotIP, f.gotID = uid, ip, id
-	return &report.ReportResponse{ID: id, Status: "pending"}, f.err
-}
-
 func (f *fakeReportSvc) Get(_ context.Context, uid, id int64) (*report.ReportResponse, error) {
 	f.gotUser, f.gotID = uid, id
 	return &report.ReportResponse{ID: id}, f.err
@@ -195,7 +190,7 @@ func TestReportHandler_NoSessionIs401(t *testing.T) {
 
 func TestReportHandler_CurrentReport(t *testing.T) {
 	t.Run("returns the current report", func(t *testing.T) {
-		f := &fakeReportSvc{current: &report.ReportResponse{ID: 12, Month: "September", Year: 2026, Status: "draft"}}
+		f := &fakeReportSvc{current: &report.ReportResponse{ID: 12, Month: "September", Year: 2026, Status: "pending"}}
 		rec, _ := serveReport(t, f, 5, http.MethodGet, "/reports/current", "")
 		if rec.Code != http.StatusOK || f.gotUser != 5 || !strings.Contains(rec.Body.String(), `"id":12`) {
 			t.Errorf("status=%d user=%d body=%s", rec.Code, f.gotUser, rec.Body.String())

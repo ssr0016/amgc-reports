@@ -398,3 +398,11 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 
 - **Church account (amends D-A3, D-A16):** the `user` role, not deleted, with a church name that is not blank; account status is not filtered. The Tracker and the Excel Report Dashboard now list the same set, from one SQL condition (`report.ChurchAccount`). The Tracker drops accounts with no church name; the Dashboard drops editors and custom roles (D-A3's editor exclusion stands).
 - **Stats cards:** `users_total` and `admins_total` leave out soft-deleted accounts, as the Users list does by default.
+
+### D-A25 Drafts and server autosave removed
+**Date:** 2026-10-27 · **Status:** Decided by the owner; built, not deployed
+
+- **Removed:** the `draft` status, `draft: true` on `POST /reports`, `PATCH /reports/:id/submit`, the Draft filter tab and badge, "Continue Draft", and the 3-second server autosave built on drafts. Drafts caused bugs and had no use in the workflow.
+- **A report exists only once submitted:** `POST /reports` always creates it as `pending`. Admins never see a half-filled report, and stats, the Tracker and exports need no draft filter.
+- **Unsent work:** the form keeps its browser backup (`localStorage` per report or period, "Recovered unsaved changes" on reload, cleared on submit). It does not survive clearing browser data or a change of device.
+- **Migration `20261027140000_remove_report_drafts`:** existing drafts become `pending`; the status CHECK drops `draft`. `SUBMIT_REPORT` stays in the audit CHECK and `audit.Actions` so old rows still read and filter; nothing writes it now.

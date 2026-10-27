@@ -103,7 +103,6 @@ type CreateReportRequest struct {
 	Challenges      string                 `json:"challenges" validate:"max=10000"`
 	PrayerRequest   string                 `json:"prayer_request" validate:"max=10000"`
 	UserNotes       string                 `json:"user_notes" validate:"max=5000"`
-	Draft           bool                   `json:"draft"`
 	Metrics         map[string]MetricWeeks `json:"metrics" validate:"dive,keys,oneof=worship_service sunday_school prayer_meeting bible_studies mens_fellowship womens_fellowship youth_fellowship children_fellowship tithes_offering home_visited bible_study_group_led sermon_preached person_newly_contacted person_followed_up person_evangelized outreach training leadership baptism other family_day,endkeys"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.CreateReportRequest
 
@@ -133,7 +132,7 @@ type ReportResponse struct {
 	Challenges      string                 `json:"challenges,omitempty"`
 	PrayerRequest   string                 `json:"prayer_request,omitempty"`
 	Completed       bool                   `json:"completed"`
-	Status          string                 `json:"status" enums:"draft,pending,approved,needs_revision"`
+	Status          string                 `json:"status" enums:"pending,approved,needs_revision"`
 	AdminNotes      string                 `json:"admin_notes,omitempty"`
 	LastRevisedAt   *time.Time             `json:"last_revised_at,omitempty"`
 	UserNotes       string                 `json:"user_notes,omitempty"`
@@ -148,7 +147,7 @@ type ReportResponse struct {
 type ReportMetadata struct {
 	ID          int64      `json:"id"`
 	Completed   bool       `json:"completed"`
-	Status      string     `json:"status" enums:"draft,pending,approved,needs_revision"`
+	Status      string     `json:"status" enums:"pending,approved,needs_revision"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	CompletedBy *int64     `json:"completed_by,omitempty"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ReportMetadata
@@ -220,8 +219,7 @@ type ListReportsParams struct {
 	Church string
 
 	// CreatedBy limits the list to one owner (D-1); 0 = any owner.
-	CreatedBy     int64
-	ExcludeDrafts bool
+	CreatedBy int64
 
 	// Completed limits the list to approved (true) or pending (false) reports; nil = any.
 	Completed *bool

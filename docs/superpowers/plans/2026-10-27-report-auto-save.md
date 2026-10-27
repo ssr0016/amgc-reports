@@ -1,5 +1,7 @@
 # Report Auto-save Implementation Plan
 
+> **Superseded (2026-10-27, D-A25):** drafts and server autosave were removed; only the localStorage backup remains.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace manual report draft saving and decision cards with local recovery, debounced server draft saving, and one submit action.

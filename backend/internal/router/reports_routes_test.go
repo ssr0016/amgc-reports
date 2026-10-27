@@ -47,9 +47,6 @@ func (okReportSvc) Current(context.Context, int64) (*report.ReportResponse, erro
 func (okReportSvc) Create(context.Context, int64, string, report.CreateReportRequest) (*report.ReportResponse, error) {
 	return &report.ReportResponse{}, nil
 }
-func (okReportSvc) Submit(context.Context, int64, string, int64) (*report.ReportResponse, error) {
-	return &report.ReportResponse{Status: "pending"}, nil
-}
 func (okReportSvc) Get(context.Context, int64, int64) (*report.ReportResponse, error) {
 	return &report.ReportResponse{}, nil
 }
@@ -143,7 +140,6 @@ var reportRoutes = []struct {
 	{"create", http.MethodPost, "/api/v1/reports", `{"month":"May"}`, "reports:write"},
 	{"get", http.MethodGet, "/api/v1/reports/1", "", "reports:read"},
 	{"update", http.MethodPut, "/api/v1/reports/1", `{"month":"May"}`, "reports:write"},
-	{"submit", http.MethodPatch, "/api/v1/reports/1/submit", "", "reports:write"},
 	{"delete", http.MethodDelete, "/api/v1/reports/1", "", "reports:delete"},
 	{"toggle", http.MethodPatch, "/api/v1/reports/1/complete", "", "reports:approve"},
 }

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
-import { getReport, submitReport, updateReport } from "@/lib/reports";
+import { getReport, updateReport } from "@/lib/reports";
 import { EditReport } from "./edit-report";
 
 const h = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), toast: { success: vi.fn() }, userId: 7 }));
@@ -16,14 +16,12 @@ vi.mock("@/lib/session", () => ({ useSession: () => ({ user: { user_id: h.userId
 vi.mock("@/lib/reports", async (original) => ({
   ...(await original<typeof import("@/lib/reports")>()),
   getReport: vi.fn(),
-  submitReport: vi.fn(),
   updateReport: vi.fn(),
 }));
 vi.mock("@/components/report-form", () => ({
-  ReportForm: ({ onAutoSave, onSubmit, endAction, initialUserNotes }: { onAutoSave?: (input: unknown) => Promise<void>; onSubmit: (input: unknown) => Promise<void>; endAction?: React.ReactNode; initialUserNotes?: string }) => (
+  ReportForm: ({ onSubmit, endAction, initialUserNotes }: { onSubmit: (input: unknown) => Promise<void>; endAction?: React.ReactNode; initialUserNotes?: string }) => (
     <div>
       <output data-testid="initial-user-notes">{initialUserNotes}</output>
-      {onAutoSave && <button onClick={() => void onAutoSave({}).catch(() => undefined)}>Auto-save</button>}
       <button onClick={() => void onSubmit({}).catch(() => undefined)}>Submit</button>
       {endAction}
     </div>
@@ -35,7 +33,7 @@ const report = {
   created_by: 7,
   month: "September",
   year: 2026,
-  status: "draft",
+  status: "pending",
   completed: false,
   owner_status: "active",
   metrics: {},
@@ -55,7 +53,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getReport).mockResolvedValue(report);
   vi.mocked(updateReport).mockResolvedValue(report);
-  vi.mocked(submitReport).mockResolvedValue(report);
 });
 
 describe("EditReport", () => {
@@ -72,30 +69,22 @@ describe("EditReport", () => {
     expect((client.getQueryCache().find({ queryKey: ["report", 12] })?.options as { refetchOnWindowFocus?: boolean }).refetchOnWindowFocus).toBe(true);
   });
 
-  it("updates an existing draft through autosave", async () => {
-    renderEdit();
-    await userEvent.click(await screen.findByRole("button", { name: "Auto-save" }));
-    await waitFor(() => expect(updateReport).toHaveBeenCalledWith(12, {}));
-    expect(submitReport).not.toHaveBeenCalled();
-  });
-
-  it("submits a draft: the save, then the submit", async () => {
+  it("saves a pending report with one PUT", async () => {
     renderEdit();
     await userEvent.click(await screen.findByRole("button", { name: "Submit" }));
-    await waitFor(() => expect(submitReport).toHaveBeenCalledWith(12));
+    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/reports"));
+    expect(updateReport).toHaveBeenCalledOnce();
     expect(updateReport).toHaveBeenCalledWith(12, {});
-    expect(h.toast.success).toHaveBeenCalledWith("Report submitted");
+    expect(h.toast.success).toHaveBeenCalledWith("Report saved");
   });
 
-  it("resubmits a Needs Revision report with the save alone, and offers no autosave", async () => {
+  it("resubmits a Needs Revision report with the save alone", async () => {
     vi.mocked(getReport).mockResolvedValue({ ...(report as object), status: "needs_revision" } as never);
     renderEdit();
     await screen.findByRole("button", { name: "Submit" });
-    expect(screen.queryByRole("button", { name: "Auto-save" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/reports"));
     expect(updateReport).toHaveBeenCalledWith(12, {});
-    expect(submitReport).not.toHaveBeenCalled();
     expect(h.toast.success).toHaveBeenCalledWith("Report resubmitted");
     expect(screen.queryByText("This report has been deleted")).not.toBeInTheDocument();
   });
@@ -105,15 +94,14 @@ describe("EditReport", () => {
     expect(await screen.findByTestId("initial-user-notes")).toHaveTextContent("Please explain the corrected totals.");
   });
 
-  it.each(["Auto-save", "Submit"])("turns a %s 404 into a deleted state and invalidates stale caches", async (action) => {
+  it("turns a Submit 404 into a deleted state and invalidates stale caches", async () => {
     vi.mocked(updateReport).mockRejectedValue(new ApiError(404, "NOT_FOUND", "gone"));
     const client = renderEdit();
-    await userEvent.click(await screen.findByRole("button", { name: action }));
+    await userEvent.click(await screen.findByRole("button", { name: "Submit" }));
     await waitFor(() => expect(screen.getByText("This report has been deleted")).toBeInTheDocument());
     expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["report", 12] });
     expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["current-report", 7] });
     expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["reports"] });
-    expect(submitReport).not.toHaveBeenCalled();
     expect(h.replace).not.toHaveBeenCalled();
   });
 

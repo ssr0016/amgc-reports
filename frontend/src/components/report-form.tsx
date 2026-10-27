@@ -47,8 +47,6 @@ export function ReportForm({
   initial,
   initialUserNotes = "",
   submitLabel,
-  draft = false,
-  onAutoSave,
   storageKey,
   revision = false,
   lockedPeriod,
@@ -61,8 +59,6 @@ export function ReportForm({
   initial: FormState;
   initialUserNotes?: string;
   submitLabel: string;
-  draft?: boolean;
-  onAutoSave?: (input: ReportInput) => Promise<{ id?: number } | void>;
   storageKey?: string;
   revision?: boolean;
   // When set, month and year cannot be changed and must match it.
@@ -86,7 +82,6 @@ export function ReportForm({
   const [saved, setSaved] = useState(false);
   const [hydrated, setHydrated] = useState(!storageKey || readOnly);
   const [recovered, setRecovered] = useState(false);
-  const [lastAutoSaved, setLastAutoSaved] = useState<Date | null>(null);
   const skipStorageWrite = useRef(false);
   const [wait, setWait] = useCountdown();
   const [formRef, focusError] = useFocusFirstError<HTMLFormElement>();
@@ -128,24 +123,6 @@ export function ReportForm({
     }
     localStorage.setItem(storageKey, JSON.stringify({ context: storageKey, form, user_notes: userNotes }));
   }, [changed.size, form, hydrated, readOnly, storageKey, userNotes]);
-
-  useEffect(() => {
-    if (!onAutoSave || readOnly || !hydrated || !dirty) return;
-    const timer = window.setTimeout(async () => {
-      const input = toInput(form);
-      input.user_notes = userNotes;
-      try {
-        await onAutoSave(input);
-        if (storageKey) localStorage.removeItem(storageKey);
-        setLastAutoSaved(new Date());
-        setRecovered(false);
-        setSaved(true);
-      } catch {
-        // Local storage remains the recovery path when the background request fails.
-      }
-    }, 3000);
-    return () => window.clearTimeout(timer);
-  }, [dirty, form, hydrated, onAutoSave, readOnly, revision, storageKey, userNotes]);
 
   // Covers closing the tab or refreshing; in-app navigation is guarded by Cancel.
   useEffect(() => {
@@ -437,16 +414,11 @@ export function ReportForm({
           Recovered unsaved changes. <button type="button" className="font-medium text-foreground underline underline-offset-4" onClick={discardRecovery}>Discard</button>
         </p>
       )}
-      {lastAutoSaved && (
-        <p role="status" className="text-xs text-muted-foreground">
-          Auto-saved at {lastAutoSaved.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-        </p>
-      )}
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-2 border-t bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:px-6">
         <div className="flex flex-col gap-2 sm:flex-row">
           {!readOnly && (
             <Button type="submit" value="submit" disabled={pending || wait > 0} aria-busy={pending}>
-              {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Submitting…</> : draft ? "Submit Report" : revision ? "Resubmit Report" : submitLabel}
+              {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Submitting…</> : revision ? "Resubmit Report" : submitLabel}
             </Button>
           )}
           <Button type="button" variant="ghost" onClick={cancel} disabled={pending}>

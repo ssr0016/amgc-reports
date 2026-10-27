@@ -6,7 +6,6 @@ const STATUS = {
   approved: ["Approved", "bg-green-50 text-green-800 ring-green-600/20 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/30"],
   pending: ["Pending", "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30"],
   needs_revision: ["Needs Revision", "bg-red-50 text-red-800 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/30"],
-  draft: ["Draft", slate],
   no_report_submitted: ["No Report Submitted", slate],
 } as const;
 

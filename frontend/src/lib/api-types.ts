@@ -2479,7 +2479,7 @@ export interface paths {
         put?: never;
         /**
          * Create report
-         * @description Creates a monthly report for the current user. Set draft=true to save it privately.
+         * @description Creates a monthly report for the current user as Pending.
          */
         post: {
             parameters: {
@@ -3051,59 +3051,6 @@ export interface paths {
         };
         trace?: never;
     };
-    "/reports/{id}/submit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Submit report
-         * @description Submits the owner's private draft for admin review.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Report ID */
-                    id: number;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
     "/users": {
         parameters: {
             query?: never;
@@ -3392,7 +3339,6 @@ export interface components {
             area_assignment?: string;
             challenges?: string;
             church_name?: string;
-            draft?: boolean;
             metrics?: {
                 [key: string]: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks"];
             };
@@ -3477,7 +3423,7 @@ export interface components {
             completed_by?: number;
             id?: number;
             /** @enum {string} */
-            status?: "draft" | "pending" | "approved" | "needs_revision";
+            status?: "pending" | "approved" | "needs_revision";
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse": {
             admin_notes?: string;
@@ -3501,7 +3447,7 @@ export interface components {
             owner_status?: string;
             prayer_request?: string;
             /** @enum {string} */
-            status?: "draft" | "pending" | "approved" | "needs_revision";
+            status?: "pending" | "approved" | "needs_revision";
             updated_at?: string;
             user_notes?: string;
             worker?: string;
@@ -3539,7 +3485,6 @@ export interface components {
             area_assignment?: string;
             challenges?: string;
             church_name?: string;
-            draft?: boolean;
             metrics?: {
                 [key: string]: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.MetricWeeks"];
             };

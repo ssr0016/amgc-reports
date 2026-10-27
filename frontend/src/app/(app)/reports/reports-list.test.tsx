@@ -209,7 +209,6 @@ describe("reports list: gated buttons", () => {
   });
 
   it.each([
-    ["draft", "Continue Draft", "/reports/12/edit"],
     ["pending", "View Report", "/reports/12"],
     ["approved", "View Report", "/reports/12"],
     ["needs_revision", "Revise Report", "/reports/12/edit"],

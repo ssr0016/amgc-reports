@@ -44,6 +44,7 @@ func TestReportRepo(t *testing.T) {
 	jan := create(mk("January", "Ana_100%", map[string]report.MetricWeeks{
 		"tithes_offering": {Week1: num("120.00"), Week3: num("0.5")},
 	}), 2026)
+	assert.Equal(t, "pending", jan.Status)
 
 	t.Run("numeric round-trips as text, absent weeks omitted", func(t *testing.T) {
 		got, err := repo.Get(ctx, jan.ID)

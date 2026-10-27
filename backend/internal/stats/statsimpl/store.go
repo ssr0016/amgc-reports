@@ -21,7 +21,7 @@ func NewStore(db *database.DB) stats.Store { return &store{db: db} }
 // Soft-deleted reports and accounts are not counted (D-A24). The month matches case-insensitively, as
 // in the reports repository; month and year are echoed back as given.
 func (r *store) Counts(ctx context.Context, month string, year int) (stats.AdminStats, error) {
-	inPeriod := "FROM reports WHERE deleted_at IS NULL AND status <> 'draft' AND year = ? AND month = ?"
+	inPeriod := "FROM reports WHERE deleted_at IS NULL AND year = ? AND month = ?"
 	stored := report.CanonicalMonth(month)
 	query, args, err := r.db.Builder.Select().
 		Column(sq.Expr("(SELECT COUNT(*) "+inPeriod+")", year, stored)).
@@ -31,7 +31,7 @@ func (r *store) Counts(ctx context.Context, month string, year int) (stats.Admin
 		Column("(SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND status = 'active')").
 		Column(sq.Expr("(SELECT COUNT(*) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE u.deleted_at IS NULL AND ro.name = ?)", "admin")).
 		Column(sq.Expr("(SELECT COUNT(*) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE ro.name = 'user' AND u.deleted_at IS NULL AND u.status = 'active' AND btrim(COALESCE(u.church_name, '')) <> '')")).
-		Column(sq.Expr("(SELECT COUNT(*) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE ro.name = 'user' AND u.deleted_at IS NULL AND u.status = 'active' AND btrim(COALESCE(u.church_name, '')) <> '' AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.created_by = u.id AND r.deleted_at IS NULL AND r.status <> 'draft' AND r.year = ? AND r.month = ?))", year, stored)).
+		Column(sq.Expr("(SELECT COUNT(*) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE ro.name = 'user' AND u.deleted_at IS NULL AND u.status = 'active' AND btrim(COALESCE(u.church_name, '')) <> '' AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?))", year, stored)).
 		Column(sq.Expr("(SELECT COUNT(DISTINCT lower(btrim(u.church_name))) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE ro.name = 'user' AND u.deleted_at IS NULL AND u.status = 'active' AND btrim(COALESCE(u.church_name, '')) <> '')")).
 		// Roles and statuses come back as JSON arrays so the counts stay one read; zeros are kept.
 		Column("(SELECT COALESCE(json_agg(json_build_object('role_id', ro.id, 'name', ro.name, 'count', (SELECT COUNT(*) FROM users u WHERE u.role_id = ro.id AND u.deleted_at IS NULL)) ORDER BY ro.id), '[]') FROM roles ro)").
@@ -55,7 +55,7 @@ func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.Tr
 		Select("u.id", "u.name", "u.email", "COALESCE(u.church_name, '')", "u.status", "r.status").
 		From("users u").
 		Join("roles ro ON ro.id = u.role_id").
-		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.status <> 'draft' AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
+		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
 		Where(report.ChurchAccount).
 		OrderBy("lower(u.church_name)", "lower(u.name)", "u.id").
 		ToSql()
@@ -121,7 +121,7 @@ func (r *store) analyticsAttendanceYear(ctx context.Context, q stats.AttendanceQ
 		Select("EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int", "rm.week_no", "SUM(rm.value)::double precision").
 		From("reports r").
 		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.status <> 'draft' AND r.year = ? AND rm.metric = ? "+periodWhere+" "+statusWhere, year, q.Metric, startMonth, endMonth).
+		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+periodWhere+" "+statusWhere, year, q.Metric, startMonth, endMonth).
 		GroupBy("1", "2").
 		OrderBy("1", "2").
 		ToSql()
@@ -150,7 +150,7 @@ func (r *store) analyticsAttendanceYear(ctx context.Context, q stats.AttendanceQ
 		Select("COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')", "SUM(rm.value)::double precision").
 		From("reports r").
 		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.status <> 'draft' AND r.year = ? AND rm.metric = ? "+periodWhere+" "+statusWhere, year, q.Metric, startMonth, endMonth).
+		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+periodWhere+" "+statusWhere, year, q.Metric, startMonth, endMonth).
 		GroupBy("1").
 		OrderBy("1").
 		ToSql()
@@ -194,7 +194,7 @@ func (r *store) attendanceSummary(ctx context.Context, year, startMonth, endMont
 		Select("rm.metric", "COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')", "SUM(rm.value)::double precision").
 		From("reports r").
 		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.status <> 'draft' AND r.year = ? AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN ? AND ? "+statusWhere, year, startMonth, endMonth).
+		Where("r.deleted_at IS NULL AND r.year = ? AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN ? AND ? "+statusWhere, year, startMonth, endMonth).
 		GroupBy("1", "2").
 		OrderBy("1", "2").
 		ToSql()

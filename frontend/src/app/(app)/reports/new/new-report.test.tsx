@@ -48,21 +48,17 @@ describe("new report access", () => {
     }
   });
 
-  it("opens an existing draft directly", async () => {
-    reports.getCurrentReport.mockResolvedValue({ id: 12, month: "September", year: 2026, status: "draft" });
-    render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
-    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/reports/12/edit"));
-    expect(screen.queryByText("Start New")).not.toBeInTheDocument();
-  });
-
-  it("creates a server draft after three seconds of inactivity", async () => {
+  it("creates the report only on Submit, never while typing", async () => {
     render(<QueryClientProvider client={new QueryClient()}><NewReport /></QueryClientProvider>);
     const challenges = await screen.findByLabelText("Challenges");
     vi.useFakeTimers();
-    fireEvent.change(challenges, { target: { value: "Auto-save me" } });
-    await act(() => vi.advanceTimersByTimeAsync(3000));
-    expect(reports.createReport).toHaveBeenCalledWith(expect.objectContaining({ challenges: "Auto-save me" }), true);
-    expect(navigation.replace).toHaveBeenCalledWith("/reports/21/edit");
+    fireEvent.change(challenges, { target: { value: "Not yet" } });
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(reports.createReport).not.toHaveBeenCalled();
+    vi.useRealTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Submit Report" }));
+    await waitFor(() => expect(reports.createReport).toHaveBeenCalledWith(expect.objectContaining({ challenges: "Not yet" })));
+    expect(reports.createReport.mock.calls[0]).toHaveLength(1);
   });
 
   it.each([

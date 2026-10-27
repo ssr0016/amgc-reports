@@ -77,7 +77,7 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 1. A worker creates a report for a month. Only the previous month (Asia/Manila) is allowed, unless the caller has `reports:write_any` (D-F8).
 2. The report holds 5 weeks × 21 metrics. Worker, area and church come from the profile.
-3. Status is `draft` (private to the owner, `draft: true` on create), `pending`, `approved` or `needs_revision`. `PATCH /reports/:id/submit` moves a draft to Pending. Only `reports:approve` (admin) approves, unapproves (to Needs Revision) or requests a revision; saving a Needs Revision report returns it to Pending.
+3. Status is `pending` (set on create), `approved` or `needs_revision`. A report exists only once the worker submits it; unsent changes live in the browser's `localStorage` (D-A25). Only `reports:approve` (admin) approves, unapproves (to Needs Revision) or requests a revision; saving a Needs Revision report returns it to Pending.
 4. Delete is a soft delete.
 5. Each mutation writes one audit row in the same transaction (D-10, D-14).
 
@@ -87,7 +87,7 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 | Group | Actions |
 |---|---|
-| Reports | `CREATE_REPORT`, `UPDATE_REPORT`, `SUBMIT_REPORT` (a draft sent for review), `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT` (also written by a revision request) |
+| Reports | `CREATE_REPORT`, `UPDATE_REPORT`, `SUBMIT_REPORT` (historical only: drafts were removed, D-A25), `DELETE_REPORT`, `APPROVE_REPORT`, `UNAPPROVE_REPORT` (also written by a revision request) |
 | Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS`, `CHANGE_USER_ROLE` (`{from, to}` role names), `ADMIN_RESET_PASSWORD`, `DELETE_USER`, `RESTORE_USER` |
 | Roles | `CREATE_ROLE` (`{name, permissions}`), `UPDATE_ROLE` (`{from, to}` when renamed, `{added, removed}`), `DELETE_ROLE` (`{name}`, plus `reassigned_to` when its users were moved, D-A22); target type `Role` (D-A21) |
 | Sign-in | `LOGIN` (same transaction as the session's refresh token), `LOGOUT` (only when a live session ends; best effort after the revoke commits, so a failed audit never undoes a sign-out), `LOGIN_FAILED` (best effort, `details` `{reason}`; no actor, and no target or typed email for an unknown or deleted account) |
@@ -95,7 +95,7 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 ## Migration history
 
-goose, in `backend/internal/database/migrations/`. 32 migrations.
+goose, in `backend/internal/database/migrations/`. 33 migrations.
 
 | Era | Migrations |
 |---|---|
@@ -113,7 +113,7 @@ goose, in `backend/internal/database/migrations/`. 32 migrations.
 | 2026-10-23 | `20261023120000_drop_duplicate_indexes` (five indexes that repeated a UNIQUE constraint's own index) |
 | 2026-10-24 | `20261024120000_add_user_avatar_url` (optional public profile-picture URL) |
 | 2026-10-26 | `20261026120000_add_report_status` (`reports.status`: pending, approved, needs_revision), `…130000_add_report_admin_notes`, `…140000_add_report_revision_tracking` (`last_revised_at`, `user_notes`) |
-| Latest, 2026-10-27 | `20261027120000_add_report_drafts` (`draft` status, `SUBMIT_REPORT`) |
+| Latest, 2026-10-27 | `20261027120000_add_report_drafts` (`draft` status, `SUBMIT_REPORT`), `…140000_remove_report_drafts` (drafts become `pending`; `SUBMIT_REPORT` kept for history) |
 
 ## CI
 

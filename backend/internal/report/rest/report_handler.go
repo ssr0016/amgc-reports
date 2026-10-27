@@ -62,7 +62,7 @@ func reportID(c echo.Context) (int64, error) {
 
 // CreateReport godoc
 // @Summary      Create report
-// @Description  Creates a monthly report for the current user. Set draft=true to save it privately.
+// @Description  Creates a monthly report for the current user as Pending.
 // @Tags         reports
 // @Accept       json
 // @Produce      json
@@ -92,32 +92,6 @@ func (h *ReportHandler) CreateReport(c echo.Context) error {
 		return reportError(err, "failed to create report")
 	}
 	return c.JSON(http.StatusCreated, rep)
-}
-
-// SubmitReport godoc
-// @Summary      Submit report
-// @Description  Submits the owner's private draft for admin review.
-// @Tags         reports
-// @Produce      json
-// @Security     CookieAuth
-// @Param        id path int true "Report ID"
-// @Success      200 {object} report.ReportResponse
-// @Failure      404 {object} map[string]string
-// @Router       /reports/{id}/submit [patch]
-func (h *ReportHandler) SubmitReport(c echo.Context) error {
-	uid, err := h.userID(c)
-	if err != nil {
-		return err
-	}
-	id, err := reportID(c)
-	if err != nil {
-		return err
-	}
-	rep, err := h.svc.Submit(c.Request().Context(), uid, c.RealIP(), id)
-	if err != nil {
-		return reportError(err, "failed to submit report")
-	}
-	return c.JSON(http.StatusOK, rep)
 }
 
 // GetReport godoc

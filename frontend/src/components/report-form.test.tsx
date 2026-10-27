@@ -39,7 +39,7 @@ describe("ReportForm", () => {
 	});
 
 	it("shows only the submit action in the sticky footer", () => {
-		setup({ draft: true, onAutoSave: vi.fn().mockResolvedValue(undefined) });
+		setup({ submitLabel: "Submit Report" });
 		expect(screen.queryByRole("button", { name: "Save Draft" })).not.toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Submit Report" })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
@@ -91,39 +91,25 @@ describe("ReportForm", () => {
 		expect(screen.getByLabelText("Challenges")).toHaveValue("Current period");
 	});
 
-	it("debounces server autosave until three seconds after the last change", async () => {
+	it("keeps changes only in localStorage until Submit", async () => {
 		vi.useFakeTimers();
-		const onAutoSave = vi.fn().mockResolvedValue(undefined);
-		setup({ storageKey: "report:April:2026", onAutoSave });
+		const { onSubmit } = setup({ storageKey: "report:April:2026" });
 		fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "x" } });
-		vi.advanceTimersByTime(2999);
-		expect(onAutoSave).not.toHaveBeenCalled();
-		await vi.advanceTimersByTimeAsync(1);
-		expect(onAutoSave).toHaveBeenCalledOnce();
-		expect(onAutoSave.mock.calls[0][0]).toMatchObject({ challenges: "x" });
+		await act(() => vi.advanceTimersByTimeAsync(5000));
+		expect(onSubmit).not.toHaveBeenCalled();
+		expect(JSON.parse(localStorage.getItem("report:April:2026")!).form.challenges).toBe("x");
+		expect(screen.queryByText(/Auto-saved at/)).not.toBeInTheDocument();
 	});
 
-  it("preserves revision notes in localStorage and server autosave when another field changes", async () => {
-    vi.useFakeTimers();
-    const onAutoSave = vi.fn().mockResolvedValue(undefined);
-    setup({ storageKey: "report:April:2026", onAutoSave, revision: true });
+  it("preserves revision notes in localStorage when another field changes", () => {
+    setup({ storageKey: "report:April:2026", revision: true });
     fireEvent.change(screen.getByLabelText("Your Notes / Explanation for Revision"), { target: { value: "Updated weekly totals" } });
     fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "x" } });
 
-    expect(JSON.parse(localStorage.getItem("report:April:2026")!).user_notes).toBe("Updated weekly totals");
-    await vi.advanceTimersByTimeAsync(3000);
-
-    expect(onAutoSave.mock.calls[0][0]).toMatchObject({ challenges: "x", user_notes: "Updated weekly totals" });
+    const saved = JSON.parse(localStorage.getItem("report:April:2026")!);
+    expect(saved.user_notes).toBe("Updated weekly totals");
+    expect(saved.form.challenges).toBe("x");
   });
-
-	it("shows the time of the last successful autosave", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-10-27T10:30:00Z"));
-		setup({ storageKey: "report:April:2026", onAutoSave: vi.fn().mockResolvedValue(undefined) });
-		fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "x" } });
-		await act(() => vi.advanceTimersByTimeAsync(3000));
-		expect(screen.getByText(/Auto-saved at/)).toBeInTheDocument();
-	});
 
 	it("explains how to leave inactive weeks blank", () => {
 		setup();

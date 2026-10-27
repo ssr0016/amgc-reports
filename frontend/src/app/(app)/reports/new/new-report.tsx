@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ReportForm } from "@/components/report-form";
 import { emptyForm } from "@/lib/report-form";
@@ -35,14 +35,8 @@ export function NewReport() {
   const report = existing.data;
   useEffect(() => {
     if (!report) return;
-    router.replace(report.status === "draft" || report.status === "needs_revision" ? `/reports/${report.id}/edit` : `/reports/${report.id}`);
+    router.replace(report.status === "needs_revision" ? `/reports/${report.id}/edit` : `/reports/${report.id}`);
   }, [report, router]);
-
-  const autoSave = useCallback(async (input: Parameters<typeof createReport>[0]) => {
-    const saved = await createReport(input, true);
-    router.replace(`/reports/${saved.id}/edit`);
-    return saved;
-  }, [router]);
 
   return (
     <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
@@ -58,10 +52,8 @@ export function NewReport() {
       ) : (
         <ReportForm
           initial={initial}
-          draft
           storageKey={user?.user_id === undefined ? undefined : newReportStorageKey(user.user_id, period.month, period.year)}
           submitLabel="Submit Report"
-          onAutoSave={autoSave}
           lockedPeriod={period}
           onSubmit={async (input) => {
             await createReport(input);

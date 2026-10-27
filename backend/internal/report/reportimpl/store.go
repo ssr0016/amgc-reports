@@ -76,7 +76,7 @@ func (r *store) Create(ctx context.Context, userID int64, year int, req report.C
 			"names", "narrative_report", "challenges", "prayer_request", "status").
 		Values(userID, req.Month, year, nullable(req.Worker), nullable(req.AreaAssignment), nullable(req.ChurchName),
 			nullable(req.Names), nullable(req.NarrativeReport), nullable(req.Challenges), nullable(req.PrayerRequest),
-			sq.Expr("CASE WHEN ? THEN 'draft' ELSE 'pending' END", req.Draft)).
+			"pending").
 		Suffix("RETURNING " + reportColumns).
 		ToSql()
 	if err != nil {
@@ -194,9 +194,6 @@ func listWhere(p report.ListReportsParams) sq.And {
 	if p.Status != "" {
 		where = append(where, sq.Eq{"r.status": p.Status})
 	}
-	if p.ExcludeDrafts {
-		where = append(where, sq.NotEq{"r.status": "draft"})
-	}
 	if p.Revised {
 		where = append(where, sq.NotEq{"r.last_revised_at": nil})
 	}
@@ -302,27 +299,6 @@ func (r *store) Update(ctx context.Context, id int64, year int, req report.Updat
 	return r.Get(ctx, rep.ID)
 }
 
-func (r *store) Submit(ctx context.Context, id int64) (*report.Report, error) {
-	query, args, err := r.db.Builder.
-		Update("reports").
-		Set("status", "pending").
-		Set("updated_at", sq.Expr("NOW()")).
-		Where(sq.Eq{"id": id, "deleted_at": nil, "status": "draft"}).
-		Suffix("RETURNING " + reportColumns).
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build query: %w", err)
-	}
-	rep, err := scanReport(r.db.Querier(ctx).QueryRow(ctx, query, args...), false)
-	if err != nil {
-		return nil, err
-	}
-	if rep == nil {
-		return nil, fmt.Errorf("report: %w", database.ErrNotFound)
-	}
-	return r.Get(ctx, rep.ID)
-}
-
 // SoftDelete marks the report deleted. Returns database.ErrNotFound when it is missing
 // or already deleted.
 func (r *store) SoftDelete(ctx context.Context, id int64) error {
@@ -353,7 +329,7 @@ func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report
 		Select("u.church_name", "r.month", "r.year", "r.status").
 		From("users u").
 		Join("roles ro ON ro.id = u.role_id").
-		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.status <> 'draft' AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
+		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
 		Where(report.ChurchAccount).
 		OrderBy("lower(u.church_name)", "u.id").
 		ToSql()

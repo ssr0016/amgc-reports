@@ -12,7 +12,6 @@ import {
   toggleComplete,
   requestRevision,
   reportAction,
-  submitReport,
   updateReport,
 } from "./reports";
 
@@ -33,7 +32,6 @@ describe("defaultPeriod", () => {
 describe("reportAction", () => {
   it.each([
     [null, "New Report", "/reports/new"],
-    [{ id: 12, status: "draft" }, "Continue Draft", "/reports/12/edit"],
     [{ id: 12, status: "pending" }, "View Report", "/reports/12"],
     [{ id: 12, status: "approved" }, "View Report", "/reports/12"],
     [{ id: 12, status: "needs_revision" }, "Revise Report", "/reports/12/edit"],
@@ -69,21 +67,20 @@ describe("reports API", () => {
     expect(at(f, 0)[0]).toBe("/reports?month=May&year=2026&mine=true&limit=1");
   });
 
-  it("uses the right verb and path for get, create, update, submit and approve", async () => {
-    const f = stub({}, { csrf_token: "t" }, {}, {}, {}, {}, { status: 0 }, {});
+  it("uses the right verb and path for get, create, update and approve", async () => {
+    const f = stub({}, { csrf_token: "t" }, {}, {}, {}, { status: 0 }, {});
     await getReport(3);
     await createReport({ month: "May" } as never);
     await updateReport(3, { month: "May" } as never);
-    await submitReport(3);
     await toggleComplete(3);
     await requestRevision(3, "Needs more detail");
-    expect([0, 2, 3, 4, 5].map((i) => at(f, i).join(" "))).toEqual([
+    expect([0, 2, 3, 4].map((i) => at(f, i).join(" "))).toEqual([
       "/reports/3 GET",
       "/reports POST",
       "/reports/3 PUT",
-      "/reports/3/submit PATCH",
       "/reports/3/complete PATCH",
     ]);
+    expect((f.mock.calls[2][1] as RequestInit).body).toBe('{"month":"May"}'); // no draft flag
     const revisionCall = f.mock.calls.find((call) => String(call[0]).includes("/reports/3/revision"));
     expect(revisionCall).toBeDefined();
     expect((revisionCall![1] as RequestInit).body).toBe('{"admin_notes":"Needs more detail"}');

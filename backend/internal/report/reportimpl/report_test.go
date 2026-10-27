@@ -115,29 +115,22 @@ func TestReportService_Create(t *testing.T) {
 		assert.Equal(t, map[string]any{"month": "April", "year": 2026, "count": 1}, e.Details)
 	})
 
-	t.Run("drafts use profile metadata and stay private until submitted", func(t *testing.T) {
+	t.Run("uses profile metadata and is pending for reviewers", func(t *testing.T) {
 		f := newFixture()
 		f.svc.now = func() time.Time { return time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC) }
 		r := req("April")
-		r.Draft = true
 		r.Worker, r.AreaAssignment, r.ChurchName = "Tampered", "Wrong Area", "Wrong Church"
 
 		created, err := f.svc.Create(ctx, alice, "", r)
 		require.NoError(t, err)
-		assert.Equal(t, "draft", created.Status)
+		assert.Equal(t, "pending", created.Status)
 		assert.Equal(t, "Ana", created.Worker)
 		assert.Empty(t, created.AreaAssignment)
 		assert.Equal(t, "Gospel Bearer", created.ChurchName)
 
-		_, err = f.svc.Get(ctx, bob, created.ID)
-		require.ErrorIs(t, err, report.ErrReportNotFound)
-
-		_, err = f.svc.Submit(ctx, alice, "", created.ID)
-		require.NoError(t, err)
 		got, err := f.svc.Get(ctx, bob, created.ID)
 		require.NoError(t, err)
 		assert.Equal(t, "pending", got.Status)
-		assert.Equal(t, audit.ActionSubmitReport, f.audit.Entries()[1].Action)
 	})
 
 	t.Run("explicit year wins", func(t *testing.T) {
@@ -173,11 +166,7 @@ func TestReportService_Create(t *testing.T) {
 func TestReportService_Current(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
-	created, err := f.svc.Create(ctx, alice, "", func() report.CreateReportRequest {
-		r := req("April")
-		r.Draft = true
-		return r
-	}())
+	created, err := f.svc.Create(ctx, alice, "", req("April"))
 	require.NoError(t, err)
 
 	got, err := f.svc.Current(ctx, alice)
