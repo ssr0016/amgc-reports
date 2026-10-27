@@ -19,7 +19,7 @@ async function scan(page: Page) {
 }
 
 // A separate author's report keeps these scans independent of the report workflow specs.
-const FIXTURE_WORKER = "A11y Fixture";
+const FIXTURE_WORKER = "E2E A11y Author";
 let fixtureId = 0;
 let fixtureCookies: Awaited<ReturnType<BrowserContext["cookies"]>> = [];
 
@@ -46,16 +46,16 @@ test.beforeAll(async ({ playwright }, testInfo) => {
     expect([201, 409], await created.text()).toContain(created.status());
     const login = await send(author, "POST", "/auth/login", { email: account.email, password: account.password });
     expect(login.status(), await login.text()).toBe(200);
-    const existing = await (await admin.get(`${API}/reports?worker=${FIXTURE_WORKER}`)).json();
+    const existing = await (await admin.get(`${API}/reports?worker=${encodeURIComponent(FIXTURE_WORKER)}`)).json();
     if (existing.data.length) {
       fixtureId = existing.data[0].id;
     } else {
-      const res = await send(author, "POST", "/reports", { ...previousPeriod(), worker: FIXTURE_WORKER });
+      const res = await send(author, "POST", "/reports", previousPeriod());
       expect(res.status(), await res.text()).toBe(201);
       fixtureId = (await res.json()).id;
     }
     // Keep this fixture outside the month used by the report-creation tests.
-    const moved = await send(admin, "PUT", `/reports/${fixtureId}`, { ...earlierPeriod(3), worker: FIXTURE_WORKER });
+    const moved = await send(admin, "PUT", `/reports/${fixtureId}`, earlierPeriod(3));
     expect(moved.status(), await moved.text()).toBe(200);
     fixtureCookies = (await author.storageState()).cookies;
   } finally {
@@ -136,7 +136,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       test("delete dialog", async ({ page }) => {
         await openFixtureReports(page);
-        await page.getByRole("button", { name: /^Delete .*A11y Fixture/ }).click();
+        await page.getByRole("button", { name: /^Delete .*E2E A11y Author/ }).click();
         await expect(page.getByRole("alertdialog")).toBeVisible();
         await scan(page);
       });
@@ -175,7 +175,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       test("new report form", async ({ page }) => {
         await page.goto("/reports/new");
-        await expect(page.getByLabel("Worker Name")).toBeVisible();
+        await expect(page.getByRole("heading", { name: "New report" })).toBeVisible();
         await scan(page);
       });
 
@@ -232,7 +232,7 @@ test.describe("keyboard", () => {
 
     test("the delete dialog traps focus, closes on Escape and gives focus back", async ({ page }) => {
       await openFixtureReports(page);
-      const open = page.getByRole("button", { name: /^Delete .*A11y Fixture/ });
+      const open = page.getByRole("button", { name: /^Delete .*E2E A11y Author/ });
       await open.focus();
       await page.keyboard.press("Enter");
       const dialog = page.getByRole("alertdialog");
@@ -261,7 +261,7 @@ test.describe("keyboard", () => {
       await expect(page.getByText("Must be a valid amount (0.00)", { exact: true })).toBeVisible();
       await expect(bad).toHaveAttribute("aria-describedby", /err-tithes_offering-week1/);
 
-      await page.getByLabel("Worker Name").focus();
+      await page.getByLabel("Outreach, week 1").focus();
       await page.keyboard.press("Enter"); // implicit submit from a text field
       await expect(bad).toBeFocused();
       await expect(page).toHaveURL(/\/reports\/new$/);
@@ -274,7 +274,7 @@ test.describe("reduced motion", () => {
 
   async function dialogAnimationSeconds(page: Page) {
     await openFixtureReports(page);
-    await page.getByRole("button", { name: /^Delete .*A11y Fixture/ }).click();
+    await page.getByRole("button", { name: /^Delete .*E2E A11y Author/ }).click();
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
     return dialog.evaluate((el) => Math.max(...getComputedStyle(el).animationDuration.split(",").map(parseFloat)));

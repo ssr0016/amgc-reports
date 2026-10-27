@@ -4,6 +4,8 @@ import { ACCOUNTS, authFile, earlierPeriod, expect, previousPeriod, send, test }
 const period = previousPeriod();
 const label = `${period.month} ${period.year}`;
 const rowOf = (page: Page, text: string) => page.getByRole("row", { name: new RegExp(text) });
+// Worker, area and church are read-only profile details: a <dt> and its <dd>.
+const profileValue = (page: Page, term: string) => page.getByRole("term").filter({ hasText: term }).locator("+ dd");
 
 // The specs share one database and run in order: the user files a report, others act on it.
 test.describe.configure({ mode: "serial" });
@@ -13,12 +15,23 @@ test.describe("user", () => {
 
   test("the new report form is filled from the profile and locked to the previous month", async ({ page }) => {
     await page.goto("/reports/new");
-    await expect(page.getByLabel("Worker Name")).toHaveValue(ACCOUNTS.user.name);
-    await expect(page.getByLabel("Area Assignment")).toHaveValue(ACCOUNTS.user.area_assignment);
-    await expect(page.getByLabel("Church Name")).toHaveValue(ACCOUNTS.user.church_name);
+    await expect(profileValue(page, "Worker Name")).toHaveText(ACCOUNTS.user.name);
+    await expect(profileValue(page, "Area Assignment")).toHaveText(ACCOUNTS.user.area_assignment);
+    await expect(profileValue(page, "Church Name")).toHaveText(ACCOUNTS.user.church_name);
     await expect(page.getByLabel("Month")).toHaveValue(period.month);
     await expect(page.getByLabel("Month")).toBeDisabled();
     await expect(page.getByLabel("Year")).toHaveValue(String(period.year));
+  });
+
+  // Before "creates a report": once the month has a report, /reports/new redirects to it.
+  test("a bad metric is caught before anything is sent", async ({ page }) => {
+    await page.goto("/reports/new");
+    await page.getByLabel("Outreach, week 1").fill("1.5");
+    await page.getByLabel("Outreach, week 1").blur();
+    await expect(page.getByText("Must be a whole number", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Submit Report" }).click();
+    await expect(page.getByText("Fix the highlighted fields and try again.")).toBeVisible();
+    await expect(page).toHaveURL(/\/reports\/new$/);
   });
 
   test("creates a report and finds it in the list", async ({ page }) => {
@@ -49,7 +62,7 @@ test.describe("user", () => {
     await page.getByLabel("Church", { exact: true }).fill(ACCOUNTS.user.church_name);
     await page.getByLabel("Area", { exact: true }).fill(ACCOUNTS.user.area_assignment);
     await page.getByLabel("Worker", { exact: true }).fill("No such worker");
-    await expect(page.getByText("No reports match these filters.")).toBeVisible();
+    await expect(page.getByText("No reports found", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Clear", exact: true }).click();
     for (const label of ["Worker", "Church", "Area"]) await expect(page.getByLabel(label, { exact: true })).toHaveValue("");
     await expect(page.getByLabel("Month", { exact: true })).toHaveValue(month);
@@ -59,23 +72,13 @@ test.describe("user", () => {
     await page.screenshot({ path: "/tmp/amg-personal-reports-final.png", fullPage: true });
   });
 
-  test("a second report for the same month is refused and keeps the form", async ({ page }) => {
+  // Since c9ed71e/065660a the form is not shown for a month that already has a report.
+  test("a second report for the same month opens the existing one, and the API refuses it", async ({ page, request }) => {
     await page.goto("/reports/new");
-    await page.getByLabel("Narrative Report").fill("Do not lose me.");
-    await page.getByRole("button", { name: "Submit Report" }).click();
-    await expect(page.getByText("You already have a report for this month and year.")).toBeVisible();
-    await expect(page).toHaveURL(/\/reports\/new$/);
-    await expect(page.getByLabel("Narrative Report")).toHaveValue("Do not lose me.");
-  });
-
-  test("a bad metric is caught before anything is sent", async ({ page }) => {
-    await page.goto("/reports/new");
-    await page.getByLabel("Outreach, week 1").fill("1.5");
-    await page.getByLabel("Outreach, week 1").blur();
-    await expect(page.getByText("Must be a whole number", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Submit Report" }).click();
-    await expect(page.getByText("Fix the highlighted fields and try again.")).toBeVisible();
-    await expect(page).toHaveURL(/\/reports\/new$/);
+    await expect(page).toHaveURL(/\/reports\/\d+$/); // submitted (Pending), so the read-only view
+    await expect(page.getByRole("button", { name: "Submit Report" })).toHaveCount(0);
+    const res = await send(request, "POST", "/reports", period);
+    expect(res.status(), await res.text()).toBe(409);
   });
 
   test("edits the report: the period stays locked and the saved values come back", async ({ page }) => {
@@ -86,16 +89,15 @@ test.describe("user", () => {
     await expect(page.getByLabel("Tithes & Offering, week 2")).toHaveValue("1500.5");
     await expect(page.getByLabel("Month")).toBeDisabled();
 
-    await page.getByLabel("Worker Name").fill("E2E User Edited");
     await page.getByLabel("Outreach, week 1").fill("4");
-    await page.getByRole("button", { name: "Save Changes" }).click();
+    await page.getByRole("button", { name: "Submit Report" }).click();
     await expect(page).toHaveURL(/\/reports$/);
-    await expect(rowOf(page, "E2E User Edited")).toBeVisible();
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
   });
 
   test("cannot approve: no button, and the API says 403", async ({ page, request }) => {
     await page.goto("/reports");
-    await expect(rowOf(page, "E2E User Edited")).toBeVisible();
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
     await expect(page.getByRole("button", { name: /^(Approve|Unapprove) / })).toHaveCount(0);
 
     const id = (await (await request.get("http://localhost:8081/api/v1/reports?limit=1")).json()).data[0].id;
@@ -119,8 +121,8 @@ test.describe("editor", () => {
     await expect(page.getByRole("row").first()).toBeVisible();
     const id = (await (await request.get("http://localhost:8081/api/v1/reports?limit=1")).json()).data[0].id;
     await page.goto(`/reports/${id}/edit`);
-    await expect(page.getByLabel("Worker Name")).toHaveValue("E2E User Edited"); // write_any
-    await expect(page.getByRole("button", { name: "Save Changes" })).toBeVisible();
+    await expect(profileValue(page, "Worker Name")).toHaveText(ACCOUNTS.user.name); // write_any
+    await expect(page.getByRole("button", { name: "Submit Report" })).toBeVisible();
     await expect(page.getByRole("button", { name: /^(Approve|Unapprove) / })).toHaveCount(0);
     expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(403);
   });
@@ -143,22 +145,22 @@ test.describe("admin", () => {
 
   test("management search updates automatically and Clear restores the list", async ({ page }) => {
     await page.goto("/admin?tab=reports");
-    await expect(rowOf(page, "E2E User Edited")).toBeVisible();
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
     await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Notifications/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Download Bulk" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
     const month = await page.getByLabel("Month", { exact: true }).inputValue();
     const year = await page.getByLabel("Year", { exact: true }).inputValue();
-    await page.getByLabel("Worker", { exact: true }).fill("E2E User Edited");
+    await page.getByLabel("Worker", { exact: true }).fill(ACCOUNTS.user.name);
     await page.getByLabel("Area", { exact: true }).fill(ACCOUNTS.user.area_assignment);
     await page.getByLabel("Church", { exact: true }).fill("No such church");
-    await expect(page.getByText("No reports match these filters.")).toBeVisible();
+    await expect(page.getByText("No reports match these filters", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Clear", exact: true }).click();
     for (const label of ["Worker", "Church", "Area"]) await expect(page.getByLabel(label, { exact: true })).toHaveValue("");
     await expect(page.getByLabel("Month", { exact: true })).toHaveValue(month);
     await expect(page.getByLabel("Year", { exact: true })).toHaveValue(year);
-    await expect(rowOf(page, "E2E User Edited")).toBeVisible();
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
     await expect(page.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
     await page.screenshot({ path: "/tmp/amg-admin-reports-final.png", fullPage: true });
   });
@@ -173,7 +175,7 @@ test.describe("admin", () => {
         .locator("[data-slot=card]")
         .filter({ has: page.getByText(name, { exact: true }) })
         .locator(".font-mono");
-    const row = () => rowOf(page, "E2E User Edited");
+    const row = () => rowOf(page, ACCOUNTS.user.name);
 
     await expect(page.getByText(/\d+ total reports/)).toBeVisible();
     await expect(page.getByRole("columnheader")).toHaveText([
@@ -214,7 +216,7 @@ test.describe("admin", () => {
   test("the personal list excludes other users' reports even for an admin", async ({ page, request }) => {
     await page.goto("/reports");
     await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
-    await expect(rowOf(page, "E2E User Edited")).toBeVisible();
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
     await expect(page.getByRole("region", { name: "Report statistics" })).toHaveCount(0);
     const personal = await request.get("http://localhost:8081/api/v1/reports?mine=true");
     expect(personal.status()).toBe(200);
@@ -235,7 +237,7 @@ test.describe("admin", () => {
 
   test("lists another user's reports", async ({ page }) => {
     await page.goto("/admin?tab=reports");
-    await expect(rowOf(page, "E2E User Edited")).toBeVisible();
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
   });
 });
 
@@ -244,10 +246,10 @@ test.describe("user, later", () => {
 
   test("deletes the report after confirming, and can file the month again", async ({ page }) => {
     await page.goto("/reports");
-    await rowOf(page, "E2E User Edited").getByRole("button", { name: "Delete" }).click();
+    await rowOf(page, ACCOUNTS.user.name).getByRole("button", { name: "Delete" }).click();
     await expect(page.getByRole("alertdialog")).toContainText(`Delete ${label}?`);
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByText("No reports match these filters.")).toBeVisible();
+    await expect(page.getByText("No reports found", { exact: true })).toBeVisible();
 
     await page.goto("/reports/new");
     await page.getByRole("button", { name: "Submit Report" }).click();

@@ -5,7 +5,7 @@ import { ACCOUNTS, API, authFile, clientIp, expect, previousPeriod, send, test }
 // 37b: a custom role opens /admin and sees only the admin links its permissions allow.
 const ROLE = "E2E Panel Reviewer";
 const PERMS = ["reports:read", "reports:read_any", "reports:approve", "tracker:read"];
-const WORKER = "E2E Reviewer Worker";
+const WORKER = ACCOUNTS.user.name; // the API sets worker to the owner's name
 
 type Named = { id: number; name: string };
 
@@ -36,7 +36,7 @@ test.describe("as a custom role", () => {
     const period = previousPeriod();
     const old = await (await worker.get(`${API}/reports?month=${period.month}&year=${period.year}`)).json();
     for (const r of old.data) await send(worker, "DELETE", `/reports/${r.id}`);
-    const filed = await send(worker, "POST", "/reports", { ...period, worker: WORKER });
+    const filed = await send(worker, "POST", "/reports", period);
     expect(filed.status(), await filed.text()).toBe(201);
     const { id: reportId } = await filed.json();
 
@@ -52,7 +52,7 @@ test.describe("as a custom role", () => {
 
       await page.goto("/reports");
       await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin All Reports", exact: true }).click();
-      await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Admin / })).toHaveText(["All Reports", "Tracker"]);
+      await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Admin / })).toHaveText(["All Reports", "Analytics", "Tracker"]);
       await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible();
 
       const reports = page.getByRole("region", { name: "Reports" });

@@ -1,13 +1,14 @@
 import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
-import { authFile, earlierPeriod, expect, previousPeriod, send, test } from "./support";
+import { ACCOUNTS, authFile, earlierPeriod, expect, previousPeriod, send, test } from "./support";
 
 test.use({ storageState: authFile("admin") });
 
 test("an admin previews, then downloads, the month and one report as Excel", async ({ page, request, playwright, clientIp }) => {
   // A month no other spec lists, so this report never shows up in their empty-list checks.
   const period = earlierPeriod(5);
-  const fixture = { worker: "E2E Export Worker", church_name: "E2E Export Church", metrics: { worship_service: { week1: 12 } } };
+  const fixture = { metrics: { worship_service: { week1: 12 } } };
+  const { name: worker, church_name: church } = ACCOUNTS.user;
   const author = await playwright.request.newContext({
     storageState: authFile("user"), extraHTTPHeaders: { "X-Real-IP": clientIp },
   });
@@ -34,7 +35,7 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
     const reports = page.getByRole("region", { name: "Reports" });
     await reports.getByLabel("Month").selectOption(period.month);
     await reports.getByLabel("Year").selectOption(String(period.year));
-    const row = reports.getByRole("row").filter({ hasText: "E2E Export Worker" });
+    const row = reports.getByRole("row").filter({ hasText: worker });
     await expect(row).toBeVisible();
 
     // Each button opens a preview first (D-A15); only the preview's Download downloads.
@@ -47,8 +48,8 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
     await expect(sheet).toHaveValue("0");
     // This church account has no reports.
     await expect(dialog.getByRole("table", { name: "Sheet Report Dashboard" }).getByRole("row").filter({ hasText: "E2E Unsubmitted Church" })).toContainText("No Report Submitted");
-    await sheet.selectOption({ label: "E2E Export Church" });
-    await expect(dialog.getByRole("region", { name: "Sheet E2E Export Church", exact: true })).toContainText("E2E Export Worker");
+    await sheet.selectOption({ label: church });
+    await expect(dialog.getByRole("region", { name: `Sheet ${church}`, exact: true })).toContainText(worker);
     expect((await new AxeBuilder({ page }).include('[role="alertdialog"]').analyze()).violations).toEqual([]);
     expect(downloads).toBe(0);
     const [bulk] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download" }).click()]);
@@ -58,15 +59,15 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
     await expect(reports.getByRole("button", { name: "Download Bulk" })).toBeEnabled();
 
     await row.getByRole("button", { name: /^Excel / }).click();
-    dialog = page.getByRole("alertdialog", { name: "Excel preview: E2E Export Church" });
-    await expect(dialog.getByRole("region", { name: "Sheet E2E Export Church", exact: true })).toContainText("E2E Export Worker");
+    dialog = page.getByRole("alertdialog", { name: `Excel preview: ${church}` });
+    await expect(dialog.getByRole("region", { name: `Sheet ${church}`, exact: true })).toContainText(worker);
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
     expect(downloads).toBe(1); // only the bulk file
 
     await row.getByRole("button", { name: /^Excel / }).click();
     const [single] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download" }).click()]);
-    expect(single.suggestedFilename()).toBe(`E2E Export Church ${period.month} ${period.year}.xlsx`);
+    expect(single.suggestedFilename()).toBe(`${church} ${period.month} ${period.year}.xlsx`);
     await expect(dialog).toBeHidden();
 
     expect((await new AxeBuilder({ page }).include('main section[aria-label="Reports"]').analyze()).violations).toEqual([]);

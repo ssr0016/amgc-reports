@@ -7,7 +7,7 @@ test.describe("sidebar, as admin", () => {
 
   test("lists reports and admin sections, and marks the current page", async ({ page }) => {
     await page.goto("/admin");
-    await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports", "All Reports", "Tracker", "Users", "Roles", "Logs"]);
+    await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports", "All Reports", "Analytics", "Tracker", "Users", "Roles", "Logs"]);
     await expect(mainNav(page).getByRole("link", { name: "Admin All Reports", exact: true })).toHaveAttribute("aria-current", "page");
     await mainNav(page).getByRole("link", { name: "Community Reports" }).click();
     await expect(page).toHaveURL(/\/reports$/);
