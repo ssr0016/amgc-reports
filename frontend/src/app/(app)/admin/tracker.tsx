@@ -2,6 +2,7 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { CircleCheck, Clock, FilePen, FileText, FileWarning, Send } from "lucide-react";
 import { cn } from "cn";
 import { UserStatusBadge } from "@/components/user-status-badge";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { ApiError } from "@/lib/api";
 import { defaultPeriod, FIRST_YEAR, MONTHS } from "@/lib/reports";
 import { getTracker, REVIEW_STATUSES, SUBMISSION_STATUSES, trackerCounts, trackerLabel } from "@/lib/tracker";
 import { EmptyState } from "@/components/empty-state";
+import { StatCard } from "@/components/stat-card";
 import { KpiSkeleton, TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
 
@@ -121,22 +123,22 @@ export function Tracker() {
         <EmptyState title="No church workers to track" description="Active church workers will appear here once they are assigned." />
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-6 xl:grid-cols-2">
             <section aria-label="Submission summary">
               <h2 className="mb-2 text-sm font-medium">Submission status</h2>
-              <dl className="grid grid-cols-3 gap-4">
-                {[["Expected", counts.expected], ["Submitted", counts.submitted], ["No Report", counts.noReport]].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border p-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-mono text-2xl tabular-nums">{value}</dd></div>
-                ))}
-              </dl>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <StatCard label="Expected" value={counts.expected} icon={FileText} tone="neutral" />
+                <StatCard label="Submitted" value={counts.submitted} icon={Send} tone="sky" />
+                <StatCard label="No Report" value={counts.noReport} icon={FileWarning} tone="amber" />
+              </div>
             </section>
             <section aria-label="Review summary">
               <h2 className="mb-2 text-sm font-medium">Review status</h2>
-              <dl className="grid grid-cols-3 gap-4">
-                {[["Approved", counts.approved], ["Pending", counts.pending], ["Needs Revision", counts.needsRevision]].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border p-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-mono text-2xl tabular-nums">{value}</dd></div>
-                ))}
-              </dl>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <StatCard label="Approved" value={counts.approved} icon={CircleCheck} tone="green" />
+                <StatCard label="Pending" value={counts.pending} icon={Clock} tone="amber" />
+                <StatCard label="Needs Revision" value={counts.needsRevision} icon={FilePen} tone="red" />
+              </div>
             </section>
           </div>
           <div className="flex flex-col gap-2">

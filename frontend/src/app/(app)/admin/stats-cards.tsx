@@ -2,19 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Church, FileText, FileWarning, ShieldCheck, UserCheck, Users, UserX, type LucideIcon } from "lucide-react";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatCard, type StatTone } from "@/components/stat-card";
 import { getStats } from "@/lib/stats";
 import { useSession } from "@/lib/session";
 import { KpiSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
-
-// Icon tiles are decorative; the label carries the meaning.
-const TONE = {
-  neutral: "bg-muted text-foreground",
-  green: "bg-primary/10 text-primary",
-  sky: "bg-sky-500/10 text-sky-400",
-  amber: "bg-amber-500/10 text-amber-400",
-};
 
 // The numbers are text, so nothing here relies on colour. Counts only: the endpoint sends no report text.
 export function StatsCards({ users = false }: { users?: boolean }) {
@@ -35,7 +27,7 @@ export function StatsCards({ users = false }: { users?: boolean }) {
     return <KpiSkeleton />;
   }
 
-  const cards: { label: string; value: number; icon: LucideIcon; tone: keyof typeof TONE; note?: string }[] = users
+  const cards: { label: string; value: number; icon: LucideIcon; tone: StatTone; note?: string }[] = users
     ? [
         { label: "Total Users", value: data.users_total, icon: Users, tone: "neutral" },
         { label: "Active Users", value: data.users_active, icon: UserCheck, tone: "green" },
@@ -52,21 +44,7 @@ export function StatsCards({ users = false }: { users?: boolean }) {
   return (
     <section aria-label="Statistics" className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
       {cards.map((c) => (
-        <Card
-          key={c.label}
-          className="border-white/[0.06] bg-card/80 bg-linear-to-b from-white/[0.03] to-transparent shadow-sm transition-shadow duration-200 hover:shadow-lg hover:shadow-black/30"
-        >
-          <CardHeader className="gap-2">
-            <CardDescription className="text-xs font-medium tracking-wide uppercase">{c.label}</CardDescription>
-            <CardTitle className="text-3xl font-semibold tracking-tight tabular-nums">{c.value}</CardTitle>
-            <CardAction>
-              <span aria-hidden="true" className={`grid size-10 place-items-center rounded-lg ${TONE[c.tone]}`}>
-                <c.icon className="size-5" />
-              </span>
-            </CardAction>
-          </CardHeader>
-          {c.note && <CardContent className="text-muted-foreground">{c.note}</CardContent>}
-        </Card>
+        <StatCard key={c.label} {...c} />
       ))}
     </section>
   );

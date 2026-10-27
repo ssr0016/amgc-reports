@@ -44,7 +44,8 @@ function renderTracker() {
 
 const names = () =>
   screen.getAllByRole("row").slice(1).map((r) => within(r).getAllByRole("cell")[0].textContent);
-const count = (label: string) => screen.getByText(label, { selector: "dt" }).nextElementSibling?.textContent;
+const count = (label: string) =>
+  screen.getByText(label, { selector: "[data-slot=card-description]" }).closest("[data-slot=card]")?.querySelector("[data-slot=card-title]")?.textContent;
 
 beforeEach(() => {
   vi.clearAllMocks();

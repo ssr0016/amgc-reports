@@ -174,7 +174,7 @@ test.describe("admin", () => {
         .getByRole("region", { name: "Report statistics" })
         .locator("[data-slot=card]")
         .filter({ has: page.getByText(name, { exact: true }) })
-        .locator(".font-mono");
+        .locator("[data-slot=card-title]");
     const row = () => rowOf(page, ACCOUNTS.user.name);
 
     await expect(page.getByText(/\d+ total reports/)).toBeVisible();

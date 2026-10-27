@@ -14,7 +14,8 @@ import { ReportOwnerBadges } from "@/components/report-owner-badges";
 import type { Page, Report } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { getStats } from "@/lib/stats";
-import { Loader2 } from "lucide-react";
+import { CircleCheck, Clock, FilePen, FileText, Loader2, type LucideIcon } from "lucide-react";
+import { StatCard, type StatTone } from "@/components/stat-card";
 export { dashboardTheme as reportsTheme } from "./dashboard-theme";
 
 export function ReportsHeader({ title, heading: Heading = "h2", children }: { title: string; heading?: "h1" | "h2"; children?: ReactNode }) {
@@ -37,21 +38,23 @@ export function ReportsStats({ data }: { data?: Page<Report> }) {
   const stats = useQuery({ queryKey: ["admin-stats"], queryFn: getStats, enabled: allowed, staleTime: 30_000 });
   const approved = data?.data.filter((r) => (r.status ?? (r.completed ? "approved" : "pending")) === "approved").length;
   const needsRevision = stats.data?.reports_needs_revision;
-  const cards = [
-    { label: "Total Reports", value: data?.meta.total, note: "Matching current filters" },
-    { label: "Approved", value: approved, note: "On this page", tone: "text-[var(--approved)]" },
-    { label: "Pending", value: data ? data.data.filter((r) => (r.status ?? (r.completed ? "approved" : "pending")) === "pending").length : undefined, note: "On this page", tone: "text-[var(--pending)]" },
-    { label: "Needs Revision", value: allowed ? needsRevision : undefined, note: allowed ? (stats.isError ? "Count unavailable" : "All reports this month") : "Admin access required", tone: "text-red-700" },
+  const cards: { label: string; value?: number; note: string; icon: LucideIcon; tone: StatTone }[] = [
+    { label: "Total Reports", value: data?.meta.total, note: "Matching current filters", icon: FileText, tone: "neutral" },
+    { label: "Approved", value: approved, note: "On this page", icon: CircleCheck, tone: "green" },
+    { label: "Pending", value: data ? data.data.filter((r) => (r.status ?? (r.completed ? "approved" : "pending")) === "pending").length : undefined, note: "On this page", icon: Clock, tone: "amber" },
+    { label: "Needs Revision", value: allowed ? needsRevision : undefined, note: allowed ? (stats.isError ? "Count unavailable" : "All reports this month") : "Admin access required", icon: FilePen, tone: "red" },
   ];
   return (
-    <section aria-label="Report statistics" className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+    <section aria-label="Report statistics" className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
       {cards.map((c) => (
-        <Card key={c.label} className="gap-2 rounded-lg p-4 shadow-none">
-          <p className="text-sm text-muted-foreground">{c.label}</p>
-          <p className={`font-mono text-3xl tabular-nums ${c.tone ?? ""}`}>{c.value?.toLocaleString() ?? "—"}</p>
-          <p className="text-xs text-muted-foreground">{c.note}</p>
-          <p className="text-xs text-muted-foreground">Last-month comparison unavailable</p>
-        </Card>
+        <StatCard
+          key={c.label}
+          label={c.label}
+          value={c.value?.toLocaleString() ?? "—"}
+          icon={c.icon}
+          tone={c.tone}
+          note={<><p>{c.note}</p><p className="text-xs">Last-month comparison unavailable</p></>}
+        />
       ))}
     </section>
   );

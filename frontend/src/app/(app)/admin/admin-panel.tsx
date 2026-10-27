@@ -37,7 +37,8 @@ export function AdminPanel() {
       <h1 className={`${analyticsTab ? "analytics-admin-heading" : ""} text-2xl font-medium tracking-tight`}>Admin{tab && ` / ${tabs.find((t) => t.value === tab)?.label}`}</h1>
       {canAdmin && tab ? (
         <>
-          {tab !== "reports" && <StatsCards users={tab === "users"} />}
+          {/* Tracker has its own month-scoped summary, so the global cards would duplicate or contradict it. */}
+          {tab !== "reports" && tab !== "tracker" && <StatsCards users={tab === "users"} />}
           <section aria-label={tabs.find((t) => t.value === tab)?.label} className={`${analyticsTab ? "analytics-admin-section" : ""} min-w-0`}>
             {tab === "reports" ? panels[tab] : <Card className={`${analyticsTab ? "analytics-admin-card" : ""} p-4 sm:p-6`}>{panels[tab]}</Card>}
           </section>
