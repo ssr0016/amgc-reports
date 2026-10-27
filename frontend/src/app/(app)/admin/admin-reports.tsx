@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Bell, Check, Download, Eye, Loader2, Pencil, Trash2, Undo2 } from "lucide-react";
-import { ReportsHeader, ReportsStats, ReportsTableCard } from "@/components/reports-dashboard";
+import { iconButton, ReportsHeader, ReportsStats, ReportsTableCard, tone } from "@/components/reports-dashboard";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
@@ -198,12 +198,12 @@ export function AdminReports() {
 
       )} actions={(r) => (
         <>
-          <Button size="icon" className="size-11" variant="ghost" aria-label={`Preview ${rowName(r)}`} title="Preview" onClick={() => setReportPreview(r.id)}><Eye aria-hidden="true" /></Button>
-          {can("reports:write") && (r.created_by === user?.user_id || can("reports:write_any")) && <Button asChild size="icon" className="size-11" variant="ghost"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
-          {can("reports:delete") && (r.created_by === user?.user_id || can("reports:delete_any")) && <Button size="icon" className="size-11 text-destructive" variant="ghost" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={() => { del.reset(); setTarget(r); }}><Trash2 aria-hidden="true" /></Button>}
-          <Can permission="reports:approve"><Button size="icon" variant="ghost" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => r.completed ? (setAdminNotes(""), setStatusTarget({ report: r, action: "unapprove" })) : approve.mutate({ report: r })}>{busy.includes(r.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
-          <Can permission="reports:approve">{!r.completed && r.status !== "needs_revision" && <Button size="icon" variant="ghost" className="size-11 text-red-700" aria-label={`Request Revision ${rowName(r)}`} title="Request Revision" disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => { setAdminNotes(""); setStatusTarget({ report: r, action: "revision" }); }}>{busy.includes(r.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : <Undo2 aria-hidden="true" />}</Button>}</Can>
-          <Can permission="reports:export"><Button size="icon" className="size-11" variant="ghost" aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
+          <Button size="icon" className={`${iconButton} ${tone.blue}`} variant="ghost" aria-label={`Preview ${rowName(r)}`} title="Preview" onClick={() => setReportPreview(r.id)}><Eye aria-hidden="true" /></Button>
+          {can("reports:write") && (r.created_by === user?.user_id || can("reports:write_any")) && <Button asChild size="icon" className={`${iconButton} ${tone.blue}`} variant="ghost"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
+          {can("reports:delete") && (r.created_by === user?.user_id || can("reports:delete_any")) && <Button size="icon" className={`${iconButton} ${tone.red}`} variant="ghost" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={() => { del.reset(); setTarget(r); }}><Trash2 aria-hidden="true" /></Button>}
+          <Can permission="reports:approve"><Button size="icon" variant="ghost" className={`${iconButton} ${r.completed ? tone.amber : tone.green}`} aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => r.completed ? (setAdminNotes(""), setStatusTarget({ report: r, action: "unapprove" })) : approve.mutate({ report: r })}>{busy.includes(r.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
+          <Can permission="reports:approve">{!r.completed && r.status !== "needs_revision" && <Button size="icon" variant="ghost" className={`${iconButton} ${tone.red}`} aria-label={`Request Revision ${rowName(r)}`} title="Request Revision" disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => { setAdminNotes(""); setStatusTarget({ report: r, action: "revision" }); }}>{busy.includes(r.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : <Undo2 aria-hidden="true" />}</Button>}</Can>
+          <Can permission="reports:export"><Button size="icon" className={`${iconButton} ${tone.green}`} variant="ghost" aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
         </>
       )}>
 

@@ -182,7 +182,7 @@ describe("reports list: live regions", () => {
   it("the page summary is announced when it changes", async () => {
     h.listReports.mockResolvedValue(page([report(1, 1)], { total_pages: 3, total: 41 }));
     renderList("reports:read");
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Page 1 of 3 (41 reports)"));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Page 1 of 3"));
   });
 });
 
@@ -432,7 +432,7 @@ describe("reports list: filters and pagination", () => {
   it("paginates: Previous is off on page 1, Next goes to page 2", async () => {
     h.listReports.mockResolvedValue(page([report(1, 1)], { total_pages: 3, total: 41 }));
     const { user } = renderList("reports:read");
-    expect(await screen.findByText("Page 1 of 3 (41 reports)")).toBeInTheDocument();
+    expect(await screen.findByText("Page 1 of 3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(h.push).toHaveBeenCalledWith(expect.stringContaining("page=2"));
@@ -442,7 +442,7 @@ describe("reports list: filters and pagination", () => {
     h.search = "page=3";
     h.listReports.mockResolvedValue(page([report(1, 1)], { page: 3, total_pages: 3, total: 41 }));
     renderList("reports:read");
-    await screen.findByText("Page 3 of 3 (41 reports)");
+    await screen.findByText("Page 3 of 3");
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Previous" })).toBeEnabled();
   });

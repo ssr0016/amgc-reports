@@ -7,8 +7,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
-import { Check, Download, Eye, Loader2, Pencil, Trash2, Undo2 } from "lucide-react";
-import { reportsTheme, ReportsHeader, ReportsTableCard } from "@/components/reports-dashboard";
+import { Check, Download, Eye, Loader2, Pencil, Search, Trash2, Undo2 } from "lucide-react";
+import { iconButton, reportsTheme, ReportsHeader, ReportsTableCard, tone } from "@/components/reports-dashboard";
 import { useReportActions } from "@/components/use-report-actions";
 import { ExcelPreviewDialog } from "../admin/excel-preview-dialog";
 import { ReportPreviewDialog } from "../admin/report-preview-dialog";
@@ -44,6 +44,7 @@ import { refreshAdminViews } from "@/lib/query";
 import { clearReportDraftStorage } from "@/lib/report-draft-storage";
 import { EmptyState } from "@/components/empty-state";
 import { TableSkeleton } from "@/components/loading-skeletons";
+import { Pagination } from "@/components/pagination";
 
 const textFields = [
   ["worker", "e.g. Juan Dela Cruz"],
@@ -222,6 +223,7 @@ function ReportsList() {
             label={name[0].toUpperCase() + name.slice(1)}
             placeholder={placeholder}
             autoComplete="off"
+            icon={Search}
             value={text[name]}
             onChange={(e) => setText({ ...text, [name]: e.target.value })}
           />
@@ -244,11 +246,11 @@ function ReportsList() {
       </form>
       )} actions={(r) => (
         <>
-          <Button variant="ghost" size="icon" className="size-11" aria-label={`Preview ${rowName(r)}`} title="Preview" onClick={(e) => { opener.current = e.currentTarget; if (mine(r) || can("reports:approve") || can("reports:write_any")) setReportPreview(r.id); else setMetadataPreview(r); }}><Eye aria-hidden="true" /></Button>
-          {canEdit(r) && !can("reports:approve") && <Button asChild variant="ghost" size="icon" className="size-11"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
-          <Can permission="reports:approve"><Button variant="ghost" size="icon" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => { if (r.completed) { setAdminNotes(""); setUnapproveTarget(r); } else approve.mutate({ report: r }); }}>{busy.includes(r.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
-          <Can permission="reports:export"><Button variant="ghost" size="icon" className="size-11" aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
-          {canDelete(r) && <Button variant="ghost" size="icon" className="size-11 text-destructive" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={(e) => { opener.current = e.currentTarget; del.reset(); setTarget({ report: r, period: `${r.month} ${r.year}` }); }}><Trash2 aria-hidden="true" /></Button>}
+          <Button variant="ghost" size="icon" className={`${iconButton} ${tone.blue}`} aria-label={`Preview ${rowName(r)}`} title="Preview" onClick={(e) => { opener.current = e.currentTarget; if (mine(r) || can("reports:approve") || can("reports:write_any")) setReportPreview(r.id); else setMetadataPreview(r); }}><Eye aria-hidden="true" /></Button>
+          {canEdit(r) && !can("reports:approve") && <Button asChild variant="ghost" size="icon" className={`${iconButton} ${tone.blue}`}><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
+          <Can permission="reports:approve"><Button variant="ghost" size="icon" className={`${iconButton} ${r.completed ? tone.amber : tone.green}`} aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => { if (r.completed) { setAdminNotes(""); setUnapproveTarget(r); } else approve.mutate({ report: r }); }}>{busy.includes(r.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
+          <Can permission="reports:export"><Button variant="ghost" size="icon" className={`${iconButton} ${tone.green}`} aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
+          {canDelete(r) && <Button variant="ghost" size="icon" className={`${iconButton} ${tone.red}`} aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={(e) => { opener.current = e.currentTarget; del.reset(); setTarget({ report: r, period: `${r.month} ${r.year}` }); }}><Trash2 aria-hidden="true" /></Button>}
         </>
       )}>
 
@@ -268,23 +270,10 @@ function ReportsList() {
         data && (
           <>
             {meta && (
-              <div className="flex items-center justify-between gap-4">
-                <p role="status" className="text-sm text-muted-foreground">
-                  Page {meta.page} of {meta.total_pages} ({meta.total} reports)
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="outline" disabled={meta.page <= 1} onClick={() => goToPage(meta.page - 1)}>
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={meta.page >= meta.total_pages}
-                    onClick={() => goToPage(meta.page + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
+              <>
+                <p className="text-right text-sm text-muted-foreground tabular-nums">{meta.total} total reports</p>
+                <Pagination page={meta.page} totalPages={meta.total_pages} onPageChange={goToPage} />
+              </>
             )}
           </>
         )

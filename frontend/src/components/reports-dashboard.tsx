@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { ReportStatusBadge } from "@/components/report-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -14,15 +15,24 @@ import { ReportOwnerBadges } from "@/components/report-owner-badges";
 import type { Page, Report } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { getStats } from "@/lib/stats";
-import { CircleCheck, Clock, FilePen, FileText, Loader2, type LucideIcon } from "lucide-react";
+import { CircleCheck, Clock, FilePen, FileText, Filter, Loader2, type LucideIcon } from "lucide-react";
 import { StatCard, type StatTone } from "@/components/stat-card";
+
+// Subtle row icon buttons: muted until the row is hovered, then each shows its colour; hovering the icon adds a tint.
+export const iconButton = "size-11 rounded-md text-muted-foreground duration-150";
+export const tone = {
+  blue: "group-hover/row:text-blue-600 hover:bg-blue-500/10 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:group-hover/row:text-blue-400 dark:hover:text-blue-400",
+  amber: "group-hover/row:text-amber-600 hover:bg-amber-500/10 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:group-hover/row:text-amber-400 dark:hover:text-amber-400",
+  green: "group-hover/row:text-green-600 hover:bg-green-500/10 dark:hover:bg-green-500/10 hover:text-green-600 dark:group-hover/row:text-green-400 dark:hover:text-green-400",
+  red: "group-hover/row:text-red-600 hover:bg-red-500/10 dark:hover:bg-red-500/10 hover:text-red-600 dark:group-hover/row:text-red-400 dark:hover:text-red-400",
+};
 export { dashboardTheme as reportsTheme } from "./dashboard-theme";
 
 export function ReportsHeader({ title, heading: Heading = "h2", children }: { title: string; heading?: "h1" | "h2"; children?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <Heading className="text-2xl font-medium tracking-tight">{title}</Heading>
+        <Heading className="text-2xl font-semibold tracking-tight">{title}</Heading>
         <p className="mt-2 text-sm text-muted-foreground">Monthly ministry reports from workers across AMGC churches.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -102,19 +112,28 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
 
   return (
     <Card className="gap-0 overflow-hidden rounded-lg py-0 shadow-none">
-      <div className="border-b p-4">{filters}</div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2">
-        <div role="group" aria-label="Filter status on this page" className="flex gap-1">
+      <div className="flex flex-col gap-5 border-b p-5 sm:p-6">
+        <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Filter aria-hidden="true" className="size-4" />
+          Filter reports
+        </p>
+        {filters}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 sm:px-6">
+        {/* A segmented control: the pressed tab is lifted onto the card colour. */}
+        <div role="group" aria-label="Filter status on this page" className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-muted p-1">
           {["all", "draft", "approved", "pending", "needs_revision"].map((value) => (
-            <Button key={value} variant={status === value ? "secondary" : "ghost"} className="min-h-11" aria-pressed={status === value} onClick={() => setStatus(value)}>
+            <Button key={value} variant="ghost" className="rounded-md px-3 text-muted-foreground hover:bg-background/60 aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm dark:hover:bg-background/40" aria-pressed={status === value} onClick={() => setStatus(value)}>
               {value === "needs_revision" ? "Needs Revision" : value[0].toUpperCase() + value.slice(1)}
             </Button>
           ))}
         </div>
         <p className="text-xs text-muted-foreground">Status filters apply to this page</p>
       </div>
+      {/* The container must scroll vertically for the header to stick, as on the Logs page. */}
+      <div className="min-w-0 p-5 sm:p-6 [&_[data-slot=table-container]]:max-h-[70vh]">
       <Table>
-        <TableHeader>
+        <TableHeader className="sticky top-0 z-10 bg-muted shadow-[0_1px_0_var(--border)] [&_th]:h-11 [&_th]:text-xs [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:uppercase">
           <TableRow>
             {selectable && <TableHead className="w-12"><label className="flex size-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label="Select all visible reports" checked={allSelected} ref={(node) => { if (node) node.indeterminate = selectedVisible.length > 0 && !allSelected; }} onChange={toggleVisible} /></label></TableHead>}
             <TableHead>Worker</TableHead><TableHead>Month</TableHead><TableHead className="text-right">Year</TableHead>
@@ -123,24 +142,26 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
         </TableHeader>
         <TableBody>
           {visible.map((r) => (
-            <TableRow key={r.id} data-state={selectedIds.has(r.id) ? "selected" : undefined}>
+            <TableRow key={r.id} className="group/row" data-state={selectedIds.has(r.id) ? "selected" : undefined}>
               {selectable && <TableCell><label className="flex size-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label={`Select ${r.worker || "report"}, ${r.month} ${r.year}`} checked={selectedIds.has(r.id)} onChange={() => toggleReport(r)} /></label></TableCell>}
               <TableCell><div className="flex items-center gap-3"><Avatar name={r.worker || "Unknown worker"} className="bg-secondary! text-secondary-foreground! cursor-default" /><div className="flex min-w-36 flex-col items-start gap-1"><span className="font-medium">{r.worker || "—"}</span><ReportOwnerBadges report={r} /></div></div></TableCell>
               <TableCell>{r.month}</TableCell><TableCell className="text-right font-mono tabular-nums">{r.year}</TableCell>
               <TableCell>{r.area_assignment || "—"}</TableCell><TableCell>{r.church_name || "—"}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
-                  <Badge className={reportStatus(r) === "approved" ? "border-transparent bg-[var(--approved)]/10 text-[var(--approved)]" : reportStatus(r) === "needs_revision" ? "border-transparent bg-red-100 text-red-700" : reportStatus(r) === "draft" ? "border-transparent bg-slate-100 text-slate-700" : "border-transparent bg-[var(--pending)]/10 text-[var(--pending)]"}>{reportStatus(r) === "needs_revision" ? "Needs Revision" : reportStatus(r) === "approved" ? "Approved" : reportStatus(r) === "draft" ? "Draft" : "Pending"}</Badge>
+                  <ReportStatusBadge status={reportStatus(r)} />
                   {r.status === "pending" && r.last_revised_at && <Badge variant="outline">Revised</Badge>}
                 </div>
               </TableCell>
-              <TableCell><div className="flex justify-end gap-2">{actions(r)}</div></TableCell>
+              <TableCell><div className="flex justify-end gap-1">{actions(r)}</div></TableCell>
             </TableRow>
           ))}
           {rows.length > 0 && visible.length === 0 && <TableRow><TableCell colSpan={selectable ? 8 : 7} className="py-10 text-center"><p role="status">No {status} reports on this page.</p></TableCell></TableRow>}
         </TableBody>
       </Table>
-      <div className="border-t p-4">{children}</div>
+      {/* Pagination brings its own top rule and spacing. */}
+      <div className="mt-4 [&>nav]:mt-0">{children}</div>
+      </div>
       {selectable && selectedReports.length > 0 && (
         <aside aria-label="Bulk Actions" className="sticky bottom-4 z-10 mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-popover p-4 shadow-lg">
           <p role="status" className="text-sm"><span className="font-mono tabular-nums">{selectedReports.length}</span> selected</p>
