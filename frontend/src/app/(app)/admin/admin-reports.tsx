@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { errorText } from "@/lib/auth-form";
 import { refreshAdminViews } from "@/lib/query";
+import { clearReportDraftStorage } from "@/lib/report-draft-storage";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
 import { TableSkeleton } from "@/components/loading-skeletons";
@@ -79,8 +80,9 @@ export function AdminReports() {
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<Report | null>(null);
   const del = useMutation({
-    mutationFn: (id: number) => deleteReport(id),
-    onSuccess: async () => {
+    mutationFn: (report: Report) => deleteReport(report.id),
+    onSuccess: async (_data, report) => {
+      clearReportDraftStorage(report, user?.user_id);
       setTarget(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
@@ -272,7 +274,7 @@ export function AdminReports() {
           {del.error && <p role="alert" className="text-sm text-destructive">{errorText(del.error, "Could not delete the report. Try again.")}</p>}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={del.isPending}>Cancel</AlertDialogCancel>
-            <Button variant="destructive" disabled={del.isPending} aria-busy={del.isPending} onClick={() => target && del.mutate(target.id)}>
+            <Button variant="destructive" disabled={del.isPending} aria-busy={del.isPending} onClick={() => target && del.mutate(target)}>
               {del.isPending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Deleting…</> : "Delete"}
             </Button>
           </AlertDialogFooter>

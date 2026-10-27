@@ -39,6 +39,7 @@ import {
 } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
+import { clearReportDraftStorage } from "@/lib/report-draft-storage";
 import { EmptyState } from "@/components/empty-state";
 import { TableSkeleton } from "@/components/loading-skeletons";
 
@@ -93,18 +94,19 @@ function ReportsList() {
 
   // The report the delete dialog is asking about, if any.
   const queryClient = useQueryClient();
-  const [target, setTarget] = useState<{ id: number; period: string } | null>(null);
+  const [target, setTarget] = useState<{ report: Report; period: string } | null>(null);
   // The dialog is controlled and has no trigger element, so Radix cannot return focus
   // by itself: remember the Delete button that opened it (WCAG 2.4.3).
   const opener = useRef<HTMLElement | null>(null);
 
   const del = useMutation({
-    mutationFn: (id: number) =>
-      deleteReport(id).catch((err) => {
+    mutationFn: (report: Report) =>
+      deleteReport(report.id).catch((err) => {
         // 404: it was already deleted elsewhere, so the list below is just stale.
         if (!(err instanceof ApiError && err.status === 404)) throw err;
       }),
-    onSuccess: async () => {
+    onSuccess: async (_data, report) => {
+      clearReportDraftStorage(report, user?.user_id);
       setTarget(null);
       toast.success("Report deleted");
       // Deleting the last row of a later page would leave an empty page behind.
@@ -233,7 +235,7 @@ function ReportsList() {
           {canEdit(r) && !can("reports:approve") && <Button asChild variant="ghost" size="icon" className="size-11"><Link href={`/reports/${r.id}/edit`} aria-label={`Edit ${rowName(r)}`} title="Edit"><Pencil aria-hidden="true" /></Link></Button>}
           <Can permission="reports:approve"><Button variant="ghost" size="icon" className="size-11 text-[var(--approved)]" aria-label={`${r.completed ? "Unapprove" : "Approve"} ${rowName(r)}`} title={r.completed ? "Unapprove" : "Approve"} disabled={busy.includes(r.id)} aria-busy={busy.includes(r.id)} onClick={() => { if (r.completed) { setAdminNotes(""); setUnapproveTarget(r); } else approve.mutate({ report: r }); }}>{busy.includes(r.id) ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : r.completed ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}</Button></Can>
           <Can permission="reports:export"><Button variant="ghost" size="icon" className="size-11" aria-label={`Excel ${rowName(r)}`} title="Excel export" disabled={downloading.includes(String(r.id))} aria-busy={downloading.includes(String(r.id))} onClick={() => setPreview({ key: String(r.id), target: { reportId: r.id, label: r.church_name || `Report ${r.id}` }, run: () => exportReport(r.id) })}><Download aria-hidden="true" /></Button></Can>
-          {canDelete(r) && <Button variant="ghost" size="icon" className="size-11 text-destructive" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={(e) => { opener.current = e.currentTarget; del.reset(); setTarget({ id: r.id, period: `${r.month} ${r.year}` }); }}><Trash2 aria-hidden="true" /></Button>}
+          {canDelete(r) && <Button variant="ghost" size="icon" className="size-11 text-destructive" aria-label={`Delete ${rowName(r)}`} title="Delete" onClick={(e) => { opener.current = e.currentTarget; del.reset(); setTarget({ report: r, period: `${r.month} ${r.year}` }); }}><Trash2 aria-hidden="true" /></Button>}
         </>
       )}>
 
@@ -321,7 +323,7 @@ function ReportsList() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             {/* A plain Button, not AlertDialogAction: that one closes the dialog on click, and a failed delete must keep it open. */}
-            <Button variant="destructive" onClick={() => target && del.mutate(target.id)} disabled={deleting} aria-busy={deleting}>
+            <Button variant="destructive" onClick={() => target && del.mutate(target.report)} disabled={deleting} aria-busy={deleting}>
               {deleting ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Deleting…</> : "Delete"}
             </Button>
           </AlertDialogFooter>

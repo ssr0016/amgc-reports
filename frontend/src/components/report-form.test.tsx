@@ -53,13 +53,28 @@ describe("ReportForm", () => {
 
 	it("recovers local changes and discards them on request", async () => {
 		const recovered = { ...initial(), challenges: "Keep this locally" };
-		localStorage.setItem("report:April:2026", JSON.stringify({ form: recovered, userNotes: "" }));
+		localStorage.setItem("report:April:2026", JSON.stringify({ context: "report:April:2026", form: recovered, userNotes: "" }));
 		const { user } = setup({ storageKey: "report:April:2026" });
 		expect(await screen.findByText("Recovered unsaved changes.")).toBeInTheDocument();
 		expect(screen.getByLabelText("Challenges")).toHaveValue("Keep this locally");
 		await user.click(screen.getByRole("button", { name: "Discard" }));
 		expect(screen.getByLabelText("Challenges")).toHaveValue("");
 		expect(localStorage.getItem("report:April:2026")).toBeNull();
+	});
+
+	it("ignores local changes saved for a different form context", async () => {
+		localStorage.setItem("report:April:2026", JSON.stringify({ context: "report:12", form: { ...initial(), challenges: "Deleted report" }, userNotes: "" }));
+		setup({ storageKey: "report:April:2026" });
+		expect(screen.queryByText("Recovered unsaved changes.")).not.toBeInTheDocument();
+		expect(screen.getByLabelText("Challenges")).toHaveValue("");
+		expect(localStorage.getItem("report:April:2026")).toBeNull();
+	});
+
+	it("recovers unsaved changes when the context matches", async () => {
+		localStorage.setItem("report:April:2026", JSON.stringify({ context: "report:April:2026", form: { ...initial(), challenges: "Current period" }, userNotes: "" }));
+		setup({ storageKey: "report:April:2026" });
+		expect(await screen.findByText("Recovered unsaved changes.")).toBeInTheDocument();
+		expect(screen.getByLabelText("Challenges")).toHaveValue("Current period");
 	});
 
 	it("debounces server autosave until three seconds after the last change", async () => {

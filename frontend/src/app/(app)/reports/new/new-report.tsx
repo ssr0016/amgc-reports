@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ReportForm } from "@/components/report-form";
 import { emptyForm } from "@/lib/report-form";
 import { createReport, defaultPeriod, getCurrentReport } from "@/lib/reports";
+import { newReportStorageKey } from "@/lib/report-draft-storage";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
 
@@ -58,7 +59,7 @@ export function NewReport() {
         <ReportForm
           initial={initial}
           draft
-          storageKey={`report:${user?.user_id}:${period.month}:${period.year}`}
+          storageKey={user?.user_id === undefined ? undefined : newReportStorageKey(user.user_id, period.month, period.year)}
           submitLabel="Submit Report"
           onAutoSave={autoSave}
           lockedPeriod={period}

@@ -9,6 +9,7 @@ import { ReportForm } from "@/components/report-form";
 import { ApiError } from "@/lib/api";
 import { fromReport, isRestricted } from "@/lib/report-form";
 import { getReport, submitReport, updateReport } from "@/lib/reports";
+import { reportStorageKey } from "@/lib/report-draft-storage";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
 import { TableSkeleton } from "@/components/loading-skeletons";
@@ -77,7 +78,7 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
         initial={fromReport(data)}
         draft={data.status === "draft"}
         submitLabel="Submit Report"
-        storageKey={`report:${reportId}`}
+        storageKey={reportStorageKey(reportId)}
         onAutoSave={editable && (data.status === "draft" || data.status === "needs_revision") ? async (input) => {
           try {
             await updateReport(reportId, input);

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import type { Page, Report } from "@/lib/reports";
+import { reportStorageKey } from "@/lib/report-draft-storage";
 import { AdminReports } from "./admin-reports";
 
 const h = vi.hoisted(() => ({
@@ -21,7 +22,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("sonner", () => ({ toast: h.toast }));
-vi.mock("@/lib/session", () => ({ useSession: () => ({ can: (p: string) => h.perms.includes(p) }) }));
+vi.mock("@/lib/session", () => ({ useSession: () => ({ user: { user_id: 1 }, can: (p: string) => h.perms.includes(p) }) }));
 // Keep the real constants and defaultPeriod; replace only the calls that hit the network.
 vi.mock("@/lib/reports", async (orig) => ({
   ...(await orig<typeof import("@/lib/reports")>()),
@@ -61,6 +62,7 @@ const row = (text: string) => screen.getByText(text).closest("tr")!;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   h.listReports.mockResolvedValue(page([report(1), report(2)]));
   h.getReport.mockResolvedValue(report(1));
 });
@@ -221,11 +223,13 @@ describe("admin reports: filters", () => {
 
   it("deletes a report after confirmation", async () => {
     h.deleteReport.mockResolvedValue(undefined);
+    localStorage.setItem(reportStorageKey(1), "draft");
     const { user } = renderReports("reports:read", "reports:delete", "reports:delete_any");
     await screen.findByText("Worker 1");
     await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(h.deleteReport).toHaveBeenCalledWith(1));
+    expect(localStorage.getItem(reportStorageKey(1))).toBeNull();
   });
 
   it("Month lists the twelve months and no Any, so one view is one month", async () => {

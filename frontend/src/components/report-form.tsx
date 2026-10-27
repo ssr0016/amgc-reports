@@ -92,8 +92,10 @@ export function ReportForm({
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
-        const data = JSON.parse(raw) as { form?: FormState; userNotes?: string };
-        if (data.form) {
+        const data = JSON.parse(raw) as { context?: string; form?: FormState; userNotes?: string };
+        if (data.context !== storageKey) {
+          localStorage.removeItem(storageKey);
+        } else if (data.form) {
           // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only available after client hydration.
           setForm(data.form);
           setUserNotes(data.userNotes ?? "");
@@ -113,7 +115,7 @@ export function ReportForm({
       skipStorageWrite.current = false;
       return;
     }
-    localStorage.setItem(storageKey, JSON.stringify({ form, userNotes }));
+    localStorage.setItem(storageKey, JSON.stringify({ context: storageKey, form, userNotes }));
   }, [changed.size, form, hydrated, readOnly, storageKey, userNotes]);
 
   useEffect(() => {

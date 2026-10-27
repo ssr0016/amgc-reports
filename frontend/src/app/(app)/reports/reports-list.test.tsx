@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import type { Page, Report } from "@/lib/reports";
+import { newReportStorageKey, reportStorageKey } from "@/lib/report-draft-storage";
 import { Reports } from "./reports-list";
 
 const h = vi.hoisted(() => ({
@@ -58,6 +59,7 @@ const row = (text: string) => screen.getByText(text).closest("tr")!;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   h.search = "";
   h.me.user_id = 1;
   h.me.role = "user";
@@ -249,6 +251,8 @@ describe("reports list: delete", () => {
 
   it("asks first, then deletes and reloads", async () => {
     h.deleteReport.mockResolvedValue(undefined);
+    localStorage.setItem(reportStorageKey(1), "draft");
+    localStorage.setItem(newReportStorageKey(1, "April", 2026), "draft");
     const { user } = renderList(...mine);
     await screen.findByText("Worker 1");
     await user.click(within(row("Worker 1")).getByRole("button", { name: /^Delete / }));
@@ -257,6 +261,8 @@ describe("reports list: delete", () => {
 
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(h.deleteReport).toHaveBeenCalledWith(1));
+    expect(localStorage.getItem(reportStorageKey(1))).toBeNull();
+    expect(localStorage.getItem(newReportStorageKey(1, "April", 2026))).toBeNull();
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     await waitFor(() => expect(h.listReports).toHaveBeenCalledTimes(2));
   });
