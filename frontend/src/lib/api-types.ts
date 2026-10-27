@@ -850,7 +850,7 @@ export interface paths {
         };
         /**
          * Admin panel counts
-         * @description Counts for one month: report statuses, active expected workers, workers with no report, and unique active churches; plus all users and admins regardless of month. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
+         * @description Counts for one month: report statuses, active expected workers, workers with no report, and unique active churches; plus all users and admins regardless of month, and the accounts per role (every role) and per status (every status). Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.
          */
         get: {
             parameters: {
@@ -3139,7 +3139,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"][];
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_UserResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -3349,6 +3349,10 @@ export interface components {
             reports_needs_revision?: number;
             reports_pending?: number;
             reports_total?: number;
+            /** @description Every role, by id, with its accounts; a role nobody holds counts 0. */
+            role_counts?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.RoleCount"][];
+            /** @description Every account status, in user.UserStatuses order, zeros included. */
+            status_counts?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.StatusCount"][];
             users_active?: number;
             users_total?: number;
             year?: number;
@@ -3603,6 +3607,15 @@ export interface components {
             value?: number;
             week?: number;
         };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.RoleCount": {
+            count?: number;
+            name?: string;
+            role_id?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.StatusCount": {
+            count?: number;
+            status?: string;
+        };
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta": {
             limit?: number;
             page?: number;
@@ -3615,6 +3628,10 @@ export interface components {
         };
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse": {
             data?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse"][];
+            meta?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"];
+        };
+        "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_UserResponse": {
+            data?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"][];
             meta?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"];
         };
         "internal_handler.CSRFTokenResponse": {

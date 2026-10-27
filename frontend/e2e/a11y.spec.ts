@@ -122,7 +122,7 @@ for (const scheme of ["light", "dark"] as const) {
       });
 
       test("edit user, with the Status section", async ({ page, request }) => {
-        const users = await (await request.get(`${API}/users?limit=100&email=e2e-user`)).json();
+        const { data: users } = await (await request.get(`${API}/users?limit=100&email=e2e-user`)).json();
         await page.goto(`/admin/users/${users[0].id}/edit`);
         await expect(page.getByRole("group", { name: "Status" })).toBeVisible();
         await scan(page);

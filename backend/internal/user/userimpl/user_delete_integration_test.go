@@ -13,6 +13,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 func (e userSvcEnv) realAudit() audit.Store {
@@ -122,7 +123,7 @@ func TestUserRepo_List_DeletedFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	emails := func(status string) []string {
-		list, err := env.users.List(ctx, "", status, 0, 100)
+		list, _, err := env.users.List(ctx, "", status, 0, pagination.Params{Page: 1, Limit: 100})
 		require.NoError(t, err)
 		var out []string
 		for _, u := range list {

@@ -29,7 +29,9 @@ test.describe("as a custom role", () => {
       storageState: authFile("user"),
       extraHTTPHeaders: { "X-Real-IP": clientIp("custom-role-user") },
     });
-    const [editor] = await (await admin.get(`${API}/users?limit=100&email=${ACCOUNTS.editor.email}`)).json();
+    const {
+      data: [editor],
+    } = await (await admin.get(`${API}/users?limit=100&email=${ACCOUNTS.editor.email}`)).json();
     await cleanUp(admin, editor.id);
 
     // A plain user may file only the previous month; another spec may have left a report there, so start clean.

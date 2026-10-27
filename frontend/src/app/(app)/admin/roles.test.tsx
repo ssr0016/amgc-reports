@@ -137,9 +137,12 @@ describe("Roles tab", () => {
 
   it("the user count opens the role's users, deleted ones marked", async () => {
     vi.mocked(listUsers).mockImplementation(async (_e, status) =>
-      (status === "deleted"
-        ? [{ id: 9, name: "Gone", email: "gone@x.com", deleted_at: "2026-01-01T00:00:00Z" }]
-        : [{ id: 8, name: "Ann", email: "ann@x.com" }]) as never,
+      ({
+        data:
+          status === "deleted"
+            ? [{ id: 9, name: "Gone", email: "gone@x.com", deleted_at: "2026-01-01T00:00:00Z" }]
+            : [{ id: 8, name: "Ann", email: "ann@x.com" }],
+      }) as never,
     );
     wrap();
     expect(within(await row("Unused")).queryByRole("button", { name: /Show/ })).not.toBeInTheDocument();

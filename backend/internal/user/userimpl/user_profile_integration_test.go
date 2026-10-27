@@ -13,6 +13,7 @@ import (
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 func TestUserRepo_Create_Profile(t *testing.T) {
@@ -60,7 +61,7 @@ func TestUserRepo_Create_Profile(t *testing.T) {
 			withRole, err := repo.GetWithRole(ctx, got.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.church, withRole.ChurchName)
-			list, err := repo.List(ctx, tt.in.Email, "", 0, 10)
+			list, _, err := repo.List(ctx, tt.in.Email, "", 0, pagination.Params{Page: 1, Limit: 10})
 			require.NoError(t, err)
 			require.Len(t, list, 1)
 			assert.Equal(t, tt.area, list[0].AreaAssignment)

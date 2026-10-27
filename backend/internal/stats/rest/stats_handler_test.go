@@ -33,7 +33,8 @@ type fakeStatsSvc struct {
 func (f *fakeStatsSvc) Get(_ context.Context, q stats.GetStatsQuery) (stats.AdminStats, error) {
 	f.calls++
 	f.month, f.year = q.Month, q.Year
-	return stats.AdminStats{Month: "September", Year: 2026, ReportsTotal: 3, ReportsApproved: 1, ReportsPending: 2, ReportsNeedsRevision: 0, UsersTotal: 7, UsersActive: 5, AdminsTotal: 2, ExpectedReports: 5, NoReport: 2, ChurchesTotal: 4}, f.err
+	return stats.AdminStats{Month: "September", Year: 2026, ReportsTotal: 3, ReportsApproved: 1, ReportsPending: 2, ReportsNeedsRevision: 0, UsersTotal: 7, UsersActive: 5, AdminsTotal: 2, ExpectedReports: 5, NoReport: 2, ChurchesTotal: 4,
+		RoleCounts: []stats.RoleCount{{RoleID: 1, Name: "admin", Count: 2}}, StatusCounts: []stats.StatusCount{{Status: "active", Count: 5}}}, f.err
 }
 
 func (f *fakeStatsSvc) Tracker(_ context.Context, q stats.GetStatsQuery) (stats.Tracker, error) {
@@ -81,6 +82,8 @@ func TestStatsHandler_GetStats(t *testing.T) {
 			"reports_pending": 2.0, "users_total": 7.0, "users_active": 5.0, "admins_total": 2.0,
 			"reports_needs_revision": 0.0,
 			"expected_reports":       5.0, "no_report": 2.0, "churches_total": 4.0,
+			"role_counts":   []any{map[string]any{"role_id": 1.0, "name": "admin", "count": 2.0}},
+			"status_counts": []any{map[string]any{"status": "active", "count": 5.0}},
 		}
 		if fmt.Sprint(got) != fmt.Sprint(want) {
 			t.Errorf("body = %v, want %v", got, want)

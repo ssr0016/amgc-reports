@@ -9,6 +9,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 // MockStore is an in-memory user.Store for testing.
@@ -23,10 +24,9 @@ type MockStore struct {
 	CreateWithPasswordFunc        func(ctx context.Context, email, name, hash string) (*user.User, error)
 	CreateFunc                    func(ctx context.Context, n user.NewUser) (*user.User, error)
 	UpdateProfileFunc             func(ctx context.Context, id int64, p user.UserProfile) (*user.User, error)
-	ListFunc                      func(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]user.User, error)
+	ListFunc                      func(ctx context.Context, emailFilter, status string, roleID int64, pg pagination.Params) ([]user.User, int64, error)
 	UpdateRoleFunc                func(ctx context.Context, userID, roleID int64) error
 	GetWithRoleFunc               func(ctx context.Context, id int64) (*user.User, error)
-	ListWithPaginationFunc        func(ctx context.Context, emailFilter string, page, limit int) ([]user.User, int64, error)
 	MarkEmailVerifiedFunc         func(ctx context.Context, userID int64) error
 	UpdatePasswordFunc            func(ctx context.Context, userID int64, hash string) error
 	UpdatePasswordKeepSessionFunc func(ctx context.Context, userID int64, hash, keepToken string) (int64, error)
@@ -158,9 +158,9 @@ func (m *MockStore) UpdateAvatar(ctx context.Context, id int64, url string) (*us
 	return usr, previousURL, nil
 }
 
-func (m *MockStore) List(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]user.User, error) {
+func (m *MockStore) List(ctx context.Context, emailFilter, status string, roleID int64, pg pagination.Params) ([]user.User, int64, error) {
 	if m.ListFunc != nil {
-		return m.ListFunc(ctx, emailFilter, status, roleID, limit)
+		return m.ListFunc(ctx, emailFilter, status, roleID, pg)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -169,7 +169,7 @@ func (m *MockStore) List(ctx context.Context, emailFilter, status string, roleID
 	for _, u := range m.users {
 		result = append(result, *u)
 	}
-	return result, nil
+	return result, int64(len(result)), nil
 }
 
 // ReassignRole moves every user holding from to to (mock).
@@ -238,21 +238,6 @@ func (m *MockStore) GetCaller(ctx context.Context, id int64) (*user.Caller, erro
 		}
 	}
 	return c, nil
-}
-
-// ListWithPagination returns users with pagination (mock).
-func (m *MockStore) ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]user.User, int64, error) {
-	if m.ListWithPaginationFunc != nil {
-		return m.ListWithPaginationFunc(ctx, emailFilter, page, limit)
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	result := make([]user.User, 0, len(m.users))
-	for _, u := range m.users {
-		result = append(result, *u)
-	}
-	return result, int64(len(result)), nil
 }
 
 // MarkEmailVerified marks email as verified (mock).

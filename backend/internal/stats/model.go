@@ -95,7 +95,24 @@ type AdminStats struct {
 	ExpectedReports      int64  `json:"expected_reports"`
 	NoReport             int64  `json:"no_report"`
 	ChurchesTotal        int64  `json:"churches_total"`
+	// Every role, by id, with its accounts; a role nobody holds counts 0.
+	RoleCounts []RoleCount `json:"role_counts"`
+	// Every account status, in user.UserStatuses order, zeros included.
+	StatusCounts []StatusCount `json:"status_counts"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.AdminStats
+
+// RoleCount is the number of accounts, deleted ones left out, holding one role.
+type RoleCount struct {
+	RoleID int64  `json:"role_id"`
+	Name   string `json:"name"`
+	Count  int64  `json:"count"`
+}
+
+// StatusCount is the number of accounts, deleted ones left out, with one status.
+type StatusCount struct {
+	Status string `json:"status"`
+	Count  int64  `json:"count"`
+}
 
 // The Tracker statuses (D-A3): an account's report for the month is approved,
 // filed and waiting for review, or missing.

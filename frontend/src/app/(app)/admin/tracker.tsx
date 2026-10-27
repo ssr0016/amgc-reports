@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/empty-state";
 import { StatCard } from "@/components/stat-card";
 import { KpiSkeleton, TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
+import { pageOf, Pagination } from "@/components/pagination";
 
 // Light tint with dark text (and the reverse in the dark theme) to stay above 4.5:1 for axe.
 // The label is always printed, so colour is never the only cue.
@@ -35,6 +36,8 @@ export function Tracker() {
   const [search, setSearch] = useState("");
   const [submissionStatus, setSubmissionStatus] = useState("");
   const [reviewStatus, setReviewStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const { data, error, isPending, refetch } = useQuery({
     queryKey: ["tracker", period.month, period.year],
@@ -59,13 +62,18 @@ export function Tracker() {
       (!reviewStatus || r.review_status === reviewStatus) &&
       (!q || [r.name, r.email, r.church_name].some((v) => v.toLowerCase().includes(q))),
   );
+  // A filter change can shrink the rows; pageOf then shows the last page that still exists.
+  const paged = pageOf(shown, page, pageSize);
 
   return (
     <div className="flex flex-col gap-6">
       <form onSubmit={(e) => e.preventDefault()} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="tracker-month">Month</Label>
-          <NativeSelect id="tracker-month" value={period.month} onChange={(e) => setPeriod((p) => ({ ...p, month: e.target.value }))}>
+          <NativeSelect id="tracker-month" value={period.month} onChange={(e) => {
+              setPeriod((p) => ({ ...p, month: e.target.value }));
+              setPage(1);
+            }}>
             {MONTHS.map((m) => (
               <option key={m} value={m}>
                 {m}
@@ -75,7 +83,10 @@ export function Tracker() {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="tracker-year">Year</Label>
-          <NativeSelect id="tracker-year" value={period.year} onChange={(e) => setPeriod((p) => ({ ...p, year: Number(e.target.value) }))}>
+          <NativeSelect id="tracker-year" value={period.year} onChange={(e) => {
+              setPeriod((p) => ({ ...p, year: Number(e.target.value) }));
+              setPage(1);
+            }}>
             {years.map((y) => (
               <option key={y} value={y}>
                 {y}
@@ -90,12 +101,18 @@ export function Tracker() {
             type="search"
             placeholder="Worker, email or church"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="tracker-submission-status">Submission status</Label>
-          <NativeSelect id="tracker-submission-status" value={submissionStatus} onChange={(e) => setSubmissionStatus(e.target.value)}>
+          <NativeSelect id="tracker-submission-status" value={submissionStatus} onChange={(e) => {
+            setSubmissionStatus(e.target.value);
+            setPage(1);
+          }}>
             <option value="">All submission statuses</option>
             {SUBMISSION_STATUSES.map((s) => (
               <option key={s.code} value={s.code}>{s.label}</option>
@@ -104,7 +121,10 @@ export function Tracker() {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="tracker-review-status">Review status</Label>
-          <NativeSelect id="tracker-review-status" value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value)}>
+          <NativeSelect id="tracker-review-status" value={reviewStatus} onChange={(e) => {
+            setReviewStatus(e.target.value);
+            setPage(1);
+          }}>
             <option value="">All review statuses</option>
             {REVIEW_STATUSES.map((s) => (
               <option key={s.code} value={s.code}>
@@ -159,53 +179,65 @@ export function Tracker() {
           {shown.length === 0 ? (
             <EmptyState title="No workers match" description="Try clearing the search or status filters." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Worker</TableHead>
-                  <TableHead>Church</TableHead>
-                  <TableHead>Submission Status</TableHead>
-                  <TableHead>Review Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {shown.map((r) => (
-                  <TableRow key={r.user_id}>
-                    {/* Wrapping cells keep the table inside 320 px, so it needs no scroll container to reach by keyboard. */}
-                    <TableCell className="whitespace-normal">
-                      <div className="flex flex-col">
-                        <span className="flex flex-wrap items-center gap-2">
-                          {r.name}
-                          {r.user_status !== "active" && <UserStatusBadge status={r.user_status} />}
-                        </span>
-                        <span className="break-all text-xs text-muted-foreground">{r.email}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="whitespace-normal">{r.church_name || "—"}</TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-                          TONE[r.submission_status] ?? "bg-muted text-foreground",
-                        )}
-                      >
-                        {trackerLabel(r.submission_status)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-                          r.review_status ? TONE[r.review_status] ?? "bg-muted text-foreground" : "text-muted-foreground",
-                        )}
-                      >
-                        {r.review_status ? trackerLabel(r.review_status) : "—"}
-                      </span>
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Worker</TableHead>
+                    <TableHead>Church</TableHead>
+                    <TableHead>Submission Status</TableHead>
+                    <TableHead>Review Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paged.rows.map((r) => (
+                    <TableRow key={r.user_id}>
+                      {/* Wrapping cells keep the table inside 320 px, so it needs no scroll container to reach by keyboard. */}
+                      <TableCell className="whitespace-normal">
+                        <div className="flex flex-col">
+                          <span className="flex flex-wrap items-center gap-2">
+                            {r.name}
+                            {r.user_status !== "active" && <UserStatusBadge status={r.user_status} />}
+                          </span>
+                          <span className="break-all text-xs text-muted-foreground">{r.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-normal">{r.church_name || "—"}</TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                            TONE[r.submission_status] ?? "bg-muted text-foreground",
+                          )}
+                        >
+                          {trackerLabel(r.submission_status)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                            r.review_status ? TONE[r.review_status] ?? "bg-muted text-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {r.review_status ? trackerLabel(r.review_status) : "—"}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <Pagination
+                page={paged.page}
+                totalPages={paged.totalPages}
+                onPageChange={setPage}
+                pageSize={pageSize}
+                onPageSizeChange={(n) => {
+                  setPageSize(n);
+                  setPage(1);
+                }}
+              />
+            </>
           )}
         </>
       )}

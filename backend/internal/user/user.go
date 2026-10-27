@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 var (
@@ -56,11 +58,10 @@ type Store interface {
 	// UpdateAvatar commits the new URL and returns the previous URL for safe cleanup.
 	// A missing user is ErrNotFound.
 	UpdateAvatar(ctx context.Context, id int64, url string) (*User, string, error)
-	// List returns users newest first; an empty status means every status and a
-	// zero roleID every role. Deleted users are left out unless status is "deleted",
-	// which returns only them.
-	List(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]User, error)
-	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]User, int64, error)
+	// List returns one page of users newest first, with the total that match; an empty
+	// status means every status and a zero roleID every role. Deleted users are left
+	// out unless status is "deleted", which returns only them.
+	List(ctx context.Context, emailFilter, status string, roleID int64, pg pagination.Params) ([]User, int64, error)
 	MarkEmailVerified(ctx context.Context, userID int64) error
 	UpdatePassword(ctx context.Context, userID int64, hash string) error
 	UpdatePasswordKeepSession(ctx context.Context, userID int64, hash, keepFamily string) (int64, error)

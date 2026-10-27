@@ -37,6 +37,12 @@ describe("users", () => {
     expect(call(f)[0]).toBe("/users?limit=100&role_id=4&status=deleted");
   });
 
+  it("listUsers asks for a page past the first", async () => {
+    const f = stub({ data: [], meta: {} });
+    await listUsers("", "", undefined, 3, 20);
+    expect(call(f)[0]).toBe("/users?limit=20&page=3");
+  });
+
   it("listRoles unwraps the { data } envelope", async () => {
     stub({ data: [{ id: 1, name: "admin" }] });
     expect(await listRoles()).toEqual([{ id: 1, name: "admin" }]);

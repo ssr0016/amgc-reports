@@ -13,6 +13,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 func setupTestRepo(t *testing.T) (user.Store, *testutil.TestDB) {
@@ -166,7 +167,7 @@ func TestUserRepo_ResetLoginAttempts(t *testing.T) {
 	assert.Nil(t, updated.LockedUntil)
 }
 
-func TestUserRepo_ListWithPagination(t *testing.T) {
+func TestUserRepo_ListPages(t *testing.T) {
 	repo, _ := setupTestRepo(t)
 	ctx := context.Background()
 
@@ -178,13 +179,14 @@ func TestUserRepo_ListWithPagination(t *testing.T) {
 	}
 
 	// Page 1, limit 2
-	users, total, err := repo.ListWithPagination(ctx, "", 1, 2)
+	users, total, err := repo.List(ctx, "", "", 0, pagination.Params{Page: 1, Limit: 2})
 	require.NoError(t, err)
 	assert.Len(t, users, 2)
 	assert.Equal(t, int64(5), total)
 
 	// Page 3, limit 2
-	users, _, err = repo.ListWithPagination(ctx, "", 3, 2)
+	users, total, err = repo.List(ctx, "", "", 0, pagination.Params{Page: 3, Limit: 2})
 	require.NoError(t, err)
 	assert.Len(t, users, 1)
+	assert.Equal(t, int64(5), total, "the total counts every match, not the page")
 }

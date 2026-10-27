@@ -91,6 +91,12 @@ func TestStore_Counts(t *testing.T) {
 	t.Run("empty database is all zeros", func(t *testing.T) {
 		got, err := store.Counts(ctx, "January", 2026)
 		require.NoError(t, err)
+		// The migrations seed the "user" role, so it is listed with no accounts.
+		require.Len(t, got.RoleCounts, 1)
+		assert.Equal(t, "user", got.RoleCounts[0].Name)
+		assert.Zero(t, got.RoleCounts[0].Count)
+		assert.Equal(t, []stats.StatusCount{{Status: "active"}, {Status: "inactive"}, {Status: "disciplinary"}, {Status: "deceased"}}, got.StatusCounts)
+		got.RoleCounts, got.StatusCounts = nil, nil
 		assert.Equal(t, stats.AdminStats{Month: "January", Year: 2026}, got)
 	})
 
@@ -184,6 +190,23 @@ func TestStore_Counts(t *testing.T) {
 		assert.EqualValues(t, 3, got.UsersTotal)
 		assert.EqualValues(t, 3, got.UsersActive)
 		assert.EqualValues(t, 1, got.AdminsTotal)
+	})
+
+	t.Run("every role and every status is counted, zeros kept and deleted accounts left out", func(t *testing.T) {
+		_, err := acimpl.NewRoleStore(db).Create(ctx, accesscontrol.CreateRoleRequest{Name: "reviewer"})
+		require.NoError(t, err)
+		_, err = users.UpdateStatus(ctx, bob.ID, user.UserStatusInactive)
+		require.NoError(t, err)
+		got, err := store.Counts(ctx, "January", 2026)
+		require.NoError(t, err)
+		byRole := map[string]int64{}
+		for _, r := range got.RoleCounts {
+			byRole[r.Name] = r.Count
+		}
+		assert.Equal(t, map[string]int64{"user": 2, "admin": 1, "reviewer": 0}, byRole)
+		assert.Equal(t, []stats.StatusCount{
+			{Status: "active", Count: 2}, {Status: "inactive", Count: 1}, {Status: "disciplinary"}, {Status: "deceased"},
+		}, got.StatusCounts)
 	})
 }
 

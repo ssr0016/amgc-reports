@@ -19,7 +19,9 @@ test.describe("as admin", () => {
     page,
     request,
   }) => {
-    const [user] = await (await request.get(`${API}/users?limit=100&email=${ACCOUNTS.user.email}`)).json();
+    const {
+      data: [user],
+    } = await (await request.get(`${API}/users?limit=100&email=${ACCOUNTS.user.email}`)).json();
     await cleanUp(request, user.id);
     try {
       await page.goto("/admin?tab=roles");

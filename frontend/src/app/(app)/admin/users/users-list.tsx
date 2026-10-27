@@ -33,9 +33,9 @@ import { errorText } from "@/lib/auth-form";
 import { refreshAdminViews, usePendingVariables } from "@/lib/query";
 import { EmptyState } from "@/components/empty-state";
 import { TableSkeleton } from "@/components/loading-skeletons";
+import { Pagination } from "@/components/pagination";
 
-// The list endpoint has no pages, so it returns at most this many.
-const LIMIT = 100;
+const PAGE_SIZE = 20;
 
 // Hover lift for this page's buttons; the shared Button only transitions colours.
 const lift = "transition-[color,background-color,box-shadow] duration-150 hover:shadow-md hover:shadow-black/30";
@@ -46,11 +46,11 @@ export function UsersPanel() {
   // users:list reads the list (37b); every change, and the roles it names, stay admin-only.
   const allowed = can("users:list");
   const [search, setSearch] = useState("");
-  // shortcut: the role filter only narrows the loaded rows (at most LIMIT), upgrade to a server-side filter when users outgrow LIMIT.
+  // Every filter is asked of the server; status "" means every status, deleted users left out.
   const [role, setRole] = useState("");
-  // Unlike the role, the status filter is asked of the server ("" means every status, deleted users left out).
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
+  const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<User | null>(null);
   const queryClient = useQueryClient();
 
@@ -73,13 +73,16 @@ export function UsersPanel() {
 
   // The box waits 300 ms after the last key, so typing does not spend the read rate limit one request per letter.
   useEffect(() => {
-    const timer = setTimeout(() => setEmail(search.trim()), 300);
+    const timer = setTimeout(() => {
+      setEmail(search.trim());
+      setPage(1);
+    }, 300);
     return () => clearTimeout(timer);
   }, [search]);
 
   const { data, error, isPending, refetch } = useQuery({
-    queryKey: ["users", email, status],
-    queryFn: () => listUsers(email, status),
+    queryKey: ["users", email, status, role, page],
+    queryFn: () => listUsers(email, status, role ? Number(role) : undefined, page, PAGE_SIZE),
     enabled: allowed,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
@@ -87,7 +90,10 @@ export function UsersPanel() {
   // If this fails, or for a non-admin, the list still renders, with the role shown as #id.
   const roles = useQuery({ queryKey: ["roles"], queryFn: listRoles, enabled: isAdmin, staleTime: 5 * 60_000 });
   const roleName = new Map(roles.data?.map((r) => [r.id, r.name]));
-  const rows = (data ?? []).filter((u) => !role || u.role_id === Number(role));
+  const rows = data?.data ?? [];
+  const totalPages = data?.meta.total_pages ?? 1;
+  // Deleting the last row of the last page leaves that page empty, so step back.
+  if (page > 1 && data && page > totalPages) setPage(Math.max(totalPages, 1));
 
   let body: React.ReactNode;
   if (!allowed || (error instanceof ApiError && error.status === 403)) {
@@ -182,9 +188,7 @@ export function UsersPanel() {
           You cannot delete your own account.
         </p>
         <DeleteUserDialog user={deleting} onClose={() => setDeleting(null)} />
-        {data.length >= LIMIT && (
-          <p className="mt-4 text-sm text-muted-foreground">Showing the first <span className="font-mono tabular-nums">{LIMIT}</span>. Search by email to narrow it.</p>
-        )}
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </>
     );
   }
@@ -223,7 +227,10 @@ export function UsersPanel() {
               {isAdmin && (
                 <div className="flex min-w-0 flex-col gap-2">
                   <Label htmlFor="role-filter">Role</Label>
-                  <NativeSelect id="role-filter" value={role} onChange={(e) => setRole(e.target.value)}>
+                  <NativeSelect id="role-filter" value={role} onChange={(e) => {
+                      setRole(e.target.value);
+                      setPage(1);
+                    }}>
                     <option value="">All roles</option>
                     {roles.data?.map((r) => (
                       <option key={r.id} value={r.id}>
@@ -235,7 +242,10 @@ export function UsersPanel() {
               )}
               <div className="flex min-w-0 flex-col gap-2">
                 <Label htmlFor="status-filter">Status</Label>
-                <NativeSelect id="status-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
+                <NativeSelect id="status-filter" value={status} onChange={(e) => {
+                    setStatus(e.target.value);
+                    setPage(1);
+                  }}>
                   <option value="">All statuses</option>
                   {USER_STATUSES.map((s) => (
                     <option key={s} value={s}>

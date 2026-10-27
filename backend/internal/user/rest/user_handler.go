@@ -9,6 +9,7 @@ import (
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 type UserHandler struct {
@@ -30,7 +31,7 @@ func NewUserHandler(repo user.Store) *UserHandler {
 // @Param        email query string false "Filter by email"
 // @Param        role_id query int false "Filter by role ID"
 // @Param        status query string false "Filter by status; all or empty means every status. deleted returns only deleted users; every other value leaves them out" Enums(all, active, inactive, disciplinary, deceased, deleted)
-// @Success      200 {array} user.UserResponse
+// @Success      200 {object} pagination.Response[user.UserResponse]
 // @Failure      401 {object} map[string]string
 // @Failure      422 {object} map[string]string
 // @Router       /users [get]
@@ -50,14 +51,9 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 			return apperror.Validation("invalid role_id").WithDetails(map[string]string{"role_id": "invalid role id"})
 		}
 	}
-	limit := 20
-	if l := c.QueryParam("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
-			limit = parsed
-		}
-	}
+	params := pagination.FromQuery(c.QueryParams())
 
-	users, err := h.repo.List(c.Request().Context(), emailFilter, status, roleID, limit)
+	users, total, err := h.repo.List(c.Request().Context(), emailFilter, status, roleID, params)
 	if err != nil {
 		return apperror.Internal("failed to list users").WithError(err)
 	}
@@ -66,7 +62,7 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 	for i := range users {
 		out = append(out, users[i].ToResponse())
 	}
-	return c.JSON(http.StatusOK, out)
+	return c.JSON(http.StatusOK, pagination.NewResponse(out, params, total))
 }
 
 // GetUser godoc

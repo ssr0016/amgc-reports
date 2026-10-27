@@ -815,7 +815,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "Counts for one month: report statuses, active expected workers, workers with no report, and unique active churches; plus all users and admins regardless of month. Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.",
+                "description": "Counts for one month: report statuses, active expected workers, workers with no report, and unique active churches; plus all users and admins regardless of month, and the accounts per role (every role) and per status (every status). Needs tracker:read. Without month and year the period is the previous month in Asia/Manila. Month and year go together; the month is an English month name, case-insensitive.",
                 "produces": [
                     "application/json"
                 ],
@@ -2780,10 +2780,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
-                            }
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_UserResponse"
                         }
                     },
                     "401": {
@@ -2978,6 +2975,20 @@
                 },
                 "reports_total": {
                     "type": "integer"
+                },
+                "role_counts": {
+                    "description": "Every role, by id, with its accounts; a role nobody holds counts 0.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.RoleCount"
+                    }
+                },
+                "status_counts": {
+                    "description": "Every account status, in user.UserStatuses order, zeros included.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.StatusCount"
+                    }
                 },
                 "users_active": {
                     "type": "integer"
@@ -3860,6 +3871,31 @@
                 }
             }
         },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.RoleCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.StatusCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta": {
             "type": "object",
             "properties": {
@@ -3898,6 +3934,20 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse"
+                    }
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_UserResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse"
                     }
                 },
                 "meta": {

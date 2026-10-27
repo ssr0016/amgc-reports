@@ -30,6 +30,17 @@ definitions:
         type: integer
       reports_total:
         type: integer
+      role_counts:
+        description: Every role, by id, with its accounts; a role nobody holds counts
+          0.
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.RoleCount'
+        type: array
+      status_counts:
+        description: Every account status, in user.UserStatuses order, zeros included.
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.StatusCount'
+        type: array
       users_active:
         type: integer
       users_total:
@@ -647,6 +658,22 @@ definitions:
       week:
         type: integer
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.RoleCount:
+    properties:
+      count:
+        type: integer
+      name:
+        type: string
+      role_id:
+        type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.StatusCount:
+    properties:
+      count:
+        type: integer
+      status:
+        type: string
+    type: object
   github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta:
     properties:
       limit:
@@ -672,6 +699,15 @@ definitions:
       data:
         items:
           $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse'
+        type: array
+      meta:
+        $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta'
+    type: object
+  ? github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_UserResponse
+  : properties:
+      data:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
         type: array
       meta:
         $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta'
@@ -1269,9 +1305,10 @@ paths:
     get:
       description: 'Counts for one month: report statuses, active expected workers,
         workers with no report, and unique active churches; plus all users and admins
-        regardless of month. Needs tracker:read. Without month and year the period
-        is the previous month in Asia/Manila. Month and year go together; the month
-        is an English month name, case-insensitive.'
+        regardless of month, and the accounts per role (every role) and per status
+        (every status). Needs tracker:read. Without month and year the period is the
+        previous month in Asia/Manila. Month and year go together; the month is an
+        English month name, case-insensitive.'
       parameters:
       - description: Month name, case-insensitive; requires year
         in: query
@@ -2601,9 +2638,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UserResponse'
-            type: array
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_UserResponse'
         "401":
           description: Unauthorized
           schema:

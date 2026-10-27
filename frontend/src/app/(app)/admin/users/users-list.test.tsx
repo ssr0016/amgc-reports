@@ -11,11 +11,13 @@ const session = vi.hoisted(() => ({ isAdmin: true, perms: ["users:list"] as stri
 vi.mock("@/lib/session", () => ({
   useSession: () => ({ isAdmin: session.isAdmin, can: (p: string) => session.perms.includes(p), user: { user_id: 1 } }),
 }));
+// One page of users as the API answers it.
+const page = vi.hoisted(() => (data: object[], meta = {}) => ({
+  data,
+  meta: { page: 1, limit: 20, total: data.length, total_pages: 1, ...meta },
+}));
 vi.mock("@/lib/users", () => ({
-  listUsers: vi.fn().mockResolvedValue([
-    { id: 1, name: "Ana Cruz", email: "ana@x.com", role_id: 1, status: "active" },
-    { id: 2, name: "Ben Reyes", email: "ben@x.com", role_id: 2, status: "disciplinary" },
-  ]),
+  listUsers: vi.fn(),
   listRoles: vi.fn().mockResolvedValue([
     { id: 1, name: "user" },
     { id: 2, name: "admin" },
@@ -33,6 +35,12 @@ const wrap = (ui: React.ReactNode) => {
 };
 
 beforeEach(() => {
+  vi.mocked(listUsers).mockResolvedValue(
+    page([
+      { id: 1, name: "Ana Cruz", email: "ana@x.com", role_id: 1, status: "active" },
+      { id: 2, name: "Ben Reyes", email: "ben@x.com", role_id: 2, status: "disciplinary" },
+    ]) as never,
+  );
   session.isAdmin = true;
   session.perms = ["users:list"];
 });
@@ -70,20 +78,21 @@ describe("users list", () => {
     expect(within(ben).queryByText("You")).not.toBeInTheDocument();
   });
 
-  it("the role filter narrows the loaded rows", async () => {
+  it("an empty page says no users match", async () => {
+    vi.mocked(listUsers).mockResolvedValueOnce(page([]) as never);
     wrap(<UsersPanel />);
-    await screen.findByRole("link", { name: "Edit Ana Cruz" });
-    fireEvent.change(screen.getByLabelText("Role"), { target: { value: "2" } });
-    expect(screen.queryByRole("link", { name: "Edit Ana Cruz" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Edit Ben Reyes" })).toBeInTheDocument();
+    expect(await screen.findByText("No users match")).toBeInTheDocument();
   });
 
-  it("a role with no loaded users says so", async () => {
-    vi.mocked(listUsers).mockResolvedValueOnce([{ id: 1, name: "Ana Cruz", email: "ana@x.com", role_id: 1 }] as never);
+  it("Next asks the server for the next page, and a filter starts again at page 1", async () => {
+    vi.mocked(listUsers).mockResolvedValue(page([deleted], { total: 45, total_pages: 3 }) as never);
     wrap(<UsersPanel />);
-    await screen.findByRole("link", { name: "Edit Ana Cruz" });
-    fireEvent.change(screen.getByLabelText("Role"), { target: { value: "2" } });
-    expect(await screen.findByText("No users match")).toBeInTheDocument();
+    await screen.findByText("Page 1 of 3");
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(vi.mocked(listUsers)).toHaveBeenLastCalledWith("", "", undefined, 2, 20));
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "inactive" } });
+    await waitFor(() => expect(vi.mocked(listUsers)).toHaveBeenLastCalledWith("", "inactive", undefined, 1, 20));
   });
 
   it("the embeddable panel has no main landmark or heading of its own", async () => {
@@ -105,37 +114,36 @@ describe("users list", () => {
   it("the Status filter asks the server, and All statuses asks for everyone", async () => {
     wrap(<UsersPanel />);
     await screen.findByRole("link", { name: "Edit Ana Cruz" });
-    expect(vi.mocked(listUsers)).toHaveBeenLastCalledWith("", "");
+    expect(vi.mocked(listUsers)).toHaveBeenLastCalledWith("", "", undefined, 1, 20);
     const filter = screen.getByLabelText("Status");
     expect([...(filter as HTMLSelectElement).options].map((o) => o.text)).toEqual([
       "All statuses", "Active", "Inactive", "Disciplinary", "Deceased", "Deleted",
     ]);
 
     fireEvent.change(filter, { target: { value: "inactive" } });
-    await waitFor(() => expect(vi.mocked(listUsers)).toHaveBeenLastCalledWith("", "inactive"));
+    await waitFor(() => expect(vi.mocked(listUsers)).toHaveBeenLastCalledWith("", "inactive", undefined, 1, 20));
     // Back to All statuses is served from the query cache, so no new request is needed.
     fireEvent.change(filter, { target: { value: "" } });
     expect((filter as HTMLSelectElement).value).toBe("");
     expect(await screen.findByRole("link", { name: "Edit Ana Cruz" })).toBeInTheDocument();
   });
 
-  it("the Role filter stays client-side: it does not ask the server again", async () => {
+  it("the Role filter asks the server for that role", async () => {
     wrap(<UsersPanel />);
     await screen.findByRole("link", { name: "Edit Ana Cruz" });
-    const before = vi.mocked(listUsers).mock.calls.length;
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: "2" } });
-    expect(vi.mocked(listUsers).mock.calls.length).toBe(before);
+    await waitFor(() => expect(vi.mocked(listUsers)).toHaveBeenLastCalledWith("", "", 2, 1, 20));
   });
 
   it("the Deleted option asks the server for status=deleted", async () => {
     wrap(<UsersPanel />);
     await screen.findByRole("link", { name: "Edit Ana Cruz" });
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "deleted" } });
-    await waitFor(() => expect(vi.mocked(listUsers)).toHaveBeenLastCalledWith("", "deleted"));
+    await waitFor(() => expect(vi.mocked(listUsers)).toHaveBeenLastCalledWith("", "deleted", undefined, 1, 20));
   });
 
   it("a deleted row shows the Deleted badge and Restore, not Delete", async () => {
-    vi.mocked(listUsers).mockResolvedValueOnce([deleted] as never);
+    vi.mocked(listUsers).mockResolvedValueOnce(page([deleted]) as never);
     wrap(<UsersPanel />);
     const row = (await screen.findByRole("link", { name: "Edit Cy Lim" })).closest("tr")!;
     expect(within(row).getByText("Deleted")).toBeInTheDocument();
@@ -183,7 +191,7 @@ describe("users list", () => {
   });
 
   it("Restore calls the API and toasts", async () => {
-    vi.mocked(listUsers).mockResolvedValueOnce([deleted] as never);
+    vi.mocked(listUsers).mockResolvedValueOnce(page([deleted]) as never);
     vi.mocked(restoreUser).mockResolvedValueOnce({} as never);
     const { invalidate } = wrap(<UsersPanel />);
     fireEvent.click(await screen.findByRole("button", { name: "Restore Cy Lim" }));

@@ -21,6 +21,7 @@ import { currentPeriod, FIRST_YEAR, MONTHS } from "@/lib/reports";
 import { EmptyState } from "@/components/empty-state";
 import { TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
+import { Pagination } from "@/components/pagination";
 
 // Light tint with dark text (and the reverse in the dark theme) to stay above 4.5:1 for axe.
 const TONE: Record<string, string> = {
@@ -225,21 +226,7 @@ export function AuditLogs() {
                 })}
               </TableBody>
             </Table>
-            {meta && meta.total_pages! > 1 && (
-              <div className="flex items-center justify-between gap-4">
-                <p role="status" className="text-sm text-muted-foreground">
-                  Page {meta.page} of {meta.total_pages}
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="outline" disabled={meta.page! <= 1} onClick={() => setPage(meta.page! - 1)}>
-                    Previous
-                  </Button>
-                  <Button variant="outline" disabled={meta.page! >= meta.total_pages!} onClick={() => setPage(meta.page! + 1)}>
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
+            {meta && <Pagination page={meta.page!} totalPages={meta.total_pages!} onPageChange={setPage} />}
           </>
         )
       )}

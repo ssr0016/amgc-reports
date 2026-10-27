@@ -12,6 +12,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
 )
 
 type store struct{ db *database.DB }
@@ -156,45 +157,48 @@ func (r *store) UpdateAvatar(ctx context.Context, id int64, url string) (*user.U
 	return updated, previousURL, nil
 }
 
-func (r *store) List(ctx context.Context, emailFilter, status string, roleID int64, limit int) ([]user.User, error) {
-	// Validate limit to prevent overflow and DoS
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > 100 {
-		limit = 100
-	}
-
-	q := r.db.Builder.
-		Select(userColumns).
-		From("users").
-		OrderBy("id DESC").
-		Limit(uint64(limit)) // #nosec G115 - limit is validated to be 1..100
-
+func (r *store) List(ctx context.Context, emailFilter, status string, roleID int64, pg pagination.Params) ([]user.User, int64, error) {
+	where := sq.And{}
 	if emailFilter != "" {
-		q = q.Where(sq.ILike{"email": "%" + emailFilter + "%"})
+		where = append(where, sq.ILike{"email": "%" + emailFilter + "%"})
 	}
 	if roleID != 0 {
-		q = q.Where(sq.Eq{"role_id": roleID})
+		where = append(where, sq.Eq{"role_id": roleID})
 	}
 	// "deleted" is a list filter, not a status (D-A11): every other value hides deleted users.
 	switch {
 	case status == "deleted":
-		q = q.Where(sq.NotEq{"deleted_at": nil})
+		where = append(where, sq.NotEq{"deleted_at": nil})
 	case status != "":
-		q = q.Where(sq.Eq{"status": status, "deleted_at": nil})
+		where = append(where, sq.Eq{"status": status, "deleted_at": nil})
 	default:
-		q = q.Where(sq.Eq{"deleted_at": nil})
+		where = append(where, sq.Eq{"deleted_at": nil})
 	}
 
-	query, args, err := q.ToSql()
+	countSQL, countArgs, err := r.db.Builder.Select("COUNT(*)").From("users").Where(where).ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("build query: %w", err)
+		return nil, 0, fmt.Errorf("build count query: %w", err)
+	}
+	var total int64
+	if err := r.db.Querier(ctx).QueryRow(ctx, countSQL, countArgs...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count users: %w", err)
+	}
+
+	query, args, err := r.db.Builder.
+		Select(userColumns).
+		From("users").
+		Where(where).
+		OrderBy("id DESC").
+		Limit(uint64(pg.Limit)).     // #nosec G115 - pagination.FromQuery keeps limit in 1..100
+		Offset(uint64(pg.Offset())). // #nosec G115 - page >= 1, so the offset is never negative
+		ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build query: %w", err)
 	}
 
 	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query: %w", err)
+		return nil, 0, fmt.Errorf("query: %w", err)
 	}
 	defer rows.Close()
 
@@ -202,14 +206,14 @@ func (r *store) List(ctx context.Context, emailFilter, status string, roleID int
 	for rows.Next() {
 		var u user.User
 		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL); err != nil {
-			return nil, fmt.Errorf("scan row: %w", err)
+			return nil, 0, fmt.Errorf("scan row: %w", err)
 		}
 		users = append(users, u)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows error: %w", err)
+		return nil, 0, fmt.Errorf("rows error: %w", err)
 	}
-	return users, nil
+	return users, total, nil
 }
 
 // UpdateRole changes a user's role.
@@ -331,69 +335,6 @@ func (r *store) withRole(ctx context.Context, id int64, perms *[]string) (*user.
 	}
 
 	return &u, nil
-}
-
-// ListWithPagination returns users with pagination and total count.
-func (r *store) ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]user.User, int64, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > 100 {
-		limit = 100
-	}
-	if page < 1 {
-		page = 1
-	}
-
-	base := r.db.Builder.
-		Select(userColumns).
-		From("users")
-
-	countQuery := r.db.Builder.
-		Select("COUNT(*)").
-		From("users")
-
-	if emailFilter != "" {
-		filter := sq.ILike{"email": "%" + emailFilter + "%"}
-		base = base.Where(filter)
-		countQuery = countQuery.Where(filter)
-	}
-
-	countSQL, countArgs, err := countQuery.ToSql()
-	if err != nil {
-		return nil, 0, fmt.Errorf("build count query: %w", err)
-	}
-
-	var total int64
-	if err := r.db.Querier(ctx).QueryRow(ctx, countSQL, countArgs...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count users: %w", err)
-	}
-
-	offset := (page - 1) * limit
-	query, args, err := base.
-		OrderBy("id DESC").
-		Limit(uint64(limit)).   // #nosec G115 - limit validated
-		Offset(uint64(offset)). // #nosec G115 - offset validated
-		ToSql()
-	if err != nil {
-		return nil, 0, fmt.Errorf("build query: %w", err)
-	}
-
-	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
-	if err != nil {
-		return nil, 0, fmt.Errorf("query: %w", err)
-	}
-	defer rows.Close()
-
-	var users []user.User
-	for rows.Next() {
-		var u user.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL); err != nil {
-			return nil, 0, fmt.Errorf("scan user: %w", err)
-		}
-		users = append(users, u)
-	}
-	return users, total, rows.Err()
 }
 
 // MarkEmailVerified marks a user's email as verified.

@@ -3,14 +3,15 @@ import type { Page, ResetPasswordInput, Role, RoleDetail, User, UserInput, UserU
 
 export type { Role, User, UserInput, UserUpdate };
 
-// A bare array capped at 100: the endpoint has no page or total.
+// One page of users and the total that match; 100 is the server's cap on limit.
 // status is one of the four, "deleted", or empty / "all" for everyone not deleted; the server filters, and by roleId when given.
-export function listUsers(email = "", status = "", roleId?: number): Promise<User[]> {
-  const qs = new URLSearchParams({ limit: "100" });
+export function listUsers(email = "", status = "", roleId?: number, page = 1, limit = 100): Promise<Page<User>> {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (page > 1) qs.set("page", String(page));
   if (email) qs.set("email", email);
   if (roleId) qs.set("role_id", String(roleId));
   if (status && status !== "all") qs.set("status", status);
-  return api<User[]>(`/users?${qs}`);
+  return api<Page<User>>(`/users?${qs}`);
 }
 
 export const getUser = (id: number) => api<User>(`/admin/users/${id}`);

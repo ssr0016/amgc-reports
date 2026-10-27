@@ -9,6 +9,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 )
 
 type store struct{ db *database.DB }
@@ -32,12 +33,15 @@ func (r *store) Counts(ctx context.Context, month string, year int) (stats.Admin
 		Column(sq.Expr("(SELECT COUNT(*) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE ro.name = 'user' AND u.deleted_at IS NULL AND u.status = 'active' AND btrim(COALESCE(u.church_name, '')) <> '')")).
 		Column(sq.Expr("(SELECT COUNT(*) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE ro.name = 'user' AND u.deleted_at IS NULL AND u.status = 'active' AND btrim(COALESCE(u.church_name, '')) <> '' AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.created_by = u.id AND r.deleted_at IS NULL AND r.status <> 'draft' AND r.year = ? AND r.month = ?))", year, stored)).
 		Column(sq.Expr("(SELECT COUNT(DISTINCT lower(btrim(u.church_name))) FROM users u JOIN roles ro ON ro.id = u.role_id WHERE ro.name = 'user' AND u.deleted_at IS NULL AND u.status = 'active' AND btrim(COALESCE(u.church_name, '')) <> '')")).
+		// Roles and statuses come back as JSON arrays so the counts stay one read; zeros are kept.
+		Column("(SELECT COALESCE(json_agg(json_build_object('role_id', ro.id, 'name', ro.name, 'count', (SELECT COUNT(*) FROM users u WHERE u.role_id = ro.id AND u.deleted_at IS NULL)) ORDER BY ro.id), '[]') FROM roles ro)").
+		Column(sq.Expr("(SELECT json_agg(json_build_object('status', t.s, 'count', (SELECT COUNT(*) FROM users u WHERE u.status = t.s AND u.deleted_at IS NULL)) ORDER BY t.n) FROM unnest(?::text[]) WITH ORDINALITY AS t(s, n))", user.UserStatuses)).
 		ToSql()
 	if err != nil {
 		return stats.AdminStats{}, fmt.Errorf("build stats query: %w", err)
 	}
 	s := stats.AdminStats{Month: month, Year: year}
-	if err := r.db.Querier(ctx).QueryRow(ctx, query, args...).Scan(&s.ReportsTotal, &s.ReportsApproved, &s.ReportsNeedsRevision, &s.UsersTotal, &s.UsersActive, &s.AdminsTotal, &s.ExpectedReports, &s.NoReport, &s.ChurchesTotal); err != nil {
+	if err := r.db.Querier(ctx).QueryRow(ctx, query, args...).Scan(&s.ReportsTotal, &s.ReportsApproved, &s.ReportsNeedsRevision, &s.UsersTotal, &s.UsersActive, &s.AdminsTotal, &s.ExpectedReports, &s.NoReport, &s.ChurchesTotal, &s.RoleCounts, &s.StatusCounts); err != nil {
 		return stats.AdminStats{}, fmt.Errorf("count stats: %w", err)
 	}
 	s.ReportsPending = s.ReportsTotal - s.ReportsApproved - s.ReportsNeedsRevision

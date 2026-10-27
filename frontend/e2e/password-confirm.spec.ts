@@ -8,7 +8,7 @@ const strong = "E2eConfirm!78901";
 const created = { email: "e2e-confirm@example.com", name: "E2E Confirm" };
 
 async function usersWith(request: import("@playwright/test").APIRequestContext, email: string) {
-  return (await (await request.get(`${API}/users?limit=100&email=${email}`)).json()) as { email: string }[];
+  return ((await (await request.get(`${API}/users?limit=100&email=${email}`)).json()) as { data: { email: string }[] }).data;
 }
 
 test("a mismatch on the change-password page is shown on Confirm password and sends nothing", async ({ page }) => {

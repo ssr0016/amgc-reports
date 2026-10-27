@@ -18,7 +18,13 @@ type StatsModel<N extends keyof StatsModels> = StatsModels[N];
 type Always<T, K extends keyof T> = Required<Pick<T, K>> & Omit<T, K>;
 
 export type Me = Required<Model<"MeResponse">>;
-export type AdminStats = Required<Model<"AdminStats">>;
+export type RoleCount = Required<StatsModel<"RoleCount">>;
+export type StatusCount = Required<StatsModel<"StatusCount">>;
+// The generated items are all-optional; the server always fills them.
+export type AdminStats = Omit<Required<Model<"AdminStats">>, "role_counts" | "status_counts"> & {
+  role_counts: RoleCount[];
+  status_counts: StatusCount[];
+};
 
 export type MetricWeeks = Model<"MetricWeeks">;
 export type ReportInput = Model<"CreateReportRequest"> & { user_notes?: string };

@@ -22,11 +22,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ErrorRetry } from "@/components/error-retry";
 import { TableSkeleton } from "@/components/loading-skeletons";
 import { EmptyState } from "@/components/empty-state";
+import { pageOf, Pagination } from "@/components/pagination";
 import { ApiError } from "@/lib/api";
 import { errorText } from "@/lib/auth-form";
 import { deleteRole, isBuiltIn, type RoleDetail } from "@/lib/roles";
 import { useSession } from "@/lib/session";
 import { listRoles, listUsers } from "@/lib/users";
+
+// Paged in the browser: listRoles loads every role for the dropdowns too.
+const PAGE_SIZE = 10;
 
 // The Roles tab of /admin (D-A21): custom roles, then the read-only system roles, each under its own h2.
 export function RolesPanel() {
@@ -34,6 +38,7 @@ export function RolesPanel() {
   const writable = can("roles:write");
   const [deleting, setDeleting] = useState<RoleDetail | null>(null);
   const [viewing, setViewing] = useState<RoleDetail | null>(null);
+  const [page, setPage] = useState(1);
   const opener = useRef<HTMLElement | null>(null);
   // The same key as the role dropdowns on the user pages, so a change here reaches them.
   const { data, error, isPending, refetch } = useQuery({
@@ -129,7 +134,8 @@ export function RolesPanel() {
         </TableBody>
       </Table>
     );
-    const custom = data.filter((r) => !isBuiltIn(r.name));
+    // Only custom roles are paged; the system roles are a fixed three.
+    const custom = pageOf(data.filter((r) => !isBuiltIn(r.name)), page, PAGE_SIZE);
     const system = data.filter((r) => isBuiltIn(r.name));
     // Custom roles first: they are the ones an admin configures (D-A23).
     body = (
@@ -138,8 +144,11 @@ export function RolesPanel() {
           <h2 id="custom-roles" className="text-lg font-medium">
             Custom roles
           </h2>
-          {custom.length > 0 ? (
-            roleTable(custom, "custom-roles")
+          {custom.rows.length > 0 ? (
+            <>
+              {roleTable(custom.rows, "custom-roles")}
+              <Pagination page={custom.page} totalPages={custom.totalPages} onPageChange={setPage} />
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">No custom roles yet.</p>
           )}
@@ -282,7 +291,8 @@ function RoleUsersDialog({
   // Under ["users"] so the invalidations after a user or role change refresh it.
   const { data, error, isPending, refetch } = useQuery({
     queryKey: ["users", "role", role?.id],
-    queryFn: async () => (await Promise.all([listUsers("", "", role!.id), listUsers("", "deleted", role!.id)])).flat(),
+    queryFn: async () =>
+      (await Promise.all([listUsers("", "", role!.id), listUsers("", "deleted", role!.id)])).flatMap((p) => p.data),
     enabled: role !== null,
   });
 
