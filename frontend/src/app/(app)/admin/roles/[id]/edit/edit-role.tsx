@@ -10,6 +10,7 @@ import { RoleForm } from "@/components/role-form";
 import { ApiError } from "@/lib/api";
 import { getRole, isBuiltIn, listPermissions, updateRole } from "@/lib/roles";
 import { useSession } from "@/lib/session";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 export function EditRole({ id }: { id: number }) {
   const router = useRouter();
@@ -56,12 +57,9 @@ export function EditRole({ id }: { id: number }) {
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Edit role</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Saving replaces the name, description and every permission.</p>
-      </header>
+    <PageShell className={`${dashboardTheme} account-surface`}>
+      <PageHeader title="Edit role" description="Saving replaces the name, description and every permission." />
       {body}
-    </main>
+    </PageShell>
   );
 }

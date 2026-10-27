@@ -3,7 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { CircleCheck, Clock, FilePen, FileText, FileWarning, Send } from "lucide-react";
-import { cn } from "cn";
+import { Badge } from "@/components/ui/badge";
 import { UserStatusBadge } from "@/components/user-status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,14 +18,13 @@ import { KpiSkeleton, TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
 import { pageOf, Pagination } from "@/components/pagination";
 
-// Light tint with dark text (and the reverse in the dark theme) to stay above 4.5:1 for axe.
-// The label is always printed, so colour is never the only cue.
-const TONE: Record<string, string> = {
-  approved: "bg-primary/10 text-primary",
-  pending: "bg-yellow-100 text-yellow-900 dark:bg-yellow-950 dark:text-yellow-200",
-  needs_revision: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
-  no_report: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
-};
+const TONE = {
+  approved: "success",
+  pending: "warning",
+  needs_revision: "danger",
+  no_report: "danger",
+} as const;
+const tone = (status: string) => TONE[status as keyof typeof TONE] ?? "neutral";
 
 // The Tracker tab: who has filed a report for one Manila month (D-A3). It starts on the previous
 // month, as Reports does, because workers file last month's report.
@@ -203,24 +202,10 @@ export function Tracker() {
                       </TableCell>
                       <TableCell className="whitespace-normal">{r.church_name || "—"}</TableCell>
                       <TableCell>
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-                            TONE[r.submission_status] ?? "bg-muted text-foreground",
-                          )}
-                        >
-                          {trackerLabel(r.submission_status)}
-                        </span>
+                        <Badge variant={tone(r.submission_status)}>{trackerLabel(r.submission_status)}</Badge>
                       </TableCell>
                       <TableCell>
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-                            r.review_status ? TONE[r.review_status] ?? "bg-muted text-foreground" : "text-muted-foreground",
-                          )}
-                        >
-                          {r.review_status ? trackerLabel(r.review_status) : "—"}
-                        </span>
+                        {r.review_status ? <Badge variant={tone(r.review_status)}>{trackerLabel(r.review_status)}</Badge> : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -10,6 +10,7 @@ import { createReport, defaultPeriod, getCurrentReport } from "@/lib/reports";
 import { newReportStorageKey } from "@/lib/report-draft-storage";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 export function NewReport() {
   const router = useRouter();
@@ -38,8 +39,8 @@ export function NewReport() {
   }, [report, router]);
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none">
-      <h1 className="text-2xl font-medium tracking-tight">New report</h1>
+    <PageShell>
+      <PageHeader title="New report" />
       {!allowed ? (
         <p className="text-sm text-muted-foreground">You are not allowed to create reports.</p>
       ) : existing.isPending ? (
@@ -63,6 +64,6 @@ export function NewReport() {
           onCancel={() => router.push("/reports")}
         />
       )}
-    </main>
+    </PageShell>
   );
 }

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
 import { Check, Download, Eye, Loader2, Pencil, Search, Trash2, Undo2 } from "lucide-react";
-import { iconButton, reportsTheme, ReportsHeader, ReportsTableCard, tone } from "@/components/reports-dashboard";
+import { iconButton, reportsTheme, REPORTS_DESCRIPTION, ReportsTableCard, tone } from "@/components/reports-dashboard";
 import { useReportActions } from "@/components/use-report-actions";
 import { ExcelPreviewDialog } from "../admin/excel-preview-dialog";
 import { ReportPreviewDialog } from "../admin/report-preview-dialog";
@@ -46,6 +46,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ReportStatusBadge } from "@/components/report-status-badge";
 import { TableSkeleton } from "@/components/loading-skeletons";
 import { Pagination } from "@/components/pagination";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 const textFields = [
   ["worker", "e.g. Juan Dela Cruz"],
@@ -182,9 +183,9 @@ function ReportsList() {
   const hasText = textFields.some(([name]) => text[name] !== "");
   return (
     <>
-      <ReportsHeader title="Reports" heading="h1">
+      <PageHeader title="Reports" description={REPORTS_DESCRIPTION}>
         {user?.role === "user" && <Can permission="reports:write">{!currentReport.isPending && !currentReport.isError && <Button asChild className="min-h-11"><Link href={reportAction(currentReport.data).href}>{reportAction(currentReport.data).label}</Link></Button>}</Can>}
-      </ReportsHeader>
+      </PageHeader>
       <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={false} onRevisedChange={(on) => {
         setRevised(on);
         const next = new URLSearchParams(params);
@@ -342,10 +343,10 @@ function ReportsList() {
 
 export function Reports() {
   return (
-    <main id="main-content" tabIndex={-1} className={`${reportsTheme} mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
+    <PageShell className={`${reportsTheme} max-w-7xl`}>
       <Suspense fallback={<TableSkeleton columns={6} rows={3} />}>
         <ReportsList />
       </Suspense>
-    </main>
+    </PageShell>
   );
 }

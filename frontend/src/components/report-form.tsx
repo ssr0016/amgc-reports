@@ -339,7 +339,7 @@ export function ReportForm({
               <Table aria-label={`${section.title} metrics`} className="min-w-[40rem] table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 w-56 bg-background">Metric</TableHead>
+                    <TableHead className="sticky left-0 w-56 bg-muted">Metric</TableHead>
                     {WEEKS.map((w) => (
                       <TableHead key={w}>Week {w.slice(4)}</TableHead>
                     ))}

@@ -9,6 +9,7 @@ import { dashboardTheme } from "@/components/dashboard-theme";
 import { RoleForm } from "@/components/role-form";
 import { createRole, listPermissions } from "@/lib/roles";
 import { useSession } from "@/lib/session";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 export function NewRole() {
   const router = useRouter();
@@ -41,12 +42,9 @@ export function NewRole() {
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">New role</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Pick a name and the permissions this role grants.</p>
-      </header>
+    <PageShell className={`${dashboardTheme} account-surface`}>
+      <PageHeader title="New role" description="Pick a name and the permissions this role grants." />
       {body}
-    </main>
+    </PageShell>
   );
 }

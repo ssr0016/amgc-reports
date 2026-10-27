@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { changePassword } from "@/lib/auth";
 import { toFormError, useCountdown, type FormError } from "@/lib/auth-form";
 import { useFocusFirstError } from "@/lib/form-focus";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 const LABELS = { current_password: "Current password", new_password: "New password", confirm_password: "Confirm password" } as const;
 
@@ -63,11 +64,8 @@ export function ChangePassword() {
   };
 
   return (
-    <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Change Password</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Use a strong password you don&apos;t use anywhere else.</p>
-      </header>
+    <PageShell className={`${dashboardTheme} account-surface max-w-xl`}>
+      <PageHeader title="Change password" description="Use a strong password you don’t use anywhere else." />
       <form ref={formRef} onSubmit={onSubmit} noValidate>
         <Card className={panelCard}>
           <PanelSection title="Password" icon={Lock} description="Enter your current password, then choose a new one.">
@@ -113,6 +111,6 @@ export function ChangePassword() {
           </div>
         </Card>
       </form>
-    </main>
+    </PageShell>
   );
 }

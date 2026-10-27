@@ -8,6 +8,7 @@ import { useSession } from "@/lib/session";
 import { createUser, listRoles } from "@/lib/users";
 import { refreshAdminViews } from "@/lib/query";
 import { TableSkeleton } from "@/components/loading-skeletons";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 export function NewUser() {
   const router = useRouter();
@@ -48,9 +49,9 @@ export function NewUser() {
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
-      <h1 className="text-2xl font-medium tracking-tight">New user</h1>
+    <PageShell>
+      <PageHeader title="New user" />
       {body}
-    </main>
+    </PageShell>
   );
 }

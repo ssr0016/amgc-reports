@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Bell, Check, Download, Eye, Loader2, Pencil, Trash2, Undo2 } from "lucide-react";
-import { iconButton, ReportsHeader, ReportsStats, ReportsTableCard, tone } from "@/components/reports-dashboard";
+import { iconButton, REPORTS_DESCRIPTION, ReportsStats, ReportsTableCard, tone } from "@/components/reports-dashboard";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ import { clearReportDraftStorage } from "@/lib/report-draft-storage";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
 import { TableSkeleton } from "@/components/loading-skeletons";
+import { PageHeader } from "@/components/page-shell";
 
 // Which report a row control is for, so a screen reader user can tell the rows apart.
 const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
@@ -107,7 +108,7 @@ export function AdminReports() {
   const meta = data?.meta;
   return (
     <div className="flex flex-col gap-6">
-      <ReportsHeader title="All Reports">
+      <PageHeader title="All reports" heading="h2" description={REPORTS_DESCRIPTION}>
         <Can permission="reports:export">
           <Button
             type="button"
@@ -126,7 +127,7 @@ export function AdminReports() {
         <Button variant="outline" className="size-11" disabled aria-label="Notifications — email alerts coming soon" title="Email alerts coming soon">
           <Bell aria-hidden="true" />
         </Button>
-      </ReportsHeader>
+      </PageHeader>
       <ReportsStats data={error ? undefined : data} />
       <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} onRevisedChange={(on) => { setRevised(on); setPage(1); }} bulkActions={can("reports:approve") ? {
         busy: bulkToggle.isPending,

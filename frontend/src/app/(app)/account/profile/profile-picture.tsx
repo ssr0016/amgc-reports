@@ -16,6 +16,7 @@ import { useCountdown } from "@/lib/auth-form";
 import { queryClient } from "@/lib/query";
 import { useSession } from "@/lib/session";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 export function ProfilePicture() {
   const { user, updateAvatar } = useSession();
@@ -24,14 +25,9 @@ export function ProfilePicture() {
   const [wait, setWait] = useCountdown();
   const [fileName, setFileName] = useState("");
 
-  const header = (
-    <header>
-      <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Your account details and profile picture.</p>
-    </header>
-  );
+  const header = <PageHeader title="Profile" description="Your account details and profile picture." />;
 
-  if (!user) return <main id="main-content" className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6`}>{header}<ProfileSkeleton /></main>;
+  if (!user) return <PageShell className={`${dashboardTheme} account-surface max-w-3xl`}>{header}<ProfileSkeleton /></PageShell>;
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,7 +70,7 @@ export function ProfilePicture() {
   ] as const;
 
   return (
-    <main id="main-content" tabIndex={-1} className={`${dashboardTheme} account-surface mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none`}>
+    <PageShell className={`${dashboardTheme} account-surface max-w-3xl`}>
       {header}
       <Card className={panelCard}>
         <PanelSection title="Account details" icon={IdCard} description="These details are managed by your admin.">
@@ -108,6 +104,6 @@ export function ProfilePicture() {
           </div>
         </Card>
       </form>
-    </main>
+    </PageShell>
   );
 }

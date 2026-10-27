@@ -14,6 +14,7 @@ import { reportStorageKey } from "@/lib/report-draft-storage";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
 import { TableSkeleton } from "@/components/loading-skeletons";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: number }) {
   const router = useRouter();
@@ -108,9 +109,9 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6 focus:outline-none">
-      <h1 className="text-2xl font-medium tracking-tight">{editable ? "Edit report" : "View report"}</h1>
+    <PageShell>
+      <PageHeader title={editable ? "Edit report" : "View report"} />
       {body}
-    </main>
+    </PageShell>
   );
 }

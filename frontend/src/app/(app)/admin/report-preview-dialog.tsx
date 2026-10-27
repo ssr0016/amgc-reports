@@ -166,9 +166,9 @@ function ReportMetricTable({
       <Table aria-label={`${title} metrics`} className="table-fixed border-collapse text-[11px]">
         <TableHeader>
           <TableRow className="bg-slate-200 hover:bg-slate-200">
-            <TableHead className="w-[30%] border-r border-black px-2 py-1 font-bold text-black">Activities</TableHead>
-            {WEEKS.map((w) => <TableHead key={w} className="border-r border-black px-2 py-1 text-center font-bold text-black">Week {w.slice(4)}</TableHead>)}
-            <TableHead className="px-2 py-1 text-center font-bold text-black">Average</TableHead>
+            <TableHead className="w-[30%] border-r border-black px-2 py-1 font-bold text-black h-10 normal-case tracking-normal text-[11px]">Activities</TableHead>
+            {WEEKS.map((w) => <TableHead key={w} className="border-r border-black px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Week {w.slice(4)}</TableHead>)}
+            <TableHead className="px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Average</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

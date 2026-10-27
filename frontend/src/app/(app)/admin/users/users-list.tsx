@@ -107,7 +107,7 @@ export function UsersPanel() {
     body = (
       <>
         <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted shadow-[0_1px_0_var(--border)] [&_th]:h-11 [&_th]:text-xs [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:uppercase">
+          <TableHeader>
             <TableRow>
               <TableHead>
                 <span className="sr-only">Avatar</span>

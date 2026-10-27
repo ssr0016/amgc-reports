@@ -18,6 +18,17 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // Status tones: soft tint, dark text and a faint ring (light text in the dark theme) to stay above 4.5:1 for axe.
+        // Always pair a tone with a printed label, so colour is never the only cue.
+        success:
+          "bg-green-50 text-green-800 ring-1 ring-green-600/20 ring-inset dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/30",
+        warning:
+          "bg-amber-50 text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30",
+        danger:
+          "bg-red-50 text-red-800 ring-1 ring-red-600/20 ring-inset dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/30",
+        info: "bg-blue-50 text-blue-800 ring-1 ring-blue-600/20 ring-inset dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/30",
+        neutral:
+          "bg-slate-50 text-slate-700 ring-1 ring-slate-500/20 ring-inset dark:bg-slate-500/10 dark:text-slate-300 dark:ring-slate-400/30",
       },
     },
     defaultVariants: {

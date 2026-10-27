@@ -12,6 +12,7 @@ import { RoleSection } from "./role-section";
 import { StatusSection } from "./status-section";
 import { refreshAdminViews } from "@/lib/query";
 import { TableSkeleton } from "@/components/loading-skeletons";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 export function EditUser({ id }: { id: number }) {
   const router = useRouter();
@@ -82,9 +83,9 @@ export function EditUser({ id }: { id: number }) {
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 focus:outline-none">
-      <h1 className="text-2xl font-medium tracking-tight">Edit user</h1>
+    <PageShell>
+      <PageHeader title="Edit user" />
       {body}
-    </main>
+    </PageShell>
   );
 }

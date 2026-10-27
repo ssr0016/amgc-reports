@@ -32,19 +32,7 @@ export { dashboardTheme as reportsTheme } from "./dashboard-theme";
 const isRevised = (r: Report) => !!r.last_revised_at;
 const revisedOn = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" });
 
-export function ReportsHeader({ title, heading: Heading = "h2", children }: { title: string; heading?: "h1" | "h2"; children?: ReactNode }) {
-  return (
-    <header className="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <Heading className="text-2xl font-semibold tracking-tight">{title}</Heading>
-        <p className="mt-2 text-sm text-muted-foreground">Monthly ministry reports from workers across AMGC churches.</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {children}
-      </div>
-    </header>
-  );
-}
+export const REPORTS_DESCRIPTION = "Monthly ministry reports from workers across AMGC churches.";
 
 export function ReportsStats({ data }: { data?: Page<Report> }) {
   const { can } = useSession();
@@ -143,7 +131,7 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
       {/* The container must scroll vertically for the header to stick, as on the Logs page. */}
       <div className="min-w-0 p-5 sm:p-6 [&_[data-slot=table-container]]:max-h-[70vh]">
       <Table>
-        <TableHeader className="sticky top-0 z-10 bg-muted shadow-[0_1px_0_var(--border)] [&_th]:h-11 [&_th]:text-xs [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:uppercase">
+        <TableHeader>
           <TableRow>
             {selectable && <TableHead className="w-12"><label className="flex size-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--primary)]" aria-label="Select all visible reports" checked={allSelected} ref={(node) => { if (node) node.indeterminate = selectedVisible.length > 0 && !allSelected; }} onChange={toggleVisible} /></label></TableHead>}
             <TableHead>Worker</TableHead><TableHead>Month</TableHead><TableHead className="text-right">Year</TableHead>

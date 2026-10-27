@@ -188,9 +188,9 @@ function ExcelMetricTable({ title, rows, name }: { title: string; rows: string[]
       <Table aria-label={`Sheet ${name} ${title}`} className="table-fixed border-collapse text-[11px]">
         <TableHeader>
           <TableRow className="bg-slate-200 hover:bg-slate-200">
-            <TableHead className="w-[30%] border-r border-black px-2 py-1 font-bold text-black">Activities</TableHead>
-            {Array.from({ length: 5 }, (_, i) => <TableHead key={i} className="border-r border-black px-2 py-1 text-center font-bold text-black">Week {i + 1}</TableHead>)}
-            <TableHead className="px-2 py-1 text-center font-bold text-black">Average</TableHead>
+            <TableHead className="w-[30%] border-r border-black px-2 py-1 font-bold text-black h-10 normal-case tracking-normal text-[11px]">Activities</TableHead>
+            {Array.from({ length: 5 }, (_, i) => <TableHead key={i} className="border-r border-black px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Week {i + 1}</TableHead>)}
+            <TableHead className="px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Average</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -220,13 +220,13 @@ function ExcelDashboardSheet({ sheet }: { sheet: { name: string; rows: string[][
         <caption className="sr-only">Sheet {sheet.name}</caption>
         <TableHeader>
           <TableRow className="bg-slate-100 hover:bg-slate-100">
-            <TableHead colSpan={headers.length || 1} className="border-b border-slate-300 px-3 py-2 text-center text-base font-bold text-slate-900">
+            <TableHead colSpan={headers.length || 1} className="border-b border-slate-300 px-3 py-2 text-center h-10 text-base font-bold normal-case tracking-normal text-slate-900">
               {title}
             </TableHead>
           </TableRow>
           <TableRow className="bg-slate-200 hover:bg-slate-200">
             {headers.map((text, c) => (
-              <TableHead key={c} scope="col" className={`${c < headers.length - 1 ? "border-r border-slate-300" : ""} px-3 py-2 font-bold text-slate-900 ${c === 0 ? "text-left" : "text-center"}`}>
+              <TableHead key={c} scope="col" className={`${c < headers.length - 1 ? "border-r border-slate-300" : ""} px-3 py-2 font-bold text-slate-900 h-10 normal-case tracking-normal text-[11px] ${c === 0 ? "text-left" : "text-center"}`}>
                 {text}
               </TableHead>
             ))}

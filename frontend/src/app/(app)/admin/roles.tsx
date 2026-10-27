@@ -102,14 +102,10 @@ export function RolesPanel() {
                 <TableCell>
                   <span className="font-medium">{r.name}</span>
                   {builtIn && (
-                    // Tinted like UserStatusBadge: light pair, reversed in the dark theme, both above 4.5:1.
-                    <span
-                      title="System roles cannot be edited or deleted"
-                      className="ml-2 inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium whitespace-nowrap text-sky-900 ring-1 ring-current/15 ring-inset dark:bg-sky-950 dark:text-sky-200"
-                    >
-                      <Lock aria-hidden="true" className="size-3" />
+                    <Badge variant="info" title="System roles cannot be edited or deleted" className="ml-2">
+                      <Lock aria-hidden="true" />
                       System
-                    </span>
+                    </Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{r.description || "—"}</TableCell>

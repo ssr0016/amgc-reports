@@ -3,7 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Filter } from "lucide-react";
 import { Fragment, useState } from "react";
-import { cn } from "cn";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -25,16 +25,14 @@ import { TableSkeleton } from "@/components/loading-skeletons";
 import { ErrorRetry } from "@/components/error-retry";
 import { Pagination } from "@/components/pagination";
 
-// Soft tint, dark text and a faint ring (light text in the dark theme) to stay above 4.5:1 for axe.
-const TONE: Record<string, string> = {
-  create: "bg-teal-50 text-teal-800 ring-teal-600/20 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-400/30",
-  change: "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30",
-  delete: "bg-red-50 text-red-800 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/30",
-  approve: "bg-green-50 text-green-800 ring-green-600/20 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/30",
-  download: "bg-violet-50 text-violet-800 ring-violet-600/20 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-400/30",
-  security: "bg-blue-50 text-blue-800 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/30",
-  warning: "bg-orange-50 text-orange-800 ring-orange-600/20 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/30",
-};
+const TONE = {
+  create: "success",
+  approve: "success",
+  change: "warning",
+  warning: "warning",
+  delete: "danger",
+  security: "info",
+} as const;
 
 const target = (l: AuditLog) => l.target_name || (l.target_id ? `#${l.target_id}` : "—");
 
@@ -132,7 +130,7 @@ export function AuditLogs() {
                 {meta?.total} total logs
               </p>
               <Table>
-                <TableHeader className="sticky top-0 z-10 bg-muted shadow-[0_1px_0_var(--border)] [&_th]:h-11 [&_th]:text-xs [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:uppercase">
+                <TableHeader>
                   <TableRow>
                     <TableHead>Timestamp</TableHead>
                     <TableHead>Actor</TableHead>
@@ -163,14 +161,7 @@ export function AuditLogs() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <span
-                              className={cn(
-                                "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ring-1 ring-inset",
-                                TONE[actionGroup(l.action) ?? ""] ?? "bg-muted text-foreground ring-border",
-                              )}
-                            >
-                              {actionLabel(l.action)}
-                            </span>
+                            <Badge variant={TONE[actionGroup(l.action) as keyof typeof TONE] ?? "neutral"}>{actionLabel(l.action)}</Badge>
                           </TableCell>
                           <TableCell>
                             {l.target_name || l.target_id ? (
