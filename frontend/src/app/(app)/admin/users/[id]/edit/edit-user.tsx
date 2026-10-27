@@ -43,7 +43,7 @@ export function EditUser({ id }: { id: number }) {
     body = <TableSkeleton columns={2} rows={5} />;
   } else {
     body = (
-      <>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <UserForm
           mode="edit"
           initial={{
@@ -68,10 +68,16 @@ export function EditUser({ id }: { id: number }) {
           }}
           onCancel={() => router.push("/admin?tab=users")}
         />
-        <StatusSection user={data} />
-        <RoleSection user={data} />
-        <ResetPasswordSection user={data} />
-      </>
+        {/* Each action is its own card with its own request, apart from the profile Save. */}
+        <section aria-labelledby="account-actions" className="flex flex-col gap-4">
+          <h2 id="account-actions" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Account actions
+          </h2>
+          <StatusSection user={data} />
+          <RoleSection user={data} />
+          <ResetPasswordSection user={data} />
+        </section>
+      </div>
     );
   }
 

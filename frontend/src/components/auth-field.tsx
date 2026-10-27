@@ -1,6 +1,7 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, type LucideIcon } from "lucide-react";
+import { cn } from "cn";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +13,9 @@ export function AuthField({
   hint,
   type,
   defaultShown = false,
+  icon: Icon,
   ...props
-}: React.ComponentProps<"input"> & { name: string; label: string; error?: string; hint?: string; defaultShown?: boolean }) {
+}: React.ComponentProps<"input"> & { name: string; label: string; error?: string; hint?: string; defaultShown?: boolean; icon?: LucideIcon }) {
   const [shown, setShown] = useState(defaultShown);
   const isPassword = type === "password";
   const note = error ?? hint;
@@ -24,16 +26,19 @@ export function AuthField({
       type={isPassword && shown ? "text" : type}
       aria-invalid={!!error}
       aria-describedby={note ? `${name}-note` : undefined}
-      className={isPassword ? "pr-12" : undefined}
+      className={cn(Icon && "pl-10", isPassword && "pr-12")}
       {...props}
     />
   );
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={name}>{label}</Label>
-      {isPassword ? (
-        <div className="relative">
-          {input}
+      <div className="relative">
+        {Icon && (
+          <Icon aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        )}
+        {input}
+        {isPassword && (
           <button
             type="button"
             onClick={() => setShown(!shown)}
@@ -43,10 +48,8 @@ export function AuthField({
           >
             {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
-        </div>
-      ) : (
-        input
-      )}
+        )}
+      </div>
       {note && (
         <p id={`${name}-note`} className={`text-sm ${error ? "text-destructive" : "text-muted-foreground"}`}>
           {note}

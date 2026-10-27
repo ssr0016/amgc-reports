@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthField } from "@/components/auth-field";
 import {
@@ -13,7 +12,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { KeyRound, Loader2 } from "lucide-react";
+import { PanelSection, panelCard } from "@/components/panel-section";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toFormError, useCountdown, type FormError } from "@/lib/auth-form";
@@ -108,115 +110,116 @@ export function ResetPasswordSection({ user }: { user: Pick<User, "id" | "name">
   };
 
   return (
-    <fieldset className="flex max-w-xl flex-col gap-3 border-t pt-4">
-      <legend className="text-lg font-medium">Reset password</legend>
-      <p className="text-sm text-muted-foreground">Sets a new password for {user.name} and signs them out everywhere.</p>
-      {self && (
-        <p id="reset-password-note" className="text-sm text-muted-foreground">
-          You cannot reset your own password. Use the Change Password page instead.
-        </p>
-      )}
-      <div>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={self}
-          aria-describedby={self ? "reset-password-note" : undefined}
-          onClick={() => setOpen(true)}
-        >
-          Reset password
-        </Button>
-      </div>
+    <Card className={panelCard}>
+      <PanelSection title="Reset password" icon={KeyRound} tile="bg-red-500/10 text-red-400" description={`Sets a new password for ${user.name} and signs them out everywhere.`}>
+        {self && (
+          <p id="reset-password-note" className="text-sm text-muted-foreground">
+            You cannot reset your own password. Use the Change Password page instead.
+          </p>
+        )}
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 w-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            disabled={self}
+            aria-describedby={self ? "reset-password-note" : undefined}
+            onClick={() => setOpen(true)}
+          >
+            Reset password
+          </Button>
+        </div>
 
-      <AlertDialog open={open} onOpenChange={(next) => !next && !pending && close()}>
-        <AlertDialogContent>
-          {done === null ? (
-            <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-4">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Reset password for {user.name}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {user.name} will be signed out everywhere and must sign in with the new password. Give it to them
-                  yourself: it is not stored, and not shown again after this.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AuthField
-                key={`new-${generated}`}
-                name="new_password"
-                label={LABELS.new_password}
-                type="password"
-                autoComplete="new-password"
-                defaultShown={generated > 0}
-                disabled={pending}
-                value={newPw}
-                onChange={(e) => setNewPw(e.target.value)}
-                error={field("new_password")}
-              />
-              <AuthField
-                key={`confirm-${generated}`}
-                name="confirm_password"
-                label={LABELS.confirm_password}
-                type="password"
-                autoComplete="new-password"
-                defaultShown={generated > 0}
-                disabled={pending}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                error={field("confirm_password")}
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={generate} disabled={pending}>
-                  Generate random password
-                </Button>
-                <Button type="button" variant="outline" onClick={() => copy(newPw)} disabled={pending || !newPw}>
-                  Copy password
-                </Button>
+        <AlertDialog open={open} onOpenChange={(next) => !next && !pending && close()}>
+          <AlertDialogContent>
+            {done === null ? (
+              <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-4">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset password for {user.name}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {user.name} will be signed out everywhere and must sign in with the new password. Give it to them
+                    yourself: it is not stored, and not shown again after this.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AuthField
+                  key={`new-${generated}`}
+                  name="new_password"
+                  label={LABELS.new_password}
+                  type="password"
+                  autoComplete="new-password"
+                  defaultShown={generated > 0}
+                  disabled={pending}
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  error={field("new_password")}
+                />
+                <AuthField
+                  key={`confirm-${generated}`}
+                  name="confirm_password"
+                  label={LABELS.confirm_password}
+                  type="password"
+                  autoComplete="new-password"
+                  defaultShown={generated > 0}
+                  disabled={pending}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  error={field("confirm_password")}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={generate} disabled={pending}>
+                    Generate random password
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => copy(newPw)} disabled={pending || !newPw}>
+                    Copy password
+                  </Button>
+                </div>
+                {copyFailed && (
+                  <p role="status" className="text-sm text-destructive">
+                    Could not copy. Select the password and copy it yourself.
+                  </p>
+                )}
+                {error?.message && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {error.message}
+                    {wait > 0 && ` Try again in ${wait}s.`}
+                  </p>
+                )}
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+                  {/* A plain submit Button, not AlertDialogAction: that one closes the dialog on click, and a failed reset must be shown. */}
+                  <Button type="submit" disabled={pending || wait > 0}>
+                    {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Resetting…</> : "Reset password"}
+                  </Button>
+                </AlertDialogFooter>
+              </form>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Password reset</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {user.name} is signed out everywhere. This password will not be shown again. Copy it now and give it to them.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="reset-done-password">Password</Label>
+                  <Input id="reset-done-password" readOnly value={done} onFocus={(e) => e.currentTarget.select()} />
+                </div>
+                {copyFailed && (
+                  <p role="status" className="text-sm text-destructive">
+                    Could not copy. Select the password and copy it yourself.
+                  </p>
+                )}
+                <AlertDialogFooter>
+                  <Button type="button" variant="outline" onClick={() => copy(done)}>
+                    Copy password
+                  </Button>
+                  <AlertDialogCancel>Close</AlertDialogCancel>
+                </AlertDialogFooter>
               </div>
-              {copyFailed && (
-                <p role="status" className="text-sm text-destructive">
-                  Could not copy. Select the password and copy it yourself.
-                </p>
-              )}
-              {error?.message && (
-                <p role="alert" className="text-sm text-destructive">
-                  {error.message}
-                  {wait > 0 && ` Try again in ${wait}s.`}
-                </p>
-              )}
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-                {/* A plain submit Button, not AlertDialogAction: that one closes the dialog on click, and a failed reset must be shown. */}
-                <Button type="submit" disabled={pending || wait > 0}>
-                  {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Resetting…</> : "Reset password"}
-                </Button>
-              </AlertDialogFooter>
-            </form>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Password reset</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {user.name} is signed out everywhere. This password will not be shown again. Copy it now and give it to them.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="reset-done-password">Password</Label>
-                <Input id="reset-done-password" readOnly value={done} onFocus={(e) => e.currentTarget.select()} />
-              </div>
-              {copyFailed && (
-                <p role="status" className="text-sm text-destructive">
-                  Could not copy. Select the password and copy it yourself.
-                </p>
-              )}
-              <AlertDialogFooter>
-                <Button type="button" variant="outline" onClick={() => copy(done)}>
-                  Copy password
-                </Button>
-                <AlertDialogCancel>Close</AlertDialogCancel>
-              </AlertDialogFooter>
-            </div>
-          )}
-        </AlertDialogContent>
-      </AlertDialog>
-    </fieldset>
+            )}
+          </AlertDialogContent>
+        </AlertDialog>
+      </PanelSection>
+    </Card>
   );
 }

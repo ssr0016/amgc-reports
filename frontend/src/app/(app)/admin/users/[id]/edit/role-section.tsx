@@ -2,9 +2,11 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Loader2, ShieldCheck } from "lucide-react";
+import { PanelSection, panelCard } from "@/components/panel-section";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { ApiError } from "@/lib/api";
@@ -47,47 +49,48 @@ export function RoleSection({ user }: { user: Pick<User, "id" | "name" | "role_i
   }
 
   return (
-    <fieldset className="flex max-w-xl flex-col gap-3 border-t pt-4">
-      <legend className="text-lg font-medium">Role</legend>
-      {self ? (
-        <p className="text-sm text-muted-foreground">You cannot change your own role.</p>
-      ) : roles.error ? (
-        <p role="alert" className="text-sm text-destructive">
-          Could not load the roles. Reload the page to try again.
-        </p>
-      ) : (
-        <>
-          <Label htmlFor="user-role" className="sr-only">
-            Role
-          </Label>
-          <NativeSelect
-            id="user-role"
-            value={selected}
-            disabled={pending || !roles.data}
-            onChange={(e) => setSelected(e.target.value)}
-          >
-            {roles.data ? (
-              roles.data.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))
-            ) : (
-              <option value={selected}>Loading…</option>
+    <Card className={panelCard}>
+      <PanelSection title="Role" icon={ShieldCheck} tile="bg-sky-500/10 text-sky-400" description="Sets what this user can see and do.">
+        {self ? (
+          <p className="text-sm text-muted-foreground">You cannot change your own role.</p>
+        ) : roles.error ? (
+          <p role="alert" className="text-sm text-destructive">
+            Could not load the roles. Reload the page to try again.
+          </p>
+        ) : (
+          <>
+            <Label htmlFor="user-role" className="sr-only">
+              Role
+            </Label>
+            <NativeSelect
+              id="user-role"
+              value={selected}
+              disabled={pending || !roles.data}
+              onChange={(e) => setSelected(e.target.value)}
+            >
+              {roles.data ? (
+                roles.data.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))
+              ) : (
+                <option value={selected}>Loading…</option>
+              )}
+            </NativeSelect>
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
             )}
-          </NativeSelect>
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
-          <div>
-            <Button type="button" onClick={save} disabled={pending || !roles.data || Number(selected) === current}>
-              {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving…</> : "Update role"}
-            </Button>
-          </div>
-        </>
-      )}
-    </fieldset>
+            <div>
+              <Button type="button" variant="outline" className="min-h-11 w-full" onClick={save} disabled={pending || !roles.data || Number(selected) === current}>
+                {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving…</> : "Update role"}
+              </Button>
+            </div>
+          </>
+        )}
+      </PanelSection>
+    </Card>
   );
 }

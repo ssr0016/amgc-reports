@@ -2,7 +2,6 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -13,7 +12,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Loader2, UserCheck } from "lucide-react";
+import { PanelSection, panelCard } from "@/components/panel-section";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { ApiError } from "@/lib/api";
@@ -64,67 +66,70 @@ export function StatusSection({
   const submit = () => (selected === "active" ? apply() : setConfirming(true));
 
   return (
-    <fieldset className="flex max-w-xl flex-col gap-3 border-t pt-4">
-      <legend className="text-lg font-medium">Status</legend>
-      <Label htmlFor="user-status" className="sr-only">
-        Status
-      </Label>
-      <NativeSelect
-        id="user-status"
-        value={selected}
-        disabled={self || pending}
-        aria-describedby={self ? "user-status-note" : undefined}
-        onChange={(e) => setSelected(e.target.value)}
-      >
-        {USER_STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {STATUS_LABEL[s]}
-          </option>
-        ))}
-      </NativeSelect>
-      {self && (
-        <p id="user-status-note" className="text-sm text-muted-foreground">
-          You cannot change your own status.
-        </p>
-      )}
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <div>
-        <Button
-          type="button"
-          onClick={submit}
-          disabled={self || pending || selected === user.status}
+    <Card className={panelCard}>
+      <PanelSection title="Status" icon={UserCheck} tile="bg-amber-500/10 text-amber-400" description="Anything but Active signs the user out everywhere.">
+        <Label htmlFor="user-status" className="sr-only">
+          Status
+        </Label>
+        <NativeSelect
+          id="user-status"
+          value={selected}
+          disabled={self || pending}
+          aria-describedby={self ? "user-status-note" : undefined}
+          onChange={(e) => setSelected(e.target.value)}
         >
-          Update status
-        </Button>
-      </div>
+          {USER_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
+          ))}
+        </NativeSelect>
+        {self && (
+          <p id="user-status-note" className="text-sm text-muted-foreground">
+            You cannot change your own status.
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 w-full"
+            onClick={submit}
+            disabled={self || pending || selected === user.status}
+          >
+            Update status
+          </Button>
+        </div>
 
-      <AlertDialog
-        open={confirming}
-        onOpenChange={(open) => !open && !pending && setConfirming(false)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Set {user.name} to {statusLabel(selected)}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {user.name} will be signed out everywhere and cannot sign in until
-              the status is set back to Active.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-            {/* A plain Button, not AlertDialogAction: that one closes the dialog on click, and a failed change must be shown. */}
-            <Button onClick={apply} disabled={pending}>
-              {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving…</> : "Change status"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </fieldset>
+        <AlertDialog
+          open={confirming}
+          onOpenChange={(open) => !open && !pending && setConfirming(false)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Set {user.name} to {statusLabel(selected)}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {user.name} will be signed out everywhere and cannot sign in until
+                the status is set back to Active.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+              {/* A plain Button, not AlertDialogAction: that one closes the dialog on click, and a failed change must be shown. */}
+              <Button onClick={apply} disabled={pending}>
+                {pending ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Saving…</> : "Change status"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </PanelSection>
+    </Card>
   );
 }
