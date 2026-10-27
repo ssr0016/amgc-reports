@@ -50,6 +50,12 @@ describe("reports API", () => {
     expect(at(f, 0)[0]).toBe("/reports?month=May&year=2026&page=2");
   });
 
+  it("includes the reporting-period ownership pre-check filters", async () => {
+    const f = stub({ data: [], meta: {} });
+    await listReports({ month: "May", year: 2026, mine: true, limit: 1 });
+    expect(at(f, 0)[0]).toBe("/reports?month=May&year=2026&mine=true&limit=1");
+  });
+
   it("uses the right verb and path for get, create, update, submit and approve", async () => {
     const f = stub({}, { csrf_token: "t" }, {}, {}, {}, {}, { status: 0 }, {});
     await getReport(3);
