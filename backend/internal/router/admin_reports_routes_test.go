@@ -3,6 +3,10 @@ package router
 import (
 	"net/http"
 	"testing"
+
+	"github.com/labstack/echo/v4"
+
+	"github.com/ssr0016/pastoral-reports/backend/internal/apperror"
 )
 
 // The Excel exports and their preview need reports:export (D-A6, D-A15, 37b), not the admin role.
@@ -33,6 +37,28 @@ func TestAdminReportExportRoutes_Access(t *testing.T) {
 					t.Errorf("status = %d, want %d", got, tt.want)
 				}
 			})
+		}
+	}
+}
+
+// M5: the downloads use their own bucket. A spent write bucket does not block them,
+// and a spent export bucket does.
+func TestAdminReportExportRoutes_UseExportLimiter(t *testing.T) {
+	tooMany := func(echo.HandlerFunc) echo.HandlerFunc {
+		return func(echo.Context) error { return apperror.RateLimit("slow down") }
+	}
+	routes := []struct{ name, path, body string }{
+		{"one", "/api/v1/admin/reports/1/excel", ""},
+		{"month", "/api/v1/admin/reports/excel", `{"month":"May","year":2026}`},
+	}
+	for _, rt := range routes {
+		e, _ := adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: tooMany, Export: noLimit}, "admin", "reports:export")
+		if got := reportRequestAs(e, http.MethodPost, rt.path, rt.body, "1"); got != http.StatusOK {
+			t.Errorf("%s with write bucket spent: status = %d, want 200", rt.name, got)
+		}
+		e, _ = adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: tooMany}, "admin", "reports:export")
+		if got := reportRequestAs(e, http.MethodPost, rt.path, rt.body, "1"); got != http.StatusTooManyRequests {
+			t.Errorf("%s with export bucket spent: status = %d, want 429", rt.name, got)
 		}
 	}
 }

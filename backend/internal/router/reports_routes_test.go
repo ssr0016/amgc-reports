@@ -81,7 +81,7 @@ func reportsServer(perms ...string) *echo.Echo {
 
 func reportsServerLimited(mkLimit func() echo.MiddlewareFunc, perms ...string) *echo.Echo {
 	return reportsServerWith(func() Limiters {
-		return Limiters{Global: noLimit, Read: noLimit, Write: mkLimit()}
+		return Limiters{Global: noLimit, Read: noLimit, Write: mkLimit(), Export: noLimit}
 	}, perms...)
 }
 
@@ -190,7 +190,7 @@ func TestReportsRoutes_CreateRequiresUserRole(t *testing.T) {
 	for _, role := range []string{"user", "editor", "admin", "manager", "custom", ""} {
 		t.Run(role, func(t *testing.T) {
 			e := reportsServerWithRole(func() Limiters {
-				return Limiters{Global: noLimit, Read: noLimit, Write: noLimit}
+				return Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: noLimit}
 			}, role, "reports:write", "reports:write_any")
 			want := http.StatusForbidden
 			if role == "user" {

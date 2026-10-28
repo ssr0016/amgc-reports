@@ -71,7 +71,7 @@ var roleWriteRoutes = []struct {
 }
 
 func TestRoleWriteRoutes_Access(t *testing.T) {
-	noLimits := Limiters{Global: noLimit, Read: noLimit, Write: noLimit}
+	noLimits := Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: noLimit}
 	tests := []struct {
 		name, role, user string // user "" = no session
 		perms            []string
@@ -102,7 +102,7 @@ func TestRoleWriteRoutes_Access(t *testing.T) {
 // The Roles tab and the permission list stay admin-only (37b): a custom role
 // holding every admin-area permission and roles:write gets 403 on every route.
 func TestRoleAndPermissionRoutes_AdminOnly(t *testing.T) {
-	e, svc := rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: noLimit}, "Reviewer", reviewerPerms...)
+	e, svc := rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: noLimit}, "Reviewer", reviewerPerms...)
 	for _, rt := range []struct{ method, path, body string }{
 		{http.MethodGet, "/api/v1/admin/roles", ""},
 		{http.MethodGet, "/api/v1/admin/roles/4", ""},
@@ -126,7 +126,7 @@ func TestRoleWriteRoutes_AreRateLimited(t *testing.T) {
 		return func(echo.Context) error { return apperror.RateLimit("slow down") }
 	}
 	for _, rt := range roleWriteRoutes {
-		e, svc := rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: tooMany}, "admin", "roles:write")
+		e, svc := rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: tooMany, Export: noLimit}, "admin", "roles:write")
 		if got := reportRequestAs(e, rt.method, rt.path, rt.body, "1"); got != http.StatusTooManyRequests {
 			t.Errorf("%s: status = %d, want 429", rt.name, got)
 		}
@@ -147,11 +147,11 @@ func TestPermissionWriteRoutes_NeedRolesWriteAndAreRateLimited(t *testing.T) {
 		{http.MethodDelete, "/api/v1/admin/permissions/1", ""},
 	}
 	for _, rt := range routes {
-		e, _ := rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: noLimit}, "admin", "roles:read")
+		e, _ := rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: noLimit}, "admin", "roles:read")
 		if got := reportRequestAs(e, rt.method, rt.path, rt.body, "1"); got != http.StatusForbidden {
 			t.Errorf("%s %s without roles:write = %d, want 403", rt.method, rt.path, got)
 		}
-		e, _ = rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: tooMany}, "admin", "roles:write")
+		e, _ = rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: tooMany, Export: noLimit}, "admin", "roles:write")
 		if got := reportRequestAs(e, rt.method, rt.path, rt.body, "1"); got != http.StatusTooManyRequests {
 			t.Errorf("%s %s = %d, want 429 from the write limiter", rt.method, rt.path, got)
 		}
@@ -160,7 +160,7 @@ func TestPermissionWriteRoutes_NeedRolesWriteAndAreRateLimited(t *testing.T) {
 
 // The unaudited per-permission routes are gone: PUT /admin/roles/:id replaces the set.
 func TestRolePermissionRoutes_AreRemoved(t *testing.T) {
-	e, svc := rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: noLimit}, "admin", "roles:write")
+	e, svc := rolesServer(Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: noLimit}, "admin", "roles:write")
 	for _, rt := range []struct{ method, path, body string }{
 		{http.MethodPost, "/api/v1/admin/roles/4/permissions", `{"permission_id":1}`},
 		{http.MethodDelete, "/api/v1/admin/roles/4/permissions/1", ""},

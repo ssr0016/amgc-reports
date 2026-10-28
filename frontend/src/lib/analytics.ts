@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, downloadFile } from "./api";
 import type { AttendanceAnalytics } from "./api-schema";
 
 export type { AttendanceAnalytics };
@@ -32,4 +32,10 @@ export const ANALYTICS_PERIODS: { value: AnalyticsPeriod; label: string }[] = [
 export function getAttendanceAnalytics(year: number, metric: string, status: AttendanceStatus, period: AnalyticsPeriod, compare: boolean) {
   const query = new URLSearchParams({ year: String(year), metric, status, period, compare: String(compare) });
   return api<AttendanceAnalytics>(`/admin/analytics/attendance?${query}`);
+}
+
+// The same analytics as a formatted .xlsx, built by the server.
+export function exportAttendanceAnalytics(year: number, metric: string, status: AttendanceStatus, period: AnalyticsPeriod, compare: boolean) {
+  const query = new URLSearchParams({ year: String(year), metric, status, period, compare: String(compare) });
+  return downloadFile(`/admin/analytics/attendance/excel?${query}`, undefined, "GET");
 }

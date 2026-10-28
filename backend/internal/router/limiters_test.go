@@ -25,7 +25,7 @@ func globalServer(burst int) *echo.Echo {
 	Setup(e, noAuthn, nil,
 		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
-		nil, nil, nil, Limiters{Global: ourmiddleware.RateLimit(rate.Limit(0.0001), burst), Read: noLimit, Write: noLimit},
+		nil, nil, nil, Limiters{Global: ourmiddleware.RateLimit(rate.Limit(0.0001), burst), Read: noLimit, Write: noLimit, Export: noLimit},
 	)
 	return e
 }
@@ -79,7 +79,7 @@ func TestGlobalLimit_SystemRoutesAreNotLimited(t *testing.T) {
 
 func readLimitServer(burst int, perms ...string) *echo.Echo {
 	return reportsServerWith(func() Limiters {
-		return Limiters{Global: noLimit, Read: ourmiddleware.RateLimitByUser(rate.Limit(0.0001), burst), Write: noLimit}
+		return Limiters{Global: noLimit, Read: ourmiddleware.RateLimitByUser(rate.Limit(0.0001), burst), Write: noLimit, Export: noLimit}
 	}, perms...)
 }
 

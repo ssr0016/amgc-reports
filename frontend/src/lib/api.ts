@@ -130,9 +130,9 @@ export async function api<T>(
   return (await res.json().catch(() => null)) as T;
 }
 
-// A POST that answers with a file (the Excel exports). The name comes from Content-Disposition, preferring the UTF-8 filename*.
-export async function downloadFile(path: string, body?: unknown): Promise<{ blob: Blob; filename: string }> {
-  const res = await call(path, "POST", body, false);
+// A request that answers with a file (the Excel exports; POST unless the download writes nothing). The name comes from Content-Disposition, preferring the UTF-8 filename*.
+export async function downloadFile(path: string, body?: unknown, method = "POST"): Promise<{ blob: Blob; filename: string }> {
+  const res = await call(path, method, body, false);
   const disposition = res.headers.get("Content-Disposition") ?? "";
   const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
   const plain = /filename="([^"]+)"/i.exec(disposition)?.[1];

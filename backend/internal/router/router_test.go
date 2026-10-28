@@ -30,7 +30,7 @@ const (
 // noLimit is a pass-through for the reports write limiter.
 func noLimit(next echo.HandlerFunc) echo.HandlerFunc { return next }
 
-var noLimits = Limiters{Global: noLimit, Read: noLimit, Write: noLimit}
+var noLimits = Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: noLimit}
 
 // newTestServer wires the real routes with services left nil. Every handler
 // under test rejects an empty request (400 or 422) before it would touch its

@@ -87,6 +87,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/analytics/attendance/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Annual attendance analytics as Excel
+         * @description The same query and data as GET /admin/analytics/attendance, as a formatted .xlsx with Summary, Weekly Trend, Church Breakdown and All Metrics sheets. Needs tracker:read. Writes no audit row. Rate limited with the other Excel downloads, 5 per minute per user.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Year */
+                    year: number;
+                    /** @description Metric key */
+                    metric: string;
+                    /** @description approved or all; defaults to approved */
+                    status?: string;
+                    /** @description full_year, q1, q2, q3, q4, or a lowercase month; defaults to full_year */
+                    period?: string;
+                    /** @description Include the previous year's same period */
+                    compare?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/audit-logs": {
         parameters: {
             query?: never;

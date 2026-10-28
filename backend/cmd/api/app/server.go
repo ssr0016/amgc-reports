@@ -41,6 +41,8 @@ import (
 const (
 	globalRatePerMinute = 120 // per client IP, all /api/v1 routes
 	globalBurst         = 60
+	exportRatePerMinute = 5 // per user, Excel downloads only (M5)
+	exportBurst         = 5
 )
 
 func run() error {
@@ -173,6 +175,7 @@ func run() error {
 			Global: ourmiddleware.RateLimit(rate.Limit(globalRatePerMinute/60.0), globalBurst),
 			Read:   ourmiddleware.RateLimitByUser(rate.Limit(float64(cfg.Reports.ReadRatePerMinute)/60), cfg.Reports.ReadBurst),
 			Write:  ourmiddleware.RateLimitByUser(rate.Limit(float64(cfg.Reports.WriteRatePerMinute)/60), cfg.Reports.WriteBurst),
+			Export: ourmiddleware.RateLimitByUser(rate.Limit(exportRatePerMinute/60.0), exportBurst),
 		},
 	)
 

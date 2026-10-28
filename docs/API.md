@@ -259,6 +259,10 @@ Weekly totals of one metric for the Analytics tab. `year` and `metric` (one of t
 
 Response (200): `{year, metric, status, period, trend, churches, summary, comparison?}`. `trend` has one `{month, week, value}` per reported week, `churches` one `{church_name, value}` per church, and `summary` the period's total for every metric with a per-church breakdown (`total` and `value` are `null` when nothing was reported). Errors: 400 for a bad year, metric, `compare` or period, 401 without a session, 403 without `tracker:read`.
 
+GET /admin/analytics/attendance/excel?year=2026&metric=worship_service&status=approved&period=q1&compare=true
+
+The same query and data as a formatted `.xlsx` (`analytics-<year>-<period>.xlsx`, D-A26): sheets Summary, Weekly Trend, Church Breakdown and All Metrics. Writes no audit row. Rate limited with the other Excel downloads (5 per minute per user). Same errors as above, plus 429.
+
 ### Audit Logs (`audit:read`)
 
 GET /admin/audit-logs?month=October&year=2026&action=LOGIN_FAILED&page=1&limit=50
@@ -450,6 +454,8 @@ Optional body `{"admin_notes": "..."}`. Moves any report to `needs_revision`, cl
 ### Reports Rate Limit
 
 POST, PUT, DELETE and PATCH on /reports share one bucket per signed-in user: 60 per minute with a burst of 10 by default (`REPORTS_WRITE_RATE_LIMIT`, `REPORTS_WRITE_BURST`). Over the limit returns 429 with a `Retry-After` header. GET requests have their own limits (below).
+
+The Excel downloads (POST /admin/reports/excel and POST /admin/reports/:id/excel) have their own bucket per user: 5 per minute with a burst of 5 (M5). The preview stays on the read limiter.
 
 ## Error Responses
 

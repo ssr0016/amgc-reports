@@ -2,6 +2,7 @@ package rest
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -92,12 +93,65 @@ func (h *StatsHandler) GetTracker(c echo.Context) error {
 // @Failure      403 {object} map[string]string
 // @Router       /admin/analytics/attendance [get]
 func (h *StatsHandler) GetAttendanceAnalytics(c echo.Context) error {
+	q, err := attendanceQuery(c)
+	if err != nil {
+		return err
+	}
+	out, err := h.svc.AnalyticsAttendance(c.Request().Context(), q)
+	if errors.Is(err, stats.ErrAnalyticsQuery) {
+		return apperror.BadRequest(stats.ErrAnalyticsQuery.Error())
+	}
+	if err != nil {
+		return apperror.Internal("failed to get attendance analytics").WithError(err)
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+const xlsxMIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+// ExportAttendanceAnalytics godoc
+// @Summary      Annual attendance analytics as Excel
+// @Description  The same query and data as GET /admin/analytics/attendance, as a formatted .xlsx with Summary, Weekly Trend, Church Breakdown and All Metrics sheets. Needs tracker:read. Writes no audit row. Rate limited with the other Excel downloads, 5 per minute per user.
+// @Tags         admin/analytics
+// @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Security     CookieAuth
+// @Param        year query int true "Year"
+// @Param        metric query string true "Metric key"
+// @Param        status query string false "approved or all; defaults to approved"
+// @Param        period query string false "full_year, q1, q2, q3, q4, or a lowercase month; defaults to full_year"
+// @Param        compare query bool false "Include the previous year's same period"
+// @Success      200 {file} file
+// @Failure      400 {object} map[string]string
+// @Failure      401 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      429 {object} map[string]string
+// @Router       /admin/analytics/attendance/excel [get]
+func (h *StatsHandler) ExportAttendanceAnalytics(c echo.Context) error {
+	q, err := attendanceQuery(c)
+	if err != nil {
+		return err
+	}
+	data, err := h.svc.AnalyticsExcel(c.Request().Context(), q)
+	if errors.Is(err, stats.ErrAnalyticsQuery) {
+		return apperror.BadRequest(stats.ErrAnalyticsQuery.Error())
+	}
+	if err != nil {
+		return apperror.Internal("failed to export attendance analytics").WithError(err)
+	}
+	// The service accepted the period, so the name is plain ASCII.
+	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="analytics-%d-%s.xlsx"`, q.Year, q.Period))
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.Blob(http.StatusOK, xlsxMIME, data)
+}
+
+// attendanceQuery reads the analytics query; the service checks metric, status and period.
+func attendanceQuery(c echo.Context) (stats.AttendanceQuery, error) {
 	year, err := strconv.Atoi(c.QueryParam("year"))
 	if err != nil || year <= 0 {
-		return apperror.BadRequest("invalid year")
+		return stats.AttendanceQuery{}, apperror.BadRequest("invalid year")
 	}
 	if c.QueryParam("metric") == "" {
-		return apperror.BadRequest("invalid metric")
+		return stats.AttendanceQuery{}, apperror.BadRequest("invalid metric")
 	}
 	period := c.QueryParam("period")
 	if period == "" {
@@ -107,18 +161,10 @@ func (h *StatsHandler) GetAttendanceAnalytics(c echo.Context) error {
 	if raw := c.QueryParam("compare"); raw != "" {
 		compare, err = strconv.ParseBool(raw)
 		if err != nil {
-			return apperror.BadRequest("invalid compare")
+			return stats.AttendanceQuery{}, apperror.BadRequest("invalid compare")
 		}
 	}
-	q := stats.AttendanceQuery{Year: year, Metric: c.QueryParam("metric"), Status: c.QueryParam("status"), Period: period, Compare: compare}
-	out, err := h.svc.AnalyticsAttendance(c.Request().Context(), q)
-	if errors.Is(err, stats.ErrAnalyticsQuery) {
-		return apperror.BadRequest(stats.ErrAnalyticsQuery.Error())
-	}
-	if err != nil {
-		return apperror.Internal("failed to get attendance analytics").WithError(err)
-	}
-	return c.JSON(http.StatusOK, out)
+	return stats.AttendanceQuery{Year: year, Metric: c.QueryParam("metric"), Status: c.QueryParam("status"), Period: period, Compare: compare}, nil
 }
 
 // periodQuery reads ?month= and ?year=; an empty value is the same as none.

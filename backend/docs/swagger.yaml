@@ -821,6 +821,72 @@ paths:
       summary: Annual attendance analytics
       tags:
       - admin/analytics
+  /admin/analytics/attendance/excel:
+    get:
+      description: The same query and data as GET /admin/analytics/attendance, as
+        a formatted .xlsx with Summary, Weekly Trend, Church Breakdown and All Metrics
+        sheets. Needs tracker:read. Writes no audit row. Rate limited with the other
+        Excel downloads, 5 per minute per user.
+      parameters:
+      - description: Year
+        in: query
+        name: year
+        required: true
+        type: integer
+      - description: Metric key
+        in: query
+        name: metric
+        required: true
+        type: string
+      - description: approved or all; defaults to approved
+        in: query
+        name: status
+        type: string
+      - description: full_year, q1, q2, q3, q4, or a lowercase month; defaults to
+          full_year
+        in: query
+        name: period
+        type: string
+      - description: Include the previous year's same period
+        in: query
+        name: compare
+        type: boolean
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Annual attendance analytics as Excel
+      tags:
+      - admin/analytics
   /admin/audit-logs:
     get:
       description: 'Needs audit:read. One page of the audit trail for one month in

@@ -61,7 +61,7 @@ func (s *okUserSvc) ChangeRole(context.Context, int64, string, int64, int64) (*u
 }
 
 func adminUsersServer(roleName string, perms ...string) (*echo.Echo, *okUserSvc) {
-	return adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: noLimit}, roleName, perms...)
+	return adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: noLimit}, roleName, perms...)
 }
 
 func adminUsersServerWith(limits Limiters, roleName string, perms ...string) (*echo.Echo, *okUserSvc) {
@@ -203,7 +203,7 @@ func TestAdminUserWriteRoutes_AreRateLimited(t *testing.T) {
 		return func(echo.Context) error { return apperror.RateLimit("slow down") }
 	}
 	for _, rt := range adminUserRoutes {
-		e, svc := adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: tooMany}, "admin", "users:write")
+		e, svc := adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: tooMany, Export: noLimit}, "admin", "users:write")
 		if got := reportRequestAs(e, rt.method, rt.path, rt.body, "1"); got != http.StatusTooManyRequests {
 			t.Errorf("%s: status = %d, want 429 from the write limiter", rt.name, got)
 		}

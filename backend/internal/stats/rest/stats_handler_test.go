@@ -54,6 +54,12 @@ func (f *fakeStatsSvc) AnalyticsAttendance(_ context.Context, q stats.Attendance
 	}, f.err
 }
 
+func (f *fakeStatsSvc) AnalyticsExcel(_ context.Context, q stats.AttendanceQuery) ([]byte, error) {
+	f.calls++
+	f.query = q
+	return []byte("PK"), f.err
+}
+
 func serveStats(t *testing.T, svc stats.Service, target string) *httptest.ResponseRecorder {
 	t.Helper()
 	e := echo.New()
@@ -62,6 +68,7 @@ func serveStats(t *testing.T, svc stats.Service, target string) *httptest.Respon
 	e.GET("/admin/stats", h.GetStats)
 	e.GET("/admin/tracker", h.GetTracker)
 	e.GET("/admin/analytics/attendance", h.GetAttendanceAnalytics)
+	e.GET("/admin/analytics/attendance/excel", h.ExportAttendanceAnalytics)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil))
 	return rec
@@ -254,4 +261,33 @@ func TestStatsHandler_GetAnalyticsAttendance(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStatsHandler_ExportAttendanceAnalytics(t *testing.T) {
+	svc := &fakeStatsSvc{}
+	rec := serveStats(t, svc, "/admin/analytics/attendance/excel?year=2026&metric=worship_service&period=q2&compare=true")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body)
+	}
+	if ct := rec.Header().Get(echo.HeaderContentType); ct != xlsxMIME {
+		t.Errorf("Content-Type = %q", ct)
+	}
+	if cd := rec.Header().Get(echo.HeaderContentDisposition); cd != `attachment; filename="analytics-2026-q2.xlsx"` {
+		t.Errorf("Content-Disposition = %q", cd)
+	}
+	if rec.Body.String() != "PK" || svc.query.Period != "q2" || !svc.query.Compare {
+		t.Errorf("body = %q query = %+v", rec.Body, svc.query)
+	}
+
+	t.Run("a bad query is a 400 and never reaches the service", func(t *testing.T) {
+		svc := &fakeStatsSvc{}
+		if rec := serveStats(t, svc, "/admin/analytics/attendance/excel?year=x&metric=worship_service"); rec.Code != http.StatusBadRequest || svc.calls != 0 {
+			t.Errorf("status = %d calls = %d", rec.Code, svc.calls)
+		}
+	})
+	t.Run("an invalid metric from the service is a 400", func(t *testing.T) {
+		if rec := serveStats(t, &fakeStatsSvc{err: stats.ErrAnalyticsQuery}, "/admin/analytics/attendance/excel?year=2026&metric=nope"); rec.Code != http.StatusBadRequest {
+			t.Errorf("status = %d, want 400", rec.Code)
+		}
+	})
 }

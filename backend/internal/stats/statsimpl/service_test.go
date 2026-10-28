@@ -184,3 +184,14 @@ func TestService_Tracker(t *testing.T) {
 		}
 	})
 }
+
+func TestService_AnalyticsExcel(t *testing.T) {
+	svc := newService(&recordingStats{})
+	if _, err := svc.AnalyticsExcel(context.Background(), stats.AttendanceQuery{Year: 2026, Metric: "nope"}); !errors.Is(err, stats.ErrAnalyticsQuery) {
+		t.Fatalf("bad metric: err = %v, want ErrAnalyticsQuery", err)
+	}
+	raw, err := svc.AnalyticsExcel(context.Background(), stats.AttendanceQuery{Year: 2026, Metric: "worship_service"})
+	if err != nil || len(raw) < 2 || string(raw[:2]) != "PK" {
+		t.Fatalf("raw = %d bytes, err = %v; want an .xlsx (zip) file", len(raw), err)
+	}
+}

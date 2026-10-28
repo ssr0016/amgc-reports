@@ -21,7 +21,9 @@ import (
 // open). Read and Write guard the reports routes and run after the permission
 // check, so a caller without the permission cannot use up tokens.
 type Limiters struct {
-	Global, Read, Write echo.MiddlewareFunc
+	// Export is the Excel downloads' own bucket (M5): each builds a whole workbook,
+	// so they must not draw on the cheaper 60/min write bucket.
+	Global, Read, Write, Export echo.MiddlewareFunc
 }
 
 func Setup(
@@ -141,8 +143,8 @@ func Setup(
 	admin.POST("/users/:id/reset-password", adminUserHandler.ResetPassword, adminOnly, perm("users:write"), limits.Write)
 
 	// Excel downloads (D-A6). POST so the CSRF check covers the audit row they write.
-	admin.POST("/reports/excel", reportHandler.ExportReports, perm("reports:export"), limits.Write)
-	admin.POST("/reports/:id/excel", reportHandler.ExportReport, perm("reports:export"), limits.Write)
+	admin.POST("/reports/excel", reportHandler.ExportReports, perm("reports:export"), limits.Export)
+	admin.POST("/reports/:id/excel", reportHandler.ExportReport, perm("reports:export"), limits.Export)
 	// Preview of either download (D-A15): no side effects, so the read limiter.
 	admin.POST("/reports/excel/preview", reportHandler.PreviewExcel, perm("reports:export"), limits.Read)
 
@@ -150,6 +152,7 @@ func Setup(
 	admin.GET("/stats", statsHandler.GetStats, perm("tracker:read"), limits.Read)
 	admin.GET("/tracker", statsHandler.GetTracker, perm("tracker:read"), limits.Read)
 	admin.GET("/analytics/attendance", statsHandler.GetAttendanceAnalytics, perm("tracker:read"), limits.Read)
+	admin.GET("/analytics/attendance/excel", statsHandler.ExportAttendanceAnalytics, perm("tracker:read"), limits.Export)
 
 	// The audit trail, read-only (no other method is routed).
 	admin.GET("/audit-logs", auditHandler.List, perm("audit:read"), limits.Read)

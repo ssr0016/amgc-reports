@@ -80,6 +80,20 @@ func (s *service) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQue
 	return out, nil
 }
 
+// AnalyticsExcel builds the workbook from AnalyticsAttendance's answer. Its
+// "out of" count is the admin cards' church total, as on the page.
+func (s *service) AnalyticsExcel(ctx context.Context, q stats.AttendanceQuery) ([]byte, error) {
+	data, err := s.AnalyticsAttendance(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	counts, err := s.Get(ctx, stats.GetStatsQuery{})
+	if err != nil {
+		return nil, err
+	}
+	return buildAnalyticsWorkbook(data, counts.ChurchesTotal, s.now().In(s.loc))
+}
+
 func validAnalyticsMetric(metric string) bool {
 	for _, key := range report.MetricKeys {
 		if metric == key {

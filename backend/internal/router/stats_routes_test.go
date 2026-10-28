@@ -36,9 +36,18 @@ func (s *okStatsSvc) AnalyticsAttendance(context.Context, stats.AttendanceQuery)
 	return stats.AttendanceAnalytics{}, nil
 }
 
+func (s *okStatsSvc) AnalyticsExcel(context.Context, stats.AttendanceQuery) ([]byte, error) {
+	s.calls++
+	return []byte("PK"), nil
+}
+
 // statsServer wires the real routes. A request is user 1 when it carries
 // X-Test-User; that user has the named role and permissions.
 func statsServer(roleName string, perms ...string) (*echo.Echo, *okStatsSvc) {
+	return statsServerWith(Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: noLimit}, roleName, perms...)
+}
+
+func statsServerWith(limits Limiters, roleName string, perms ...string) (*echo.Echo, *okStatsSvc) {
 	users := userimpl.NewMockStore()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
 		return &user.User{ID: id, RoleID: 9, Role: &accesscontrol.Role{Name: roleName}}, nil
@@ -58,8 +67,7 @@ func statsServer(roleName string, perms ...string) (*echo.Echo, *okStatsSvc) {
 	Setup(e, noAuthn, users,
 		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
-		nil, statsrest.NewStatsHandler(svc), nil,
-		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},
+		nil, statsrest.NewStatsHandler(svc), nil, limits,
 	)
 	return e, svc
 }
@@ -80,7 +88,7 @@ func TestStatsAndTrackerRoutes_NeedTrackerRead(t *testing.T) {
 		{"admin", "admin", "1", []string{"tracker:read"}, http.StatusOK},
 	}
 	for _, tt := range tests {
-		for _, path := range []string{"/api/v1/admin/stats", "/api/v1/admin/tracker", "/api/v1/admin/analytics/attendance?year=2026&metric=worship_service"} {
+		for _, path := range []string{"/api/v1/admin/stats", "/api/v1/admin/tracker", "/api/v1/admin/analytics/attendance?year=2026&metric=worship_service", "/api/v1/admin/analytics/attendance/excel?year=2026&metric=worship_service"} {
 			t.Run(tt.name+path, func(t *testing.T) {
 				e, svc := statsServer(tt.role, tt.perms...)
 				if got := reportRequestAs(e, http.MethodGet, path, "", tt.user); got != tt.want {
@@ -91,5 +99,21 @@ func TestStatsAndTrackerRoutes_NeedTrackerRead(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// The analytics download shares the Excel downloads' bucket (M5), not the read one.
+func TestAnalyticsExcelRoute_UsesExportLimiter(t *testing.T) {
+	tooMany := func(echo.HandlerFunc) echo.HandlerFunc {
+		return func(echo.Context) error { return apperror.RateLimit("slow down") }
+	}
+	const path = "/api/v1/admin/analytics/attendance/excel?year=2026&metric=worship_service"
+	e, _ := statsServerWith(Limiters{Global: noLimit, Read: tooMany, Write: noLimit, Export: noLimit}, "admin", "tracker:read")
+	if got := reportRequestAs(e, http.MethodGet, path, "", "1"); got != http.StatusOK {
+		t.Errorf("read bucket spent: status = %d, want 200", got)
+	}
+	e, svc := statsServerWith(Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: tooMany}, "admin", "tracker:read")
+	if got := reportRequestAs(e, http.MethodGet, path, "", "1"); got != http.StatusTooManyRequests || svc.calls != 0 {
+		t.Errorf("export bucket spent: status = %d calls = %d, want 429 and no call", got, svc.calls)
 	}
 }

@@ -3,15 +3,22 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AttendanceAnalytics } from "@/lib/analytics";
-import { Analytics, buildAnalyticsCsv } from "./analytics";
+import { Analytics } from "./analytics";
 
 const h = vi.hoisted(() => ({
   getAttendanceAnalytics: vi.fn(),
   getStats: vi.fn(),
+  exportAttendanceAnalytics: vi.fn(),
+  saveFile: vi.fn(),
 }));
 vi.mock("@/lib/analytics", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/analytics")>()),
   getAttendanceAnalytics: h.getAttendanceAnalytics,
+  exportAttendanceAnalytics: h.exportAttendanceAnalytics,
+}));
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  saveFile: h.saveFile,
 }));
 vi.mock("@/lib/stats", () => ({ getStats: h.getStats }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ can: () => true }) }));
@@ -146,54 +153,14 @@ describe("analytics", () => {
     });
   });
 
-  it("builds a CSV with escaped KPI and table values", () => {
-    const csvData = { ...body, churches: [{ church_name: 'Grace, "North"', value: 26 }] };
-    const csv = buildAnalyticsCsv({
-      data: csvData,
-      metricLabel: "Worship Service",
-      yearlyTotal: 26,
-      peakMonth: ["January", 26],
-      activeChurches: 1,
-      totalChurches: 3,
-    });
+  it("downloads the server's Excel file for the selected filters", async () => {
+    const file = { blob: new Blob(["PK"]), filename: "analytics-2026-q1.xlsx" };
+    h.exportAttendanceAnalytics.mockResolvedValue(file);
+    const { user } = renderAnalytics();
+    await user.selectOptions(screen.getByLabelText("Period"), "q1");
+    await user.click(await screen.findByRole("button", { name: "Export to Excel" }));
 
-    expect(csv).toContain("KPI,Value");
-    expect(csv).toContain("Total,26");
-    expect(csv).toContain("Church breakdown");
-    expect(csv).toContain('"Grace, ""North""",26');
-  });
-
-  it("uses the selected period in section headers and excludes other months", () => {
-    const csv = buildAnalyticsCsv({
-      data: {
-        ...body,
-        period: "q1",
-        trend: [...trend, { month: "April", week: 1, value: 99 }],
-      },
-      metricLabel: "Worship Service",
-      yearlyTotal: 26,
-      peakMonth: ["January", 26],
-      activeChurches: 1,
-      totalChurches: 3,
-    });
-
-    expect(csv).toContain("--- FULL METRICS SUMMARY (Q1 2026 - Approved) ---");
-    expect(csv).toContain("--- WEEKLY TREND (Q1 2026 - Approved) ---");
-    expect(csv).toContain("January,1,12");
-    expect(csv).not.toContain("April,1,99");
-  });
-
-  it("writes blank CSV cells for missing summary values", () => {
-    const csv = buildAnalyticsCsv({
-      data: body,
-      metricLabel: "Worship Service",
-      yearlyTotal: 26,
-      peakMonth: ["January", 26],
-      activeChurches: 1,
-      totalChurches: 3,
-    });
-
-    expect(csv).toContain("Baptism,,");
-    expect(csv).not.toContain("Baptism,—");
+    expect(h.exportAttendanceAnalytics).toHaveBeenCalledWith(new Date().getFullYear(), "worship_service", "approved", "q1", false);
+    await vi.waitFor(() => expect(h.saveFile).toHaveBeenCalledWith(file));
   });
 });

@@ -32,6 +32,7 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 | D-A21 | Dynamic RBAC: Roles tab, custom roles, audited role changes | Decided 2026-10-22; built in 37a | here |
 | D-A22 | Delete a role in use by moving its users; list a role's users | Decided 2026-10-23 | here |
 | D-A23 | Roles tab grouped into custom and system roles; "No Report Submitted" on the dashboard | Decided 2026-10-23 | here |
+| D-A26 | Analytics export is a server-built .xlsx; Excel downloads get their own rate limit (M5) | Decided 2026-10-28 | here |
 | F-1 | Change password | Done | here |
 | L-3 | Reset-password strength | Done | here |
 | R-1 | Railway pre-deploy source of truth | Verified | here |
@@ -407,3 +408,11 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **A report exists only once submitted:** `POST /reports` always creates it as `pending`. Admins never see a half-filled report, and stats, the Tracker and exports need no draft filter.
 - **Unsent work:** the form keeps its browser backup (`localStorage` per report or period, "Recovered unsaved changes" on reload, cleared on submit). It does not survive clearing browser data or a change of device.
 - **Migration `20261027140000_remove_report_drafts`:** existing drafts become `pending`; the status CHECK drops `draft`. `SUBMIT_REPORT` stays in the audit CHECK and `audit.Actions` so old rows still read and filter; nothing writes it now.
+
+### D-A26 Analytics Excel export and the export rate limit (M5)
+**Date:** 2026-10-28 · **Status:** Decided by the owner; built, not deployed
+
+- **Export limiter (M5):** `POST /admin/reports/excel`, `POST /admin/reports/:id/excel` and the analytics download share a per-user bucket of 5 per minute (burst 5), separate from the 60/min write bucket. Each builds a whole workbook. The preview stays on the read limiter (D-A15).
+- **Analytics export:** the Analytics tab's CSV, built in the browser, is replaced by `GET /admin/analytics/attendance/excel`, built with `excelize`. Sheets: Summary (KPI cards), Weekly Trend, Church Breakdown, All Metrics. Each has a merged title, the period and generated-at time, a dark header, zebra rows, `#,##0.00` values, auto-sized columns and a frozen header.
+- **No audit row, GET (owner):** like the CSV it replaces, the download is not audited, so no new audit action or migration. The report exports (D-A6) stay POST and audited.
+- **Legacy styling unchanged:** the report workbooks keep the legacy template's layout (D-A17).

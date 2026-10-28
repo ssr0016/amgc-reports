@@ -14,6 +14,9 @@ type Service interface {
 	// period rules and ErrPeriod as Get (D-A3).
 	Tracker(ctx context.Context, q GetStatsQuery) (Tracker, error)
 	AnalyticsAttendance(ctx context.Context, q AttendanceQuery) (AttendanceAnalytics, error)
+	// AnalyticsExcel is AnalyticsAttendance as the Analytics page's .xlsx
+	// download, with the same ErrAnalyticsQuery.
+	AnalyticsExcel(ctx context.Context, q AttendanceQuery) ([]byte, error)
 }
 
 // Store is the read side: one query per answer, for one month.

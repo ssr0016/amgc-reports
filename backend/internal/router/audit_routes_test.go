@@ -48,7 +48,7 @@ func auditServer(roleName string, perms ...string) (*echo.Echo, *okAuditSvc) {
 		authrest.NewAuthHandler(nil, nil), nil, nil, nil, nil, nil,
 		authrest.NewVerificationHandler(nil), authrest.NewPasswordResetHandler(nil),
 		nil, nil, auditrest.NewAuditHandler(svc),
-		Limiters{Global: noLimit, Read: noLimit, Write: noLimit},
+		Limiters{Global: noLimit, Read: noLimit, Write: noLimit, Export: noLimit},
 	)
 	return e, svc
 }
