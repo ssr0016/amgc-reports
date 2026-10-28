@@ -23,11 +23,11 @@ test.describe("as a custom role", () => {
   test("sees only its admin links, approves a report, and cannot open Roles", async ({ page, playwright }) => {
     const admin = await playwright.request.newContext({
       storageState: authFile("admin"),
-      extraHTTPHeaders: { "X-Real-IP": clientIp("custom-role-admin") },
+      extraHTTPHeaders: { "X-Forwarded-For": clientIp("custom-role-admin") },
     });
     const worker = await playwright.request.newContext({
       storageState: authFile("user"),
-      extraHTTPHeaders: { "X-Real-IP": clientIp("custom-role-user") },
+      extraHTTPHeaders: { "X-Forwarded-For": clientIp("custom-role-user") },
     });
     const {
       data: [editor],

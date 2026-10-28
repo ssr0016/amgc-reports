@@ -23,7 +23,7 @@ export DB_PORT="$TEST_DB_PORT" DB_NAME="$DB"
 export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@localhost:${TEST_DB_PORT}/${DB}?sslmode=disable"
 export MIGRATE_DATABASE_URL=
 export CORS_ALLOWED_ORIGINS=http://localhost:3001
-# Lets each test present its own client address (X-Real-IP), so the 5 per minute
+# Lets each test present its own client address (X-Forwarded-For), so the 5 per minute
 # login limit and the per-IP global limit apply per test, not to the whole run.
 export TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
 # The read limit is per user, and every admin spec signs in as the one e2e admin, so

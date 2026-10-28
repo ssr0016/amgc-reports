@@ -13,9 +13,13 @@ import (
 // before concluding that no trusted proxy is connecting.
 const TrustedProxyWarnWindow = 100
 
-// TrustedProxyExtractor returns an Echo IP extractor that believes X-Real-IP
-// only when the TCP peer is inside one of the trusted ranges, and otherwise
-// uses the peer itself. X-Forwarded-For is never read.
+// TrustedProxyExtractor returns an Echo IP extractor that reads X-Forwarded-For
+// from the right: starting at the TCP peer, it skips every address inside a
+// trusted range and returns the first one that is not. An untrusted peer is
+// returned as is. Each trusted proxy appends the address it received from, so
+// entries a client writes itself sit to the left of that and are never
+// reached. X-Real-IP is never read: whether Render's proxy overwrites it is
+// unverified, and in production its peer is loopback (::1), not 100.64.0.0/10.
 //
 // Trust is exactly the configured ranges: loopback, link-local and private
 // peers are not trusted unless a range covers them, so another service on a
@@ -33,7 +37,7 @@ func TrustedProxyExtractor(trusted []*net.IPNet) echo.IPExtractor {
 	for _, n := range trusted {
 		opts = append(opts, echo.TrustIPRange(n))
 	}
-	return echo.ExtractIPFromRealIPHeader(opts...)
+	return echo.ExtractIPFromXFFHeader(opts...)
 }
 
 // WarnIfNoTrustedProxy logs one warning when none of the first window requests
