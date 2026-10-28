@@ -12,12 +12,12 @@ export function ProfileMenu({ onSignOut }: { onSignOut: () => void }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         title={user?.email}
-        aria-label={`${user?.name} · ${user?.role || "no role"}`}
         className="flex min-h-11 min-w-11 max-w-full cursor-pointer items-center gap-2 rounded-sm px-2 text-sm hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <Avatar name={user?.name ?? ""} src={user?.avatar_url} />
-        <span className="hidden max-w-64 truncate sm:inline">
-          {user?.name} · {user?.role || "no role"}
+        {/* Screen-reader-only below sm; the inner span truncates so it doesn't fight not-sr-only over overflow. */}
+        <span className="sr-only sm:not-sr-only">
+          <span className="block max-w-64 truncate">{user?.name} · {user?.role || "no role"}</span>
         </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
