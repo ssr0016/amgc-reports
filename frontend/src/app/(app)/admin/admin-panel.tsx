@@ -35,18 +35,18 @@ export function AdminPanel() {
   };
   // A missing, unknown or not-allowed ?tab= lands on the first allowed tab.
   const tab = tabs.find((t) => t.value === param)?.value ?? tabs[0]?.value;
-  const analyticsTab = tab === "analytics";
 
   return (
-    <PageShell className={`${analyticsTab ? "analytics-admin-layout" : ""} ${tab === "reports" ? reportsTheme : ""} max-w-7xl`}>
+    <PageShell className={`${tab === "reports" ? reportsTheme : ""} max-w-7xl`}>
       <PageHeader title={<>Admin{tab && ` / ${tabs.find((t) => t.value === tab)?.label}`}</>} />
       {canAdmin && tab ? (
         <>
           {/* Tracker has its own month-scoped summary, so the global cards would duplicate or contradict it.
               Logs is for finding events, not a summary, so it shows no cards. */}
           {tab === "roles" ? <RoleStats /> : !["reports", "tracker", "logs"].includes(tab) && <StatsCards users={tab === "users"} />}
-          <section aria-label={tabs.find((t) => t.value === tab)?.label} className={`${analyticsTab ? "analytics-admin-section" : ""} min-w-0`}>
-            {tab === "reports" || tab === "logs" ? panels[tab] : <Card className={`${analyticsTab ? "analytics-admin-card" : ""} p-4 sm:p-6`}>{panels[tab]}</Card>}
+          <section aria-label={tabs.find((t) => t.value === tab)?.label} className="min-w-0">
+            {/* Reports, logs and roles draw their own cards. */}
+            {["reports", "logs", "roles"].includes(tab) ? panels[tab] : <Card className="p-4 sm:p-6">{panels[tab]}</Card>}
           </section>
         </>
       ) : (

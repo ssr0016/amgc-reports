@@ -11,7 +11,7 @@ import { ResetPasswordSection } from "./reset-password-section";
 import { RoleSection } from "./role-section";
 import { StatusSection } from "./status-section";
 import { refreshAdminViews } from "@/lib/query";
-import { TableSkeleton } from "@/components/loading-skeletons";
+import { FormSkeleton } from "@/components/loading-skeletons";
 import { PageHeader, PageShell } from "@/components/page-shell";
 
 export function EditUser({ id }: { id: number }) {
@@ -41,7 +41,7 @@ export function EditUser({ id }: { id: number }) {
       </p>
     );
   } else if (isPending) {
-    body = <TableSkeleton columns={2} rows={5} />;
+    body = <FormSkeleton fields={5} />;
   } else {
     body = (
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">

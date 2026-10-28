@@ -259,7 +259,7 @@ export function AdminReports() {
             <AlertDialogDescription>{statusTarget?.action === "unapprove" ? "Admin notes are required before unapproving this report." : "Optionally explain what needs attention."}</AlertDialogDescription>
           </AlertDialogHeader>
           <Label htmlFor="admin-notes">{statusTarget?.action === "unapprove" ? "Admin Notes" : "Reason"}</Label>
-          <Textarea id="admin-notes" aria-label={statusTarget?.action === "unapprove" ? "Admin Notes" : "Reason"} required={statusTarget?.action === "unapprove"} value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} maxLength={5000} />
+          <Textarea id="admin-notes" required={statusTarget?.action === "unapprove"} value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} maxLength={5000} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy.length > 0}>Cancel</AlertDialogCancel>
             <Button disabled={busy.length > 0 || (statusTarget?.action === "unapprove" && !adminNotes.trim())} aria-busy={busy.length > 0} onClick={() => {

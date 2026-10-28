@@ -18,6 +18,18 @@ export function TableSkeleton({ columns = 4, rows = 6 }: { columns?: number; row
   );
 }
 
+export function FormSkeleton({ fields = 4 }: { fields?: number }) {
+  return (
+    <div role="status" aria-label="Loading form" className="flex flex-col gap-6">
+      <span className="sr-only">Loading form</span>
+      {Array.from({ length: fields }, (_, index) => (
+        <div key={index} className="flex flex-col gap-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-11 w-full" /></div>
+      ))}
+      <div className="flex gap-3"><Skeleton className="h-11 w-28" /><Skeleton className="h-11 w-20" /></div>
+    </div>
+  );
+}
+
 export function KpiSkeleton({ count = 4 }: { count?: number }) {
   return (
     <div role="status" aria-label="Loading summary" className="grid grid-cols-2 gap-4 lg:grid-cols-4">

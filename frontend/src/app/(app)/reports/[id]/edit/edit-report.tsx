@@ -13,7 +13,7 @@ import { getReport, updateReport } from "@/lib/reports";
 import { reportStorageKey } from "@/lib/report-draft-storage";
 import { useSession } from "@/lib/session";
 import { refreshAdminViews } from "@/lib/query";
-import { TableSkeleton } from "@/components/loading-skeletons";
+import { FormSkeleton } from "@/components/loading-skeletons";
 import { PageHeader, PageShell } from "@/components/page-shell";
 
 export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: number }) {
@@ -76,7 +76,7 @@ export function EditReport({ viewOnly = false, id }: { viewOnly?: boolean; id: n
       </p>
     );
   } else if (isPending) {
-    body = <TableSkeleton columns={2} rows={4} />;
+    body = <FormSkeleton />;
   } else {
     body = (
       <ReportForm

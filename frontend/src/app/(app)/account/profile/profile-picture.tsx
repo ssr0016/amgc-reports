@@ -27,7 +27,7 @@ export function ProfilePicture() {
 
   const header = <PageHeader title="Profile" description="Your account details and profile picture." />;
 
-  if (!user) return <PageShell className={`${dashboardTheme} account-surface max-w-3xl`}>{header}<ProfileSkeleton /></PageShell>;
+  if (!user) return <PageShell className={`${dashboardTheme} max-w-3xl`}>{header}<ProfileSkeleton /></PageShell>;
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,7 +70,7 @@ export function ProfilePicture() {
   ] as const;
 
   return (
-    <PageShell className={`${dashboardTheme} account-surface max-w-3xl`}>
+    <PageShell className={`${dashboardTheme} max-w-3xl`}>
       {header}
       <Card className={panelCard}>
         <PanelSection title="Account details" icon={IdCard} description="These details are managed by your admin.">

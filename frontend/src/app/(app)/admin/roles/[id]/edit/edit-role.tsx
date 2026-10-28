@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ErrorRetry } from "@/components/error-retry";
-import { TableSkeleton } from "@/components/loading-skeletons";
+import { FormSkeleton } from "@/components/loading-skeletons";
 import { dashboardTheme } from "@/components/dashboard-theme";
 import { RoleForm } from "@/components/role-form";
 import { ApiError } from "@/lib/api";
@@ -33,7 +33,7 @@ export function EditRole({ id }: { id: number }) {
   } else if (error) {
     body = <ErrorRetry message={error.message} onRetry={() => (role.error ? role.refetch() : perms.refetch())} />;
   } else if (!role.data || !perms.data) {
-    body = <TableSkeleton columns={2} rows={4} />;
+    body = <FormSkeleton fields={3} />;
   } else {
     body = (
       <RoleForm
@@ -57,7 +57,7 @@ export function EditRole({ id }: { id: number }) {
   }
 
   return (
-    <PageShell className={`${dashboardTheme} account-surface`}>
+    <PageShell className={`${dashboardTheme}`}>
       <PageHeader title="Edit role" description="Saving replaces the name, description and every permission." />
       {body}
     </PageShell>

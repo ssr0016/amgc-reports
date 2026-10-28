@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { CircleCheck, Clock, FilePen, FileText, FileWarning, Send } from "lucide-react";
+import { CircleCheck, Clock, FilePen, FileText, FileWarning, Send, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserStatusBadge } from "@/components/user-status-badge";
 import { Input } from "@/components/ui/input";
@@ -138,7 +138,7 @@ export function Tracker() {
       ) : error ? (
         <ErrorRetry message={error.message} onRetry={() => refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState title="No church workers to track" description="Active church workers will appear here once they are assigned." />
+        <EmptyState icon={Users} title="No church workers to track" description="Active church workers will appear here once they are assigned." />
       ) : (
         <>
           <div className="grid gap-6 xl:grid-cols-2">
@@ -175,7 +175,7 @@ export function Tracker() {
             {shown.length} of {rows.length} workers
           </p>
           {shown.length === 0 ? (
-            <EmptyState title="No workers match" description="Try clearing the search or status filters." />
+            <EmptyState icon={Users} title="No workers match" description="Try clearing the search or status filters." />
           ) : (
             <>
               <Table>

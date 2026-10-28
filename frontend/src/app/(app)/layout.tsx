@@ -50,7 +50,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         Skip to main content
       </a>
       <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>
-      <header className="app-top-nav border-b bg-background">
+      <header className="border-b bg-background">
         <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4">
           <div className="flex items-center gap-3">
             <Dialog.Trigger asChild><Button

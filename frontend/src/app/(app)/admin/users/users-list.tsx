@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Loader2, Search, UserPlus } from "lucide-react";
+import { Loader2, Search, UserPlus, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -102,7 +102,7 @@ export function UsersPanel() {
   } else if (isPending) {
     body = <TableSkeleton columns={isAdmin ? 8 : 7} />;
   } else if (rows.length === 0) {
-    body = <EmptyState title="No users match" description="Try changing the search or status filters." action={isAdmin ? { href: "/admin/users/new", label: "Add user" } : undefined} />;
+    body = <EmptyState icon={Users} title="No users match" description="Try changing the search or status filters." action={isAdmin ? { href: "/admin/users/new", label: "Add user" } : undefined} />;
   } else {
     body = (
       <>

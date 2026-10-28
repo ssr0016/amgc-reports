@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ErrorRetry } from "@/components/error-retry";
-import { TableSkeleton } from "@/components/loading-skeletons";
+import { FormSkeleton } from "@/components/loading-skeletons";
 import { dashboardTheme } from "@/components/dashboard-theme";
 import { RoleForm } from "@/components/role-form";
 import { createRole, listPermissions } from "@/lib/roles";
@@ -24,7 +24,7 @@ export function NewRole() {
   } else if (perms.error) {
     body = <ErrorRetry message={perms.error.message} onRetry={() => perms.refetch()} />;
   } else if (perms.isPending) {
-    body = <TableSkeleton columns={2} rows={3} />;
+    body = <FormSkeleton fields={3} />;
   } else {
     body = (
       <RoleForm
@@ -42,7 +42,7 @@ export function NewRole() {
   }
 
   return (
-    <PageShell className={`${dashboardTheme} account-surface`}>
+    <PageShell className={`${dashboardTheme}`}>
       <PageHeader title="New role" description="Pick a name and the permissions this role grants." />
       {body}
     </PageShell>

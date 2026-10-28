@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Filter } from "lucide-react";
+import { Filter, History } from "lucide-react";
 import { Fragment, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -122,7 +122,7 @@ export function AuditLogs() {
         ) : error ? (
           <ErrorRetry message={error.message} onRetry={() => refetch()} />
         ) : data && data.data.length === 0 ? (
-          <EmptyState title="No audit logs found" description="No activity matches the selected filters." />
+          <EmptyState icon={History} title="No audit logs found" description="No activity matches the selected filters." />
         ) : (
           data && (
             <>

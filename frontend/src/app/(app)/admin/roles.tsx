@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { KeyRound, Loader2, Lock, Plus, Shield, ShieldPlus } from "lucide-react";
+import { KeyRound, Loader2, Lock, Plus, Shield, ShieldPlus, Users } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import {
@@ -336,7 +336,7 @@ function RoleUsersDialog({
   } else if (isPending) {
     body = <TableSkeleton columns={2} rows={3} />;
   } else if (data.length === 0) {
-    body = <EmptyState title="No accounts hold this role" description="Users assigned to this role will appear here." />;
+    body = <EmptyState icon={Users} title="No accounts hold this role" description="Users assigned to this role will appear here." />;
   } else {
     body = (
       <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">

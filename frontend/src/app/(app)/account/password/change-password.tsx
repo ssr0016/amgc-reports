@@ -64,7 +64,7 @@ export function ChangePassword() {
   };
 
   return (
-    <PageShell className={`${dashboardTheme} account-surface max-w-xl`}>
+    <PageShell className={`${dashboardTheme} max-w-xl`}>
       <PageHeader title="Change password" description="Use a strong password you don’t use anywhere else." />
       <form ref={formRef} onSubmit={onSubmit} noValidate>
         <Card className={panelCard}>

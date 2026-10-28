@@ -304,7 +304,7 @@ function ReportsList() {
             <AlertDialogDescription>Admin notes are required before unapproving this report.</AlertDialogDescription>
           </AlertDialogHeader>
           <Label htmlFor="reports-admin-notes">Admin Notes</Label>
-          <Textarea id="reports-admin-notes" aria-label="Admin Notes" required value={adminNotes} onChange={(event) => setAdminNotes(event.target.value)} maxLength={5000} />
+          <Textarea id="reports-admin-notes" required value={adminNotes} onChange={(event) => setAdminNotes(event.target.value)} maxLength={5000} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy.length > 0}>Cancel</AlertDialogCancel>
             <Button disabled={busy.length > 0 || !adminNotes.trim()} aria-busy={busy.length > 0} onClick={() => { if (!unapproveTarget) return; const report = unapproveTarget; setUnapproveTarget(null); approve.mutate({ report, adminNotes: adminNotes.trim() }); }}>{busy.length > 0 ? <><Loader2 aria-hidden="true" className="motion-safe:animate-spin" />Unapproving…</> : "Unapprove"}</Button>
