@@ -118,13 +118,23 @@ test.describe("as admin", () => {
   });
 
   test("a locked-out account signs in with the new password", async ({ playwright }) => {
-    // Five wrong passwords lock the account. Each comes from its own address, because the login limiter is per address.
+    // The lockout counts per account and address (M2), so every attempt comes from one address.
+    // The login limiter lets that address try 3 at once, then 1 every 12 s: wait out a 429.
+    test.setTimeout(90_000);
+    const attempt = async (password: string) => {
+      for (;;) {
+        const r = await signIn(playwright, A.email, password, "reset-lock");
+        if (r.status !== 429) return r;
+        await r.ctx.dispose();
+        await new Promise((resolve) => setTimeout(resolve, 12_500));
+      }
+    };
     for (let i = 0; i < 5; i++) {
-      const wrong = await signIn(playwright, A.email, "not-the-password", `reset-lock-${i}`);
+      const wrong = await attempt("not-the-password");
       expect(wrong.status, `attempt ${i + 1}: ${wrong.body}`).toBe(401);
       await wrong.ctx.dispose();
     }
-    const locked = await signIn(playwright, A.email, current, "reset-locked");
+    const locked = await attempt(current);
     expect(locked.status, "the right password should be refused while locked").toBe(403);
     expect(locked.body.toLowerCase()).toContain("account locked");
     await locked.ctx.dispose();

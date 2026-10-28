@@ -485,7 +485,7 @@ describe("reports list: metadata preview", () => {
     const { user } = renderList("reports:read");
 
     await user.click(await screen.findByRole("button", { name: "Preview April 2026, Worker 1" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Report Preview" });
+    const dialog = await screen.findByRole("alertdialog", { name: "AMGCReports — Report Preview" });
 
     expect(h.getReport).toHaveBeenCalledWith(1);
     expect(within(dialog).getByText("Needs Revision")).toBeInTheDocument();

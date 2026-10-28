@@ -26,9 +26,10 @@ export CORS_ALLOWED_ORIGINS=http://localhost:3001
 # Lets each test present its own client address (CF-Connecting-IP), so the 5 per minute
 # login limit and the per-IP global limit apply per test, not to the whole run.
 export TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
-# The read limit is per user, and every admin spec signs in as the one e2e admin, so
-# the default (60 per minute, burst 20) runs out mid-run and a random spec gets a 429.
+# The read and write limits are per user, and every admin spec signs in as the one e2e
+# admin, so the defaults (60 per minute, burst 20 / 10) run out mid-run and a random spec gets a 429.
 export REPORTS_READ_RATE_LIMIT=6000 REPORTS_READ_BURST=1000
+export REPORTS_WRITE_RATE_LIMIT=6000 REPORTS_WRITE_BURST=1000
 # A fixed secret is fine here: the database is thrown away on every run.
 export JWT_SECRET=e2e-only-secret-e2e-only-secret-0123456789
 # The specs share saved sign-ins (e2e/.auth) and call the API directly, without the
