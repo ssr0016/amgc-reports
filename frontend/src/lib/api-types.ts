@@ -3619,10 +3619,21 @@ export interface components {
             churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"][];
             comparison?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison"];
             metric?: string;
+            /**
+             * @description NoReportChurches are active church accounts with no report in the period
+             *     (no approved one when Status is approved), so the page can list every church.
+             */
+            no_report_churches?: string[];
             period?: string;
             status?: string;
             summary?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary"][];
             trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"][];
+            /**
+             * @description Weeks counts the weeks with reports: each month's distinct report weeks with
+             *     any metric value in scope. Averages per week divide by it, so a month nobody
+             *     reported does not pull them down.
+             */
+            weeks?: number;
             year?: number;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch": {
@@ -3636,6 +3647,8 @@ export interface components {
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary": {
             churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch"][];
+            /** @description Group is the MetricGroups heading; summary rows come in MetricGroups order. */
+            group?: string;
             metric?: string;
             /** @description PeakMonth is the month with the highest total, earliest on a tie; "" when no month is above 0. */
             peak_month?: string;

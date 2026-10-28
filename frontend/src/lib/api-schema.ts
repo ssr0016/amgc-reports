@@ -61,6 +61,7 @@ export type AttendanceChurch = Required<StatsModel<"AttendanceChurch">>;
 export type AttendanceSummaryChurch = StatsModel<"AttendanceSummaryChurch">;
 export type AttendanceMetricSummary = {
   metric: string;
+  group: string;
   total: number | null;
   churches: AttendanceSummaryChurch[];
 };
@@ -77,5 +78,7 @@ export type AttendanceAnalytics = {
   trend: AttendanceTrendPoint[];
   churches: AttendanceChurch[];
   summary: AttendanceMetricSummary[];
+  no_report_churches: string[];
+  weeks: number;
   comparison?: AttendanceComparison;
 };

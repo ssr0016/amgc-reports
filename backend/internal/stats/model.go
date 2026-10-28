@@ -29,6 +29,10 @@ type AttendanceComparison struct {
 	Year     int                    `json:"year"`
 	Trend    []AttendanceTrendPoint `json:"trend"`
 	Churches []AttendanceChurch     `json:"churches"`
+	Detail   []AttendanceDetail     `json:"-"`
+	// Weeks and WeeksByMonth are as on AttendanceAnalytics, for the export.
+	Weeks        int         `json:"-"`
+	WeeksByMonth map[int]int `json:"-"`
 }
 
 type AttendanceAnalytics struct {
@@ -40,6 +44,25 @@ type AttendanceAnalytics struct {
 	Summary    []AttendanceMetricSummary `json:"summary"`
 	Period     string                    `json:"period"`
 	Comparison *AttendanceComparison     `json:"comparison,omitempty"`
+	// NoReportChurches are active church accounts with no report in the period
+	// (no approved one when Status is approved), so the page can list every church.
+	NoReportChurches []string `json:"no_report_churches"`
+	// Weeks counts the weeks with reports: each month's distinct report weeks with
+	// any metric value in scope. Averages per week divide by it, so a month nobody
+	// reported does not pull them down.
+	Weeks int `json:"weeks"`
+	// WeeksByMonth is Weeks per month number (1-12), for the export's monthly averages.
+	WeeksByMonth map[int]int `json:"-"`
+	// Detail is export-only, so the API and its generated types do not change.
+	Detail []AttendanceDetail `json:"-"`
+}
+
+// AttendanceDetail is one metric's total for one church and month.
+type AttendanceDetail struct {
+	Metric     string
+	ChurchName string
+	Month      int
+	Value      float64
 }
 
 type AttendanceTrendPoint struct {
@@ -53,9 +76,26 @@ type AttendanceChurch struct {
 	Value      float64 `json:"value"`
 }
 
+// MetricGroup is a heading the analytics summary groups metrics under.
+type MetricGroup struct {
+	Name    string
+	Metrics []string
+}
+
+// MetricGroups orders every report.MetricKeys entry under one heading.
+var MetricGroups = []MetricGroup{
+	{"Attendance", []string{"worship_service", "sunday_school", "prayer_meeting", "bible_studies", "mens_fellowship", "womens_fellowship", "youth_fellowship", "children_fellowship"}},
+	{"Finance", []string{"tithes_offering"}},
+	{"Pastoral Work", []string{"home_visited", "bible_study_group_led", "sermon_preached"}},
+	{"Evangelism & Growth", []string{"person_newly_contacted", "person_followed_up", "person_evangelized", "baptism"}},
+	{"Ministry & Events", []string{"outreach", "training", "leadership", "family_day", "other"}},
+}
+
 type AttendanceMetricSummary struct {
-	Metric string   `json:"metric"`
-	Total  *float64 `json:"total" extensions:"x-nullable"`
+	Metric string `json:"metric"`
+	// Group is the MetricGroups heading; summary rows come in MetricGroups order.
+	Group string   `json:"group"`
+	Total *float64 `json:"total" extensions:"x-nullable"`
 	// PeakMonth is the month with the highest total, earliest on a tie; "" when no month is above 0.
 	PeakMonth string                    `json:"peak_month"`
 	PeakValue float64                   `json:"peak_value"`

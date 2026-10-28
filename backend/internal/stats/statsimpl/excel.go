@@ -1,7 +1,9 @@
 package statsimpl
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/xuri/excelize/v2"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 )
@@ -82,6 +85,9 @@ type table struct {
 	headers        []string
 	rows           [][]any
 	freezeFirstCol bool
+	filter         bool   // adds Excel's AutoFilter dropdowns to the header row
+	subtitle       string // overrides the workbook subtitle when set
+	printReport    bool   // landscape, one page wide, for printing the sheet as the report
 }
 
 type cellKind int
@@ -202,6 +208,19 @@ func writeTable(f *excelize.File, st analyticsStyles, t table, subtitle, generat
 	if _, err := f.NewSheet(t.sheet); err != nil {
 		return fmt.Errorf("new sheet %q: %w", t.sheet, err)
 	}
+	if t.subtitle != "" {
+		subtitle = t.subtitle
+	}
+	if t.printReport {
+		landscape, one, anyTall := "landscape", 1, 0
+		if err := f.SetPageLayout(t.sheet, &excelize.PageLayoutOptions{Orientation: &landscape, FitToWidth: &one, FitToHeight: &anyTall}); err != nil {
+			return fmt.Errorf("page layout %q: %w", t.sheet, err)
+		}
+		fit := true
+		if err := f.SetSheetProps(t.sheet, &excelize.SheetPropsOptions{FitToPage: &fit}); err != nil {
+			return fmt.Errorf("fit %q: %w", t.sheet, err)
+		}
+	}
 	if err := writeTitle(f, st, t.sheet, max(len(t.headers), minTitleCols), subtitle, generated); err != nil {
 		return fmt.Errorf("title of %q: %w", t.sheet, err)
 	}
@@ -221,6 +240,12 @@ func writeTable(f *excelize.File, st analyticsStyles, t table, subtitle, generat
 	}
 	if err := f.SetPanes(t.sheet, panes); err != nil {
 		return fmt.Errorf("freeze %q: %w", t.sheet, err)
+	}
+	if t.filter && len(t.rows) > 0 {
+		ref := cellRef(1, headerRow) + ":" + cellRef(len(t.headers), headerRow+len(t.rows))
+		if err := f.AutoFilter(t.sheet, ref, nil); err != nil {
+			return fmt.Errorf("filter %q: %w", t.sheet, err)
+		}
 	}
 	return nil
 }
@@ -386,13 +411,6 @@ func dueMonths(year int, period string, now time.Time) []time.Month {
 	return out
 }
 
-// sundays counts a month's Sundays, the weeks the report form records.
-func sundays(year int, m time.Month) int {
-	first := time.Date(year, m, 1, 0, 0, 0, 0, time.UTC)
-	firstSunday := 1 + (7-int(first.Weekday()))%7
-	return (first.AddDate(0, 1, -1).Day()-firstSunday)/7 + 1
-}
-
 // monthNumber is the month a trend point's name stands for; 0 when unknown.
 func monthNumber(name string) time.Month {
 	t, err := time.Parse("January", name)
@@ -400,27 +418,6 @@ func monthNumber(name string) time.Month {
 		return 0
 	}
 	return t.Month()
-}
-
-// periodWeeks is the Sundays in the period's due months plus any month that
-// already has data (a report filed before its month is over).
-func periodWeeks(year int, period string, trend []stats.AttendanceTrendPoint, now time.Time) int {
-	months := map[time.Month]bool{}
-	for _, m := range dueMonths(year, period, now) {
-		months[m] = true
-	}
-	for _, p := range trend {
-		if p.Value != 0 {
-			months[monthNumber(p.Month)] = true
-		}
-	}
-	weeks := 0
-	for m := range months {
-		if m != 0 {
-			weeks += sundays(year, m)
-		}
-	}
-	return weeks
 }
 
 // perWeek is total over weeks, blank when there are no weeks.
@@ -431,9 +428,10 @@ func perWeek(total float64, weeks int) any {
 	return total / float64(weeks)
 }
 
-// buildAnalyticsWorkbook lays out data on six sheets: Summary (the KPI cards),
-// Monthly Totals, Weekly Trend, Church Breakdown, Full Metrics Summary and
-// Submission Compliance. churchesTotal is the page's "out of" count;
+// buildAnalyticsWorkbook lays out data on seven sheets: Full Metrics Summary
+// (the one-page report, first so it opens first), Summary (the KPI cards),
+// Monthly Totals, Weekly Trend, Church Breakdown, Metric Detail and Submission
+// Compliance. churchesTotal is the page's "out of" count;
 // compliance is the tracker for each due month; now is the generated-at time.
 func buildAnalyticsWorkbook(data stats.AttendanceAnalytics, churchesTotal int64, compliance []monthTracker, now time.Time) ([]byte, error) {
 	f := excelize.NewFile()
@@ -448,10 +446,10 @@ func buildAnalyticsWorkbook(data stats.AttendanceAnalytics, churchesTotal int64,
 	}
 	subtitle := fmt.Sprintf("%s · %s %d · %s", metricLabel(data.Metric), periodLabel(data.Period), data.Year, status)
 	generated := "Generated " + now.Format("2 Jan 2006, 15:04") + " (" + now.Location().String() + ")"
-	weeks := periodWeeks(data.Year, data.Period, data.Trend, now)
+	weeks := data.Weeks
 	for _, t := range []table{
-		summaryTable(data, churchesTotal, weeks, compliance), monthlyTable(data), trendTable(data),
-		churchTable(data), allMetricsTable(data, weeks), complianceTable(compliance),
+		allMetricsTable(data, weeks, status), summaryTable(data, churchesTotal, weeks, compliance), monthlyTable(data),
+		trendTable(data), churchTable(data), detailTable(data), complianceTable(compliance),
 	} {
 		if err := writeTable(f, st, t, subtitle, generated); err != nil {
 			return nil, err
@@ -469,7 +467,7 @@ func buildAnalyticsWorkbook(data stats.AttendanceAnalytics, churchesTotal int64,
 }
 
 // summaryTable is the page's three KPI cards, the average per week and the
-// submission rate. weeks is periodWeeks for data's year.
+// submission rate. weeks is data.Weeks, the weeks with reports.
 func summaryTable(data stats.AttendanceAnalytics, churchesTotal int64, weeks int, compliance []monthTracker) table {
 	total, peak, peakValue := totalAndPeak(data.Trend)
 	active := activeChurches(data.Churches)
@@ -483,8 +481,7 @@ func summaryTable(data stats.AttendanceAnalytics, churchesTotal int64, weeks int
 	if cmp := data.Comparison; cmp != nil {
 		prevTotal, prevPeak, prevPeakValue := totalAndPeak(cmp.Trend)
 		prevActive := activeChurches(cmp.Churches)
-		// Last year is over, so every month of its period is due.
-		prevAvg := perWeek(prevTotal, periodWeeks(cmp.Year, data.Period, nil, time.Date(cmp.Year+1, 1, 1, 0, 0, 0, 0, time.UTC)))
+		prevAvg := perWeek(prevTotal, cmp.Weeks)
 		t.headers = append(t.headers, strconv.Itoa(cmp.Year), "Change")
 		t.rows[0] = append(t.rows[0], prevTotal, change(total, prevTotal))
 		t.rows[1] = append(t.rows[1], orDash(prevPeak), change(peakValue, prevPeakValue))
@@ -504,8 +501,8 @@ func changeOf(current, previous any) any {
 	return change(c, p)
 }
 
-// monthlyTable is each month's total and average per week, so a 5-Sunday month
-// compares fairly with a 4-Sunday one. It lists months with data this year or last.
+// monthlyTable is each month's total and average per week with reports, so a
+// month with fewer weeks reported compares fairly with a full one. It lists months with data this year or last.
 func monthlyTable(data stats.AttendanceAnalytics) table {
 	y := strconv.Itoa(data.Year)
 	t := table{sheet: "Monthly Totals", headers: []string{"Month", "Weeks", y + " Total", y + " Avg per Week"}}
@@ -528,11 +525,11 @@ func monthlyTable(data stats.AttendanceAnalytics) table {
 		if current[m] == 0 && previous[m] == 0 {
 			continue
 		}
-		weeks := sundays(data.Year, m)
+		weeks := data.WeeksByMonth[int(m)]
 		avg := perWeek(current[m], weeks)
 		row := []any{m.String(), weeks, current[m], avg}
 		if cmp != nil {
-			prevAvg := perWeek(previous[m], sundays(cmp.Year, m))
+			prevAvg := perWeek(previous[m], cmp.WeeksByMonth[int(m)])
 			row = append(row, previous[m], prevAvg, changeOf(avg, prevAvg))
 		}
 		t.rows = append(t.rows, row)
@@ -595,9 +592,11 @@ func churchTable(data stats.AttendanceAnalytics) table {
 }
 
 // allMetricsTable is every metric's period total and peak month, overall and
-// per church; a church with no value for a metric gets a blank cell.
-func allMetricsTable(data stats.AttendanceAnalytics, weeks int) table {
-	t := table{sheet: "Full Metrics Summary", headers: []string{"Metric", "Total for Period", "Avg per Week", "Peak Month", "Peak Month Total"}, freezeFirstCol: true}
+// per church, grouped by stats.MetricGroups. A church with no value for a metric
+// gets a blank cell; a church with no report at all gets No Report cells.
+// statusLabel is the workbook's Approved or All Submitted.
+func allMetricsTable(data stats.AttendanceAnalytics, weeks int, statusLabel string) table {
+	t := table{sheet: "Full Metrics Summary", headers: []string{"Metric", "Category", "Total for Period", "Avg per Week", "Peak Month", "Peak Month Total"}, freezeFirstCol: true, printReport: true}
 	var names []string
 	seen := map[string]bool{}
 	for _, row := range data.Summary {
@@ -609,6 +608,9 @@ func allMetricsTable(data stats.AttendanceAnalytics, weeks int) table {
 		}
 	}
 	t.headers = append(t.headers, names...)
+	t.headers = append(t.headers, data.NoReportChurches...)
+	t.subtitle = fmt.Sprintf("All Metrics · %s %d · %s · %d of %d churches reporting",
+		periodLabel(data.Period), data.Year, statusLabel, len(names), len(names)+len(data.NoReportChurches))
 	optional := func(v *float64) any {
 		if v == nil {
 			return nil
@@ -628,11 +630,58 @@ func allMetricsTable(data stats.AttendanceAnalytics, weeks int) table {
 		if row.Total != nil {
 			avg = perWeek(*row.Total, weeks)
 		}
-		out := []any{metricLabel(row.Metric), optional(row.Total), avg, orDash(row.PeakMonth), peakValue}
+		out := []any{metricLabel(row.Metric), row.Group, optional(row.Total), avg, orDash(row.PeakMonth), peakValue}
 		for _, name := range names {
 			out = append(out, optional(values[name]))
 		}
+		for range data.NoReportChurches {
+			out = append(out, statusNoReport)
+		}
 		t.rows = append(t.rows, out)
+	}
+	return t
+}
+
+// detailTable is every metric for every church and month, one row each, so an
+// admin can filter or pivot it. Rows follow the report form's metric order.
+func detailTable(data stats.AttendanceAnalytics) table {
+	t := table{sheet: "Metric Detail", headers: []string{"Metric", "Church", "Month", strconv.Itoa(data.Year)}, filter: true}
+	type key struct {
+		metric, church string
+		month          int
+	}
+	current, previous := map[key]float64{}, map[key]float64{}
+	var keys []key
+	seen := map[key]bool{}
+	add := func(rows []stats.AttendanceDetail, into map[key]float64) {
+		for _, d := range rows {
+			k := key{d.Metric, d.ChurchName, d.Month}
+			if !seen[k] {
+				seen[k] = true
+				keys = append(keys, k)
+			}
+			into[k] = d.Value
+		}
+	}
+	add(data.Detail, current)
+	prev := data.Comparison
+	if prev != nil {
+		t.headers = append(t.headers, strconv.Itoa(prev.Year), "Change")
+		add(prev.Detail, previous)
+	}
+	order := map[string]int{}
+	for i, m := range report.MetricKeys {
+		order[m] = i
+	}
+	slices.SortFunc(keys, func(a, b key) int {
+		return cmp.Or(cmp.Compare(order[a.metric], order[b.metric]), strings.Compare(a.church, b.church), cmp.Compare(a.month, b.month))
+	})
+	for _, k := range keys {
+		row := []any{metricLabel(k.metric), k.church, time.Month(k.month).String(), current[k]}
+		if prev != nil {
+			row = append(row, previous[k], change(current[k], previous[k]))
+		}
+		t.rows = append(t.rows, row)
 	}
 	return t
 }

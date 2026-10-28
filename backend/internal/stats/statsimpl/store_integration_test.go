@@ -30,9 +30,22 @@ func TestStore_AnalyticsAttendance(t *testing.T) {
 	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
 	store := NewStore(db)
 	reports := reportimpl.NewStore(db)
-	worker, err := userimpl.NewStore(db).CreateWithPassword(context.Background(), "analytics@example.com", "Analytics", "hash")
-	require.NoError(t, err)
+	users := userimpl.NewStore(db)
 	ctx := context.Background()
+	// account creates an active user-role account for church.
+	account := func(email, church string) int64 {
+		t.Helper()
+		u, err := users.CreateWithPassword(ctx, email, church, "hash")
+		require.NoError(t, err)
+		_, err = users.UpdateProfile(ctx, u.ID, user.UserProfile{Name: church, ChurchName: church})
+		require.NoError(t, err)
+		return u.ID
+	}
+	worker := struct{ ID int64 }{account("analytics@example.com", "Bethel")}
+	account("zion@example.com", "Zion")
+	hope := account("hope@example.com", "Hope")
+	_, err := reports.Create(ctx, hope, 2026, report.CreateReportRequest{Month: "April"}) // outside Q1
+	require.NoError(t, err)
 	create := func(month string, year int, value string) {
 		t.Helper()
 		metrics := map[string]report.MetricWeeks{"worship_service": {Week1: analyticsNum(value)}}
@@ -71,7 +84,11 @@ func TestStore_AnalyticsAttendance(t *testing.T) {
 	require.Len(t, tithes.Churches, 1)
 	require.NotNil(t, tithes.Churches[0].Value)
 	assert.Equal(t, 120.50, *tithes.Churches[0].Value)
-	baptism := got.Summary[18]
+	assert.Equal(t, "Attendance", worship.Group)
+	assert.Equal(t, "Finance", tithes.Group)
+	baptism := got.Summary[15] // last of Evangelism & Growth
+	assert.Equal(t, "baptism", baptism.Metric)
+	assert.Equal(t, "Evangelism & Growth", baptism.Group)
 	require.NotNil(t, baptism.Total)
 	assert.Equal(t, 0.0, *baptism.Total)
 	assert.Empty(t, baptism.PeakMonth) // a total of 0 has no peak
@@ -84,6 +101,19 @@ func TestStore_AnalyticsAttendance(t *testing.T) {
 	assert.Len(t, got.Comparison.Trend, 15)
 	require.Len(t, got.Comparison.Churches, 1)
 	assert.Equal(t, 3.0, got.Comparison.Churches[0].Value)
+	church := got.Churches[0].ChurchName
+	assert.ElementsMatch(t, []stats.AttendanceDetail{
+		{Metric: "worship_service", ChurchName: church, Month: 1, Value: 2},
+		{Metric: "worship_service", ChurchName: church, Month: 3, Value: 7},
+		{Metric: "tithes_offering", ChurchName: church, Month: 1, Value: 120.50},
+		{Metric: "baptism", ChurchName: church, Month: 1, Value: 0},
+	}, got.Detail) // April is outside Q1
+	assert.Equal(t, []stats.AttendanceDetail{{Metric: "worship_service", ChurchName: church, Month: 1, Value: 3}}, got.Comparison.Detail)
+	assert.Equal(t, []string{"Hope", "Zion"}, got.NoReportChurches) // Bethel reported in Q1
+	// One week each in January and March (April is outside Q1); 2025's January counts for the comparison.
+	assert.Equal(t, map[int]int{1: 1, 3: 1}, got.WeeksByMonth)
+	assert.Equal(t, 2, got.Weeks)
+	assert.Equal(t, 1, got.Comparison.Weeks)
 }
 
 func TestStore_Counts(t *testing.T) {

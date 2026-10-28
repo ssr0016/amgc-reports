@@ -40,10 +40,12 @@ const body: AttendanceAnalytics = {
   trend,
   churches: [{ church_name: "Bethel", value: 26 }],
   summary: [
-    { metric: "worship_service", total: 26, churches: [{ church_name: "Bethel", value: 26 }] },
-    { metric: "tithes_offering", total: 120.5, churches: [{ church_name: "Bethel", value: 120.5 }] },
-    { metric: "baptism", total: null, churches: [{ church_name: "Bethel", value: null }] },
+    { metric: "worship_service", group: "Attendance", total: 26, churches: [{ church_name: "Bethel", value: 26 }] },
+    { metric: "tithes_offering", group: "Finance", total: 120.5, churches: [{ church_name: "Bethel", value: 120.5 }] },
+    { metric: "baptism", group: "Evangelism & Growth", total: null, churches: [{ church_name: "Bethel", value: null }] },
   ],
+  no_report_churches: ["Zion"],
+  weeks: 2,
 };
 
 function renderAnalytics() {
@@ -65,13 +67,19 @@ describe("analytics", () => {
   it("loads with current-year, Worship Service, and Approved defaults", async () => {
     renderAnalytics();
     expect(screen.getByRole("status", { name: "Loading analytics" })).toBeInTheDocument();
-    await screen.findByText("Weekly trend");
-    const summary = screen.getAllByRole("region", { name: "Analytics summary" })[0];
-    expect(within(summary).getByText("26")).toBeInTheDocument();
-    expect(within(summary).getByText("January")).toBeInTheDocument();
-    expect(within(summary).getByText("1 out of 3 churches")).toBeInTheDocument();
+    await screen.findByText("Monthly trend");
+    expect(screen.getByLabelText("Analytics scope")).toHaveTextContent("Full Year 2026 · Approved reports · 1 of 2 churches reporting".replace("2026", String(new Date().getFullYear())));
+    // The KPI cards cover every metric, whatever the trend shows.
+    const summary = screen.getByRole("region", { name: "Analytics summary" });
+    expect(within(summary).getByText("13")).toBeInTheDocument(); // 26 worship ÷ 2 weeks
+    expect(within(summary).getByText("₱120.50")).toBeInTheDocument();
+    expect(within(summary).getByText("1 of 2")).toBeInTheDocument();
+    const trendSummary = screen.getByRole("region", { name: "Trend summary" });
+    expect(within(trendSummary).getByText("26")).toBeInTheDocument();
+    expect(within(trendSummary).getByText("January")).toBeInTheDocument();
+    expect(within(trendSummary).getByText("1 out of 3 churches")).toBeInTheDocument();
     expect(screen.getByLabelText("Year")).toHaveValue(String(new Date().getFullYear()));
-    expect(screen.getByLabelText("Metric")).toHaveValue("worship_service");
+    expect(screen.getByLabelText("Trend for")).toHaveValue("worship_service");
     expect(screen.getByLabelText("Status")).toHaveValue("approved");
     expect(screen.getByLabelText("Period")).toHaveValue("full_year");
     expect(screen.getByLabelText("Compare with previous year")).not.toBeChecked();
@@ -80,17 +88,17 @@ describe("analytics", () => {
 
   it("refetches when filters change and exposes equivalent table data", async () => {
     const { user } = renderAnalytics();
-    await screen.findByText("Weekly trend");
-    await user.selectOptions(screen.getByLabelText("Metric"), "tithes_offering");
+    await screen.findByText("Monthly trend");
+    await user.selectOptions(screen.getByLabelText("Trend for"), "tithes_offering");
     await user.selectOptions(screen.getByLabelText("Status"), "all");
     await user.selectOptions(screen.getByLabelText("Period"), "q2");
     await user.click(screen.getByLabelText("Compare with previous year"));
     expect(h.getAttendanceAnalytics).toHaveBeenLastCalledWith(new Date().getFullYear(), "tithes_offering", "all", "q2", true);
 
-    const trendTable = screen.getByRole("table", { name: "Weekly trend data" });
-    expect(within(trendTable).getAllByText("January")).toHaveLength(2);
-    expect(within(trendTable).getByText("12")).toBeInTheDocument();
-    expect(within(trendTable).queryByText("February")).not.toBeInTheDocument();
+    // Weeks add up to months, and every month of the period is listed.
+    const trendTable = screen.getByRole("table", { name: "Monthly trend data" });
+    expect(within(trendTable).getByRole("row", { name: /January/ })).toHaveTextContent("26");
+    expect(within(trendTable).getByRole("row", { name: /February/ })).toHaveTextContent("0");
     const churchTable = screen.getByRole("table", { name: "Church breakdown data" });
     expect(within(churchTable).getByText("Bethel")).toBeInTheDocument();
   });
@@ -124,29 +132,34 @@ describe("analytics", () => {
     expect(screen.getByRole("table", { name: "Church breakdown data" })).toHaveTextContent("20");
   });
 
-  it("renders the full metrics summary with dynamic churches and nullable currency values", async () => {
+  it("renders the full metrics summary grouped, with every church and nullable currency values", async () => {
     renderAnalytics();
 
     const table = (await screen.findAllByRole("table", { name: "Full metrics summary" }))[0];
-    expect(within(table).getByText("Worship Service")).toBeInTheDocument();
-    expect(within(table).getByText("Tithes & Offering")).toBeInTheDocument();
-    expect(within(table).getAllByText("Bethel").length).toBeGreaterThan(0);
+    const rows = within(table).getAllByRole("row");
+    expect(within(rows[0]).getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(["Metric Name", "Total for Period", "Avg / Week", "Bethel", "Zion"]);
+    expect(rows.slice(1).map((row) => row.firstChild?.textContent)).toEqual(["Attendance", "Worship Service", "Finance", "Tithes & Offering", "Evangelism & Growth", "Baptism"]);
+    // Attendance gets an average per week; other metrics leave it blank.
+    expect(within(table).getByRole("row", { name: /Worship Service/ })).toHaveTextContent("Worship Service261326No report");
     expect(within(table).getAllByText("₱120.50")).toHaveLength(2);
     expect(within(table).getAllByText("—")).toHaveLength(2);
+    expect(within(table).getAllByText("No report")).toHaveLength(3);
   });
 
   it("renders the analytics sections once in the requested order", async () => {
     renderAnalytics();
 
-    await screen.findByText("Weekly trend");
+    await screen.findByText("Monthly trend");
     expect(screen.getAllByRole("region", { name: "Analytics summary" })).toHaveLength(1);
     expect(screen.getAllByRole("table", { name: "Full metrics summary" })).toHaveLength(1);
     const sections = [
+      screen.getByLabelText("Analytics scope"),
       screen.getByRole("region", { name: "Analytics summary" }),
-      screen.getByText("Weekly trend"),
-      screen.getByRole("heading", { name: "Data table" }),
-      screen.getByRole("heading", { name: "Church table" }),
       screen.getByRole("heading", { name: "Full Metrics Summary" }),
+      screen.getByRole("heading", { name: "Trend" }),
+      screen.getByLabelText("Trend for"),
+      screen.getByText("Monthly trend"),
+      screen.getByRole("table", { name: "Monthly trend data" }),
     ];
     sections.slice(0, -1).forEach((section, index) => {
       expect(Boolean(section.compareDocumentPosition(sections[index + 1]) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);

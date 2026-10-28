@@ -257,11 +257,11 @@ GET /admin/analytics/attendance?year=2026&metric=worship_service&status=approved
 
 Weekly totals of one metric for the Analytics tab. `year` and `metric` (one of the 21 metric keys) are required. `status` is `approved` (default) or `all` (pending, needs revision and approved; drafts never count). `period` is `full_year` (default), `q1` to `q4`, or a lowercase month name. `compare=true` adds `comparison`, the same period of the previous year. Rate limited like report reads; counts only, no report text.
 
-Response (200): `{year, metric, status, period, trend, churches, summary, comparison?}`. `trend` has one `{month, week, value}` per reported week, `churches` one `{church_name, value}` per church, and `summary` the period's total for every metric with a per-church breakdown (`total` and `value` are `null` when nothing was reported). Errors: 400 for a bad year, metric, `compare` or period, 401 without a session, 403 without `tracker:read`.
+Response (200): `{year, metric, status, period, trend, churches, summary, no_report_churches, weeks, comparison?}`. `trend` has one `{month, week, value}` per reported week, `churches` one `{church_name, value}` per church, and `summary` the period's total for every metric with a per-church breakdown (`total` and `value` are `null` when nothing was reported), in metric-group order with each row's `group` (D-A30). `no_report_churches` lists the active church accounts with no report in scope for the period, sorted. `weeks` is the number of weeks with reports in the period, the divisor for averages per week. Errors: 400 for a bad year, metric, `compare` or period, 401 without a session, 403 without `tracker:read`.
 
 GET /admin/analytics/attendance/excel?year=2026&metric=worship_service&status=approved&period=q1&compare=true
 
-The same query and data as a formatted `.xlsx` (`analytics-<year>-<period>.xlsx`, D-A26): sheets Summary, Weekly Trend, Church Breakdown and All Metrics. Writes no audit row. Rate limited with the other Excel downloads (5 per minute per user). Same errors as above, plus 429.
+The same query and data as a formatted `.xlsx` (`analytics-<year>-<period>.xlsx`, D-A26, D-A27, D-A29, D-A30): sheets Full Metrics Summary (first; the one-page report, landscape, with no-report churches as "No Report" columns), Summary, Monthly Totals, Weekly Trend, Church Breakdown, Metric Detail and Submission Compliance. Averages per week divide by the weeks with reports. Metric Detail has one row per metric, church and month with Excel AutoFilter; with `compare=true` it adds the previous year and the change. Writes no audit row. Rate limited with the other Excel downloads (5 per minute per user). Same errors as above, plus 429.
 
 ### Audit Logs (`audit:read`)
 

@@ -588,6 +588,13 @@ definitions:
         $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison'
       metric:
         type: string
+      no_report_churches:
+        description: |-
+          NoReportChurches are active church accounts with no report in the period
+          (no approved one when Status is approved), so the page can list every church.
+        items:
+          type: string
+        type: array
       period:
         type: string
       status:
@@ -600,6 +607,12 @@ definitions:
         items:
           $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint'
         type: array
+      weeks:
+        description: |-
+          Weeks counts the weeks with reports: each month's distinct report weeks with
+          any metric value in scope. Averages per week divide by it, so a month nobody
+          reported does not pull them down.
+        type: integer
       year:
         type: integer
     type: object
@@ -629,6 +642,10 @@ definitions:
         items:
           $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch'
         type: array
+      group:
+        description: Group is the MetricGroups heading; summary rows come in MetricGroups
+          order.
+        type: string
       metric:
         type: string
       peak_month:

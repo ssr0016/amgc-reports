@@ -3830,6 +3830,13 @@ const docTemplate = `{
                 "metric": {
                     "type": "string"
                 },
+                "no_report_churches": {
+                    "description": "NoReportChurches are active church accounts with no report in the period\n(no approved one when Status is approved), so the page can list every church.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "period": {
                     "type": "string"
                 },
@@ -3847,6 +3854,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"
                     }
+                },
+                "weeks": {
+                    "description": "Weeks counts the weeks with reports: each month's distinct report weeks with\nany metric value in scope. Averages per week divide by it, so a month nobody\nreported does not pull them down.",
+                    "type": "integer"
                 },
                 "year": {
                     "type": "integer"
@@ -3892,6 +3903,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch"
                     }
+                },
+                "group": {
+                    "description": "Group is the MetricGroups heading; summary rows come in MetricGroups order.",
+                    "type": "string"
                 },
                 "metric": {
                     "type": "string"
