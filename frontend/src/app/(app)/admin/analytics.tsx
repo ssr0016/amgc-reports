@@ -222,7 +222,7 @@ function FullMetricsSummary({ data, statusText, onOpenChurch }: { data: Attendan
         <Table aria-label="Full metrics summary" aria-describedby="full-metrics-note">
           <TableHeader>
             <TableRow>
-              <TableHead scope="col" className="sticky left-0 z-10 min-w-52 bg-background">Metric</TableHead>
+              <TableHead scope="col" className="sticky left-0 z-10 min-w-32 bg-background sm:min-w-52">Metric</TableHead>
               <TableHead scope="col" className="text-right">Total</TableHead>
               <TableHead scope="col" className="text-right">Recorded entries</TableHead>
               <TableHead scope="col" className="text-right">Avg per church-service</TableHead>
@@ -234,7 +234,7 @@ function FullMetricsSummary({ data, statusText, onOpenChurch }: { data: Attendan
             {data.metrics.flatMap((row, index) => {
               const cells = (
                 <TableRow key={row.metric}>
-                  <TableHead scope="row" className="sticky left-0 z-10 bg-background text-sm font-medium tracking-normal text-foreground normal-case">{row.label}</TableHead>
+                  <TableHead scope="row" className="sticky left-0 z-10 bg-background text-sm font-medium tracking-normal whitespace-normal text-foreground normal-case sm:whitespace-nowrap">{row.label}</TableHead>
                   <TableCell className="text-right tabular-nums">{formatValue(row.total, row.unit)}</TableCell>
                   <TableCell className="text-right tabular-nums">{row.observations}</TableCell>
                   <TableCell className="text-right tabular-nums">{row.unit === "people" ? formatValue(row.avg_per_church_service) : ""}</TableCell>

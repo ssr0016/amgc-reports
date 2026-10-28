@@ -84,7 +84,7 @@ export function ComplianceMatrix({
         <Table aria-label="Submission compliance by church and month" aria-describedby="compliance-note">
           <TableHeader>
             <TableRow>
-              <TableHead scope="col" className="sticky left-0 z-10 min-w-48 bg-background">Church</TableHead>
+              <TableHead scope="col" className="sticky left-0 z-10 min-w-28 bg-background sm:min-w-48">Church</TableHead>
               <TableHead scope="col">Reporting months</TableHead>
               {data.months.map((m) => <TableHead scope="col" key={m.month} className="min-w-28">{m.name.slice(0, 3)}</TableHead>)}
               <TableHead scope="col" className="text-right">Submitted / Expected</TableHead>
@@ -96,7 +96,7 @@ export function ComplianceMatrix({
               const church = churches.get(row.church_id);
               return (
                 <TableRow key={row.church_id}>
-                  <TableHead scope="row" className="sticky left-0 z-10 bg-background text-sm font-medium tracking-normal text-foreground normal-case">
+                  <TableHead scope="row" className="sticky left-0 z-10 bg-background text-sm font-medium tracking-normal whitespace-normal text-foreground normal-case sm:whitespace-nowrap">
                     <button type="button" className="text-left underline-offset-4 hover:underline focus-visible:underline" onClick={() => onOpenChurch(row.church_id)}>{row.church_name}</button>
                   </TableHead>
                   <TableCell className="whitespace-nowrap">
