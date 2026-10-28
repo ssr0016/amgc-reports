@@ -17,6 +17,7 @@ type MockStore struct {
 	mu     sync.Mutex
 	users  map[int64]*user.User
 	nextID int64
+	fails  map[failKey]*failure
 
 	// Override functions for testing specific behaviors
 	GetByIDFunc                   func(ctx context.Context, id int64) (*user.User, error)
@@ -30,8 +31,9 @@ type MockStore struct {
 	MarkEmailVerifiedFunc         func(ctx context.Context, userID int64) error
 	UpdatePasswordFunc            func(ctx context.Context, userID int64, hash string) error
 	UpdatePasswordKeepSessionFunc func(ctx context.Context, userID int64, hash, keepToken string) (int64, error)
-	RecordFailedLoginFunc         func(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
-	ResetLoginAttemptsFunc        func(ctx context.Context, userID int64) error
+	LoginLockedFunc               func(ctx context.Context, userID int64, ip string) (bool, error)
+	RecordFailedLoginFunc         func(ctx context.Context, userID int64, ip string, maxAttempts int, lockDuration time.Duration) error
+	ResetLoginAttemptsFunc        func(ctx context.Context, userID int64, ip string) error
 	ClearLockoutFunc              func(ctx context.Context, userID int64) error
 	UpdateStatusFunc              func(ctx context.Context, id int64, status string) (*user.User, error)
 	RevokeSessionsFunc            func(ctx context.Context, userID int64) (int64, error)
@@ -50,6 +52,7 @@ func NewMockStore() *MockStore {
 	return &MockStore{
 		users:  make(map[int64]*user.User),
 		nextID: 1,
+		fails:  make(map[failKey]*failure),
 	}
 }
 
@@ -282,49 +285,85 @@ func (m *MockStore) UpdatePasswordKeepSession(ctx context.Context, userID int64,
 	return 0, m.UpdatePassword(ctx, userID, hash)
 }
 
-// RecordFailedLogin increments failed attempts (mock).
-func (m *MockStore) RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error {
+type failKey struct {
+	userID int64
+	ip     string
+}
+
+type failure struct {
+	attempts    int
+	lockedUntil time.Time
+}
+
+// Failures returns how many failed sign-ins are counted for userID from ip (mock).
+func (m *MockStore) Failures(userID int64, ip string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if f := m.fails[failKey{userID, ip}]; f != nil {
+		return f.attempts
+	}
+	return 0
+}
+
+// LoginLocked reports whether userID is locked out from ip (mock).
+func (m *MockStore) LoginLocked(ctx context.Context, userID int64, ip string) (bool, error) {
+	if m.LoginLockedFunc != nil {
+		return m.LoginLockedFunc(ctx, userID, ip)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	f := m.fails[failKey{userID, ip}]
+	return f != nil && f.lockedUntil.After(time.Now()), nil
+}
+
+// RecordFailedLogin counts a failure for userID from ip (mock).
+func (m *MockStore) RecordFailedLogin(ctx context.Context, userID int64, ip string, maxAttempts int, lockDuration time.Duration) error {
 	if m.RecordFailedLoginFunc != nil {
-		return m.RecordFailedLoginFunc(ctx, userID, maxAttempts, lockDuration)
+		return m.RecordFailedLoginFunc(ctx, userID, ip, maxAttempts, lockDuration)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	user, ok := m.users[userID]
-	if !ok {
+	if _, ok := m.users[userID]; !ok {
 		return fmt.Errorf("users: %w", database.ErrNotFound)
 	}
-	user.FailedLoginAttempts++
-	if user.FailedLoginAttempts >= maxAttempts {
-		lockedUntil := time.Now().Add(lockDuration)
-		user.LockedUntil = &lockedUntil
+	k := failKey{userID, ip}
+	f := m.fails[k]
+	if f == nil {
+		f = &failure{}
+		m.fails[k] = f
+	}
+	f.attempts++
+	if f.attempts >= maxAttempts {
+		f.lockedUntil = time.Now().Add(lockDuration)
 	}
 	return nil
 }
 
-// ResetLoginAttempts clears failed attempts (mock).
-func (m *MockStore) ResetLoginAttempts(ctx context.Context, userID int64) error {
+// ResetLoginAttempts clears the failures of userID from ip (mock).
+func (m *MockStore) ResetLoginAttempts(ctx context.Context, userID int64, ip string) error {
 	if m.ResetLoginAttemptsFunc != nil {
-		return m.ResetLoginAttemptsFunc(ctx, userID)
+		return m.ResetLoginAttemptsFunc(ctx, userID, ip)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	user, ok := m.users[userID]
-	if !ok {
-		return fmt.Errorf("users: %w", database.ErrNotFound)
-	}
-	user.FailedLoginAttempts = 0
-	user.LockedUntil = nil
+	delete(m.fails, failKey{userID, ip})
 	return nil
 }
 
-// ClearLockout clears failed attempts and the lock (mock).
+// ClearLockout clears the failures of userID from every IP (mock).
 func (m *MockStore) ClearLockout(ctx context.Context, userID int64) error {
 	if m.ClearLockoutFunc != nil {
 		return m.ClearLockoutFunc(ctx, userID)
 	}
-	return m.ResetLoginAttempts(ctx, userID)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for k := range m.fails {
+		if k.userID == userID {
+			delete(m.fails, k)
+		}
+	}
+	return nil
 }
 
 // UpdateStatus sets a user's status (mock).

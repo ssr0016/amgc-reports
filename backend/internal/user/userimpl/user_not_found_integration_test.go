@@ -48,11 +48,7 @@ func TestUserWrites_MissingUserIsErrNotFound(t *testing.T) {
 	})
 
 	t.Run("RecordFailedLogin", func(t *testing.T) {
-		require.ErrorIs(t, users.RecordFailedLogin(ctx, gone.ID, 5, 15*time.Minute), database.ErrNotFound)
-	})
-
-	t.Run("ResetLoginAttempts", func(t *testing.T) {
-		require.ErrorIs(t, users.ResetLoginAttempts(ctx, gone.ID), database.ErrNotFound)
+		require.ErrorIs(t, users.RecordFailedLogin(ctx, gone.ID, "1.1.1.1", 5, 15*time.Minute), database.ErrNotFound)
 	})
 
 	t.Run("UpdateRole with a missing role stays a foreign key violation", func(t *testing.T) {

@@ -10,17 +10,15 @@ import (
 // so the generated frontend types do not change with the package.
 
 type User struct {
-	ID                  int64      `json:"id" db:"id"`
-	Email               string     `json:"email" db:"email"`
-	Name                string     `json:"name" db:"name"`
-	PasswordHash        string     `json:"-" db:"password_hash"`
-	RoleID              int64      `json:"role_id" db:"role_id"`
-	EmailVerified       bool       `json:"email_verified" db:"email_verified"`
-	EmailVerifiedAt     *time.Time `json:"email_verified_at,omitempty" db:"email_verified_at"`
-	FailedLoginAttempts int        `json:"-" db:"failed_login_attempts"`
-	LockedUntil         *time.Time `json:"locked_until,omitempty" db:"locked_until"`
-	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
+	ID              int64      `json:"id" db:"id"`
+	Email           string     `json:"email" db:"email"`
+	Name            string     `json:"name" db:"name"`
+	PasswordHash    string     `json:"-" db:"password_hash"`
+	RoleID          int64      `json:"role_id" db:"role_id"`
+	EmailVerified   bool       `json:"email_verified" db:"email_verified"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty" db:"email_verified_at"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 
 	// Status is one of UserStatuses; only an active account can sign in (D-A10).
 	Status string `json:"status" db:"status"`

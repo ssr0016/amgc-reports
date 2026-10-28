@@ -22,23 +22,22 @@ import (
 // Nobody signed in, so the row has no actor; an unknown or deleted email has no
 // target either, and the typed email is never stored.
 func TestLogin_AuditsEachRefusal(t *testing.T) {
-	future := time.Now().Add(time.Hour)
 	tests := []struct {
 		name       string
 		email      string
 		password   string
-		setup      func(u *user.User)
+		setup      func(r *userimpl.MockStore, u *user.User)
 		wantErr    error
 		wantReason string
 		wantTarget bool
 	}{
 		{"unknown email", "nobody@example.com", testPassword, nil, auth.ErrInvalidCredentials, audit.ReasonUnknownAccount, false},
-		{"deleted user", "a@example.com", testPassword, func(u *user.User) { now := time.Now(); u.DeletedAt = &now }, auth.ErrInvalidCredentials, audit.ReasonUnknownAccount, false},
+		{"deleted user", "a@example.com", testPassword, func(_ *userimpl.MockStore, u *user.User) { now := time.Now(); u.DeletedAt = &now }, auth.ErrInvalidCredentials, audit.ReasonUnknownAccount, false},
 		{"wrong password", "a@example.com", "wrong-password", nil, auth.ErrInvalidCredentials, audit.ReasonWrongPassword, true},
-		{"locked", "a@example.com", testPassword, func(u *user.User) { u.LockedUntil = &future }, auth.ErrAccountLocked, audit.ReasonLocked, true},
-		{"inactive", "a@example.com", testPassword, func(u *user.User) { u.Status = user.UserStatusInactive }, auth.ErrAccountInactive, user.UserStatusInactive, true},
-		{"disciplinary", "a@example.com", testPassword, func(u *user.User) { u.Status = user.UserStatusDisciplinary }, auth.ErrAccountUnderReview, user.UserStatusDisciplinary, true},
-		{"deceased", "a@example.com", testPassword, func(u *user.User) { u.Status = user.UserStatusDeceased }, auth.ErrAccountClosed, user.UserStatusDeceased, true},
+		{"locked", "a@example.com", testPassword, func(r *userimpl.MockStore, u *user.User) { lockOut(t, r, u.ID, "10.0.0.9") }, auth.ErrAccountLocked, audit.ReasonLocked, true},
+		{"inactive", "a@example.com", testPassword, func(_ *userimpl.MockStore, u *user.User) { u.Status = user.UserStatusInactive }, auth.ErrAccountInactive, user.UserStatusInactive, true},
+		{"disciplinary", "a@example.com", testPassword, func(_ *userimpl.MockStore, u *user.User) { u.Status = user.UserStatusDisciplinary }, auth.ErrAccountUnderReview, user.UserStatusDisciplinary, true},
+		{"deceased", "a@example.com", testPassword, func(_ *userimpl.MockStore, u *user.User) { u.Status = user.UserStatusDeceased }, auth.ErrAccountClosed, user.UserStatusDeceased, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -47,7 +46,7 @@ func TestLogin_AuditsEachRefusal(t *testing.T) {
 			svc := newService(repo, nil, nil, log, nil, discardLog)
 			u := seedUser(t, repo, "a@example.com", "Ana")
 			if tt.setup != nil {
-				tt.setup(u)
+				tt.setup(repo, u)
 			}
 
 			_, err := svc.Login(context.Background(), tt.email, tt.password, "10.0.0.9")

@@ -20,12 +20,12 @@ type store struct{ db *database.DB }
 // NewStore returns the user.Store over db.
 func NewStore(db *database.DB) user.Store { return &store{db: db} }
 
-const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at, area_assignment, church_name, status, deleted_at, deleted_by, deleted_reason, avatar_url"
+const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, created_at, updated_at, area_assignment, church_name, status, deleted_at, deleted_by, deleted_reason, avatar_url"
 
 // scanUser scans a single user from a row.
 func scanUser(row pgx.Row) (*user.User, error) {
 	var u user.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -205,7 +205,7 @@ func (r *store) List(ctx context.Context, emailFilter, status string, roleID int
 	var users []user.User
 	for rows.Next() {
 		var u user.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL); err != nil {
 			return nil, 0, fmt.Errorf("scan row: %w", err)
 		}
 		users = append(users, u)
@@ -439,52 +439,50 @@ func (r *store) UpdatePasswordKeepSession(ctx context.Context, userID int64, has
 // same one that signs tokens, not the database's.
 func revocationTime() time.Time { return time.Now().Truncate(time.Millisecond) }
 
-// RecordFailedLogin increments failed_login_attempts and locks account if threshold reached.
-func (r *store) RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error {
-	query, args, err := r.db.Builder.
-		Update("users").
-		Set("failed_login_attempts", sq.Expr("failed_login_attempts + 1")).
-		Set("locked_until", sq.Expr("CASE WHEN failed_login_attempts + 1 >= ? THEN NOW() + ?::interval ELSE locked_until END", maxAttempts, lockDuration.String())).
-		Set("updated_at", sq.Expr("NOW()")).
-		Where(sq.Eq{"id": userID}).
-		ToSql()
+// LoginLocked reports whether userID is locked out from ip.
+func (r *store) LoginLocked(ctx context.Context, userID int64, ip string) (bool, error) {
+	var locked bool
+	err := r.db.Querier(ctx).QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM login_failures WHERE user_id = $1 AND ip = $2 AND locked_until > NOW())`,
+		userID, ip).Scan(&locked)
 	if err != nil {
-		return fmt.Errorf("build query: %w", err)
+		return false, fmt.Errorf("login locked: %w", err)
 	}
-	result, err := r.db.Querier(ctx).Exec(ctx, query, args...)
+	return locked, nil
+}
+
+// RecordFailedLogin counts one failure for userID from ip and locks that pair once
+// the count reaches maxAttempts. A missing user is database.ErrNotFound.
+func (r *store) RecordFailedLogin(ctx context.Context, userID int64, ip string, maxAttempts int, lockDuration time.Duration) error {
+	_, err := r.db.Querier(ctx).Exec(ctx, `
+		INSERT INTO login_failures AS f (user_id, ip, attempts, locked_until)
+		VALUES ($1, $2, 1, CASE WHEN 1 >= $3 THEN NOW() + $4::interval END)
+		ON CONFLICT (user_id, ip) DO UPDATE SET
+			attempts = f.attempts + 1,
+			locked_until = CASE WHEN f.attempts + 1 >= $3 THEN NOW() + $4::interval ELSE f.locked_until END,
+			updated_at = NOW()`,
+		userID, ip, maxAttempts, lockDuration.String())
+	if database.IsForeignKeyViolation(err) {
+		return fmt.Errorf("users: %w", database.ErrNotFound)
+	}
 	if err != nil {
 		return fmt.Errorf("record failed login: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("users: %w", database.ErrNotFound)
 	}
 	return nil
 }
 
-// ResetLoginAttempts clears failed attempts and unlocks account.
-func (r *store) ResetLoginAttempts(ctx context.Context, userID int64) error {
-	return r.ClearLockout(ctx, userID)
-}
-
-// ClearLockout is ResetLoginAttempts: failed_login_attempts to 0 and locked_until to
-// NULL. A missing user is database.ErrNotFound.
-func (r *store) ClearLockout(ctx context.Context, userID int64) error {
-	query, args, err := r.db.Builder.
-		Update("users").
-		Set("failed_login_attempts", 0).
-		Set("locked_until", nil).
-		Set("updated_at", sq.Expr("NOW()")).
-		Where(sq.Eq{"id": userID}).
-		ToSql()
-	if err != nil {
-		return fmt.Errorf("build query: %w", err)
-	}
-	result, err := r.db.Querier(ctx).Exec(ctx, query, args...)
-	if err != nil {
+// ResetLoginAttempts clears the failures of userID from ip, after a right password from it.
+func (r *store) ResetLoginAttempts(ctx context.Context, userID int64, ip string) error {
+	if _, err := r.db.Querier(ctx).Exec(ctx, `DELETE FROM login_failures WHERE user_id = $1 AND ip = $2`, userID, ip); err != nil {
 		return fmt.Errorf("reset login attempts: %w", err)
 	}
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("users: %w", database.ErrNotFound)
+	return nil
+}
+
+// ClearLockout clears the failures of userID from every IP.
+func (r *store) ClearLockout(ctx context.Context, userID int64) error {
+	if _, err := r.db.Querier(ctx).Exec(ctx, `DELETE FROM login_failures WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("clear lockout: %w", err)
 	}
 	return nil
 }

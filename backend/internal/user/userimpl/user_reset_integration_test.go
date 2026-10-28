@@ -6,7 +6,6 @@ import (
 	"context"
 	"log/slog"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,9 +21,6 @@ import (
 const oldResetPassword = "0ld-Passw0rd-Zq72-kB"
 
 // resetTarget makes a user who has an old password, a lockout and some sessions.
-// maxFailedLoginAttempts is the login lockout threshold the auth service uses.
-const maxFailedLoginAttempts = 5
-
 func (e userSvcEnv) resetTarget(t *testing.T) *user.User {
 	t.Helper()
 	ctx := context.Background()
@@ -32,12 +28,7 @@ func (e userSvcEnv) resetTarget(t *testing.T) *user.User {
 	require.NoError(t, err)
 	u, err := e.users.CreateWithPassword(ctx, "target@example.com", "Target", string(hash))
 	require.NoError(t, err)
-	for range maxFailedLoginAttempts {
-		require.NoError(t, e.users.RecordFailedLogin(ctx, u.ID, maxFailedLoginAttempts, time.Hour))
-	}
-	locked, err := e.users.GetByID(ctx, u.ID)
-	require.NoError(t, err)
-	require.NotNil(t, locked.LockedUntil, "setup: the account should be locked")
+	lockOut(t, e.users, u.ID)
 	e.addSessions(t, u.ID, "t1", "t2")
 	return u
 }
@@ -58,8 +49,7 @@ func TestUserService_ResetPassword_WritesPasswordSessionsLockoutAndAuditInOneTra
 	require.NoError(t, err)
 	require.NoError(t, bcrypt.CompareHashAndPassword([]byte(stored.PasswordHash), []byte(resetPassword)), "the new password must verify")
 	assert.Error(t, bcrypt.CompareHashAndPassword([]byte(stored.PasswordHash), []byte(oldResetPassword)), "the old password still works")
-	assert.Zero(t, stored.FailedLoginAttempts)
-	assert.Nil(t, stored.LockedUntil)
+	assert.False(t, isLockedOut(t, env.users, target.ID), "the lockout survived the reset")
 	assert.Zero(t, env.liveSessions(t, target.ID), "the target's sessions survived")
 	assert.Equal(t, 1, env.liveSessions(t, other.ID), "another user's session was ended")
 
@@ -89,8 +79,7 @@ func TestUserService_ResetPassword_AuditFailureRollsBackEverything(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, before.PasswordHash, after.PasswordHash, "the password changed although the audit failed")
 	assert.Equal(t, 2, env.liveSessions(t, target.ID), "the sessions were ended without the reset")
-	assert.NotNil(t, after.LockedUntil, "the lockout was cleared without the reset")
-	assert.Equal(t, maxFailedLoginAttempts, after.FailedLoginAttempts)
+	assert.True(t, isLockedOut(t, env.users, target.ID), "the lockout was cleared without the reset")
 }
 
 // What the admin is for: a locked-out worker signs in with the new password, and the old one is dead.
@@ -101,15 +90,15 @@ func TestUserService_ResetPassword_LockedOutUserSignsInWithTheNewPasswordOnly(t 
 	target := env.resetTarget(t)
 	authSvc := authimpl.NewService(env.users, nil, nil, auditimpl.NewMockStore(), nil, slog.New(slog.DiscardHandler), nil, nil, authimpl.TokenSettings{})
 
-	_, err := authSvc.Login(ctx, target.Email, oldResetPassword, "ip")
+	_, err := authSvc.Login(ctx, target.Email, oldResetPassword, lockedOutIPs[0])
 	require.ErrorIs(t, err, auth.ErrAccountLocked, "setup: locked before the reset")
 
 	svc := env.service(auditimpl.NewStore(&database.DB{Pool: env.tdb.Pool, Builder: database.NewStatementBuilder()}))
 	require.NoError(t, svc.ResetPassword(ctx, actor.ID, "", target.ID, resetPassword))
 
-	_, err = authSvc.Login(ctx, target.Email, oldResetPassword, "ip")
+	_, err = authSvc.Login(ctx, target.Email, oldResetPassword, lockedOutIPs[0])
 	assert.ErrorIs(t, err, auth.ErrInvalidCredentials, "the old password still signs in")
-	got, err := authSvc.Login(ctx, target.Email, resetPassword, "ip")
+	got, err := authSvc.Login(ctx, target.Email, resetPassword, lockedOutIPs[0])
 	require.NoError(t, err, "the new password must sign in once the lockout is cleared")
 	assert.Equal(t, target.ID, got.ID)
 }

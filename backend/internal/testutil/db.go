@@ -130,6 +130,15 @@ func (tdb *TestDB) RunMigrations(t *testing.T) {
 			user_agent TEXT,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
+		// Keep in step with migrations/20261028120000_create_login_failures.sql.
+		`CREATE TABLE IF NOT EXISTS login_failures (
+			user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			ip TEXT NOT NULL,
+			attempts INT NOT NULL DEFAULT 0,
+			locked_until TIMESTAMPTZ,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (user_id, ip)
+		)`,
 		`CREATE TABLE IF NOT EXISTS verification_tokens (
 			id BIGSERIAL PRIMARY KEY,
 			user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -161,7 +170,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 	ctx := context.Background()
 	tables := []string{
 		"password_resets", "verification_tokens", "role_permissions",
-		"permissions", "sessions", "refresh_tokens", "users", "roles",
+		"permissions", "sessions", "refresh_tokens", "login_failures", "users", "roles",
 	}
 	for _, table := range tables {
 		_, _ = tdb.Pool.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s RESTART IDENTITY CASCADE", table))

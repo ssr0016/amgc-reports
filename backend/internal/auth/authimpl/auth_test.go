@@ -16,6 +16,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -104,12 +105,12 @@ func TestAuthService_Login_LogsTrackingFailures(t *testing.T) {
 	}{
 		{"failed login not recorded", "wrong-password",
 			func(r *userimpl.MockStore) {
-				r.RecordFailedLoginFunc = func(context.Context, int64, int, time.Duration) error { return trackingErr }
+				r.RecordFailedLoginFunc = func(context.Context, int64, string, int, time.Duration) error { return trackingErr }
 			},
 			auth.ErrInvalidCredentials, "failed to record failed login"},
 		{"attempt reset failure", testPassword,
 			func(r *userimpl.MockStore) {
-				r.ResetLoginAttemptsFunc = func(context.Context, int64) error { return trackingErr }
+				r.ResetLoginAttemptsFunc = func(context.Context, int64, string) error { return trackingErr }
 			},
 			nil, "failed to reset login attempts"},
 	}
@@ -164,7 +165,7 @@ func TestAuthService_Login_RefusesANonActiveAccountAfterThePassword(t *testing.T
 			svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, discardLog)
 			u := seedUser(t, repo, "s@example.com", "S")
 			u.Status = tt.status
-			repo.ResetLoginAttemptsFunc = func(context.Context, int64) error {
+			repo.ResetLoginAttemptsFunc = func(context.Context, int64, string) error {
 				t.Error("a refused login must not reset the failed-attempt counter")
 				return nil
 			}
@@ -184,7 +185,7 @@ func TestAuthService_Login_WrongPasswordOnANonActiveAccountIsGeneric(t *testing.
 	u := seedUser(t, repo, "s@example.com", "S")
 	u.Status = user.UserStatusDeceased
 	recorded := false
-	repo.RecordFailedLoginFunc = func(context.Context, int64, int, time.Duration) error { recorded = true; return nil }
+	repo.RecordFailedLoginFunc = func(context.Context, int64, string, int, time.Duration) error { recorded = true; return nil }
 
 	_, err := svc.Login(context.Background(), "s@example.com", "wrong-password", "ip")
 
@@ -204,9 +205,8 @@ func TestAuthService_Login_DeletedUserIsAnUnknownEmail(t *testing.T) {
 	u := seedUser(t, repo, "d@example.com", "D")
 	now := time.Now()
 	u.DeletedAt = &now
-	locked := now.Add(time.Hour)
-	u.LockedUntil = &locked
-	repo.RecordFailedLoginFunc = func(context.Context, int64, int, time.Duration) error {
+	repo.LoginLockedFunc = func(context.Context, int64, string) (bool, error) { return true, nil }
+	repo.RecordFailedLoginFunc = func(context.Context, int64, string, int, time.Duration) error {
 		t.Error("a deleted user's login must not record a failed attempt")
 		return nil
 	}
@@ -302,4 +302,28 @@ func TestAuthService_Me(t *testing.T) {
 			t.Errorf("Me() error = %v, want the repository error", err)
 		}
 	})
+}
+
+func lockOut(t *testing.T, repo *userimpl.MockStore, id int64, ip string) {
+	t.Helper()
+	for range maxFailedLoginAttempts {
+		require.NoError(t, repo.RecordFailedLogin(context.Background(), id, ip, maxFailedLoginAttempts, lockoutDuration))
+	}
+}
+
+// M2: a stranger who knows an email can lock it out of their own IP only, never the owner's.
+func TestAuthService_Login_LockoutIsPerIP(t *testing.T) {
+	repo := userimpl.NewMockStore()
+	svc := newService(repo, nil, nil, auditimpl.NewMockStore(), nil, discardLog)
+	seedUser(t, repo, "admin@example.com", "Admin")
+
+	for range maxFailedLoginAttempts {
+		_, err := svc.Login(context.Background(), "admin@example.com", "wrong-password", "6.6.6.6")
+		require.ErrorIs(t, err, auth.ErrInvalidCredentials)
+	}
+
+	_, err := svc.Login(context.Background(), "admin@example.com", testPassword, "6.6.6.6")
+	require.ErrorIs(t, err, auth.ErrAccountLocked, "the attacker's IP is locked, even with the right password")
+	_, err = svc.Login(context.Background(), "admin@example.com", testPassword, "10.0.0.1")
+	require.NoError(t, err, "the owner on another IP still signs in")
 }

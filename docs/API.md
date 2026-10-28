@@ -589,7 +589,7 @@ Errors:
 
 ## Account Lockout
 
-After 5 failed login attempts, account is locked for 15 minutes.
+After 5 failed attempts from one IP, that IP is locked out of the account for 15 minutes. The count is per account and IP, so someone who knows an email cannot lock its owner out from another IP. A wrong current password on change-password counts the same way.
 
 ### Login When Locked
 
@@ -600,14 +600,14 @@ Response (403):
 
 ### Auto-Unlock
 
-After 15 minutes, account auto-unlocks.
-Successful login resets the counter.
+After 15 minutes, the lock ends. A successful login resets the counter for that IP; an admin password reset clears it for every IP.
 
 ### Check Lock Status
 
 SQL:
-  SELECT email, failed_login_attempts, locked_until 
-  FROM users WHERE email = 'user@example.com';
+  SELECT u.email, f.ip, f.attempts, f.locked_until
+  FROM login_failures f JOIN users u ON u.id = f.user_id
+  WHERE u.email = 'user@example.com';
 
 ## Complete Auth Flow
 

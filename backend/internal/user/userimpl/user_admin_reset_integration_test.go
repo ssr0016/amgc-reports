@@ -8,21 +8,33 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// lockedOutIPs are the IPs lockOut locks a user out from.
+var lockedOutIPs = []string{"1.1.1.1", "2.2.2.2"}
+
 func lockOut(t *testing.T, users user.Store, id int64) {
 	t.Helper()
-	for range 3 {
-		require.NoError(t, users.RecordFailedLogin(context.Background(), id, 3, time.Hour))
+	for _, ip := range lockedOutIPs {
+		require.NoError(t, users.RecordFailedLogin(context.Background(), id, ip, 1, time.Hour))
 	}
-	u, err := users.GetByID(context.Background(), id)
-	require.NoError(t, err)
-	require.NotNil(t, u.LockedUntil, "setup: the account should be locked")
-	require.Equal(t, 3, u.FailedLoginAttempts)
+	require.True(t, isLockedOut(t, users, id), "setup: the account should be locked")
+}
+
+// isLockedOut reports whether id is locked out from any of lockedOutIPs.
+func isLockedOut(t *testing.T, users user.Store, id int64) bool {
+	t.Helper()
+	for _, ip := range lockedOutIPs {
+		locked, err := users.LoginLocked(context.Background(), id, ip)
+		require.NoError(t, err)
+		if locked {
+			return true
+		}
+	}
+	return false
 }
 
 func TestUserRepo_ClearLockout_ClearsOnlyThatUser(t *testing.T) {
@@ -37,22 +49,8 @@ func TestUserRepo_ClearLockout_ClearsOnlyThatUser(t *testing.T) {
 
 	require.NoError(t, users.ClearLockout(ctx, a.ID))
 
-	gotA, err := users.GetByID(ctx, a.ID)
-	require.NoError(t, err)
-	assert.Zero(t, gotA.FailedLoginAttempts)
-	assert.Nil(t, gotA.LockedUntil)
-	gotB, err := users.GetByID(ctx, b.ID)
-	require.NoError(t, err)
-	assert.Equal(t, 3, gotB.FailedLoginAttempts, "another user's lockout was cleared")
-	assert.NotNil(t, gotB.LockedUntil, "another user's lockout was cleared")
-}
-
-func TestUserRepo_ClearLockout_MissingUser(t *testing.T) {
-	users, _ := setupSessions(t)
-
-	err := users.ClearLockout(context.Background(), 99999)
-
-	require.ErrorIs(t, err, database.ErrNotFound)
+	assert.False(t, isLockedOut(t, users, a.ID), "a lock from some IP survived")
+	assert.True(t, isLockedOut(t, users, b.ID), "another user's lockout was cleared")
 }
 
 // It joins the caller's transaction, so a rolled-back reset leaves the lockout in place.
@@ -69,26 +67,7 @@ func TestUserRepo_ClearLockout_RollsBackWithItsTransaction(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	got, err := users.GetByID(ctx, a.ID)
-	require.NoError(t, err)
-	assert.Equal(t, 3, got.FailedLoginAttempts)
-	assert.NotNil(t, got.LockedUntil)
-}
-
-// ResetLoginAttempts (login, change-password) keeps working through the same query.
-func TestUserRepo_ResetLoginAttempts_StillClears(t *testing.T) {
-	users, _ := setupSessions(t)
-	ctx := context.Background()
-	a, err := users.CreateWithPassword(ctx, "a@example.com", "A", "hash")
-	require.NoError(t, err)
-	lockOut(t, users, a.ID)
-
-	require.NoError(t, users.ResetLoginAttempts(ctx, a.ID))
-
-	got, err := users.GetByID(ctx, a.ID)
-	require.NoError(t, err)
-	assert.Zero(t, got.FailedLoginAttempts)
-	assert.Nil(t, got.LockedUntil)
+	assert.True(t, isLockedOut(t, users, a.ID))
 }
 
 // An admin reset has no session to keep: an empty keep-token must end every session

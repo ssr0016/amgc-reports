@@ -116,8 +116,12 @@ func (s *service) Login(ctx context.Context, email, password, ip string) (*user.
 		return nil, auth.ErrInvalidCredentials
 	}
 
-	// Check if account is locked
-	if usr.LockedUntil != nil && usr.LockedUntil.After(time.Now()) {
+	// The lock is per account and IP (M2): another IP's failures never lock this one out.
+	locked, err := s.userRepo.LoginLocked(ctx, usr.ID, ip)
+	if err != nil {
+		return nil, fmt.Errorf("check lockout: %w", err)
+	}
+	if locked {
 		s.auditFailedLogin(ctx, usr, ip, audit.ReasonLocked)
 		return nil, auth.ErrAccountLocked
 	}
@@ -125,7 +129,7 @@ func (s *service) Login(ctx context.Context, email, password, ip string) (*user.
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(usr.PasswordHash), []byte(password)); err != nil {
 		// Record failed attempt
-		if err := s.userRepo.RecordFailedLogin(ctx, usr.ID, maxFailedLoginAttempts, lockoutDuration); err != nil {
+		if err := s.userRepo.RecordFailedLogin(ctx, usr.ID, ip, maxFailedLoginAttempts, lockoutDuration); err != nil {
 			// Still return invalid credentials, but the attempt did not count
 			// toward lockout, so make that visible.
 			s.log.Warn("failed to record failed login", "user_id", usr.ID, "error", err)
@@ -142,7 +146,7 @@ func (s *service) Login(ctx context.Context, email, password, ip string) (*user.
 	}
 
 	// Successful login — reset failed attempts
-	if err := s.userRepo.ResetLoginAttempts(ctx, usr.ID); err != nil {
+	if err := s.userRepo.ResetLoginAttempts(ctx, usr.ID, ip); err != nil {
 		// Don't fail a login that already succeeded.
 		s.log.Warn("failed to reset login attempts", "user_id", usr.ID, "error", err)
 	}
@@ -184,17 +188,21 @@ func (s *service) ChangePassword(ctx context.Context, userID int64, ip, keepFami
 	if usr == nil || accessRevoked(ctx, usr) {
 		return auth.ErrUnauthorized
 	}
-	if usr.LockedUntil != nil && usr.LockedUntil.After(time.Now()) {
+	locked, err := s.userRepo.LoginLocked(ctx, usr.ID, ip)
+	if err != nil {
+		return fmt.Errorf("check lockout: %w", err)
+	}
+	if locked {
 		return auth.ErrAccountLocked
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(usr.PasswordHash), []byte(current)); err != nil {
-		if err := s.userRepo.RecordFailedLogin(ctx, usr.ID, maxFailedLoginAttempts, lockoutDuration); err != nil {
+		if err := s.userRepo.RecordFailedLogin(ctx, usr.ID, ip, maxFailedLoginAttempts, lockoutDuration); err != nil {
 			s.log.Warn("failed to record failed login", "user_id", usr.ID, "error", err)
 		}
 		return auth.ErrInvalidCredentials
 	}
-	if err := s.userRepo.ResetLoginAttempts(ctx, usr.ID); err != nil {
+	if err := s.userRepo.ResetLoginAttempts(ctx, usr.ID, ip); err != nil {
 		s.log.Warn("failed to reset login attempts", "user_id", usr.ID, "error", err)
 	}
 

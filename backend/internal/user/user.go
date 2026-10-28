@@ -65,10 +65,13 @@ type Store interface {
 	MarkEmailVerified(ctx context.Context, userID int64) error
 	UpdatePassword(ctx context.Context, userID int64, hash string) error
 	UpdatePasswordKeepSession(ctx context.Context, userID int64, hash, keepFamily string) (int64, error)
-	RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
-	ResetLoginAttempts(ctx context.Context, userID int64) error
-	// ClearLockout zeroes the failed-login counter and the lock on q, so an admin reset can
-	// do it in the same transaction as the password change. A missing user is ErrNotFound.
+	// Failed sign-ins are counted per account and IP (M2), so a stranger who knows an
+	// email cannot lock its owner out from another IP.
+	LoginLocked(ctx context.Context, userID int64, ip string) (bool, error)
+	RecordFailedLogin(ctx context.Context, userID int64, ip string, maxAttempts int, lockDuration time.Duration) error
+	ResetLoginAttempts(ctx context.Context, userID int64, ip string) error
+	// ClearLockout clears the failures from every IP, so an admin reset can do it in the
+	// same transaction as the password change.
 	ClearLockout(ctx context.Context, userID int64) error
 	UpdateRole(ctx context.Context, userID, roleID int64) error
 	// ReassignRole moves every account holding from, deleted ones included, to to

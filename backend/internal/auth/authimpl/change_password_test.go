@@ -75,8 +75,9 @@ func TestChangePassword_WrongCurrentCountsTowardLockout(t *testing.T) {
 	for i := 0; i < maxFailedLoginAttempts; i++ {
 		require.ErrorIs(t, f.change("wrong-password", newPassword), auth.ErrInvalidCredentials)
 	}
-	assert.Equal(t, maxFailedLoginAttempts, f.stored(t).FailedLoginAttempts)
-	assert.NotNil(t, f.stored(t).LockedUntil, "the account locks like it does for logins")
+	assert.Equal(t, maxFailedLoginAttempts, f.users.Failures(f.user.ID, "10.0.0.1"))
+	locked, _ := f.users.LoginLocked(context.Background(), f.user.ID, "10.0.0.1")
+	assert.True(t, locked, "the account locks like it does for logins")
 	assert.Empty(t, f.audit.Entries(), "a failed attempt is not a password change")
 }
 
@@ -95,8 +96,7 @@ func TestChangePassword_SuccessResetsTheCounter(t *testing.T) {
 		_ = f.change("wrong-password", newPassword)
 	}
 	require.NoError(t, f.change(testPassword, newPassword))
-	assert.Zero(t, f.stored(t).FailedLoginAttempts)
-	assert.Nil(t, f.stored(t).LockedUntil)
+	assert.Zero(t, f.users.Failures(f.user.ID, "10.0.0.1"))
 }
 
 // Checked only after the current password is verified, or the answer would tell

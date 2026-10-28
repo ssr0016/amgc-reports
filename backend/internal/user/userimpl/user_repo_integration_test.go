@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,7 +47,6 @@ func TestUserRepo_CreateWithPassword(t *testing.T) {
 	assert.Equal(t, "hash123", user.PasswordHash)
 	assert.NotZero(t, user.RoleID) // Default 'user' role
 	assert.False(t, user.EmailVerified)
-	assert.Equal(t, 0, user.FailedLoginAttempts)
 }
 
 func TestUserRepo_GetByID(t *testing.T) {
@@ -134,16 +134,22 @@ func TestUserRepo_RecordFailedLogin(t *testing.T) {
 	user, err := repo.CreateWithPassword(ctx, "lock@example.com", "Lock User", "hash")
 	require.NoError(t, err)
 
-	// Record 3 failed attempts
-	for i := 0; i < 3; i++ {
-		err := repo.RecordFailedLogin(ctx, user.ID, 5, 15*60*1e9)
-		require.NoError(t, err)
+	for range 2 {
+		require.NoError(t, repo.RecordFailedLogin(ctx, user.ID, "1.1.1.1", 3, time.Hour))
 	}
-
-	updated, err := repo.GetByID(ctx, user.ID)
+	locked, err := repo.LoginLocked(ctx, user.ID, "1.1.1.1")
 	require.NoError(t, err)
-	assert.Equal(t, 3, updated.FailedLoginAttempts)
-	assert.Nil(t, updated.LockedUntil)
+	assert.False(t, locked, "locked below the threshold")
+
+	require.NoError(t, repo.RecordFailedLogin(ctx, user.ID, "1.1.1.1", 3, time.Hour))
+	locked, err = repo.LoginLocked(ctx, user.ID, "1.1.1.1")
+	require.NoError(t, err)
+	assert.True(t, locked, "not locked at the threshold")
+
+	// M2: the lock is per IP, so another IP is not locked out.
+	locked, err = repo.LoginLocked(ctx, user.ID, "2.2.2.2")
+	require.NoError(t, err)
+	assert.False(t, locked, "another IP was locked out")
 }
 
 func TestUserRepo_ResetLoginAttempts(t *testing.T) {
@@ -153,18 +159,18 @@ func TestUserRepo_ResetLoginAttempts(t *testing.T) {
 	user, err := repo.CreateWithPassword(ctx, "reset@example.com", "Reset User", "hash")
 	require.NoError(t, err)
 
-	// Record some failures
-	err = repo.RecordFailedLogin(ctx, user.ID, 5, 15*60*1e9)
-	require.NoError(t, err)
+	for _, ip := range []string{"1.1.1.1", "2.2.2.2"} {
+		require.NoError(t, repo.RecordFailedLogin(ctx, user.ID, ip, 1, time.Hour))
+	}
 
-	// Reset
-	err = repo.ResetLoginAttempts(ctx, user.ID)
-	require.NoError(t, err)
+	require.NoError(t, repo.ResetLoginAttempts(ctx, user.ID, "1.1.1.1"))
 
-	updated, err := repo.GetByID(ctx, user.ID)
+	locked, err := repo.LoginLocked(ctx, user.ID, "1.1.1.1")
 	require.NoError(t, err)
-	assert.Equal(t, 0, updated.FailedLoginAttempts)
-	assert.Nil(t, updated.LockedUntil)
+	assert.False(t, locked)
+	locked, err = repo.LoginLocked(ctx, user.ID, "2.2.2.2")
+	require.NoError(t, err)
+	assert.True(t, locked, "a right password from one IP cleared another IP's lock")
 }
 
 func TestUserRepo_ListPages(t *testing.T) {

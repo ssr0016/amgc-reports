@@ -25,7 +25,7 @@ import (
 const loginPassword = "X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"
 
 // serveLogin signs in as a stored account with the given status and lock time.
-func serveLogin(t *testing.T, status string, lockedUntil *time.Time, password string) *httptest.ResponseRecorder {
+func serveLogin(t *testing.T, status string, locked bool, password string) *httptest.ResponseRecorder {
 	t.Helper()
 	hash, err := bcrypt.GenerateFromPassword([]byte(loginPassword), bcrypt.MinCost)
 	if err != nil {
@@ -36,7 +36,8 @@ func serveLogin(t *testing.T, status string, lockedUntil *time.Time, password st
 	if err != nil {
 		t.Fatal(err)
 	}
-	u.Status, u.LockedUntil = status, lockedUntil
+	u.Status = status
+	users.LoginLockedFunc = func(context.Context, int64, string) (bool, error) { return locked, nil }
 
 	svc := authimpl.NewService(users, nil, nil, auditimpl.NewMockStore(), cpTx{}, slog.New(slog.DiscardHandler), token.New(token.Config{Secret: []byte("0123456789abcdef0123456789abcdef"), Issuer: "i", Audience: "a", AccessTTL: time.Minute}),
 		authimpl.NewMockRefreshStore(), authimpl.TokenSettings{RefreshTTL: time.Hour})
@@ -55,21 +56,20 @@ func serveLogin(t *testing.T, status string, lockedUntil *time.Time, password st
 }
 
 func TestAuthHandler_Login_StatusMessages(t *testing.T) {
-	future := time.Now().Add(time.Hour)
 	tests := []struct {
 		name     string
 		status   string
-		locked   *time.Time
+		locked   bool
 		password string
 		code     int
 		message  string
 	}{
-		{"active signs in", user.UserStatusActive, nil, loginPassword, http.StatusOK, ""},
-		{"inactive", user.UserStatusInactive, nil, loginPassword, http.StatusForbidden, "Your account is inactive. Contact your admin."},
-		{"disciplinary", user.UserStatusDisciplinary, nil, loginPassword, http.StatusForbidden, "Your account is under review. Contact your admin."},
-		{"deceased", user.UserStatusDeceased, nil, loginPassword, http.StatusForbidden, "This account is closed."},
-		{"wrong password on a closed account stays generic", user.UserStatusDeceased, nil, "wrong-password", http.StatusUnauthorized, "invalid email or password"},
-		{"locked", user.UserStatusActive, &future, loginPassword, http.StatusForbidden, "Account locked. Try again later."},
+		{"active signs in", user.UserStatusActive, false, loginPassword, http.StatusOK, ""},
+		{"inactive", user.UserStatusInactive, false, loginPassword, http.StatusForbidden, "Your account is inactive. Contact your admin."},
+		{"disciplinary", user.UserStatusDisciplinary, false, loginPassword, http.StatusForbidden, "Your account is under review. Contact your admin."},
+		{"deceased", user.UserStatusDeceased, false, loginPassword, http.StatusForbidden, "This account is closed."},
+		{"wrong password on a closed account stays generic", user.UserStatusDeceased, false, "wrong-password", http.StatusUnauthorized, "invalid email or password"},
+		{"locked", user.UserStatusActive, true, loginPassword, http.StatusForbidden, "Account locked. Try again later."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -86,7 +86,7 @@ func TestAuthHandler_Login_StatusMessages(t *testing.T) {
 
 // A successful login sets both cookies, HttpOnly, with the refresh token confined to the auth routes.
 func TestAuthHandler_Login_SetsTheAuthCookies(t *testing.T) {
-	rec := serveLogin(t, user.UserStatusActive, nil, loginPassword)
+	rec := serveLogin(t, user.UserStatusActive, false, loginPassword)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d (%s)", rec.Code, rec.Body.String())
 	}
@@ -113,7 +113,7 @@ func TestAuthHandler_Login_SetsTheAuthCookies(t *testing.T) {
 
 // A refused login sets no cookie.
 func TestAuthHandler_Login_RefusedSetsNoCookie(t *testing.T) {
-	rec := serveLogin(t, user.UserStatusInactive, nil, loginPassword)
+	rec := serveLogin(t, user.UserStatusInactive, false, loginPassword)
 	if got := rec.Result().Cookies(); len(got) != 0 {
 		t.Errorf("cookies = %v, want none", got)
 	}
