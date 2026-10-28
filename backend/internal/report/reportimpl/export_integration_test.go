@@ -112,7 +112,7 @@ func TestReportService_Export_Integration(t *testing.T) {
 		wb, err := excelize.OpenReader(bytes.NewReader(x.Data))
 		require.NoError(t, err)
 		defer func() { _ = wb.Close() }()
-		assert.Equal(t, []string{"Report Dashboard", "Bethel", "Zion"}, wb.GetSheetList())
+		assert.Equal(t, []string{"Report Dashboard", "Approved Reports", "Bethel", "Zion"}, wb.GetSheetList())
 		v, err := wb.GetCellValue("Zion", "B10")
 		require.NoError(t, err)
 		assert.Equal(t, "12", v)

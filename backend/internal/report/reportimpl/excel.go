@@ -334,29 +334,11 @@ func writeApproved(f *excelize.File, reps []*report.Report, st excelStyles) erro
 		f.SetPanes(sh, &excelize.Panes{Freeze: true, XSplit: 1, YSplit: 2, TopLeftCell: "B3", ActivePane: "bottomRight"}),
 		f.SetPageLayout(sh, &excelize.PageLayoutOptions{Orientation: ptrTo("landscape")}),
 	}
-	widths := make([]int, len(header))
-	put := func(col, row int, v any, style int) {
-		ref, err := excelize.CoordinatesToCellName(col, row)
-		if err != nil {
-			steps = append(steps, err)
-			return
-		}
-		w := 0
-		switch v := v.(type) {
-		case string:
-			steps, w = append(steps, f.SetCellStr(sh, ref, v)), utf8.RuneCountInString(v)
-		case int:
-			steps, w = append(steps, f.SetCellInt(sh, ref, int64(v))), len(strconv.Itoa(v))
-		case float64:
-			digits := len(strconv.FormatFloat(v, 'f', 0, 64))
-			steps, w = append(steps, f.SetCellFloat(sh, ref, v, -1, 64)), digits+digits/3+3
-		}
-		widths[col-1] = max(widths[col-1], w)
-		steps = append(steps, f.SetCellStyle(sh, ref, ref, style))
-	}
+	w := &cellWriter{f: f, sh: sh, steps: steps, widths: make([]int, len(header))}
+	put := w.put
 	for c, h := range header {
 		put(c+1, 2, h, st.flatHeader)
-		widths[c] = min(widths[c], 14) // long metric labels wrap instead of widening the column
+		w.widths[c] = min(w.widths[c], 14) // long metric labels wrap instead of widening the column
 	}
 	kindOf := func(key string) int {
 		if key == "tithes_offering" {
@@ -390,14 +372,50 @@ func writeApproved(f *excelize.File, reps []*report.Report, st excelStyles) erro
 		}
 		put(len(approvedHeader)+c+1, row, v, st.flatTotal[kindOf(key)])
 	}
-	for c, w := range widths {
+	return w.finish()
+}
+
+// cellWriter writes typed cells to one sheet, collecting errors and each
+// column's widest content for finish.
+type cellWriter struct {
+	f      *excelize.File
+	sh     string
+	steps  []error
+	widths []int
+}
+
+// put writes v (a string, an int, a float64, or nil for a blank cell) at
+// col, row with style.
+func (w *cellWriter) put(col, row int, v any, style int) {
+	ref, err := excelize.CoordinatesToCellName(col, row)
+	if err != nil {
+		w.steps = append(w.steps, err)
+		return
+	}
+	width := 0
+	switch v := v.(type) {
+	case string:
+		w.steps, width = append(w.steps, w.f.SetCellStr(w.sh, ref, v)), utf8.RuneCountInString(v)
+	case int:
+		w.steps, width = append(w.steps, w.f.SetCellInt(w.sh, ref, int64(v))), len(strconv.Itoa(v))
+	case float64:
+		digits := len(strconv.FormatFloat(v, 'f', 0, 64))
+		w.steps, width = append(w.steps, w.f.SetCellFloat(w.sh, ref, v, -1, 64)), digits+digits/3+3
+	}
+	w.widths[col-1] = max(w.widths[col-1], width)
+	w.steps = append(w.steps, w.f.SetCellStyle(w.sh, ref, ref, style))
+}
+
+// finish sizes the columns to their content and returns the first error.
+func (w *cellWriter) finish() error {
+	for c, width := range w.widths {
 		col, err := excelize.ColumnNumberToName(c + 1)
 		if err != nil {
 			return err
 		}
-		steps = append(steps, f.SetColWidth(sh, col, col, float64(min(max(w+2, 10), 40))))
+		w.steps = append(w.steps, w.f.SetColWidth(w.sh, col, col, float64(min(max(width+2, 10), 40))))
 	}
-	for _, err := range steps {
+	for _, err := range w.steps {
 		if err != nil {
 			return err
 		}

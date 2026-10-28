@@ -416,3 +416,13 @@ Scope: shared decisions (deployment, frontend, admin panel, auth). Decisions tha
 - **Analytics export:** the Analytics tab's CSV, built in the browser, is replaced by `GET /admin/analytics/attendance/excel`, built with `excelize`. Sheets: Summary (KPI cards), Weekly Trend, Church Breakdown, All Metrics. Each has a merged title, the period and generated-at time, a dark header, zebra rows, `#,##0.00` values, auto-sized columns and a frozen header.
 - **No audit row, GET (owner):** like the CSV it replaces, the download is not audited, so no new audit action or migration. The report exports (D-A6) stay POST and audited.
 - **Legacy styling unchanged:** the report workbooks keep the legacy template's layout (D-A17).
+
+### D-A27 Comprehensive analytics workbook and the Approved Reports sheet
+**Date:** 2026-10-28 · **Status:** Decided by the owner; built, not deployed
+
+- **Analytics sheets:** Summary, Monthly Totals, Weekly Trend, Church Breakdown, Full Metrics Summary (was All Metrics, D-A26), Submission Compliance.
+- **Peak month:** each metric's month with the highest total for the period, earliest on a tie, none when no month is above 0. Shown with its total ("Peak Month", "Peak Month Total"); the API's attendance summary carries it as `peak_month` and `peak_value`.
+- **Average per week (owner):** a total divided by the month's Sundays (4 or 5), not the form's Weeks 1-5, so a 5-Sunday month compares fairly. A period's average counts only due months, plus any month that already has data.
+- **Due months:** a month is due once it has ended, in Asia/Manila time. The current month and later are not due.
+- **Submission Compliance (owner):** one row per **active** church account (a deactivated church drops out of every month), with Approved, Pending, Needs Revision or No Report for each due month, then Submitted, Approved and Submission Rate. A month before the account was created shows "—" and is not counted, unless a report was filed for it. Approved is green, Pending and Needs Revision amber, No Report red. The Summary sheet adds Average per Week and Submission Rate.
+- **Approved Reports (owner):** the bulk export adds a flat "Approved Reports" sheet after the Report Dashboard and before the per-report sheets (D-A16 keeps them). It has one row per approved report: Church, Worker, Area of Assignment, Month, Year, then the 21 metrics as month totals (blank when no week was reported), followed by a bold Total row. It has zebra rows and a frozen header and church column. A month with no approved reports still downloads the dashboard alone (D-A16). The name is reserved like the dashboard's, so a church sheet with that name gets " (2)". The preview returns the sheet as its rows (26 columns).

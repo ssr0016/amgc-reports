@@ -106,7 +106,7 @@ export function ExcelPreviewDialog({
               </div>
             )}
             {shown && (
-              single || shown.name !== "Report Dashboard"
+              single || !TABLE_SHEETS.has(shown.name)
                 ? <ExcelReportSheet rows={shown.rows} name={shown.name} status={previewStatus} />
                 : <ExcelDashboardSheet sheet={shown} />
             )}
@@ -209,14 +209,17 @@ function ExcelMetricTable({ title, rows, name }: { title: string; rows: string[]
   );
 }
 
+// The bulk export's table sheets; the backend reserves both names, so no church sheet can take them.
+const TABLE_SHEETS = new Set(["Report Dashboard", "Approved Reports"]);
+
 function ExcelDashboardSheet({ sheet }: { sheet: { name: string; rows: string[][] } }) {
   const title = sheet.rows[0]?.[0] || sheet.name;
-  const headers = (sheet.rows[1] ?? []).slice(0, 6);
+  const headers = sheet.rows[1] ?? [];
   const rows = sheet.rows.slice(2).filter((row) => row.some(Boolean)).map((row) => row.slice(0, headers.length));
 
   return (
     <div role="region" aria-label={`Sheet ${sheet.name}`} tabIndex={0} className="max-h-[60vh] overflow-auto rounded-lg border border-slate-300 bg-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-      <Table aria-label={`Sheet ${sheet.name}`} className="min-w-[760px] table-fixed border-collapse bg-white text-[11px] text-black">
+      <Table aria-label={`Sheet ${sheet.name}`} style={{ minWidth: Math.max(760, headers.length * 110) }} className="table-fixed border-collapse bg-white text-[11px] text-black">
         <caption className="sr-only">Sheet {sheet.name}</caption>
         <TableHeader>
           <TableRow className="bg-slate-100 hover:bg-slate-100">

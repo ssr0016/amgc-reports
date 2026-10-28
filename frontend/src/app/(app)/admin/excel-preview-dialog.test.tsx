@@ -114,6 +114,25 @@ describe("Excel preview dialog", () => {
     expect(screen.getByRole("button", { name: "Download" })).toHaveClass("bg-slate-950");
   });
 
+  it("bulk shows Approved Reports as a flat table with every column", async () => {
+    const header = ["Church", "Worker", "Area of Assignment", "Month", "Year", ...Array.from({ length: 21 }, (_, i) => `Metric ${i + 1}`)];
+    h.previewExcel.mockResolvedValue({
+      count: 1,
+      sheets: [
+        dashboard(["Bethel", "September", "2026", "Approved", "Checked", "Ready for Pick Up"]),
+        { name: "Approved Reports", rows: [["Approved Reports", ...Array(25).fill("")], header, ["Bethel", "Ana", "", "September", "2026", "1,200", ...Array(20).fill("")], ["Total", "", "", "", "", "1,200", ...Array(20).fill("")]] },
+      ],
+    });
+    const { user } = renderDialog();
+    await screen.findByRole("table", { name: "Sheet Report Dashboard" });
+    await user.selectOptions(screen.getByLabelText("Sheet"), "Approved Reports");
+    const table = screen.getByRole("table", { name: "Sheet Approved Reports" });
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(27); // the title plus 26 columns
+    expect(within(table).getAllByRole("row")).toHaveLength(4);
+    expect(within(table).getAllByText("1,200")).toHaveLength(2);
+    expect(within(table).getByText("Total")).toBeInTheDocument();
+  });
+
   it("a month with no approved reports shows the dashboard alone and can still download", async () => {
     h.previewExcel.mockResolvedValue({ count: 0, sheets: [dashboard(["Abba", "", "", "No Report Submitted", "", ""])] });
     renderDialog();
