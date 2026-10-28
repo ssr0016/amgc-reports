@@ -172,7 +172,7 @@ There is no start command to set: the image runs `/app/api`.
 | `CORS_ALLOWED_ORIGINS` | frontend origin(s), comma-separated | Defaults to `http://localhost:3000`. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | initial admin | Set both or neither. Password at least 12 characters. |
 | `APP_URL` | the public URL | Only used in startup log lines. |
-| `TRUSTED_PROXY_CIDRS` | `::1/128,100.64.0.0/10` (Render; its proxy connects over loopback) | **Required in production**: the server refuses to start when it is unset, blank, or contains a `/0` range (`0.0.0.0/0`, `::/0`), and every entry must be a valid CIDR. Comma-separated CIDRs of the proxies whose `X-Forwarded-For` entries are skipped; the client is the rightmost entry outside them. `X-Real-IP` is not read. If the range is too narrow, every user shares one rate-limit bucket and the app logs a warning after 100 requests. Outside production it defaults to `0.0.0.0/0`. `api migrate` does not need it. |
+| `TRUSTED_PROXY_CIDRS` | `::1/128` (Render; its proxy connects over loopback) | **Required in production**: the server refuses to start when it is unset, blank, or contains a `/0` range (`0.0.0.0/0`, `::/0`), and every entry must be a valid CIDR. Comma-separated CIDRs of the proxies whose `CF-Connecting-IP` is believed (Cloudflare fronts every Render web service and overwrites it). `X-Forwarded-For` and `X-Real-IP` are not read. If the range is too narrow, every user shares one rate-limit bucket and the app logs a warning after 100 requests. Outside production it defaults to `0.0.0.0/0`. `api migrate` does not need it. |
 | `SWAGGER_ENABLED` | leave unset | `/swagger/*` is off in production unless this is `true`. **`SWAGGER_ENABLED=true` in production exposes the Swagger UI publicly (no auth). Use only for temporary/internal access.** Must be `true` or `false`; anything else stops the server at startup. |
 | `METRICS_USER`, `METRICS_PASSWORD` | optional | Basic Auth for `/metrics`. Set both or neither; password at least 12 characters. Without them `/metrics` is not served in production. `/health`, `/ready` and `/live` stay public. |
 | `DB_MAX_CONNS`, `DB_MIN_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME` | optional | Pool bounds; see `.env.example`. Budget `DB_MAX_CONNS` across running instances against Neon's connection limit. |
@@ -224,7 +224,8 @@ are set.
   proxy and should sit inside `TRUSTED_PROXY_CIDRS`; `remote_ip` is the client.
   If the app logs "No request from a trusted proxy in the first 100 requests",
   the range is wrong and every user shares one rate-limit bucket.
-- Check that a client cannot choose its address: `curl -s -H 'X-Forwarded-For: 1.2.3.4' 'https://<your-service>.onrender.com/health?marker=x'`.
+- Check that a client cannot choose its address: `curl -s -H 'X-Forwarded-For: 1.2.3.4' 'https://<your-service>.onrender.com/health?marker=x'`
+  (sending `CF-Connecting-IP` itself is refused by Cloudflare with error 1000).
   The logged `remote_ip` must be your own address, not `1.2.3.4`. Use the
   logged `peer_ip` values to narrow `TRUSTED_PROXY_CIDRS`.
 

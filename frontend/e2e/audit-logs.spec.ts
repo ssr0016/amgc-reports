@@ -5,7 +5,7 @@ test.describe("as admin", () => {
 
   test("an admin finds their own sign-in, a failed sign-in and an approval in the Logs section", async ({ page, request, playwright }) => {
     // A wrong password for the e2e user, then the right one, so the failed attempt does not count toward its lockout.
-    const anon = await playwright.request.newContext({ extraHTTPHeaders: { "X-Forwarded-For": clientIp("audit-logs-failed") } });
+    const anon = await playwright.request.newContext({ extraHTTPHeaders: { "CF-Connecting-IP": clientIp("audit-logs-failed") } });
     const csrf = async () => (await (await anon.get(`${API}/auth/csrf`)).json()).csrf_token;
     const login = async (password: string) =>
       anon.post(`${API}/auth/login`, { data: { email: ACCOUNTS.user.email, password }, headers: { "X-CSRF-Token": await csrf() } });

@@ -7,7 +7,7 @@ const account = { email: "e2e-refresh@example.com", name: "E2E Refresh", passwor
 test.beforeAll(async ({ playwright }) => {
   const admin = await playwright.request.newContext({
     storageState: authFile("admin"),
-    extraHTTPHeaders: { "X-Forwarded-For": clientIp("refresh-setup") },
+    extraHTTPHeaders: { "CF-Connecting-IP": clientIp("refresh-setup") },
   });
   const roles: { id: number; name: string }[] = (await (await admin.get(`${API}/admin/roles?limit=100`)).json()).data;
   const res = await send(admin, "POST", "/admin/users", {

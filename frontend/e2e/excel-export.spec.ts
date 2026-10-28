@@ -10,7 +10,7 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
   const fixture = { metrics: { worship_service: { week1: 12 } } };
   const { name: worker, church_name: church } = ACCOUNTS.user;
   const author = await playwright.request.newContext({
-    storageState: authFile("user"), extraHTTPHeaders: { "X-Forwarded-For": clientIp },
+    storageState: authFile("user"), extraHTTPHeaders: { "CF-Connecting-IP": clientIp },
   });
   const filed = await send(author, "POST", "/reports", { ...previousPeriod(), ...fixture });
   expect(filed.status(), await filed.text()).toBe(201);

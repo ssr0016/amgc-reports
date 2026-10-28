@@ -10,7 +10,7 @@ let admin: APIRequestContext;
 test.beforeAll(async ({ playwright }) => {
   admin = await playwright.request.newContext({
     storageState: authFile("admin"),
-    extraHTTPHeaders: { "X-Forwarded-For": clientIp("user-status-setup") },
+    extraHTTPHeaders: { "CF-Connecting-IP": clientIp("user-status-setup") },
   });
   const roles: { id: number; name: string }[] = (await (await admin.get(`${API}/admin/roles?limit=100`)).json()).data;
   const res = await send(admin, "POST", "/admin/users", {

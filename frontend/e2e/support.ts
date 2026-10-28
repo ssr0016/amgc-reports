@@ -20,7 +20,7 @@ export type Role = keyof typeof ACCOUNTS;
 export const authFile = (role: Role) => `e2e/.auth/${role}.json`;
 
 // The server limits logins per client address (5 a minute, burst 3) and trusts
-// X-Forwarded-For from the loopback proxy range that start-backend.sh configures. Giving
+// CF-Connecting-IP from the loopback proxy range that start-backend.sh configures. Giving
 // every test its own address keeps one test's logins from starving the next.
 export function clientIp(seed: string): string {
   let h = 0;
@@ -30,7 +30,7 @@ export function clientIp(seed: string): string {
   return `10.${(h >>> 16) % 250}.${(h >>> 8) % 250}.${(h % 250) + 1}`;
 }
 
-// The browser must not send X-Forwarded-For itself: a custom header on a cross-origin call
+// The browser must not send CF-Connecting-IP itself: a custom header on a cross-origin call
 // forces a CORS preflight the API does not allow. So the header is added on the wire
 // (route.continue happens after the browser's CORS checks), and only the API-only
 // `request` fixture sets it as a plain context header.
@@ -38,12 +38,12 @@ export const test = base.extend<{ clientIp: string }>({
   clientIp: async ({}, use, testInfo) => use(clientIp(testInfo.testId)),
   context: async ({ context, clientIp }, use) => {
     await context.route(`${API}/**`, (route) =>
-      route.continue({ headers: { ...route.request().headers(), "x-forwarded-for": clientIp } }),
+      route.continue({ headers: { ...route.request().headers(), "cf-connecting-ip": clientIp } }),
     );
     await use(context);
   },
   request: async ({ playwright, storageState, clientIp }, use) => {
-    const ctx = await playwright.request.newContext({ storageState, extraHTTPHeaders: { "X-Forwarded-For": clientIp } });
+    const ctx = await playwright.request.newContext({ storageState, extraHTTPHeaders: { "CF-Connecting-IP": clientIp } });
     await use(ctx);
     await ctx.dispose();
   },

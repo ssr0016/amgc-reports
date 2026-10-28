@@ -31,10 +31,10 @@ async function openFixtureReports(page: Page) {
 test.beforeAll(async ({ playwright }, testInfo) => {
   const admin = await playwright.request.newContext({
     storageState: authFile("admin"),
-    extraHTTPHeaders: { "X-Forwarded-For": clientIp("a11y-fixture") },
+    extraHTTPHeaders: { "CF-Connecting-IP": clientIp("a11y-fixture") },
   });
   const author = await playwright.request.newContext({
-    extraHTTPHeaders: { "X-Forwarded-For": clientIp(`a11y-author-${testInfo.workerIndex}`) },
+    extraHTTPHeaders: { "CF-Connecting-IP": clientIp(`a11y-author-${testInfo.workerIndex}`) },
   });
   try {
     const roles: { id: number; name: string }[] = (await (await admin.get(`${API}/admin/roles?limit=100`)).json()).data;

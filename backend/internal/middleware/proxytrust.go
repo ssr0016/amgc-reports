@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
+	"net/netip"
 	"sync/atomic"
 
 	"github.com/labstack/echo/v4"
@@ -13,31 +15,37 @@ import (
 // before concluding that no trusted proxy is connecting.
 const TrustedProxyWarnWindow = 100
 
-// TrustedProxyExtractor returns an Echo IP extractor that reads X-Forwarded-For
-// from the right: starting at the TCP peer, it skips every address inside a
-// trusted range and returns the first one that is not. An untrusted peer is
-// returned as is. Each trusted proxy appends the address it received from, so
-// entries a client writes itself sit to the left of that and are never
-// reached. X-Real-IP is never read: whether Render's proxy overwrites it is
-// unverified, and in production its peer is loopback (::1), not 100.64.0.0/10.
+// ClientIPHeader carries the client address. Cloudflare, which fronts every
+// Render web service, sets it on each request and refuses a request whose
+// client sent it (error 1000), so behind a trusted peer it cannot be forged.
+// X-Forwarded-For (Render appends its own 10.x hop) and X-Real-IP are never read.
+const ClientIPHeader = "CF-Connecting-IP"
+
+// TrustedProxyExtractor returns an Echo IP extractor that believes
+// ClientIPHeader only when the TCP peer is inside one of the trusted ranges,
+// and otherwise uses the peer itself. On Render the peer is its local proxy
+// on loopback (::1).
 //
 // Trust is exactly the configured ranges: loopback, link-local and private
 // peers are not trusted unless a range covers them, so another service on a
 // private network cannot choose the client address.
 //
-// If the ranges are wrong the extractor fails closed to the peer's address,
-// which behind a proxy is the proxy's: every user then shares one rate-limit
-// bucket. WarnIfNoTrustedProxy exists to make that visible.
+// If the ranges are wrong, or the header is missing or invalid, the extractor
+// fails closed to the peer's address, which behind a proxy is the proxy's:
+// every user then shares one rate-limit bucket. WarnIfNoTrustedProxy exists to
+// make that visible.
 func TrustedProxyExtractor(trusted []*net.IPNet) echo.IPExtractor {
-	opts := []echo.TrustOption{
-		echo.TrustLoopback(false),
-		echo.TrustLinkLocal(false),
-		echo.TrustPrivateNet(false),
+	direct := echo.ExtractIPDirect()
+	return func(req *http.Request) string {
+		peer := direct(req)
+		if addr, ok := parseAddr(peer); !ok || !inRanges(trusted, addr) {
+			return peer
+		}
+		if client, ok := parseAddr(req.Header.Get(ClientIPHeader)); ok {
+			return client.String()
+		}
+		return peer
 	}
-	for _, n := range trusted {
-		opts = append(opts, echo.TrustIPRange(n))
-	}
-	return echo.ExtractIPFromXFFHeader(opts...)
 }
 
 // WarnIfNoTrustedProxy logs one warning when none of the first window requests
@@ -76,9 +84,10 @@ func noTrustedProxyMessage(window int) string {
 
 func peerIsTrusted(c echo.Context, trusted []*net.IPNet) bool {
 	addr, ok := parseAddr(peerHost(c))
-	if !ok {
-		return false
-	}
+	return ok && inRanges(trusted, addr)
+}
+
+func inRanges(trusted []*net.IPNet, addr netip.Addr) bool {
 	ip := net.IP(addr.AsSlice())
 	for _, n := range trusted {
 		if n.Contains(ip) {

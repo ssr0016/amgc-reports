@@ -18,7 +18,7 @@ async function saveSession(ctx: APIRequestContext, role: Role) {
 // admin API, then signs each role in once and saves its session for the specs.
 setup("create accounts and save one session per role", async ({ playwright }) => {
   async function signIn(role: Role) {
-    const ctx = await playwright.request.newContext({ extraHTTPHeaders: { "X-Forwarded-For": clientIp(`setup-${role}`) } });
+    const ctx = await playwright.request.newContext({ extraHTTPHeaders: { "CF-Connecting-IP": clientIp(`setup-${role}`) } });
     const csrf = async () => (await (await ctx.get(`${API}/auth/csrf`)).json()).csrf_token;
     const login = await ctx.post(`${API}/auth/login`, {
       data: { email: ACCOUNTS[role].email, password: ACCOUNTS[role].password },

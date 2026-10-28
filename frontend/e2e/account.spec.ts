@@ -8,7 +8,7 @@ const next = "E2eChanged!78901";
 test.beforeAll(async ({ playwright }) => {
   const admin = await playwright.request.newContext({
     storageState: authFile("admin"),
-    extraHTTPHeaders: { "X-Forwarded-For": clientIp("account-setup") },
+    extraHTTPHeaders: { "CF-Connecting-IP": clientIp("account-setup") },
   });
   const roles: { id: number; name: string }[] = (await (await admin.get(`${API}/admin/roles?limit=100`)).json()).data;
   const res = await send(admin, "POST", "/admin/users", {

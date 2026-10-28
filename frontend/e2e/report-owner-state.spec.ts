@@ -11,7 +11,7 @@ test("reports retain deleted and deceased owners, update badges, and preserve re
   });
   expect(created.status(), await created.text()).toBe(201);
   const owner = await created.json();
-  const ownerRequest = await playwright.request.newContext({ extraHTTPHeaders: { "X-Forwarded-For": clientIp } });
+  const ownerRequest = await playwright.request.newContext({ extraHTTPHeaders: { "CF-Connecting-IP": clientIp } });
   let reportId: number;
   try {
     expect((await send(ownerRequest, "POST", "/auth/login", account)).status()).toBe(200);
@@ -54,7 +54,7 @@ test("reports retain deleted and deceased owners, update badges, and preserve re
   await expect(reportRow.getByRole("button", { name: /^Approve / })).toBeEnabled();
   expect((await new AxeBuilder({ page }).include('main section[aria-label="Reports"]').analyze()).violations).toEqual([]);
 
-  const reader = await playwright.request.newContext({ storageState: authFile("user"), extraHTTPHeaders: { "X-Forwarded-For": clientIp } });
+  const reader = await playwright.request.newContext({ storageState: authFile("user"), extraHTTPHeaders: { "CF-Connecting-IP": clientIp } });
   try {
     const res = await reader.get(`${API}/reports/${reportId}`);
     expect(res.status()).toBe(200);

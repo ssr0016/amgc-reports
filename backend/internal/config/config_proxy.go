@@ -5,14 +5,14 @@ import (
 	"net"
 )
 
-// DefaultTrustedProxyCIDR trusts X-Forwarded-For from every IPv4 peer. It is only a
+// DefaultTrustedProxyCIDR trusts CF-Connecting-IP from every IPv4 peer. It is only a
 // convenience outside production: ValidateProxy refuses it there, because with
 // it any client chooses its own address for rate limits and audit rows.
 const DefaultTrustedProxyCIDR = "0.0.0.0/0"
 
 // ProxyConfig describes which connecting peers may speak for a client.
 type ProxyConfig struct {
-	// TrustedCIDRs are the only peers whose X-Forwarded-For is believed. Loopback,
+	// TrustedCIDRs are the only peers whose CF-Connecting-IP is believed. Loopback,
 	// link-local and private ranges are not trusted unless listed here.
 	TrustedCIDRs []*net.IPNet
 	// UsedDefault is true when TRUSTED_PROXY_CIDRS was not set.

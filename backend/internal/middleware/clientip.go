@@ -27,7 +27,7 @@ const ipv6KeyPrefixBits = 64
 // IP keeps the whole header value alive in the limiter's map. Parsing the value
 // and re-rendering it allocates a fresh string of at most 39 bytes.
 //
-// Parsing does not make the value trustworthy. Which peer's X-Forwarded-For is
+// Parsing does not make the value trustworthy. Which peer's CF-Connecting-IP is
 // believed is decided by the IPExtractor installed on Echo, see
 // TrustedProxyExtractor; without one a client can still choose any valid IP.
 func clientAddr(c echo.Context) (netip.Addr, bool) {

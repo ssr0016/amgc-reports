@@ -35,32 +35,28 @@ func requestFrom(remoteAddr string) *http.Request {
 
 // Only the configured ranges are trusted. Loopback, link-local and private
 // peers are not, so a service on the private network cannot choose the client
-// address by sending X-Forwarded-For.
+// address by sending CF-Connecting-IP.
 func TestTrustedProxyExtractor(t *testing.T) {
 	railway := []string{"100.64.0.0/10"}
-	// Production on Render: the proxy connects over loopback (peer_ip=::1).
-	render := []string{"::1/128", "100.64.0.0/10"}
+	// Production on Render: its local proxy connects over loopback (peer_ip=::1).
+	render := []string{"::1/128"}
 
 	tests := []struct {
 		name       string
 		trusted    []string
 		remoteAddr string
-		forwarded  string
+		cfIP       string
 		want       string
 	}{
-		{"trusted peer, client in X-Forwarded-For", railway, "100.64.0.7:4000", "203.0.113.7", "203.0.113.7"},
-		{"trusted peer, IPv6 client", railway, "100.64.0.7:4000", "2001:db8::1", "2001:db8::1"},
-		{"trusted peer, bracketed IPv6 client", railway, "100.64.0.7:4000", "[2001:db8::1]", "2001:db8::1"},
+		{"Render loopback peer, client in CF-Connecting-IP", render, "[::1]:4000", "112.208.174.24", "112.208.174.24"},
+		{"Render loopback peer, IPv6 client", render, "[::1]:4000", "2001:db8::1", "2001:db8::1"},
+		{"Render loopback peer, no header", render, "[::1]:4000", "", "::1"},
+		{"Render loopback peer, invalid header", render, "[::1]:4000", "not-an-ip", "::1"},
+		{"Render loopback peer, list in header", render, "[::1]:4000", "1.2.3.4, 203.0.113.7", "::1"},
+		{"trusted peer, valid header", railway, "100.64.0.7:4000", "203.0.113.7", "203.0.113.7"},
 		{"last address of the range is trusted", railway, "100.127.255.255:4000", "203.0.113.7", "203.0.113.7"},
 		{"just outside the range is not", railway, "100.128.0.1:4000", "203.0.113.7", "100.128.0.1"},
 		{"public peer is not trusted", railway, "198.51.100.9:4000", "203.0.113.7", "198.51.100.9"},
-		{"no header uses the peer", railway, "100.64.0.7:4000", "", "100.64.0.7"},
-		{"invalid entry uses the peer", railway, "100.64.0.7:4000", "not-an-ip", "100.64.0.7"},
-		{"spoofed left entries are skipped", railway, "100.64.0.7:4000", "5.6.7.8, 203.0.113.7", "203.0.113.7"},
-		{"trusted hops on the right are skipped", railway, "100.64.0.7:4000", "203.0.113.7, 100.64.0.9", "203.0.113.7"},
-		{"Render loopback peer", render, "[::1]:4000", "203.0.113.7", "203.0.113.7"},
-		{"Render loopback peer, spoofed entry", render, "[::1]:4000", "1.2.3.4, 203.0.113.7", "203.0.113.7"},
-		{"Render loopback peer, no header", render, "[::1]:4000", "", "::1"},
 		{"private peer is not trusted", railway, "10.0.0.5:4000", "203.0.113.7", "10.0.0.5"},
 		{"loopback peer is not trusted", railway, "127.0.0.1:4000", "203.0.113.7", "127.0.0.1"},
 		{"IPv6 loopback peer is not trusted", railway, "[::1]:4000", "203.0.113.7", "::1"},
@@ -68,7 +64,7 @@ func TestTrustedProxyExtractor(t *testing.T) {
 		{"IPv6 ULA peer is not trusted", railway, "[fd12::5]:4000", "203.0.113.7", "fd12::5"},
 		{"IPv6 peer in a trusted IPv6 range", []string{"fd00::/8"}, "[fd00::5]:4000", "203.0.113.7", "203.0.113.7"},
 		{"IPv6 peer outside the trusted IPv6 range", []string{"fd00::/8"}, "[2001:db8::5]:4000", "203.0.113.7", "2001:db8::5"},
-		{"several ranges, second one matches", []string{"192.0.2.0/24", "100.64.0.0/10"}, "100.64.0.7:4000", "203.0.113.7", "203.0.113.7"},
+		{"several ranges, second one matches", []string{"192.0.2.0/24", "::1/128"}, "[::1]:4000", "203.0.113.7", "203.0.113.7"},
 	}
 
 	for _, tt := range tests {
@@ -76,10 +72,12 @@ func TestTrustedProxyExtractor(t *testing.T) {
 			extract := TrustedProxyExtractor(mustCIDRs(t, tt.trusted...))
 
 			req := requestFrom(tt.remoteAddr)
-			// X-Real-IP is never read: a value here must not change the result.
+			// Never read: Render appends its own hops to X-Forwarded-For, and a
+			// client can set both. Neither may change the result.
 			req.Header.Set(echo.HeaderXRealIP, "9.9.9.9")
-			if tt.forwarded != "" {
-				req.Header.Set(echo.HeaderXForwardedFor, tt.forwarded)
+			req.Header.Set(echo.HeaderXForwardedFor, "8.8.8.8, 10.24.225.5")
+			if tt.cfIP != "" {
+				req.Header.Set(ClientIPHeader, tt.cfIP)
 			}
 
 			if got := extract(req); got != tt.want {
@@ -93,21 +91,22 @@ func TestTrustedProxyExtractor(t *testing.T) {
 // rate-limit key and the log's remote_ip) follows it.
 func TestTrustedProxyExtractor_DrivesTheRateLimitKey(t *testing.T) {
 	e := echo.New()
-	e.IPExtractor = TrustedProxyExtractor(mustCIDRs(t, "100.64.0.0/10"))
+	e.IPExtractor = TrustedProxyExtractor(mustCIDRs(t, "::1/128"))
 
-	keyFor := func(forwarded string) string {
-		req := requestFrom("100.64.0.7:4000")
+	keyFor := func(cfIP, forwarded string) string {
+		req := requestFrom("[::1]:4000")
+		req.Header.Set(ClientIPHeader, cfIP)
 		req.Header.Set(echo.HeaderXForwardedFor, forwarded)
 		return rateLimitKey(e.NewContext(req, httptest.NewRecorder()))
 	}
 
-	if a, b := keyFor("203.0.113.7"), keyFor("203.0.113.8"); a == b {
+	if a, b := keyFor("203.0.113.7", ""), keyFor("203.0.113.8", ""); a == b {
 		t.Errorf("two clients behind one proxy share key %q", a)
 	}
-	if a, b := keyFor("1.1.1.1, 203.0.113.7"), keyFor("2.2.2.2, 203.0.113.7"); a != b {
-		t.Errorf("rotating a spoofed X-Forwarded-For entry changed the key: %q vs %q", a, b)
+	if a, b := keyFor("203.0.113.7", "1.1.1.1"), keyFor("203.0.113.7", "2.2.2.2"); a != b {
+		t.Errorf("rotating X-Forwarded-For changed the key: %q vs %q", a, b)
 	}
-	if got := keyFor("2001:db8:1:2::9"); got != "2001:db8:1:2::/64" {
+	if got := keyFor("2001:db8:1:2::9", ""); got != "2001:db8:1:2::/64" {
 		t.Errorf("IPv6 client key = %q, want its /64", got)
 	}
 }

@@ -16,7 +16,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
   B.email = `e2e-reset-axe-${testInfo.workerIndex}@example.com`;
   admin = await playwright.request.newContext({
     storageState: authFile("admin"),
-    extraHTTPHeaders: { "X-Forwarded-For": clientIp("admin-reset-setup") },
+    extraHTTPHeaders: { "CF-Connecting-IP": clientIp("admin-reset-setup") },
   });
   const roles: { id: number; name: string }[] = (await (await admin.get(`${API}/admin/roles?limit=100`)).json()).data;
   for (const [key, account] of [["A", A], ["B", B]] as const) {
@@ -42,7 +42,7 @@ async function signIn(playwright: PlaywrightWorkerArgs["playwright"], email: str
   // and the login would renew the admin's own session.
   const ctx = await playwright.request.newContext({
     storageState: { cookies: [], origins: [] },
-    extraHTTPHeaders: { "X-Forwarded-For": clientIp(tag) },
+    extraHTTPHeaders: { "CF-Connecting-IP": clientIp(tag) },
   });
   const res = await send(ctx, "POST", "/auth/login", { email, password });
   return { ctx, status: res.status(), body: await res.text() };

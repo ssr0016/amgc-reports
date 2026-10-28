@@ -8,7 +8,7 @@ test.describe("as admin", () => {
     const period = previousPeriod();
     const worker = await playwright.request.newContext({
       storageState: authFile("user"),
-      extraHTTPHeaders: { "X-Forwarded-For": clientIp("tracker-user") },
+      extraHTTPHeaders: { "CF-Connecting-IP": clientIp("tracker-user") },
     });
     const old = await (await worker.get(`${API}/reports?month=${period.month}&year=${period.year}`)).json();
     for (const r of old.data) await send(worker, "DELETE", `/reports/${r.id}`);
