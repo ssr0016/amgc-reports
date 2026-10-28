@@ -23,7 +23,7 @@
 ## ✨ 3. NICE-TO-HAVE (UX & Analytics)
 
 - [ ] **Mobile PWA:** Installable on phones, with offline support (Service Workers).
-- [x] **Advanced Analytics Dashboard:** Partly done: attendance charts (Recharts), period comparison and CSV/PDF export shipped; multi-year growth charts remain (build plan #40).
+- [x] **Advanced Analytics Dashboard:** Partly done: attendance charts (Recharts), period comparison, church filter, submission compliance and CSV/Excel/PDF export shipped; multi-year growth charts remain (build plan #40).
 
 ## 🛠️ 4. TECHNICAL DEBT (Maintenance)
 

@@ -20,12 +20,12 @@
 - [x] 14. Production deploy on Render (API) and Neon (Postgres); H-4 + API migrate verified in prod
 - [x] 27. L-3: reset-password strongpass enforcement
 - [x] 42. Report workflow (2026-10-26 to 2026-10-27; not specced in this plan, recorded from git)
-  - [x] 42a. Report statuses Draft, Pending, Approved and Needs Revision (`reports.status`, `20261026120000_add_report_status`; `draft` added by `20261027120000_add_report_drafts`); unapprove moves a report to Needs Revision (`8250a33`)
+  - [x] 42a. Report statuses Draft, Pending, Approved and Needs Revision (`reports.status`, `20261026120000_add_report_status`; `draft` added by `20261027120000_add_report_drafts`, removed by D-A25); unapprove moves a report to Needs Revision (`8250a33`)
   - [x] 42b. Admin notes on approve, unapprove and revision requests (`admin_notes`, `20261026130000_add_report_admin_notes`); the UI requires a note to unapprove, one report or in bulk (`436fe35`, `24d4ac8`, `1d99781`)
   - [x] 42c. Revision tracking: `PATCH /reports/:id/revision`; saving a Needs Revision report returns it to Pending, stamps `last_revised_at` and keeps the worker's `user_notes` (`20261026140000_add_report_revision_tracking`, `df7bf8c`)
-  - [x] 42d. Server-backed drafts: `draft: true` on create saves a private draft that other readers' lists, stats and the Tracker leave out (`30a2029`)
-  - [x] 42e. Submit flow: `PATCH /reports/:id/submit` moves the owner's draft to Pending and audits `SUBMIT_REPORT` (CHECK constraint in `20261027120000_add_report_drafts`)
-  - [x] 42f. Autosave on the report form; deleting a report clears its saved copy (`bb8a482`, `7e6541e`)
+  - [x] 42d. Server-backed drafts: `draft: true` on create saves a private draft that other readers' lists, stats and the Tracker leave out (`30a2029`). **Removed by D-A25** (`20261027140000_remove_report_drafts`): drafts became Pending.
+  - [x] 42e. Submit flow: `PATCH /reports/:id/submit` moves the owner's draft to Pending and audits `SUBMIT_REPORT` (CHECK constraint in `20261027120000_add_report_drafts`). **Removed by D-A25**: nothing writes `SUBMIT_REPORT` now; old rows still read.
+  - [x] 42f. Autosave on the report form; deleting a report clears its saved copy (`bb8a482`, `7e6541e`). **D-A25** removed the server autosave; the browser backup (`localStorage`) stays.
   - [x] 42g. Current-report flow: `GET /reports/current` returns the caller's report for the filing period, so starting a new report opens the existing one instead of a duplicate (`8d5ad86`, `065660a`, `c9ed71e`, `9cc2a76`)
 - [x] 43. Admin review tools (2026-10-26; not specced in this plan, recorded from git)
   - [x] 43a. Bulk approve and unapprove on the admin Reports tab; the selection survives filter changes (`e5712c6`, `fa37765`)
@@ -109,9 +109,10 @@ Future features aligned with `system-gaps.md`; not yet specced.
 
 - [ ] 23. E-1: email delivery: deferred to Future/Backlog, not built (previously skipped under D-A18); prerequisite for email notifications
 - [ ] 39. Email Notifications (Report Approved/Unapproved): batch bulk-action emails, include admin remarks and reversal reasons, handle bounces, and show in-app updates; keep sensitive metrics out of emails
-- [ ] 40. Advanced Analytics Dashboard (Charts): partly shipped as the admin Analytics tab (`c183d2a` to `a064788`), `GET /admin/analytics/attendance` (`tracker:read`)
+- [ ] 40. Advanced Analytics Dashboard (Charts): partly shipped as the admin Analytics tab (`c183d2a` to `a3704b2`), `GET /admin/analytics/attendance` (`tracker:read`)
   - [x] 40a. Attendance dashboard: weekly trend line chart and church breakdown bar chart (Recharts) with data tables, a metric picker, and approved-only or all statuses
   - [x] 40b. Period filter (full year, quarter or month), comparison with the same period last year, KPI cards and a full metrics summary
   - [x] 40c. Period-aware CSV export and a printable PDF
   - [ ] 40d. Growth charts across several years `TODO (confirm)`: the scope beyond the one-year comparison is not specced
+  - [x] 40e. Overview-first page with every church and a Metric Detail sheet (`46e2415`); church filter, submission compliance matrix, one organization-wide reporting start with per-church overrides (D-A31, D-A32), CSV exports (`a402cf5`); analytics Excel export (`a5ff5a7`, `d48e281`, `6877749`, `0d1e7d2`); narrower wrapping sticky first column on phones (`a3704b2`)
 - [ ] 41. Mobile PWA (Progressive Web App): installable mobile experience with offline support via service workers

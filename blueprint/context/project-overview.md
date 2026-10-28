@@ -74,12 +74,12 @@ Order and identities follow `build-plan.md`; checked items are shown as shipped 
 | 37a | Shipped | Custom role CRUD and permission checklist; built-ins read-only; occupied roles cannot be deleted; self/last-admin protections and audit |
 | 37b | Shipped | Permission-gated admin routes/tabs for custom roles |
 | 42 | Complete | Report workflow |
-| 42a | Shipped | Draft, Pending, Approved and Needs Revision statuses; unapprove moves to Needs Revision |
+| 42a | Shipped | Pending, Approved and Needs Revision statuses (Draft removed, D-A25); unapprove moves to Needs Revision |
 | 42b | Shipped | Admin notes on review actions; UI requires a note to unapprove |
 | 42c | Shipped | Revision requests; a saved Needs Revision report returns to Pending with `last_revised_at` and user notes |
-| 42d | Shipped | Private server-backed drafts, left out of other readers' lists, stats and the Tracker |
-| 42e | Shipped | Submit a draft for review (`PATCH /reports/:id/submit`, `SUBMIT_REPORT`) |
-| 42f | Shipped | Report form autosave; deleting a report clears its saved copy |
+| 42d | Removed (D-A25) | Private server-backed drafts, left out of other readers' lists, stats and the Tracker |
+| 42e | Removed (D-A25) | Submit a draft for review (`PATCH /reports/:id/submit`, `SUBMIT_REPORT`) |
+| 42f | Partly removed (D-A25) | Server autosave removed; the browser backup stays, and deleting a report clears it |
 | 42g | Shipped | One current report per filing period (`GET /reports/current`), no duplicate starts |
 | 43 | Complete | Admin review tools |
 | 43a | Shipped | Bulk approve/unapprove; selection survives filters |
@@ -99,7 +99,7 @@ Order and identities follow `build-plan.md`; checked items are shown as shipped 
 | 16 | Deferred | Domain setup; `amgcreports.com` chosen, deferred to the end by the owner |
 | 26 | Deferred | Cloudflare proxy and IP-limit handling |
 | 23–25 | Skipped, not built | Email delivery, forgot-password flow and reset-password UI (D-A18) |
-| 40 | Partly shipped | Analytics tab: attendance charts, period filter and comparison, KPI and full metrics summaries, CSV and PDF export (40a–40c); multi-year growth charts open (40d) |
+| 40 | Partly shipped | Analytics tab: attendance charts, period filter and comparison, KPI and full metrics summaries, CSV and PDF export (40a–40c); church filter, submission compliance, organization-wide reporting start (D-A31, D-A32), Excel export and mobile table fix (40e); multi-year growth charts open (40d) |
 
 The first unchecked leaf is 17 and is explicitly blocked on deferred domain setup (16). Feature 19 and Phase A are complete. Preserve the plan's IDs, including 22g before 22f.
 
@@ -112,7 +112,7 @@ These are logical field contracts derived from the plans, not a replacement for 
 | User | `email`, `name`, `area_assignment`, `church_name` (text); `role_id` (role identifier); `status` (enum: active/inactive/disciplinary/deceased); deletion reason (text) and deletion state; `avatar_url` (optional public URL) | One role per user; deleted emails remain reserved; non-active accounts cannot sign in; self/last-admin protection |
 | Role | Identifier; role name (text); chosen permission set | Built-in admin/editor/user plus custom roles; cannot delete a role while users hold it |
 | Permission | Identifier; permission name (text, e.g. `roles:write`) | Grants link roles and permissions through `role_permissions`; seeded on API start |
-| Report | Owner identifier; worker, area and church (text); month and year (period); five weeks of 21 metric values; `status` (draft/pending/approved/needs_revision); `admin_notes`, `user_notes` (text); `last_revised_at`; soft-deletion state | One report per month as stated in project plan; drafts are visible only to their owner; owner retained after user deletion/death; non-owner field privacy under D-18 |
+| Report | Owner identifier; worker, area and church (text); month and year (period); five weeks of 21 metric values; `status` (pending/approved/needs_revision); `admin_notes`, `user_notes` (text); `last_revised_at`; soft-deletion state | One report per month as stated in project plan; drafts are visible only to their owner; owner retained after user deletion/death; non-owner field privacy under D-18 |
 | Audit entry | Action (allowed enum); action-specific details (structured payload) | Allow-list on insert; report/account/role/export/auth events; new actions require migration |
 | Session | User relationship and sign-in lifecycle | Password resets/status changes revoke sessions; authenticated API use |
 | Refresh token | Refresh/idle lifecycle; default `REFRESH_IDLE_TTL` 30 minutes | Session refresh; browser refresh currently prevents an open tab becoming idle |
@@ -140,7 +140,7 @@ Use existing shadcn/Radix components and Tailwind styling. Follow `backend/docs/
 
 - Reports list, new/edit forms and read-only report view; worker/area/church prefilled from profile.
 - `/auth/me` supplies session identity; change-password UI is shipped.
-- Report workflow: private drafts with autosave, submit for review, admin and revision notes, and one current report per filing period.
+- Report workflow: a report exists once submitted (D-A25), browser backup of unsent work, admin and revision notes, and one current report per filing period.
 - Community Reports lists every report for workers (D-18 redaction), separate from their own reports.
 - `/admin` has Reports (with bulk approve/unapprove), Tracker, Users, Logs, Roles and Analytics tabs, gated by permissions; user/role writes retain their specified protections.
 - Admin Edit User includes status, deletion/restore and password reset workflows. Reset dialog requires matching passwords and supports generate/copy; the generated password is not retained or shown again after completion.
