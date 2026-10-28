@@ -128,7 +128,7 @@ func run() error {
 	})
 	passwordResetService := authimpl.NewPasswordResetService(userRepo, passwordResetRepo, log)
 	reportService := reportimpl.NewService(reportRepo, auditRepo, db, userRepo)
-	statsService := statsimpl.NewService(statsimpl.NewStore(db))
+	statsService := statsimpl.NewService(statsimpl.NewStore(db), auditRepo, db)
 	userService := userimpl.NewService(userRepo, roleRepo, auditRepo, db)
 
 	// Handlers

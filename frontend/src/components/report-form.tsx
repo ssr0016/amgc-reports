@@ -17,6 +17,7 @@ import {
   METRIC_SECTIONS,
   metricError,
   metricErrorKey,
+  LEGACY_METRIC,
   METRICS,
   TEXT_LIMITS,
   RESTRICTED_METRIC,
@@ -346,7 +347,7 @@ export function ReportForm({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {section.metrics.map((m) => (
+                  {section.metrics.filter((m) => m.key !== LEGACY_METRIC || Object.keys(form.metrics[m.key] ?? {}).length > 0).map((m) => (
                     <MetricRow
                       key={m.key}
                       metric={m}

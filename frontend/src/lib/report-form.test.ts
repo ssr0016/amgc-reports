@@ -114,8 +114,8 @@ describe("emptyForm", () => {
     expect(f.month).not.toBe("");
   });
 
-  it("covers all 21 metrics", () => {
-    expect(METRICS).toHaveLength(21);
+  it("covers all 22 metrics", () => {
+    expect(METRICS).toHaveLength(22);
   });
 });
 

@@ -41,7 +41,8 @@ const excelOtherRows = [
   { key: "sermon_preached", label: "Sermon/Message Preached" },
   { key: "person_newly_contacted", label: "Person Newly Contacted" },
   { key: "person_followed_up", label: "Person Followed-up" },
-  { key: "person_evangelized", label: "Person Led To Christ" },
+  { key: "person_led_to_christ", label: "Person Led To Christ" },
+  { key: "person_evangelized", label: "Legacy Persons Evangelized — meaning unverified" },
 ] as const;
 
 // D-A5: average of weeks with values; dash when none.
@@ -104,7 +105,7 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
 
             <section className="mt-4">
               <ReportMetricTable title="Activities" rows={excelMetricRows} report={report} />
-              <ReportMetricTable title="Other Statistics" rows={excelOtherRows} report={report} names={report.names} />
+              <ReportMetricTable title="Other Statistics" rows={excelOtherRows.filter((row) => row.key !== "person_evangelized" || report.metrics.person_evangelized)} report={report} names={report.names} />
             </section>
 
             <section aria-labelledby="preview-report-details" className="mt-4 border border-black">

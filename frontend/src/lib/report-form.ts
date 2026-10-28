@@ -17,14 +17,19 @@ export const METRICS = [
   { key: "sermon_preached", label: "Sermons Preached" },
   { key: "person_newly_contacted", label: "Newly Contacted" },
   { key: "person_followed_up", label: "Persons Followed Up" },
-  { key: "person_evangelized", label: "Persons Evangelized" },
+  { key: "person_led_to_christ", label: "Persons Led to Christ" },
   { key: "outreach", label: "Outreach" },
   { key: "training", label: "Training" },
   { key: "leadership", label: "Leadership" },
   { key: "baptism", label: "Baptism" },
   { key: "other", label: "Other" },
   { key: "family_day", label: "Family Day" },
+  // The old field, kept for historical values whose meaning is unverified (D-A31).
+  // The form shows it only on a report that already has it.
+  { key: "person_evangelized", label: "Legacy Persons Evangelized — meaning unverified" },
 ] as const;
+
+export const LEGACY_METRIC = "person_evangelized";
 
 type MetricKey = (typeof METRICS)[number]["key"];
 
@@ -37,7 +42,7 @@ const SECTIONS: { title: string; keys: MetricKey[] }[] = [
   { title: "Fellowship", keys: ["mens_fellowship", "womens_fellowship", "youth_fellowship", "children_fellowship"] },
   {
     title: "Weekly Ministry",
-    keys: ["home_visited", "bible_study_group_led", "sermon_preached", "person_newly_contacted", "person_followed_up", "person_evangelized"],
+    keys: ["home_visited", "bible_study_group_led", "sermon_preached", "person_newly_contacted", "person_followed_up", "person_led_to_christ", "person_evangelized"],
   },
   { title: "Ministry Activities", keys: ["outreach", "training", "leadership", "baptism", "other", "family_day"] },
 ];

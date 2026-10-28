@@ -35,9 +35,9 @@ describe("listAuditLogs", () => {
 });
 
 describe("actions", () => {
-  it("labels all 21 audited actions, each once", () => {
-    expect(ACTIONS).toHaveLength(21);
-    expect(new Set(ACTIONS.map((a) => a.code)).size).toBe(21);
+  it("labels all 22 audited actions, each once", () => {
+    expect(ACTIONS).toHaveLength(22);
+    expect(new Set(ACTIONS.map((a) => a.code)).size).toBe(22);
     expect(actionLabel("CHANGE_USER_ROLE")).toBe("Changed user role");
     expect(actionLabel("DELETE_ROLE")).toBe("Deleted role");
     expect(actionLabel("LOGIN_FAILED")).toBe("Failed login");

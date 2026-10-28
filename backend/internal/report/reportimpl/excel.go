@@ -18,14 +18,15 @@ import (
 // The legacy "Church Growth Program Report" sheet layout (D-A6). Cell positions,
 // labels, merges, formats and formulas follow the template exactly.
 
-// metricRows is the template row of each of the 21 metrics.
+// metricRows is the template row of each metric. The legacy person_evangelized
+// has no template row (D-A31): "Person Led To Christ" holds person_led_to_christ.
 var metricRows = map[string]int{
 	"worship_service": 10, "sunday_school": 11, "prayer_meeting": 12, "bible_studies": 13,
 	"mens_fellowship": 14, "womens_fellowship": 15, "youth_fellowship": 16, "children_fellowship": 17,
 	"outreach": 18, "baptism": 19, "training": 20, "leadership": 21,
 	"other": 24, "family_day": 25, "tithes_offering": 27,
 	"home_visited": 31, "bible_study_group_led": 32, "sermon_preached": 33,
-	"person_newly_contacted": 34, "person_followed_up": 35, "person_evangelized": 36,
+	"person_newly_contacted": 34, "person_followed_up": 35, "person_led_to_christ": 36,
 }
 
 // rowLabels are the column A labels of the metric rows. Row 22 has a label but
@@ -37,6 +38,17 @@ var rowLabels = map[int]string{
 	22: "Leadership Training", 24: "Other", 25: "Family Day", 27: "Tithes & Offering",
 	31: "Home Visited", 32: "Bible Study Group Led", 33: "Sermon/Message Preached",
 	34: "Person Newly Contacted", 35: "Person Followed-up", 36: "Person Led To Christ",
+}
+
+// LegacyMetricLabel is how every export names report.LegacyMetric (D-A31).
+const LegacyMetricLabel = "Legacy Persons Evangelized — meaning unverified"
+
+// metricSheetLabel is a metric's report-sheet label; the legacy metric has no row.
+func metricSheetLabel(key string) string {
+	if key == report.LegacyMetric {
+		return LegacyMetricLabel
+	}
+	return rowLabels[metricRows[key]]
 }
 
 var weekCols = [5]string{"B", "C", "D", "E", "F"}
@@ -345,7 +357,7 @@ func writeApproved(f *excelize.File, reps []*report.Report, st excelStyles) erro
 	sh := approvedSheet
 	header := slices.Clone(approvedHeader)
 	for _, key := range report.MetricKeys {
-		header = append(header, rowLabels[metricRows[key]])
+		header = append(header, metricSheetLabel(key))
 	}
 	lastCol, err := excelize.ColumnNumberToName(len(header))
 	if err != nil {
@@ -432,7 +444,7 @@ func writeSummary(f *excelize.File, r *report.Report, st excelStyles) error {
 		if key == "tithes_offering" {
 			kind = flatMoney
 		}
-		w.put(1, row, rowLabels[metricRows[key]], st.flat[flatText][odd])
+		w.put(1, row, metricSheetLabel(key), st.flat[flatText][odd])
 		sum, n := 0.0, 0
 		for week := 1; week <= 5; week++ {
 			var v any

@@ -2,12 +2,14 @@ package statsimpl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"golang.org/x/sync/errgroup"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
@@ -97,311 +99,123 @@ func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.Tr
 	return out, nil
 }
 
-// AnalyticsAttendance reads the year, and the year before when q.Compare, concurrently.
-// Its reads run in parallel on separate pool connections, so it must not be called
-// inside a transaction: a pgx.Tx is one connection and cannot run queries concurrently.
-func (r *store) AnalyticsAttendance(ctx context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
-	var current, previous stats.AttendanceAnalytics
-	g, gctx := errgroup.WithContext(ctx)
-	g.Go(func() (err error) {
-		current, err = r.analyticsAttendanceYear(gctx, q, q.Year)
-		return err
-	})
-	if q.Compare {
-		g.Go(func() (err error) {
-			previous, err = r.analyticsAttendanceYear(gctx, q, q.Year-1)
-			return err
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return stats.AttendanceAnalytics{}, err
-	}
-	if q.Compare {
-		current.Comparison = &stats.AttendanceComparison{Year: q.Year - 1, Trend: previous.Trend, Churches: previous.Churches, Detail: previous.Detail,
-			Weeks: previous.Weeks, WeeksByMonth: previous.WeeksByMonth}
-	}
-	return current, nil
-}
+const churchesQuery = `
+SELECT c.id, c.name, c.reporting_start_month, c.reporting_end_month,
+       u.id, COALESCE(u.name, ''), COALESCE(u.status, ''), u.deleted_at IS NOT NULL
+FROM churches c
+LEFT JOIN users u ON lower(btrim(u.church_name)) = c.name_key
+     AND u.role_id IN (SELECT id FROM roles WHERE name = $1)
+ORDER BY lower(c.name), c.id, u.id`
 
-const attendancePeriodWhere = "AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN ? AND ?"
-
-func (r *store) analyticsAttendanceYear(ctx context.Context, q stats.AttendanceQuery, year int) (stats.AttendanceAnalytics, error) {
-	statusWhere := "AND r.status = 'approved'"
-	if q.Status == stats.AttendanceStatusAll {
-		statusWhere = "AND r.status IN ('pending', 'needs_revision', 'approved')"
-	}
-	startMonth, endMonth, _ := stats.AnalyticsPeriodBounds(q.Period)
-
-	var (
-		values   map[[2]int]float64
-		churches []stats.AttendanceChurch
-		summary  []stats.AttendanceMetricSummary
-		detail   []stats.AttendanceDetail
-		noReport []string
-		weeks    map[int]int
-	)
-	g, gctx := errgroup.WithContext(ctx)
-	g.Go(func() (err error) {
-		values, err = r.attendanceTrend(gctx, q.Metric, year, startMonth, endMonth, statusWhere)
-		return err
-	})
-	g.Go(func() (err error) {
-		churches, err = r.attendanceChurches(gctx, q.Metric, year, startMonth, endMonth, statusWhere)
-		return err
-	})
-	g.Go(func() (err error) {
-		summary, detail, err = r.attendanceSummary(gctx, year, startMonth, endMonth, statusWhere)
-		return err
-	})
-	g.Go(func() (err error) {
-		noReport, err = r.noReportChurches(gctx, year, startMonth, endMonth, statusWhere)
-		return err
-	})
-	g.Go(func() (err error) {
-		weeks, err = r.reportedWeeks(gctx, year, startMonth, endMonth, statusWhere)
-		return err
-	})
-	if err := g.Wait(); err != nil {
-		return stats.AttendanceAnalytics{}, err
-	}
-
-	trend := make([]stats.AttendanceTrendPoint, 0, (endMonth-startMonth+1)*5)
-	for month := startMonth; month <= endMonth; month++ {
-		name := report.Months[month-1]
-		for week := 1; week <= 5; week++ {
-			trend = append(trend, stats.AttendanceTrendPoint{Month: name, Week: week, Value: values[[2]int{month, week}]})
-		}
-	}
-	return stats.AttendanceAnalytics{Year: year, Metric: q.Metric, Status: q.Status, Period: q.Period, Trend: trend, Churches: churches, Summary: summary, Detail: detail, NoReportChurches: noReport, Weeks: totalWeeks(weeks), WeeksByMonth: weeks}, nil
-}
-
-func totalWeeks(byMonth map[int]int) int {
-	total := 0
-	for _, n := range byMonth {
-		total += n
-	}
-	return total
-}
-
-// reportedWeeks counts, per month number, the distinct report weeks that hold any
-// metric value from a report matching statusWhere: the weeks with reports.
-func (r *store) reportedWeeks(ctx context.Context, year, startMonth, endMonth int, statusWhere string) (map[int]int, error) {
-	query, args, err := r.db.Builder.
-		Select("EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int", "COUNT(DISTINCT rm.week_no)::int").
-		From("reports r").
-		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.year = ? "+attendancePeriodWhere+" "+statusWhere, year, startMonth, endMonth).
-		GroupBy("1").
-		ToSql()
+// Churches reads every church with its church accounts (the user role, deleted
+// ones flagged), one row per account.
+func (r *store) Churches(ctx context.Context) ([]stats.ChurchRecord, error) {
+	rows, err := r.db.Querier(ctx).Query(ctx, churchesQuery, accesscontrol.DefaultRoleName)
 	if err != nil {
-		return nil, fmt.Errorf("build reported weeks query: %w", err)
-	}
-	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query reported weeks: %w", err)
+		return nil, fmt.Errorf("query churches: %w", err)
 	}
 	defer rows.Close()
-	weeks := make(map[int]int)
+	var out []stats.ChurchRecord
 	for rows.Next() {
-		var month, n int
-		if err := rows.Scan(&month, &n); err != nil {
-			return nil, fmt.Errorf("scan reported weeks: %w", err)
+		var c stats.ChurchRecord
+		var userID *int64
+		var a stats.ChurchAccountInfo
+		if err := rows.Scan(&c.ID, &c.Name, &c.StartMonth, &c.EndMonth, &userID, &a.Name, &a.Status, &a.Deleted); err != nil {
+			return nil, fmt.Errorf("scan church: %w", err)
 		}
-		weeks[month] = n
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("reported weeks: %w", err)
-	}
-	return weeks, nil
-}
-
-// noReportChurches lists the churches of active church accounts (as counted by
-// Counts' churches total) that have no report matching statusWhere in the period.
-// An account's own reports count as its church's, as in Tracker.
-func (r *store) noReportChurches(ctx context.Context, year, startMonth, endMonth int, statusWhere string) ([]string, error) {
-	query, args, err := r.db.Builder.
-		Select("MIN(btrim(u.church_name))").
-		From("users u").
-		Join("roles ro ON ro.id = u.role_id").
-		Where("ro.name = 'user' AND u.deleted_at IS NULL AND u.status = 'active' AND btrim(COALESCE(u.church_name, '')) <> ''").
-		GroupBy("lower(btrim(u.church_name))").
-		// A church has reported when any of its accounts filed, or any report carries its name.
-		Having(sq.Expr("NOT bool_or(EXISTS (SELECT 1 FROM reports r WHERE (r.created_by = u.id OR lower(btrim(r.church_name)) = lower(btrim(u.church_name))) AND r.deleted_at IS NULL AND r.year = ? "+attendancePeriodWhere+" "+statusWhere+"))", year, startMonth, endMonth)).
-		OrderBy("1").
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build no-report churches query: %w", err)
-	}
-	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query no-report churches: %w", err)
-	}
-	defer rows.Close()
-	churches := make([]string, 0)
-	for rows.Next() {
-		var church string
-		if err := rows.Scan(&church); err != nil {
-			return nil, fmt.Errorf("scan no-report church: %w", err)
+		if n := len(out); n == 0 || out[n-1].ID != c.ID {
+			out = append(out, c)
 		}
-		churches = append(churches, church)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("no-report churches: %w", err)
-	}
-	return churches, nil
-}
-
-// attendanceTrend sums metric per (month, week) for the period.
-func (r *store) attendanceTrend(ctx context.Context, metric string, year, startMonth, endMonth int, statusWhere string) (map[[2]int]float64, error) {
-	query, args, err := r.db.Builder.
-		Select("EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int", "rm.week_no", "SUM(rm.value)::double precision").
-		From("reports r").
-		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+attendancePeriodWhere+" "+statusWhere, year, metric, startMonth, endMonth).
-		GroupBy("1", "2").
-		OrderBy("1", "2").
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build attendance trend query: %w", err)
-	}
-	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query attendance trend: %w", err)
-	}
-	defer rows.Close()
-	values := make(map[[2]int]float64)
-	for rows.Next() {
-		var month, week int
-		var value float64
-		if err := rows.Scan(&month, &week, &value); err != nil {
-			return nil, fmt.Errorf("scan attendance trend: %w", err)
-		}
-		values[[2]int{month, week}] = value
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("attendance trend: %w", err)
-	}
-	return values, nil
-}
-
-// attendanceChurches sums metric per church for the period.
-func (r *store) attendanceChurches(ctx context.Context, metric string, year, startMonth, endMonth int, statusWhere string) ([]stats.AttendanceChurch, error) {
-	query, args, err := r.db.Builder.
-		Select("COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')", "SUM(rm.value)::double precision").
-		From("reports r").
-		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.year = ? AND rm.metric = ? "+attendancePeriodWhere+" "+statusWhere, year, metric, startMonth, endMonth).
-		GroupBy("1").
-		OrderBy("1").
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build attendance church query: %w", err)
-	}
-	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query attendance churches: %w", err)
-	}
-	defer rows.Close()
-	churches := []stats.AttendanceChurch{}
-	for rows.Next() {
-		var church stats.AttendanceChurch
-		if err := rows.Scan(&church.ChurchName, &church.Value); err != nil {
-			return nil, fmt.Errorf("scan attendance church: %w", err)
-		}
-		churches = append(churches, church)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("attendance churches: %w", err)
-	}
-	return churches, nil
-}
-
-func (r *store) attendanceSummary(ctx context.Context, year, startMonth, endMonth int, statusWhere string) ([]stats.AttendanceMetricSummary, []stats.AttendanceDetail, error) {
-	query, args, err := r.db.Builder.
-		Select("rm.metric", "COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')",
-			"EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int", "SUM(rm.value)::double precision").
-		From("reports r").
-		Join("report_metrics rm ON rm.report_id = r.id").
-		Where("r.deleted_at IS NULL AND r.year = ? AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN ? AND ? "+statusWhere, year, startMonth, endMonth).
-		GroupBy("1", "2", "3").
-		OrderBy("1", "2", "3").
-		ToSql()
-	if err != nil {
-		return nil, nil, fmt.Errorf("build attendance summary query: %w", err)
-	}
-	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("query attendance summary: %w", err)
-	}
-	defer rows.Close()
-
-	valuesByMetric := make(map[string]map[string]float64)
-	monthlyByMetric := make(map[string]*[13]float64) // index 1-12 is the month
-	var detail []stats.AttendanceDetail
-	churchNames := make([]string, 0)
-	seenChurches := make(map[string]bool)
-	for rows.Next() {
-		var metric, church string
-		var month int
-		var value float64
-		if err := rows.Scan(&metric, &church, &month, &value); err != nil {
-			return nil, nil, fmt.Errorf("scan attendance summary: %w", err)
-		}
-		if valuesByMetric[metric] == nil {
-			valuesByMetric[metric] = make(map[string]float64)
-			monthlyByMetric[metric] = new([13]float64)
-		}
-		valuesByMetric[metric][church] += value
-		detail = append(detail, stats.AttendanceDetail{Metric: metric, ChurchName: church, Month: month, Value: value})
-		monthlyByMetric[metric][month] += value
-		if !seenChurches[church] {
-			seenChurches[church] = true
-			churchNames = append(churchNames, church)
+		if userID != nil {
+			a.UserID = *userID
+			last := &out[len(out)-1]
+			last.Accounts = append(last.Accounts, a)
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("attendance summary: %w", err)
+		return nil, fmt.Errorf("churches: %w", err)
 	}
+	return out, nil
+}
 
-	summary := make([]stats.AttendanceMetricSummary, 0, len(report.MetricKeys))
-	for _, group := range stats.MetricGroups {
-		for _, metric := range group.Metrics {
-			metricValues := valuesByMetric[metric]
-			var total *float64
-			if len(metricValues) > 0 {
-				sum := 0.0
-				for _, value := range metricValues {
-					sum += value
-				}
-				total = &sum
+// A report belongs to the church named on it when filed, else its author's church.
+const analyticsReportsQuery = `
+SELECT r.id, COALESCE(c.id, 0), COALESCE(c.name, btrim(COALESCE(r.church_name, u.church_name, ''))),
+       COALESCE(r.worker, ''), r.year::int, EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int,
+       r.status, r.created_at, r.updated_at, rm.metric, rm.week_no::int, rm.value::double precision
+FROM reports r
+JOIN users u ON u.id = r.created_by
+LEFT JOIN churches c ON c.name_key = lower(btrim(COALESCE(NULLIF(btrim(r.church_name), ''), u.church_name)))
+LEFT JOIN report_metrics rm ON rm.report_id = r.id
+WHERE r.deleted_at IS NULL AND r.year = ANY($1)
+  AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN $2 AND $3
+ORDER BY r.id`
+
+// AnalyticsReports reads the reports and their weekly values; Canonical is set by the caller.
+func (r *store) AnalyticsReports(ctx context.Context, years []int, startMonth, endMonth int) ([]stats.ReportData, error) {
+	rows, err := r.db.Querier(ctx).Query(ctx, analyticsReportsQuery, years, startMonth, endMonth)
+	if err != nil {
+		return nil, fmt.Errorf("query analytics reports: %w", err)
+	}
+	defer rows.Close()
+	var out []stats.ReportData
+	for rows.Next() {
+		var d stats.ReportData
+		var metric *string
+		var week *int
+		var value *float64
+		if err := rows.Scan(&d.ID, &d.ChurchID, &d.ChurchName, &d.Worker, &d.Year, &d.Month, &d.Status,
+			&d.CreatedAt, &d.UpdatedAt, &metric, &week, &value); err != nil {
+			return nil, fmt.Errorf("scan analytics report: %w", err)
+		}
+		if n := len(out); n == 0 || out[n-1].ID != d.ID {
+			d.Metrics = map[string]*[5]*float64{}
+			out = append(out, d)
+		}
+		if metric != nil && week != nil && *week >= 1 && *week <= 5 {
+			m := out[len(out)-1].Metrics
+			if m[*metric] == nil {
+				m[*metric] = new([5]*float64)
 			}
-			metricChurches := make([]stats.AttendanceSummaryChurch, 0, len(churchNames))
-			for _, church := range churchNames {
-				value, ok := metricValues[church]
-				if ok {
-					metricChurches = append(metricChurches, stats.AttendanceSummaryChurch{ChurchName: church, Value: &value})
-				} else {
-					metricChurches = append(metricChurches, stats.AttendanceSummaryChurch{ChurchName: church})
-				}
-			}
-			peak, peakValue := peakMonth(monthlyByMetric[metric])
-			summary = append(summary, stats.AttendanceMetricSummary{Metric: metric, Group: group.Name, Total: total, PeakMonth: peak, PeakValue: peakValue, Churches: metricChurches})
+			m[*metric][*week-1] = value
 		}
 	}
-	return summary, detail, nil
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("analytics reports: %w", err)
+	}
+	return out, nil
 }
 
-// peakMonth is the month with the highest total, earliest on a tie; "" when
-// none is above 0. monthly is indexed by month number, 1-12.
-func peakMonth(monthly *[13]float64) (string, float64) {
-	peak, peakValue := "", 0.0
-	if monthly == nil {
-		return peak, peakValue
+// ReportingDefault reads the one reporting_settings row; nil when there is none.
+func (r *store) ReportingDefault(ctx context.Context) (*time.Time, error) {
+	var start time.Time
+	err := r.db.Querier(ctx).QueryRow(ctx, "SELECT default_start_month FROM reporting_settings").Scan(&start)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
 	}
-	for m := 1; m <= 12; m++ {
-		if monthly[m] > peakValue {
-			peak, peakValue = time.Month(m).String(), monthly[m]
-		}
+	if err != nil {
+		return nil, fmt.Errorf("reporting default: %w", err)
 	}
-	return peak, peakValue
+	return &start, nil
+}
+
+// SetChurchReporting updates one church's months under a row lock; run it in a
+// transaction so the audit row commits with it.
+func (r *store) SetChurchReporting(ctx context.Context, id int64, start, end *time.Time) (stats.ChurchRecord, stats.ChurchRecord, error) {
+	q := r.db.Querier(ctx)
+	before := stats.ChurchRecord{ID: id}
+	err := q.QueryRow(ctx, "SELECT name, reporting_start_month, reporting_end_month FROM churches WHERE id = $1 FOR UPDATE", id).
+		Scan(&before.Name, &before.StartMonth, &before.EndMonth)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return before, before, stats.ErrChurchNotFound
+	}
+	if err != nil {
+		return before, before, fmt.Errorf("get church: %w", err)
+	}
+	if _, err := q.Exec(ctx, "UPDATE churches SET reporting_start_month = $2, reporting_end_month = $3, updated_at = NOW() WHERE id = $1", id, start, end); err != nil {
+		return before, before, fmt.Errorf("update church: %w", err)
+	}
+	after := before
+	after.StartMonth, after.EndMonth = start, end
+	return before, after, nil
 }

@@ -56,29 +56,130 @@ export type TrackerRow = Always<
 >;
 export type Tracker = { month: string; year: number; rows: TrackerRow[] };
 
-export type AttendanceTrendPoint = Required<StatsModel<"AttendanceTrendPoint">>;
-export type AttendanceChurch = Required<StatsModel<"AttendanceChurch">>;
-export type AttendanceSummaryChurch = StatsModel<"AttendanceSummaryChurch">;
-export type AttendanceMetricSummary = {
+// The analytics answer (D-A31). Every field is always sent except the ones marked
+// optional (omitempty in Go); a null number is "no data", never 0.
+type N = number | null;
+export type AnalyticsMonth = { month: number; name: string; state: "not_yet_open" | "open" | "grace" | "closed" };
+export type ChurchOption = { id: number; name: string };
+export type ChurchScope = ChurchOption & {
+  start_month?: string; // effective: the church's override, else the organization default
+  start_is_default: boolean;
+  end_month?: string;
+  needs_review: boolean;
+  active: boolean; // has an active church account, as the admin cards count churches
+  account_status: string;
+  workers: string;
+};
+// expected_reported: reports in scope for owed church-months; outside_reports: for months not required.
+export type Coverage = { months: number; reports_in_scope: number; expected_reported: number; outside_reports: number; churches_reported: number; expected: number; churches: number };
+export type ChurchValue = { church_id: number; value: N; observations: number; state: "value" | "blank" | "not_approved" | "no_report" };
+export type MetricSummary = {
   metric: string;
+  label: string;
   group: string;
-  total: number | null;
-  churches: AttendanceSummaryChurch[];
+  unit: "people" | "php" | "count" | "as_reported";
+  total: N;
+  observations: number;
+  zero_observations: number;
+  reports_with_value: number;
+  churches_with_value: number;
+  avg_per_church_service?: N;
+  network_weekly?: N;
+  network_slots: number;
+  network_slots_full: number;
+  peak_month: string;
+  peak_value: number;
+  churches: ChurchValue[];
+};
+export type TrendPoint = {
+  month: number;
+  name: string;
+  state: AnalyticsMonth["state"];
+  counted: boolean;
+  value: N;
+  observations: number;
+  churches_with_value: number;
+  churches_reported: number;
+  expected_reported: number; // reported among the churches that owed the month
+  churches_expected: number;
+  partial: boolean;
+};
+export type SlotPoint = { month: number; week: number; total: N; churches_with_value: number; churches_reported: number };
+export type ChurchMetric = {
+  church_id: number;
+  church_name: string;
+  total: N;
+  observations: number;
+  average?: N;
+  previous_total?: N;
+  previous_observations: number;
+  previous_average?: N;
+  change?: N;
+  tithes_total: N;
+  submitted: number;
+  approved: number;
+  expected: number;
+  completeness: N;
+};
+export type ComplianceCounts = {
+  expected: number;
+  outside: number; // reports for months the church did not owe: kept, not in expected
+  submitted: number;
+  approved: number;
+  pending: number;
+  needs_revision: number;
+  on_time: number;
+  late: number;
+  awaiting: number;
+  overdue: number;
+  not_filed: number;
+  duplicates: number;
+};
+export type ComplianceCell = {
+  month: number;
+  expected: boolean;
+  state: "not_required" | "not_reviewed" | "inactive" | "not_yet_open" | "awaiting_submission" | "overdue_grace" | "not_filed" | "submitted";
+  report_id?: number;
+  review_status?: "approved" | "pending" | "needs_revision";
+  timeliness?: "on_time" | "late" | "after_cutoff" | "before_open";
+  submitted_on?: string;
+  duplicates?: number;
+};
+export type ComplianceRow = ComplianceCounts & { church_id: number; church_name: string; cells: ComplianceCell[] };
+export type LikeForLike = {
+  churches: number;
+  current_total: number;
+  current_observations: number;
+  previous_total: number;
+  previous_observations: number;
+  change?: N;
 };
 export type AttendanceComparison = {
   year: number;
-  trend: AttendanceTrendPoint[];
-  churches: AttendanceChurch[];
+  coverage: Coverage;
+  metrics: MetricSummary[];
+  trend: TrendPoint[];
+  slots: SlotPoint[];
+  like_for_like: LikeForLike;
 };
 export type AttendanceAnalytics = {
   year: number;
   metric: string;
   status: string;
   period: string;
-  trend: AttendanceTrendPoint[];
-  churches: AttendanceChurch[];
-  summary: AttendanceMetricSummary[];
-  no_report_churches: string[];
-  weeks: number;
+  generated_at: string;
+  default_start_month: string; // "YYYY-MM", "" when not configured
+  months: AnalyticsMonth[];
+  cutoff_month: number;
+  church_options: ChurchOption[];
+  churches: ChurchScope[];
+  coverage: Coverage;
+  metrics: MetricSummary[];
+  trend: TrendPoint[];
+  slots: SlotPoint[];
+  church_rows: ChurchMetric[];
+  compliance: ComplianceRow[];
+  compliance_totals: ComplianceCounts & { churches_with_submission: number; churches_needing_review: number };
   comparison?: AttendanceComparison;
 };
+export type ChurchReportingInput = Required<StatsModel<"ChurchReportingRequest">>;

@@ -170,7 +170,7 @@ func (tdb *TestDB) TruncateAll(t *testing.T) {
 	ctx := context.Background()
 	tables := []string{
 		"password_resets", "verification_tokens", "role_permissions",
-		"permissions", "sessions", "refresh_tokens", "login_failures", "users", "roles",
+		"permissions", "sessions", "refresh_tokens", "login_failures", "users", "roles", "churches",
 	}
 	for _, table := range tables {
 		_, _ = tdb.Pool.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s RESTART IDENTITY CASCADE", table))

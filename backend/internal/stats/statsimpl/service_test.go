@@ -1,19 +1,27 @@
 package statsimpl
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
 )
 
 // recordingStats remembers the period it was asked for and answers with fixed counts.
 type recordingStats struct {
-	month string
-	year  int
-	err   error
+	month            string
+	year             int
+	err              error
+	years            []int
+	start, end       int
+	setStart, setEnd *time.Time
 }
 
 func (r *recordingStats) Counts(_ context.Context, month string, year int) (stats.AdminStats, error) {
@@ -26,14 +34,32 @@ func (r *recordingStats) Tracker(_ context.Context, month string, year int) ([]s
 	return []stats.TrackerRow{{UserID: 1, Name: "Ana", SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerPending}}, r.err
 }
 
-func (r *recordingStats) AnalyticsAttendance(_ context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
-	return stats.AttendanceAnalytics{Year: q.Year, Metric: q.Metric, Status: q.Status}, r.err
+func (r *recordingStats) Churches(context.Context) ([]stats.ChurchRecord, error) {
+	return []stats.ChurchRecord{churchRec(1, month(2026, 1), nil, "active")}, r.err
+}
+
+func (r *recordingStats) AnalyticsReports(_ context.Context, years []int, start, end int) ([]stats.ReportData, error) {
+	r.years, r.start, r.end = years, start, end
+	return []stats.ReportData{rep(1, 1, 2026, 4, "approved", map[string]*[5]*float64{"worship_service": weeks(f64(12))})}, r.err
+}
+
+func (r *recordingStats) ReportingDefault(context.Context) (*time.Time, error) {
+	return month(2026, 9), nil
+}
+
+func (r *recordingStats) SetChurchReporting(_ context.Context, id int64, start, end *time.Time) (stats.ChurchRecord, stats.ChurchRecord, error) {
+	r.setStart, r.setEnd = start, end
+	before := stats.ChurchRecord{ID: id, Name: "Bethel", StartMonth: month(2026, 3)}
+	after := before
+	after.StartMonth, after.EndMonth = start, end
+	return before, after, r.err
 }
 
 func TestService_AnalyticsAttendance(t *testing.T) {
 	repo := &recordingStats{}
 	svc := newService(repo)
 
+	svc.now = func() time.Time { return testNow }
 	got, err := svc.AnalyticsAttendance(context.Background(), stats.AttendanceQuery{Year: 2026, Metric: "worship_service", Period: "q2", Compare: true})
 	if err != nil {
 		t.Fatal(err)
@@ -41,12 +67,19 @@ func TestService_AnalyticsAttendance(t *testing.T) {
 	if got.Status != stats.AttendanceStatusApproved || got.Year != 2026 || got.Metric != "worship_service" || got.Period != "q2" {
 		t.Fatalf("got %+v", got)
 	}
+	if fmt.Sprint(repo.years, repo.start, repo.end) != "[2026 2025] 4 6" {
+		t.Errorf("read years %v months %d-%d", repo.years, repo.start, repo.end)
+	}
+	if got.GeneratedAt.Location().String() != "Asia/Manila" || *got.Metrics[0].Total != 12 {
+		t.Errorf("generated %v, worship %v", got.GeneratedAt, got.Metrics[0].Total)
+	}
 
 	for name, q := range map[string]stats.AttendanceQuery{
 		"missing year":   {Metric: "worship_service"},
 		"unknown metric": {Year: 2026, Metric: "unknown"},
 		"unknown status": {Year: 2026, Metric: "worship_service", Status: "pending"},
 		"unknown period": {Year: 2026, Metric: "worship_service", Period: "semester"},
+		"year too large": {Year: 9999, Metric: "worship_service"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := svc.AnalyticsAttendance(context.Background(), q); !errors.Is(err, stats.ErrAnalyticsQuery) {
@@ -194,4 +227,73 @@ func TestService_AnalyticsExcel(t *testing.T) {
 	if err != nil || len(raw) < 2 || string(raw[:2]) != "PK" {
 		t.Fatalf("raw = %d bytes, err = %v; want an .xlsx (zip) file", len(raw), err)
 	}
+}
+
+func TestService_AnalyticsCSV(t *testing.T) {
+	svc := newService(&recordingStats{})
+	if _, err := svc.AnalyticsCSV(context.Background(), stats.AttendanceQuery{Year: 2026, Metric: "worship_service"}, "pivot"); !errors.Is(err, stats.ErrAnalyticsQuery) {
+		t.Fatalf("unknown kind: err = %v", err)
+	}
+	raw, err := svc.AnalyticsCSV(context.Background(), stats.AttendanceQuery{Year: 2026, Metric: "worship_service"}, stats.CSVCompliance)
+	if err != nil || !bytes.HasPrefix(raw, []byte("\uFEFFChurch ID,")) {
+		t.Fatalf("raw = %q, err = %v", raw, err)
+	}
+}
+
+type fakeAudit struct{ rows []audit.Log }
+
+func (a *fakeAudit) Insert(_ context.Context, e audit.Log) error {
+	a.rows = append(a.rows, e)
+	return e.CheckDetails()
+}
+
+type inline struct{}
+
+func (inline) InTransaction(ctx context.Context, fn func(context.Context) error) error {
+	return fn(ctx)
+}
+
+func TestService_SetChurchReporting(t *testing.T) {
+	repo, log := &recordingStats{}, &fakeAudit{}
+	svc := NewService(repo, log, inline{})
+	ctx := user.WithCaller(context.Background(), &user.Caller{User: &user.User{ID: 7, Name: "Admin"}})
+
+	got, err := svc.SetChurchReporting(ctx, 7, "1.2.3.4", 3, stats.ChurchReportingRequest{StartMonth: "2026-09"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.StartMonth != "2026-09" || got.StartIsDefault || got.EndMonth != "" || got.NeedsReview || repo.setStart.Day() != 1 || repo.setEnd != nil {
+		t.Fatalf("got %+v start %v", got, repo.setStart)
+	}
+	if len(log.rows) != 1 || log.rows[0].Action != audit.ActionUpdateChurchReporting || *log.rows[0].TargetID != "3" || log.rows[0].TargetType != audit.TargetTypeChurch {
+		t.Fatalf("audit = %+v", log.rows)
+	}
+	if fmt.Sprint(log.rows[0].Details["from"]) != "map[end_month: start_month:2026-03]" {
+		t.Errorf("from = %v", log.rows[0].Details["from"])
+	}
+
+	for name, req := range map[string]stats.ChurchReportingRequest{
+		"end before start":  {StartMonth: "2026-05", EndMonth: "2026-04"},
+		"end without start": {EndMonth: "2026-04"},
+		"not a month":       {StartMonth: "2026-13"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := svc.SetChurchReporting(ctx, 7, "", 3, req); !errors.Is(err, stats.ErrChurchPeriod) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+	t.Run("no start uses the organization default; an end after it is fine", func(t *testing.T) {
+		got, err := svc.SetChurchReporting(ctx, 7, "", 3, stats.ChurchReportingRequest{EndMonth: "2026-12"})
+		if err != nil || got.StartMonth != "2026-09" || !got.StartIsDefault || repo.setStart != nil || got.EndMonth != "2026-12" {
+			t.Fatalf("got %+v, err %v, stored start %v", got, err, repo.setStart)
+		}
+	})
+	t.Run("an unknown church is ErrChurchNotFound and audits nothing", func(t *testing.T) {
+		repo, log := &recordingStats{err: stats.ErrChurchNotFound}, &fakeAudit{}
+		svc := NewService(repo, log, inline{})
+		if _, err := svc.SetChurchReporting(ctx, 7, "", 99, stats.ChurchReportingRequest{}); !errors.Is(err, stats.ErrChurchNotFound) || len(log.rows) != 0 {
+			t.Fatalf("err = %v, audit = %v", err, log.rows)
+		}
+	})
 }

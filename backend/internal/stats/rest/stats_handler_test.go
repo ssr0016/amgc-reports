@@ -28,6 +28,7 @@ type fakeStatsSvc struct {
 	month *string
 	year  *int
 	query stats.AttendanceQuery
+	kind  string
 }
 
 func (f *fakeStatsSvc) Get(_ context.Context, q stats.GetStatsQuery) (stats.AdminStats, error) {
@@ -47,11 +48,23 @@ func (f *fakeStatsSvc) Tracker(_ context.Context, q stats.GetStatsQuery) (stats.
 func (f *fakeStatsSvc) AnalyticsAttendance(_ context.Context, q stats.AttendanceQuery) (stats.AttendanceAnalytics, error) {
 	f.calls++
 	f.query = q
+	v := 12.5
 	return stats.AttendanceAnalytics{
 		Year: q.Year, Metric: q.Metric, Status: q.Status,
-		Trend:    []stats.AttendanceTrendPoint{{Month: "January", Week: 1, Value: 12.5}},
-		Churches: []stats.AttendanceChurch{{ChurchName: "Bethel", Value: 12.5}},
+		Trend:    []stats.TrendPoint{{Month: 1, Name: "January", Value: &v}},
+		Churches: []stats.ChurchScope{{ID: 3, Name: "Bethel"}},
 	}, f.err
+}
+
+func (f *fakeStatsSvc) AnalyticsCSV(_ context.Context, q stats.AttendanceQuery, kind string) ([]byte, error) {
+	f.calls++
+	f.query, f.kind = q, kind
+	return []byte("a,b\r\n"), f.err
+}
+
+func (f *fakeStatsSvc) SetChurchReporting(context.Context, int64, string, int64, stats.ChurchReportingRequest) (stats.ChurchScope, error) {
+	f.calls++
+	return stats.ChurchScope{}, f.err
 }
 
 func (f *fakeStatsSvc) AnalyticsExcel(_ context.Context, q stats.AttendanceQuery) ([]byte, error) {
@@ -69,6 +82,7 @@ func serveStats(t *testing.T, svc stats.Service, target string) *httptest.Respon
 	e.GET("/admin/tracker", h.GetTracker)
 	e.GET("/admin/analytics/attendance", h.GetAttendanceAnalytics)
 	e.GET("/admin/analytics/attendance/excel", h.ExportAttendanceAnalytics)
+	e.GET("/admin/analytics/csv", h.ExportAnalyticsCSV)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil))
 	return rec
@@ -213,7 +227,7 @@ func TestStatsHandler_GetTracker(t *testing.T) {
 
 func TestStatsHandler_GetAnalyticsAttendance(t *testing.T) {
 	svc := &fakeStatsSvc{}
-	rec := serveStats(t, svc, "/admin/analytics/attendance?year=2026&metric=worship_service&status=all&period=q2&compare=true")
+	rec := serveStats(t, svc, "/admin/analytics/attendance?year=2026&metric=worship_service&status=all&period=q2&compare=true&churches=3,%207")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, body %s", rec.Code, rec.Body)
 	}
@@ -224,7 +238,7 @@ func TestStatsHandler_GetAnalyticsAttendance(t *testing.T) {
 	if got["year"] != 2026.0 || got["metric"] != "worship_service" || got["status"] != "all" {
 		t.Fatalf("body = %v", got)
 	}
-	if svc.query.Period != "q2" || !svc.query.Compare {
+	if svc.query.Period != "q2" || !svc.query.Compare || fmt.Sprint(svc.query.ChurchIDs) != "[3 7]" {
 		t.Fatalf("query = %+v", svc.query)
 	}
 
@@ -250,6 +264,7 @@ func TestStatsHandler_GetAnalyticsAttendance(t *testing.T) {
 		"/admin/analytics/attendance?metric=worship_service",
 		"/admin/analytics/attendance?year=2026",
 		"/admin/analytics/attendance?year=nope&metric=worship_service",
+		"/admin/analytics/attendance?year=2026&metric=worship_service&churches=1,x",
 	} {
 		t.Run(target, func(t *testing.T) {
 			svc := &fakeStatsSvc{}
@@ -272,7 +287,7 @@ func TestStatsHandler_ExportAttendanceAnalytics(t *testing.T) {
 	if ct := rec.Header().Get(echo.HeaderContentType); ct != xlsxMIME {
 		t.Errorf("Content-Type = %q", ct)
 	}
-	if cd := rec.Header().Get(echo.HeaderContentDisposition); cd != `attachment; filename="analytics-2026-q2.xlsx"` {
+	if cd := rec.Header().Get(echo.HeaderContentDisposition); cd != `attachment; filename="amgc-analytics_2026_q2_approved_all-churches.xlsx"` {
 		t.Errorf("Content-Disposition = %q", cd)
 	}
 	if rec.Body.String() != "PK" || svc.query.Period != "q2" || !svc.query.Compare {
@@ -287,6 +302,28 @@ func TestStatsHandler_ExportAttendanceAnalytics(t *testing.T) {
 	})
 	t.Run("an invalid metric from the service is a 400", func(t *testing.T) {
 		if rec := serveStats(t, &fakeStatsSvc{err: stats.ErrAnalyticsQuery}, "/admin/analytics/attendance/excel?year=2026&metric=nope"); rec.Code != http.StatusBadRequest {
+			t.Errorf("status = %d, want 400", rec.Code)
+		}
+	})
+}
+
+func TestStatsHandler_ExportAnalyticsCSV(t *testing.T) {
+	svc := &fakeStatsSvc{}
+	rec := serveStats(t, svc, "/admin/analytics/csv?kind=weekly_detail&year=2026&metric=worship_service&status=all&period=q3&churches=4")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body)
+	}
+	if ct := rec.Header().Get(echo.HeaderContentType); ct != "text/csv; charset=utf-8" {
+		t.Errorf("Content-Type = %q", ct)
+	}
+	if cd := rec.Header().Get(echo.HeaderContentDisposition); cd != `attachment; filename="amgc-weekly-detail_2026_q3_all-submitted_1-churches.csv"` {
+		t.Errorf("Content-Disposition = %q", cd)
+	}
+	if svc.kind != stats.CSVWeeklyDetail {
+		t.Errorf("kind = %q", svc.kind)
+	}
+	t.Run("an unknown kind from the service is a 400", func(t *testing.T) {
+		if rec := serveStats(t, &fakeStatsSvc{err: stats.ErrAnalyticsQuery}, "/admin/analytics/csv?kind=nope&year=2026&metric=worship_service"); rec.Code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", rec.Code)
 		}
 	})

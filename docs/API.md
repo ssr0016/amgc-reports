@@ -251,17 +251,33 @@ Who has reported for one month (D-A3), for the admin panel's Tracker tab. One ro
 
 `church_name` is `""` when the account has none; `rows` is `[]` when nobody is tracked.
 
-### Attendance Analytics (`tracker:read`)
+### Analytics (`tracker:read`, D-A31)
 
-GET /admin/analytics/attendance?year=2026&metric=worship_service&status=approved&period=q1&compare=true
+GET /admin/analytics/attendance?year=2026&metric=worship_service&status=approved&period=q1&compare=true&churches=3,7
 
-Weekly totals of one metric for the Analytics tab. `year` and `metric` (one of the 21 metric keys) are required. `status` is `approved` (default) or `all` (pending, needs revision and approved; drafts never count). `period` is `full_year` (default), `q1` to `q4`, or a lowercase month name. `compare=true` adds `comparison`, the same period of the previous year. Rate limited like report reads; counts only, no report text.
+The Analytics tab's figures, computed once from the weekly report values (the exports use the same computation). `year` (2000-2100) and `metric` (one of the 22 metric keys; it selects the trend, week slots and church comparison) are required. `status` is `approved` (default) or `all` (pending, needs revision and approved). `period` is `full_year` (default), `q1` to `q4`, or a lowercase month name. `churches` is a comma-separated list of church ids (default: every church). `compare=true` adds `comparison`, the same counted months of the previous year. Counts only, no report text.
 
-Response (200): `{year, metric, status, period, trend, churches, summary, no_report_churches, weeks, comparison?}`. `trend` has one `{month, week, value}` per reported week, `churches` one `{church_name, value}` per church, and `summary` the period's total for every metric with a per-church breakdown (`total` and `value` are `null` when nothing was reported), in metric-group order with each row's `group` (D-A30). `no_report_churches` lists the active church accounts with no report in scope for the period, sorted. `weeks` is the number of weeks with reports in the period, the divisor for averages per week. Errors: 400 for a bad year, metric, `compare` or period, 401 without a session, 403 without `tracker:read`.
+Only months that have ended (Asia/Manila) are counted (`cutoff_month`); a blank week is never 0 and never in a denominator; one report counts per church and month (the approved one, else the latest updated). Response (200): `{year, metric, status, period, generated_at, default_start_month, months, cutoff_month, church_options, churches, coverage, metrics, trend, slots, church_rows, compliance, compliance_totals, comparison?}`. `churches` are the churches with an active church account plus inactive ones with reports or an end month (`active`, effective `start_month`, `start_is_default`). `coverage.expected_reported` of `coverage.expected` is the coverage of owed church-months; `outside_reports` are reports for months not required, still in every total:
+- `metrics`: every metric in group order with `total` (null when nothing was recorded), `observations` (recorded church-week values), `zero_observations`, `avg_per_church_service` and `network_weekly` (attendance only) and a per-church `{church_id, value, observations, state}` where `state` is `value`, `blank`, `not_approved` or `no_report`.
+- `trend`: the selected metric per month, `value` null for no data, with `churches_reported`, `churches_expected` and `partial`. `slots`: per month and reporting-week slot (1-5, not calendar weeks).
+- `church_rows`: one per church: total, recorded entries, average, previous-year figures and `change` (null when either side has no data or the previous is 0), Tithes & Offering, submitted, approved, expected, `completeness` (submission completeness: submitted / expected, every review status; separate from approval coverage). Under the Approved filter a church whose only reports are in review shows its review status (Pending approval or Needs revision), not No data.
+- `compliance`: per church and month `{expected, state, report_id?, review_status?, timeliness?, submitted_on?}`, whatever the status filter. States: `not_required`, `not_reviewed`, `inactive`, `not_yet_open`, `awaiting_submission`, `overdue_grace`, `not_filed`, `submitted` (with `expected: false` for a month not required).
 
-GET /admin/analytics/attendance/excel?year=2026&metric=worship_service&status=approved&period=q1&compare=true
+Errors: 400 for a bad year, metric, status, period, `compare` or `churches`, 401 without a session, 403 without `tracker:read`.
 
-The same query and data as a formatted `.xlsx` (`analytics-<year>-<period>.xlsx`, D-A26, D-A27, D-A29, D-A30): sheets Full Metrics Summary (first; the one-page report, landscape, with no-report churches as "No Report" columns), Summary, Monthly Totals, Weekly Trend, Church Breakdown, Metric Detail and Submission Compliance. Averages per week divide by the weeks with reports. Metric Detail has one row per metric, church and month with Excel AutoFilter; with `compare=true` it adds the previous year and the change. Writes no audit row. Rate limited with the other Excel downloads (5 per minute per user). Same errors as above, plus 429.
+GET /admin/analytics/attendance/excel?<same query>
+
+The same figures as a formatted `.xlsx` named `amgc-analytics_<year>_<period>_<status>_<scope>.xlsx`: Full Metrics Summary, Summary, Monthly Totals, Weekly Trend, Church Breakdown, Metric Detail, Weekly Detail, Submission Compliance and Notes. Each sheet's title block names the scope, status filter, generated time (Asia/Manila) and cutoff. Writes no audit row. Rate limited with the other Excel downloads (5 per minute per user). Same errors as above, plus 429.
+
+GET /admin/analytics/csv?kind=weekly_detail&<same query>
+
+One flat CSV table (UTF-8 with BOM, CRLF, RFC 4180 quoting; text that starts like a formula gets a leading `'`). `kind=weekly_detail` is one row per report, metric and week slot for every report of the period and churches (any status), with `Value State` (`reported` or `blank`) and `Included in Selected Analytics`; `kind=compliance` is one row per church and month. Missing numbers are empty, zeros stay `0`. Named `amgc-<kind>_<year>_<period>_<status>_<scope>.csv`. Same limits and errors as the Excel download.
+
+### Church Reporting Months (admin role and `users:write`, D-A32)
+
+PUT /admin/churches/:id/reporting
+
+Body: `{"start_month": "", "end_month": "2026-12"}`. Optional per-church exceptions to the organization-wide start month (`default_start_month` in the analytics answer, September 2026), as activity months on the church, not a worker account. An empty `start_month` uses the organization default; an empty `end_month` is open-ended. Audits `UPDATE_CHURCH_REPORTING` (`{from, to}`). Response (200): `{id, name, start_month (effective), start_is_default, end_month, needs_review}`. Errors: 404 unknown church, 422 an end before the church's start.
 
 ### Audit Logs (`audit:read`)
 
@@ -344,7 +360,7 @@ Every full report response (list, get, create and update) includes `owner_status
 | PATCH | /reports/:id/complete | `reports:approve` | none: works on any report by ID |
 | PATCH | /reports/:id/revision | `reports:approve` | none: works on any report by ID |
 
-Every report has a `status`: `draft` (private to its owner), `pending` (filed, waiting for review), `approved` or `needs_revision`. `completed` is `true` exactly when the status is `approved`. Reviews add `admin_notes`; a worker's reply to a revision request is `user_notes`, and `last_revised_at` records when they saved it. Readers with `reports:read_any` never see other people's drafts, and drafts are not counted in stats, the Tracker or analytics.
+Every report has a `status`: `pending` (filed, waiting for review), `approved` or `needs_revision`. `completed` is `true` exactly when the status is `approved`. Reviews add `admin_notes`; a worker's reply to a revision request is `user_notes`, and `last_revised_at` records when they saved it. Readers with `reports:read_any` never see other people's drafts, and drafts are not counted in stats, the Tracker or analytics.
 
 Note: IDs may have gaps. A failed create consumes a sequence value, so do not assume contiguous IDs.
 

@@ -83,7 +83,7 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 
 ## Audit actions
 
-22 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it. `details` is an allow-list per action (`audit.DetailKeys`): `Insert` refuses any other key, so the audited change rolls back rather than store a password, token or report text (D-A20). Admins read the trail through `GET /admin/audit-logs` and the Logs tab; the IP address is stored but never returned (D-A4).
+23 actions, enforced by the `chk_audit_logs_action` CHECK (DDL: [05-Backend-Schema.md](../backend/docs/05-Backend-Schema.md) §2.5). A new action needs a migration, shipped in the same deploy as the code that writes it. `details` is an allow-list per action (`audit.DetailKeys`): `Insert` refuses any other key, so the audited change rolls back rather than store a password, token or report text (D-A20). Admins read the trail through `GET /admin/audit-logs` and the Logs tab; the IP address is stored but never returned (D-A4).
 
 | Group | Actions |
 |---|---|
@@ -91,11 +91,12 @@ Errors go through `apperror`. Rate limits: a per-IP global limit, a per-user lim
 | Users | `CREATE_USER`, `UPDATE_USER`, `CHANGE_PASSWORD`, `CHANGE_USER_STATUS`, `CHANGE_USER_ROLE` (`{from, to}` role names), `ADMIN_RESET_PASSWORD`, `DELETE_USER`, `RESTORE_USER` |
 | Roles | `CREATE_ROLE` (`{name, permissions}`), `UPDATE_ROLE` (`{from, to}` when renamed, `{added, removed}`), `DELETE_ROLE` (`{name}`, plus `reassigned_to` when its users were moved, D-A22); target type `Role` (D-A21) |
 | Sign-in | `LOGIN` (same transaction as the session's refresh token), `LOGOUT` (only when a live session ends; best effort after the revoke commits, so a failed audit never undoes a sign-out), `LOGIN_FAILED` (best effort, `details` `{reason}`; no actor, and no target or typed email for an unknown or deleted account) |
+| Churches | `UPDATE_CHURCH_REPORTING` (`{from, to}` reporting months; target type `Church`, D-A31) |
 | Exports | `DOWNLOAD_SINGLE_EXCEL`, `DOWNLOAD_BULK_EXCEL`: one row per Excel download, written server-side by `POST /admin/reports/:id/excel` and `POST /admin/reports/excel` (D-10, D-A6). `details` is `{month, year, count}` only |
 
 ## Migration history
 
-goose, in `backend/internal/database/migrations/`. 33 migrations.
+goose, in `backend/internal/database/migrations/`. 38 migrations.
 
 | Era | Migrations |
 |---|---|
@@ -113,7 +114,9 @@ goose, in `backend/internal/database/migrations/`. 33 migrations.
 | 2026-10-23 | `20261023120000_drop_duplicate_indexes` (five indexes that repeated a UNIQUE constraint's own index) |
 | 2026-10-24 | `20261024120000_add_user_avatar_url` (optional public profile-picture URL) |
 | 2026-10-26 | `20261026120000_add_report_status` (`reports.status`: pending, approved, needs_revision), `…130000_add_report_admin_notes`, `…140000_add_report_revision_tracking` (`last_revised_at`, `user_notes`) |
-| Latest, 2026-10-27 | `20261027120000_add_report_drafts` (`draft` status, `SUBMIT_REPORT`), `…140000_remove_report_drafts` (drafts become `pending`; `SUBMIT_REPORT` kept for history) |
+| 2026-10-27 | `20261027120000_add_report_drafts` (`draft` status, `SUBMIT_REPORT`), `…140000_remove_report_drafts` (drafts become `pending`; `SUBMIT_REPORT` kept for history) |
+| 2026-10-28 | `20261028120000_create_login_failures`, `…130000_purge_plaintext_password_resets` |
+| Latest, 2026-10-28 | `20261028150000_add_person_led_to_christ_metric` (`person_led_to_christ`; `person_evangelized` kept as legacy), `…150100_create_churches` (`churches` with reporting months, the `ensure_church` trigger on `users`, `UPDATE_CHURCH_REPORTING`), `…150200_add_reporting_default` (`reporting_settings`, organization start September 2026; new churches start at the month being filed) |
 
 ## CI
 

@@ -11,28 +11,29 @@ import (
 // widens the CHECK, shipped in the same deploy as the code that writes it.
 // (The stored values are unchanged; only the Go names moved from model.Audit*.)
 const (
-	ActionCreateReport       = "CREATE_REPORT"
-	ActionUpdateReport       = "UPDATE_REPORT"
-	ActionSubmitReport       = "SUBMIT_REPORT"
-	ActionDeleteReport       = "DELETE_REPORT"
-	ActionApproveReport      = "APPROVE_REPORT"
-	ActionUnapproveReport    = "UNAPPROVE_REPORT"
-	ActionDownloadSingle     = "DOWNLOAD_SINGLE_EXCEL"
-	ActionDownloadBulk       = "DOWNLOAD_BULK_EXCEL"
-	ActionCreateUser         = "CREATE_USER"
-	ActionUpdateUser         = "UPDATE_USER"
-	ActionChangePassword     = "CHANGE_PASSWORD"
-	ActionChangeUserStatus   = "CHANGE_USER_STATUS"
-	ActionAdminResetPassword = "ADMIN_RESET_PASSWORD"
-	ActionDeleteUser         = "DELETE_USER"
-	ActionRestoreUser        = "RESTORE_USER"
-	ActionLogin              = "LOGIN"
-	ActionLogout             = "LOGOUT"
-	ActionLoginFailed        = "LOGIN_FAILED"
-	ActionCreateRole         = "CREATE_ROLE"
-	ActionUpdateRole         = "UPDATE_ROLE"
-	ActionDeleteRole         = "DELETE_ROLE"
-	ActionChangeUserRole     = "CHANGE_USER_ROLE"
+	ActionCreateReport          = "CREATE_REPORT"
+	ActionUpdateReport          = "UPDATE_REPORT"
+	ActionSubmitReport          = "SUBMIT_REPORT"
+	ActionDeleteReport          = "DELETE_REPORT"
+	ActionApproveReport         = "APPROVE_REPORT"
+	ActionUnapproveReport       = "UNAPPROVE_REPORT"
+	ActionDownloadSingle        = "DOWNLOAD_SINGLE_EXCEL"
+	ActionDownloadBulk          = "DOWNLOAD_BULK_EXCEL"
+	ActionCreateUser            = "CREATE_USER"
+	ActionUpdateUser            = "UPDATE_USER"
+	ActionChangePassword        = "CHANGE_PASSWORD"
+	ActionChangeUserStatus      = "CHANGE_USER_STATUS"
+	ActionAdminResetPassword    = "ADMIN_RESET_PASSWORD"
+	ActionDeleteUser            = "DELETE_USER"
+	ActionRestoreUser           = "RESTORE_USER"
+	ActionLogin                 = "LOGIN"
+	ActionLogout                = "LOGOUT"
+	ActionLoginFailed           = "LOGIN_FAILED"
+	ActionCreateRole            = "CREATE_ROLE"
+	ActionUpdateRole            = "UPDATE_ROLE"
+	ActionDeleteRole            = "DELETE_ROLE"
+	ActionChangeUserRole        = "CHANGE_USER_ROLE"
+	ActionUpdateChurchReporting = "UPDATE_CHURCH_REPORTING"
 )
 
 // Reasons stored in a LOGIN_FAILED row's details. A login refused by the
@@ -48,6 +49,7 @@ const (
 	TargetTypeReport = "Report"
 	TargetTypeUser   = "User"
 	TargetTypeRole   = "Role"
+	TargetTypeChurch = "Church"
 )
 
 // Actions lists every action above; a test compares it with the CHECK constraint.
@@ -59,33 +61,35 @@ var Actions = []string{
 	ActionAdminResetPassword, ActionDeleteUser, ActionRestoreUser,
 	ActionLogin, ActionLogout, ActionLoginFailed,
 	ActionCreateRole, ActionUpdateRole, ActionDeleteRole, ActionChangeUserRole,
+	ActionUpdateChurchReporting,
 }
 
 // DetailKeys is the allow-list of details keys per action. Insert refuses any
 // other key, so a password, token or narrative text can never reach the table.
 var DetailKeys = map[string][]string{
-	ActionCreateReport:       {"month", "year", "count"},
-	ActionUpdateReport:       {"month", "year", "count"},
-	ActionSubmitReport:       {"month", "year", "count"},
-	ActionDeleteReport:       {"month", "year", "count"},
-	ActionApproveReport:      {"month", "year", "count"},
-	ActionUnapproveReport:    {"month", "year", "count"},
-	ActionDownloadSingle:     {"month", "year", "count"},
-	ActionDownloadBulk:       {"month", "year", "count"},
-	ActionCreateUser:         {"role_id"},
-	ActionUpdateUser:         {},
-	ActionChangePassword:     {"sessions_ended"},
-	ActionChangeUserStatus:   {"from", "to", "sessions_revoked"},
-	ActionAdminResetPassword: {"sessions_ended"},
-	ActionDeleteUser:         {"reason", "sessions_revoked"},
-	ActionRestoreUser:        {"deleted_at", "deleted_by", "deleted_reason"},
-	ActionLogin:              {},
-	ActionLogout:             {},
-	ActionLoginFailed:        {"reason"},
-	ActionCreateRole:         {"name", "permissions"},
-	ActionUpdateRole:         {"from", "to", "added", "removed"},
-	ActionDeleteRole:         {"name", "reassigned_to"},
-	ActionChangeUserRole:     {"from", "to"},
+	ActionCreateReport:          {"month", "year", "count"},
+	ActionUpdateReport:          {"month", "year", "count"},
+	ActionSubmitReport:          {"month", "year", "count"},
+	ActionDeleteReport:          {"month", "year", "count"},
+	ActionApproveReport:         {"month", "year", "count"},
+	ActionUnapproveReport:       {"month", "year", "count"},
+	ActionDownloadSingle:        {"month", "year", "count"},
+	ActionDownloadBulk:          {"month", "year", "count"},
+	ActionCreateUser:            {"role_id"},
+	ActionUpdateUser:            {},
+	ActionChangePassword:        {"sessions_ended"},
+	ActionChangeUserStatus:      {"from", "to", "sessions_revoked"},
+	ActionAdminResetPassword:    {"sessions_ended"},
+	ActionDeleteUser:            {"reason", "sessions_revoked"},
+	ActionRestoreUser:           {"deleted_at", "deleted_by", "deleted_reason"},
+	ActionLogin:                 {},
+	ActionLogout:                {},
+	ActionLoginFailed:           {"reason"},
+	ActionCreateRole:            {"name", "permissions"},
+	ActionUpdateRole:            {"from", "to", "added", "removed"},
+	ActionDeleteRole:            {"name", "reassigned_to"},
+	ActionChangeUserRole:        {"from", "to"},
+	ActionUpdateChurchReporting: {"from", "to"},
 }
 
 // ErrDetailKey is returned for an unknown action or a details key outside DetailKeys.

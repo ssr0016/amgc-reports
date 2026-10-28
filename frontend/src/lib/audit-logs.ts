@@ -31,6 +31,7 @@ export const ACTIONS: readonly { code: string; label: string; group: Group }[] =
   { code: "CREATE_ROLE", label: "Created role", group: "create" },
   { code: "UPDATE_ROLE", label: "Updated role", group: "change" },
   { code: "DELETE_ROLE", label: "Deleted role", group: "delete" },
+  { code: "UPDATE_CHURCH_REPORTING", label: "Set church reporting months", group: "change" },
   { code: "APPROVE_REPORT", label: "Approved report", group: "approve" },
   { code: "UNAPPROVE_REPORT", label: "Unapproved report", group: "approve" },
   { code: "DOWNLOAD_SINGLE_EXCEL", label: "Downloaded Excel", group: "download" },
@@ -62,6 +63,11 @@ const REASONS: Record<string, string> = {
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const text = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
 // A list of permission names, or a dash when there are none.
+// A church's reporting months: "2026-01 to ongoing", or not set.
+const months = (v: unknown) => {
+  const m = (v ?? {}) as { start_month?: string; end_month?: string };
+  return m.start_month ? `${m.start_month} to ${m.end_month || "ongoing"}` : "not set";
+};
 const list = (v: unknown) => (Array.isArray(v) && v.length > 0 ? v.join(", ") : "—");
 
 // The details of one row as labelled values. A known action shows only the keys it has a
@@ -77,6 +83,7 @@ export function detailRows(action: string, details: Record<string, unknown>): [s
   if (d.from !== undefined && d.to !== undefined) {
     if (action === "UPDATE_ROLE") rows.push(["Name", `${text(d.from)} → ${text(d.to)}`]);
     else if (action === "CHANGE_USER_ROLE") rows.push(["Role", `${text(d.from)} → ${text(d.to)}`]);
+    else if (action === "UPDATE_CHURCH_REPORTING") rows.push(["Reporting months", `${months(d.from)} → ${months(d.to)}`]);
     else rows.push(["Status", `${capitalize(String(d.from))} → ${capitalize(String(d.to))}`]);
   }
   if (d.name !== undefined) rows.push(["Role", text(d.name)]);

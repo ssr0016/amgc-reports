@@ -103,7 +103,7 @@ type CreateReportRequest struct {
 	Challenges      string                 `json:"challenges" validate:"max=10000"`
 	PrayerRequest   string                 `json:"prayer_request" validate:"max=10000"`
 	UserNotes       string                 `json:"user_notes" validate:"max=5000"`
-	Metrics         map[string]MetricWeeks `json:"metrics" validate:"dive,keys,oneof=worship_service sunday_school prayer_meeting bible_studies mens_fellowship womens_fellowship youth_fellowship children_fellowship tithes_offering home_visited bible_study_group_led sermon_preached person_newly_contacted person_followed_up person_evangelized outreach training leadership baptism other family_day,endkeys"`
+	Metrics         map[string]MetricWeeks `json:"metrics" validate:"dive,keys,oneof=worship_service sunday_school prayer_meeting bible_studies mens_fellowship womens_fellowship youth_fellowship children_fellowship tithes_offering home_visited bible_study_group_led sermon_preached person_newly_contacted person_followed_up person_led_to_christ outreach training leadership baptism other family_day person_evangelized,endkeys"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.CreateReportRequest
 
 // UpdateReportRequest is the body of PUT /reports/:id. It replaces the metric set.

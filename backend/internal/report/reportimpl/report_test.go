@@ -671,7 +671,7 @@ func TestReportService_Preview(t *testing.T) {
 		assert.Equal(t, []string{"Gospel Bearer", "Summary"}, names(p))
 		assert.Equal(t, "Gospel Bearer", p.Sheets[0].Rows[6][1]) // B7
 		assert.Len(t, p.Sheets[0].Rows, 42)
-		assert.Len(t, p.Sheets[1].Rows, 23, "Summary: title, header, 21 metrics")
+		assert.Len(t, p.Sheets[1].Rows, 24, "Summary: title, header, 22 metrics")
 		assert.Len(t, p.Sheets[1].Rows[1], 8)
 	})
 

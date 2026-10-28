@@ -16,6 +16,7 @@ import (
 	statsrest "github.com/ssr0016/pastoral-reports/backend/internal/stats/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
+	"github.com/ssr0016/pastoral-reports/backend/internal/validator"
 )
 
 // okStatsSvc answers every call and counts them: a call proves a request got past the gates.
@@ -41,6 +42,16 @@ func (s *okStatsSvc) AnalyticsExcel(context.Context, stats.AttendanceQuery) ([]b
 	return []byte("PK"), nil
 }
 
+func (s *okStatsSvc) AnalyticsCSV(context.Context, stats.AttendanceQuery, string) ([]byte, error) {
+	s.calls++
+	return []byte("a\r\n"), nil
+}
+
+func (s *okStatsSvc) SetChurchReporting(context.Context, int64, string, int64, stats.ChurchReportingRequest) (stats.ChurchScope, error) {
+	s.calls++
+	return stats.ChurchScope{}, nil
+}
+
 // statsServer wires the real routes. A request is user 1 when it carries
 // X-Test-User; that user has the named role and permissions.
 func statsServer(roleName string, perms ...string) (*echo.Echo, *okStatsSvc) {
@@ -54,6 +65,7 @@ func statsServerWith(limits Limiters, roleName string, perms ...string) (*echo.E
 	}
 	svc := &okStatsSvc{}
 	e := echo.New()
+	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -88,7 +100,7 @@ func TestStatsAndTrackerRoutes_NeedTrackerRead(t *testing.T) {
 		{"admin", "admin", "1", []string{"tracker:read"}, http.StatusOK},
 	}
 	for _, tt := range tests {
-		for _, path := range []string{"/api/v1/admin/stats", "/api/v1/admin/tracker", "/api/v1/admin/analytics/attendance?year=2026&metric=worship_service", "/api/v1/admin/analytics/attendance/excel?year=2026&metric=worship_service"} {
+		for _, path := range []string{"/api/v1/admin/stats", "/api/v1/admin/tracker", "/api/v1/admin/analytics/attendance?year=2026&metric=worship_service", "/api/v1/admin/analytics/attendance/excel?year=2026&metric=worship_service", "/api/v1/admin/analytics/csv?kind=compliance&year=2026&metric=worship_service"} {
 			t.Run(tt.name+path, func(t *testing.T) {
 				e, svc := statsServer(tt.role, tt.perms...)
 				if got := reportRequestAs(e, http.MethodGet, path, "", tt.user); got != tt.want {
@@ -102,12 +114,42 @@ func TestStatsAndTrackerRoutes_NeedTrackerRead(t *testing.T) {
 	}
 }
 
-// The analytics download shares the Excel downloads' bucket (M5), not the read one.
+// Setting a church's reporting months is an account admin's change: the admin
+// role and users:write, like the user routes.
+func TestChurchReportingRoute_NeedsAdminAndUsersWrite(t *testing.T) {
+	for _, tt := range []struct {
+		name, role string
+		perms      []string
+		want       int
+	}{
+		{"tracker reader", "Reviewer", reviewerPerms, http.StatusForbidden},
+		{"admin without users:write", "admin", []string{"tracker:read"}, http.StatusForbidden},
+		{"admin with users:write", "admin", []string{"users:write"}, http.StatusOK},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			e, svc := statsServer(tt.role, tt.perms...)
+			if got := reportRequestAs(e, http.MethodPut, "/api/v1/admin/churches/3/reporting", `{"start_month":"2026-01"}`, "1"); got != tt.want {
+				t.Fatalf("status = %d, want %d", got, tt.want)
+			}
+			if (svc.calls == 1) != (tt.want == http.StatusOK) {
+				t.Errorf("service calls = %d", svc.calls)
+			}
+		})
+	}
+}
+
+// The analytics downloads share the Excel downloads' bucket (M5), not the read one.
 func TestAnalyticsExcelRoute_UsesExportLimiter(t *testing.T) {
 	tooMany := func(echo.HandlerFunc) echo.HandlerFunc {
 		return func(echo.Context) error { return apperror.RateLimit("slow down") }
 	}
-	const path = "/api/v1/admin/analytics/attendance/excel?year=2026&metric=worship_service"
+	for _, path := range []string{"/api/v1/admin/analytics/attendance/excel?year=2026&metric=worship_service", "/api/v1/admin/analytics/csv?kind=compliance&year=2026&metric=worship_service"} {
+		exportLimited(t, tooMany, path)
+	}
+}
+
+func exportLimited(t *testing.T, tooMany echo.MiddlewareFunc, path string) {
+	t.Helper()
 	e, _ := statsServerWith(Limiters{Global: noLimit, Read: tooMany, Write: noLimit, Export: noLimit}, "admin", "tracker:read")
 	if got := reportRequestAs(e, http.MethodGet, path, "", "1"); got != http.StatusOK {
 		t.Errorf("read bucket spent: status = %d, want 200", got)

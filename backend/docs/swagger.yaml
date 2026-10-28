@@ -578,101 +578,405 @@ definitions:
       status:
         type: string
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.AnalyticsMonth:
+    properties:
+      month:
+        type: integer
+      name:
+        type: string
+      state:
+        enum:
+        - not_yet_open
+        - open
+        - grace
+        - closed
+        type: string
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics:
     properties:
-      churches:
+      church_options:
+        description: ChurchOptions is every church that could be filtered on.
         items:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchOption'
+        type: array
+      church_rows:
+        description: ChurchRows is the selected metric for each church in scope, one
+          row per church.
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchMetric'
+        type: array
+      churches:
+        description: Churches is the churches in scope (the filter applied), each
+          with its eligibility.
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchScope'
         type: array
       comparison:
-        $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison'
+        $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.Comparison'
+      compliance:
+        description: Compliance is the church-by-month submission matrix; it ignores
+          the status filter.
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceRow'
+        type: array
+      compliance_totals:
+        $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceTotals'
+      coverage:
+        allOf:
+        - $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.Coverage'
+        description: Coverage is report counts over the counted months, for the status
+          filter.
+      cutoff_month:
+        description: |-
+          CutoffMonth is the last month of the period that has ended (0 when none):
+          analytics count months 1..CutoffMonth only, so an unfinished year is year to date.
+        type: integer
+      default_start_month:
+        description: |-
+          DefaultStartMonth is the organization-wide first reporting month ("YYYY-MM"),
+          used by every church without its own start month; "" when not configured.
+        type: string
+      generated_at:
+        description: GeneratedAt is when this answer was computed, in Asia/Manila.
+        type: string
       metric:
         type: string
-      no_report_churches:
-        description: |-
-          NoReportChurches are active church accounts with no report in the period
-          (no approved one when Status is approved), so the page can list every church.
+      metrics:
+        description: Metrics is every metric's period figures, in MetricGroups order.
         items:
-          type: string
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.MetricSummary'
+        type: array
+      months:
+        description: Months is every month of the period with its reporting state.
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AnalyticsMonth'
         type: array
       period:
         type: string
+      slots:
+        description: Slots is the selected metric per month and reporting-week slot
+          (Week 1-5 of the form, not calendar weeks).
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.SlotPoint'
+        type: array
       status:
         type: string
-      summary:
-        items:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary'
-        type: array
       trend:
+        description: Trend is the selected metric per month of the period.
         items:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.TrendPoint'
         type: array
-      weeks:
-        description: |-
-          Weeks counts the weeks with reports: each month's distinct report weeks with
-          any metric value in scope. Averages per week divide by it, so a month nobody
-          reported does not pull them down.
-        type: integer
       year:
         type: integer
     type: object
-  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch:
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchMetric:
     properties:
+      approved:
+        type: integer
+      average:
+        description: Average is Total / Observations (Attendance only).
+        type: number
+        x-nullable: true
+      change:
+        description: Change compares averages (Attendance) or totals; nil when either
+          side has no data or the previous is 0.
+        type: number
+        x-nullable: true
+      church_id:
+        type: integer
       church_name:
         type: string
-      value:
+      completeness:
+        description: Completeness is Submitted / Expected over the counted months;
+          nil when nothing is expected.
         type: number
-    type: object
-  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison:
-    properties:
-      churches:
-        items:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch'
-        type: array
-      trend:
-        items:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint'
-        type: array
-      year:
+        x-nullable: true
+      expected:
         type: integer
-    type: object
-  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary:
-    properties:
-      churches:
-        items:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch'
-        type: array
-      group:
-        description: Group is the MetricGroups heading; summary rows come in MetricGroups
-          order.
-        type: string
-      metric:
-        type: string
-      peak_month:
-        description: PeakMonth is the month with the highest total, earliest on a
-          tie; "" when no month is above 0.
-        type: string
-      peak_value:
+      observations:
+        type: integer
+      previous_average:
         type: number
+        x-nullable: true
+      previous_observations:
+        type: integer
+      previous_total:
+        type: number
+        x-nullable: true
+      submitted:
+        type: integer
+      tithes_total:
+        type: number
+        x-nullable: true
       total:
         type: number
         x-nullable: true
     type: object
-  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch:
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchOption:
     properties:
-      church_name:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchReportingRequest:
+    properties:
+      end_month:
+        type: string
+      start_month:
+        type: string
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchScope:
+    properties:
+      account_status:
+        description: |-
+          AccountStatus is "active" when any church account is active, else the first
+          account's status, or "none" when no account remains.
+        type: string
+      active:
+        type: boolean
+      end_month:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      needs_review:
+        type: boolean
+      start_is_default:
+        type: boolean
+      start_month:
+        type: string
+      workers:
+        type: string
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchValue:
+    properties:
+      church_id:
+        type: integer
+      observations:
+        type: integer
+      state:
+        enum:
+        - value
+        - blank
+        - not_approved
+        - no_report
         type: string
       value:
         type: number
         x-nullable: true
     type: object
-  github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint:
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.Comparison:
     properties:
+      coverage:
+        $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.Coverage'
+      like_for_like:
+        $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.LikeForLike'
+      metrics:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.MetricSummary'
+        type: array
+      slots:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.SlotPoint'
+        type: array
+      trend:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.TrendPoint'
+        type: array
+      year:
+        type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceCell:
+    properties:
+      duplicates:
+        description: Duplicates counts other reports filed for the same church and
+          month (not counted).
+        type: integer
+      expected:
+        description: Expected is whether the church owed this month's report (an eligible
+          month whose window has opened).
+        type: boolean
       month:
+        type: integer
+      report_id:
+        type: integer
+      review_status:
+        enum:
+        - approved
+        - pending
+        - needs_revision
         type: string
-      value:
+      state:
+        enum:
+        - not_required
+        - not_reviewed
+        - inactive
+        - not_yet_open
+        - awaiting_submission
+        - overdue_grace
+        - not_filed
+        - submitted
+        type: string
+      submitted_on:
+        type: string
+      timeliness:
+        enum:
+        - on_time
+        - late
+        - after_cutoff
+        - before_open
+        type: string
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceRow:
+    properties:
+      approved:
+        type: integer
+      awaiting:
+        type: integer
+      cells:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceCell'
+        type: array
+      church_id:
+        type: integer
+      church_name:
+        type: string
+      duplicates:
+        type: integer
+      expected:
+        type: integer
+      late:
+        type: integer
+      needs_revision:
+        type: integer
+      not_filed:
+        type: integer
+      on_time:
+        type: integer
+      outside:
+        type: integer
+      overdue:
+        type: integer
+      pending:
+        type: integer
+      submitted:
+        type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceTotals:
+    properties:
+      approved:
+        type: integer
+      awaiting:
+        type: integer
+      churches_needing_review:
+        type: integer
+      churches_with_submission:
+        type: integer
+      duplicates:
+        type: integer
+      expected:
+        type: integer
+      late:
+        type: integer
+      needs_revision:
+        type: integer
+      not_filed:
+        type: integer
+      on_time:
+        type: integer
+      outside:
+        type: integer
+      overdue:
+        type: integer
+      pending:
+        type: integer
+      submitted:
+        type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.Coverage:
+    properties:
+      churches:
+        type: integer
+      churches_reported:
+        type: integer
+      expected:
+        type: integer
+      expected_reported:
+        description: |-
+          ExpectedReported counts the reports in scope for expected church-months; OutsideReports
+          the ones for months a church was not required to report (they still count in totals).
+        type: integer
+      months:
+        type: integer
+      outside_reports:
+        type: integer
+      reports_in_scope:
+        type: integer
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.LikeForLike:
+    properties:
+      change:
+        description: Change compares averages per church-service (Attendance) or totals;
+          nil when not valid.
         type: number
-      week:
+        x-nullable: true
+      churches:
+        type: integer
+      current_observations:
+        type: integer
+      current_total:
+        type: number
+      previous_observations:
+        type: integer
+      previous_total:
+        type: number
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.MetricSummary:
+    properties:
+      avg_per_church_service:
+        description: 'AvgPerChurchService is Total / Observations: attendance per
+          reported church-service (Attendance only).'
+        type: number
+        x-nullable: true
+      churches:
+        items:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchValue'
+        type: array
+      churches_with_value:
+        type: integer
+      group:
+        type: string
+      label:
+        type: string
+      metric:
+        type: string
+      network_slots:
+        type: integer
+      network_slots_full:
+        type: integer
+      network_weekly:
+        description: NetworkWeekly is the average network total per reporting-week
+          slot with any value (Attendance only).
+        type: number
+        x-nullable: true
+      observations:
+        type: integer
+      peak_month:
+        type: string
+      peak_value:
+        type: number
+      reports_with_value:
+        description: ReportsWithValue counts church-month reports with at least one
+          value; ChurchesWithValue the churches.
+        type: integer
+      total:
+        type: number
+        x-nullable: true
+      unit:
+        type: string
+      zero_observations:
         type: integer
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_stats.RoleCount:
@@ -684,12 +988,54 @@ definitions:
       role_id:
         type: integer
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.SlotPoint:
+    properties:
+      churches_reported:
+        type: integer
+      churches_with_value:
+        type: integer
+      month:
+        type: integer
+      total:
+        type: number
+        x-nullable: true
+      week:
+        type: integer
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_stats.StatusCount:
     properties:
       count:
         type: integer
       status:
         type: string
+    type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_stats.TrendPoint:
+    properties:
+      churches_expected:
+        type: integer
+      churches_reported:
+        type: integer
+      churches_with_value:
+        type: integer
+      counted:
+        type: boolean
+      expected_reported:
+        description: ExpectedReported is the churches reported among the expected
+          ones; Partial when below ChurchesExpected.
+        type: integer
+      month:
+        type: integer
+      name:
+        type: string
+      observations:
+        type: integer
+      partial:
+        type: boolean
+      state:
+        type: string
+      value:
+        type: number
+        x-nullable: true
     type: object
   github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta:
     properties:
@@ -786,10 +1132,12 @@ info:
 paths:
   /admin/analytics/attendance:
     get:
-      description: Weekly metric totals for the selected year period and by church.
-        Defaults to approved reports; status=all includes pending, needs_revision,
-        and approved reports. compare=true includes the same period from the previous
-        year. Needs tracker:read.
+      description: Every metric's period figures with recorded-entry counts and coverage,
+        the selected metric by month, week slot and church, and the church-by-month
+        submission compliance (D-A31). Only months that have ended are counted; compare=true
+        adds the same months of the previous year. Defaults to approved reports; status=all
+        includes pending, needs_revision and approved. Compliance ignores status.
+        Needs tracker:read.
       parameters:
       - description: Year
         in: query
@@ -814,6 +1162,10 @@ paths:
         in: query
         name: compare
         type: boolean
+      - description: Comma-separated church ids; empty means every church
+        in: query
+        name: churches
+        type: string
       produces:
       - application/json
       responses:
@@ -841,15 +1193,16 @@ paths:
             type: object
       security:
       - CookieAuth: []
-      summary: Annual attendance analytics
+      summary: Period analytics
       tags:
       - admin/analytics
   /admin/analytics/attendance/excel:
     get:
-      description: The same query and data as GET /admin/analytics/attendance, as
-        a formatted .xlsx with Summary, Weekly Trend, Church Breakdown and All Metrics
-        sheets. Needs tracker:read. Writes no audit row. Rate limited with the other
-        Excel downloads, 5 per minute per user.
+      description: 'The same query and figures as GET /admin/analytics/attendance
+        as a formatted .xlsx: Full Metrics Summary, Summary, Monthly Totals, Weekly
+        Trend, Church Breakdown, Metric Detail, Weekly Detail, Submission Compliance
+        and Notes. Needs tracker:read. Writes no audit row. Rate limited with the
+        other Excel downloads, 5 per minute per user.'
       parameters:
       - description: Year
         in: query
@@ -874,6 +1227,10 @@ paths:
         in: query
         name: compare
         type: boolean
+      - description: Comma-separated church ids; empty means every church
+        in: query
+        name: churches
+        type: string
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
@@ -907,7 +1264,84 @@ paths:
             type: object
       security:
       - CookieAuth: []
-      summary: Annual attendance analytics as Excel
+      summary: Period analytics as Excel
+      tags:
+      - admin/analytics
+  /admin/analytics/csv:
+    get:
+      description: 'One flat table under the analytics query: kind=weekly_detail is
+        one row per report, metric and week slot (every status, with whether the row
+        is in the selected analytics); kind=compliance is one row per church and month
+        of the period. UTF-8 with a byte-order mark; numbers plain, missing values
+        empty with a state column. Needs tracker:read. Writes no audit row. Rate limited
+        with the Excel downloads.'
+      parameters:
+      - description: weekly_detail or compliance
+        in: query
+        name: kind
+        required: true
+        type: string
+      - description: Year
+        in: query
+        name: year
+        required: true
+        type: integer
+      - description: Metric key
+        in: query
+        name: metric
+        required: true
+        type: string
+      - description: approved or all; defaults to approved
+        in: query
+        name: status
+        type: string
+      - description: full_year, q1, q2, q3, q4, or a lowercase month; defaults to
+          full_year
+        in: query
+        name: period
+        type: string
+      - description: Include the previous year's same period
+        in: query
+        name: compare
+        type: boolean
+      - description: Comma-separated church ids; empty means every church
+        in: query
+        name: churches
+        type: string
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Period analytics as CSV
       tags:
       - admin/analytics
   /admin/audit-logs:
@@ -984,6 +1418,69 @@ paths:
       summary: Audit log
       tags:
       - admin/audit
+  /admin/churches/{id}/reporting:
+    put:
+      consumes:
+      - application/json
+      description: Optional per-church exceptions to the organization-wide start month
+        (D-A32), as activity months ("YYYY-MM") on the church record, not a worker
+        account. An empty start_month uses the organization default; an empty end_month
+        is open-ended. The end must not be before the church's start. Needs users:write.
+        Audits UPDATE_CHURCH_REPORTING.
+      parameters:
+      - description: Church ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Reporting months
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchReportingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchScope'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Override a church's reporting months
+      tags:
+      - admin/analytics
   /admin/permissions:
     get:
       parameters:

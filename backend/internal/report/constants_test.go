@@ -10,8 +10,8 @@ import (
 var snakeCase = regexp.MustCompile(`^[a-z]+(_[a-z]+)*$`)
 
 func TestMetricKeys(t *testing.T) {
-	if got := len(MetricKeys); got != 21 {
-		t.Fatalf("len(MetricKeys) = %d, want 21", got)
+	if got := len(MetricKeys); got != 22 {
+		t.Fatalf("len(MetricKeys) = %d, want 22", got)
 	}
 	seen := map[string]bool{}
 	for _, k := range MetricKeys {

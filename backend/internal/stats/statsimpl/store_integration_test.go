@@ -24,7 +24,7 @@ import (
 
 func analyticsNum(s string) *json.Number { n := json.Number(s); return &n }
 
-func TestStore_AnalyticsAttendance(t *testing.T) {
+func TestStore_Analytics(t *testing.T) {
 	tdb := testutil.SetupPostgres(t)
 	tdb.MigrateWithGoose(t)
 	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
@@ -32,88 +32,94 @@ func TestStore_AnalyticsAttendance(t *testing.T) {
 	reports := reportimpl.NewStore(db)
 	users := userimpl.NewStore(db)
 	ctx := context.Background()
-	// account creates an active user-role account for church.
+	// account creates an active user-role account for church; the trigger adds the church row.
 	account := func(email, church string) int64 {
 		t.Helper()
 		u, err := users.CreateWithPassword(ctx, email, church, "hash")
 		require.NoError(t, err)
-		_, err = users.UpdateProfile(ctx, u.ID, user.UserProfile{Name: church, ChurchName: church})
+		_, err = users.UpdateProfile(ctx, u.ID, user.UserProfile{Name: church + " Worker", ChurchName: church})
 		require.NoError(t, err)
 		return u.ID
 	}
-	worker := struct{ ID int64 }{account("analytics@example.com", "Bethel")}
-	account("zion@example.com", "Zion")
+	bethel := account("analytics@example.com", "Bethel")
+	account("zion@example.com", " zion ")
+	account("zion2@example.com", "Zion") // same church, second account
 	hope := account("hope@example.com", "Hope")
 	_, err := reports.Create(ctx, hope, 2026, report.CreateReportRequest{Month: "April"}) // outside Q1
 	require.NoError(t, err)
-	create := func(month string, year int, value string) {
+	create := func(month string, year int, metrics map[string]report.MetricWeeks) int64 {
 		t.Helper()
-		metrics := map[string]report.MetricWeeks{"worship_service": {Week1: analyticsNum(value)}}
-		if month == "January" && year == 2026 {
-			metrics["tithes_offering"] = report.MetricWeeks{Week1: analyticsNum("120.50")}
-			metrics["baptism"] = report.MetricWeeks{Week1: analyticsNum("0")}
-		}
-		_, err := reports.Create(ctx, worker.ID, year, report.CreateReportRequest{
-			Month:   month,
-			Metrics: metrics,
-		})
+		r, err := reports.Create(ctx, bethel, year, report.CreateReportRequest{Month: month, Metrics: metrics})
 		require.NoError(t, err)
+		return r.ID
 	}
-	create("January", 2026, "2")
-	create("March", 2026, "7")
-	create("April", 2026, "9")
-	create("January", 2025, "3")
-
-	got, err := store.AnalyticsAttendance(ctx, stats.AttendanceQuery{
-		Year: 2026, Metric: "worship_service", Status: stats.AttendanceStatusAll,
-		Period: "q1", Compare: true,
+	jan := create("January", 2026, map[string]report.MetricWeeks{
+		"worship_service": {Week1: analyticsNum("2"), Week3: analyticsNum("0")},
+		"tithes_offering": {Week1: analyticsNum("120.50")},
 	})
+	create("March", 2026, map[string]report.MetricWeeks{"worship_service": {Week1: analyticsNum("7")}})
+	create("January", 2025, map[string]report.MetricWeeks{"worship_service": {Week1: analyticsNum("3")}})
+	gone := create("February", 2026, nil)
+	_, err = tdb.Pool.Exec(ctx, "UPDATE reports SET deleted_at = NOW() WHERE id = $1", gone)
 	require.NoError(t, err)
-	require.Len(t, got.Trend, 15)
-	require.Len(t, got.Churches, 1)
-	assert.Equal(t, 9.0, got.Churches[0].Value)
-	require.Len(t, got.Summary, 21)
-	worship := got.Summary[0]
-	assert.Equal(t, "March", worship.PeakMonth)
-	assert.Equal(t, 7.0, worship.PeakValue)
-	tithes := got.Summary[8]
-	assert.Equal(t, "tithes_offering", tithes.Metric)
-	require.NotNil(t, tithes.Total)
-	assert.Equal(t, 120.50, *tithes.Total)
-	assert.Equal(t, "January", tithes.PeakMonth)
-	require.Len(t, tithes.Churches, 1)
-	require.NotNil(t, tithes.Churches[0].Value)
-	assert.Equal(t, 120.50, *tithes.Churches[0].Value)
-	assert.Equal(t, "Attendance", worship.Group)
-	assert.Equal(t, "Finance", tithes.Group)
-	baptism := got.Summary[15] // last of Evangelism & Growth
-	assert.Equal(t, "baptism", baptism.Metric)
-	assert.Equal(t, "Evangelism & Growth", baptism.Group)
-	require.NotNil(t, baptism.Total)
-	assert.Equal(t, 0.0, *baptism.Total)
-	assert.Empty(t, baptism.PeakMonth) // a total of 0 has no peak
-	sundaySchool := got.Summary[1]
-	assert.Nil(t, sundaySchool.Total)
-	require.Len(t, sundaySchool.Churches, 1)
-	assert.Nil(t, sundaySchool.Churches[0].Value)
-	require.NotNil(t, got.Comparison)
-	assert.Equal(t, 2025, got.Comparison.Year)
-	assert.Len(t, got.Comparison.Trend, 15)
-	require.Len(t, got.Comparison.Churches, 1)
-	assert.Equal(t, 3.0, got.Comparison.Churches[0].Value)
-	church := got.Churches[0].ChurchName
-	assert.ElementsMatch(t, []stats.AttendanceDetail{
-		{Metric: "worship_service", ChurchName: church, Month: 1, Value: 2},
-		{Metric: "worship_service", ChurchName: church, Month: 3, Value: 7},
-		{Metric: "tithes_offering", ChurchName: church, Month: 1, Value: 120.50},
-		{Metric: "baptism", ChurchName: church, Month: 1, Value: 0},
-	}, got.Detail) // April is outside Q1
-	assert.Equal(t, []stats.AttendanceDetail{{Metric: "worship_service", ChurchName: church, Month: 1, Value: 3}}, got.Comparison.Detail)
-	assert.Equal(t, []string{"Hope", "Zion"}, got.NoReportChurches) // Bethel reported in Q1
-	// One week each in January and March (April is outside Q1); 2025's January counts for the comparison.
-	assert.Equal(t, map[int]int{1: 1, 3: 1}, got.WeeksByMonth)
-	assert.Equal(t, 2, got.Weeks)
-	assert.Equal(t, 1, got.Comparison.Weeks)
+
+	churches, err := store.Churches(ctx)
+	require.NoError(t, err)
+	require.Len(t, churches, 3, "one row per church name, however it is spaced or cased")
+	names := map[string]stats.ChurchRecord{}
+	// A new church starts at the month being filed now, in Manila (the previous month).
+	now := time.Now().In(manila)
+	open := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
+	for _, c := range churches {
+		names[c.Name] = c
+		require.NotNil(t, c.StartMonth, c.Name)
+		assert.Equal(t, open.Format(time.DateOnly), c.StartMonth.Format(time.DateOnly), c.Name)
+	}
+	def, err := store.ReportingDefault(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, def)
+	assert.Equal(t, "2026-09-01", def.Format(time.DateOnly), "the organization default confirmed by the owner")
+	assert.Len(t, names["zion"].Accounts, 2)
+	assert.Equal(t, "Bethel Worker", names["Bethel"].Accounts[0].Name)
+
+	got, err := store.AnalyticsReports(ctx, []int{2026, 2025}, 1, 3)
+	require.NoError(t, err)
+	require.Len(t, got, 3, "Q1 of both years; April and the deleted report left out")
+	first := got[0]
+	assert.Equal(t, jan, first.ID)
+	assert.Equal(t, names["Bethel"].ID, first.ChurchID)
+	assert.Equal(t, 1, first.Month)
+	require.NotNil(t, first.Metrics["worship_service"])
+	ws := first.Metrics["worship_service"]
+	assert.Equal(t, 2.0, *ws[0])
+	assert.Nil(t, ws[1], "a blank week stays nil")
+	assert.Equal(t, 0.0, *ws[2], "an explicit zero is kept")
+	assert.Equal(t, 120.50, *first.Metrics["tithes_offering"][0])
+
+	t.Run("reporting months are stored on the church, in a transaction", func(t *testing.T) {
+		id := names["Bethel"].ID
+		start, end := month(2026, 9), month(2027, 2)
+		var before, after stats.ChurchRecord
+		require.NoError(t, db.InTransaction(ctx, func(ctx context.Context) error {
+			var err error
+			before, after, err = store.SetChurchReporting(ctx, id, start, end)
+			return err
+		}))
+		assert.Equal(t, open.Format("2006-01"), before.StartMonth.Format("2006-01"))
+		assert.Equal(t, "2026-09", after.StartMonth.Format("2006-01"))
+		churches, err := store.Churches(ctx)
+		require.NoError(t, err)
+		for _, c := range churches {
+			if c.ID == id {
+				assert.Equal(t, "2026-09-01", c.StartMonth.Format(time.DateOnly))
+				assert.Equal(t, "2027-02-01", c.EndMonth.Format(time.DateOnly))
+			}
+		}
+		_, _, err = store.SetChurchReporting(ctx, 9999, start, nil)
+		assert.ErrorIs(t, err, stats.ErrChurchNotFound)
+		_, _, err = store.SetChurchReporting(ctx, id, end, start)
+		assert.Error(t, err, "chk_churches_period refuses an end before the start")
+	})
 }
 
 func TestStore_Counts(t *testing.T) {

@@ -26,14 +26,14 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Weekly metric totals for the selected year period and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. compare=true includes the same period from the previous year. Needs tracker:read.",
+                "description": "Every metric's period figures with recorded-entry counts and coverage, the selected metric by month, week slot and church, and the church-by-month submission compliance (D-A31). Only months that have ended are counted; compare=true adds the same months of the previous year. Defaults to approved reports; status=all includes pending, needs_revision and approved. Compliance ignores status. Needs tracker:read.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin/analytics"
                 ],
-                "summary": "Annual attendance analytics",
+                "summary": "Period analytics",
                 "parameters": [
                     {
                         "type": "integer",
@@ -65,6 +65,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "Include the previous year's same period",
                         "name": "compare",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated church ids; empty means every church",
+                        "name": "churches",
                         "in": "query"
                     }
                 ],
@@ -112,14 +118,14 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "The same query and data as GET /admin/analytics/attendance, as a formatted .xlsx with Summary, Weekly Trend, Church Breakdown and All Metrics sheets. Needs tracker:read. Writes no audit row. Rate limited with the other Excel downloads, 5 per minute per user.",
+                "description": "The same query and figures as GET /admin/analytics/attendance as a formatted .xlsx: Full Metrics Summary, Summary, Monthly Totals, Weekly Trend, Church Breakdown, Metric Detail, Weekly Detail, Submission Compliance and Notes. Needs tracker:read. Writes no audit row. Rate limited with the other Excel downloads, 5 per minute per user.",
                 "produces": [
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ],
                 "tags": [
                     "admin/analytics"
                 ],
-                "summary": "Annual attendance analytics as Excel",
+                "summary": "Period analytics as Excel",
                 "parameters": [
                     {
                         "type": "integer",
@@ -151,6 +157,120 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "Include the previous year's same period",
                         "name": "compare",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated church ids; empty means every church",
+                        "name": "churches",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/analytics/csv": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "One flat table under the analytics query: kind=weekly_detail is one row per report, metric and week slot (every status, with whether the row is in the selected analytics); kind=compliance is one row per church and month of the period. UTF-8 with a byte-order mark; numbers plain, missing values empty with a state column. Needs tracker:read. Writes no audit row. Rate limited with the Excel downloads.",
+                "produces": [
+                    "text/csv"
+                ],
+                "tags": [
+                    "admin/analytics"
+                ],
+                "summary": "Period analytics as CSV",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "weekly_detail or compliance",
+                        "name": "kind",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year",
+                        "name": "year",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Metric key",
+                        "name": "metric",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "approved or all; defaults to approved",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "full_year, q1, q2, q3, q4, or a lowercase month; defaults to full_year",
+                        "name": "period",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include the previous year's same period",
+                        "name": "compare",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated church ids; empty means every church",
+                        "name": "churches",
                         "in": "query"
                     }
                 ],
@@ -296,6 +416,97 @@ const docTemplate = `{
                     },
                     "429": {
                         "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/churches/{id}/reporting": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Optional per-church exceptions to the organization-wide start month (D-A32), as activity months (\"YYYY-MM\") on the church record, not a worker account. An empty start_month uses the organization default; an empty end_month is open-ended. The end must not be before the church's start. Needs users:write. Audits UPDATE_CHURCH_REPORTING.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/analytics"
+                ],
+                "summary": "Override a church's reporting months",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Church ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reporting months",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchReportingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchScope"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -3815,108 +4026,175 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AnalyticsMonth": {
+            "type": "object",
+            "properties": {
+                "month": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string",
+                    "enum": [
+                        "not_yet_open",
+                        "open",
+                        "grace",
+                        "closed"
+                    ]
+                }
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics": {
             "type": "object",
             "properties": {
-                "churches": {
+                "church_options": {
+                    "description": "ChurchOptions is every church that could be filtered on.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchOption"
+                    }
+                },
+                "church_rows": {
+                    "description": "ChurchRows is the selected metric for each church in scope, one row per church.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchMetric"
+                    }
+                },
+                "churches": {
+                    "description": "Churches is the churches in scope (the filter applied), each with its eligibility.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchScope"
                     }
                 },
                 "comparison": {
-                    "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison"
+                    "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.Comparison"
+                },
+                "compliance": {
+                    "description": "Compliance is the church-by-month submission matrix; it ignores the status filter.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceRow"
+                    }
+                },
+                "compliance_totals": {
+                    "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceTotals"
+                },
+                "coverage": {
+                    "description": "Coverage is report counts over the counted months, for the status filter.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.Coverage"
+                        }
+                    ]
+                },
+                "cutoff_month": {
+                    "description": "CutoffMonth is the last month of the period that has ended (0 when none):\nanalytics count months 1..CutoffMonth only, so an unfinished year is year to date.",
+                    "type": "integer"
+                },
+                "default_start_month": {
+                    "description": "DefaultStartMonth is the organization-wide first reporting month (\"YYYY-MM\"),\nused by every church without its own start month; \"\" when not configured.",
+                    "type": "string"
+                },
+                "generated_at": {
+                    "description": "GeneratedAt is when this answer was computed, in Asia/Manila.",
+                    "type": "string"
                 },
                 "metric": {
                     "type": "string"
                 },
-                "no_report_churches": {
-                    "description": "NoReportChurches are active church accounts with no report in the period\n(no approved one when Status is approved), so the page can list every church.",
+                "metrics": {
+                    "description": "Metrics is every metric's period figures, in MetricGroups order.",
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.MetricSummary"
+                    }
+                },
+                "months": {
+                    "description": "Months is every month of the period with its reporting state.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AnalyticsMonth"
                     }
                 },
                 "period": {
                     "type": "string"
                 },
+                "slots": {
+                    "description": "Slots is the selected metric per month and reporting-week slot (Week 1-5 of the form, not calendar weeks).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.SlotPoint"
+                    }
+                },
                 "status": {
                     "type": "string"
                 },
-                "summary": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary"
-                    }
-                },
                 "trend": {
+                    "description": "Trend is the selected metric per month of the period.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.TrendPoint"
                     }
-                },
-                "weeks": {
-                    "description": "Weeks counts the weeks with reports: each month's distinct report weeks with\nany metric value in scope. Averages per week divide by it, so a month nobody\nreported does not pull them down.",
-                    "type": "integer"
                 },
                 "year": {
                     "type": "integer"
                 }
             }
         },
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchMetric": {
             "type": "object",
             "properties": {
+                "approved": {
+                    "type": "integer"
+                },
+                "average": {
+                    "description": "Average is Total / Observations (Attendance only).",
+                    "type": "number",
+                    "x-nullable": true
+                },
+                "change": {
+                    "description": "Change compares averages (Attendance) or totals; nil when either side has no data or the previous is 0.",
+                    "type": "number",
+                    "x-nullable": true
+                },
+                "church_id": {
+                    "type": "integer"
+                },
                 "church_name": {
                     "type": "string"
                 },
-                "value": {
-                    "type": "number"
-                }
-            }
-        },
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison": {
-            "type": "object",
-            "properties": {
-                "churches": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"
-                    }
+                "completeness": {
+                    "description": "Completeness is Submitted / Expected over the counted months; nil when nothing is expected.",
+                    "type": "number",
+                    "x-nullable": true
                 },
-                "trend": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"
-                    }
-                },
-                "year": {
+                "expected": {
                     "type": "integer"
-                }
-            }
-        },
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary": {
-            "type": "object",
-            "properties": {
-                "churches": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch"
-                    }
                 },
-                "group": {
-                    "description": "Group is the MetricGroups heading; summary rows come in MetricGroups order.",
-                    "type": "string"
+                "observations": {
+                    "type": "integer"
                 },
-                "metric": {
-                    "type": "string"
+                "previous_average": {
+                    "type": "number",
+                    "x-nullable": true
                 },
-                "peak_month": {
-                    "description": "PeakMonth is the month with the highest total, earliest on a tie; \"\" when no month is above 0.",
-                    "type": "string"
+                "previous_observations": {
+                    "type": "integer"
                 },
-                "peak_value": {
-                    "type": "number"
+                "previous_total": {
+                    "type": "number",
+                    "x-nullable": true
+                },
+                "submitted": {
+                    "type": "integer"
+                },
+                "tithes_total": {
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "total": {
                     "type": "number",
@@ -3924,11 +4202,78 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchOption": {
             "type": "object",
             "properties": {
-                "church_name": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchReportingRequest": {
+            "type": "object",
+            "properties": {
+                "end_month": {
+                    "type": "string"
+                },
+                "start_month": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchScope": {
+            "type": "object",
+            "properties": {
+                "account_status": {
+                    "description": "AccountStatus is \"active\" when any church account is active, else the first\naccount's status, or \"none\" when no account remains.",
+                    "type": "string"
+                },
+                "active": {
+                    "type": "boolean"
+                },
+                "end_month": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "needs_review": {
+                    "type": "boolean"
+                },
+                "start_is_default": {
+                    "type": "boolean"
+                },
+                "start_month": {
+                    "type": "string"
+                },
+                "workers": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchValue": {
+            "type": "object",
+            "properties": {
+                "church_id": {
+                    "type": "integer"
+                },
+                "observations": {
+                    "type": "integer"
+                },
+                "state": {
+                    "type": "string",
+                    "enum": [
+                        "value",
+                        "blank",
+                        "not_approved",
+                        "no_report"
+                    ]
                 },
                 "value": {
                     "type": "number",
@@ -3936,16 +4281,300 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.Comparison": {
             "type": "object",
             "properties": {
+                "coverage": {
+                    "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.Coverage"
+                },
+                "like_for_like": {
+                    "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.LikeForLike"
+                },
+                "metrics": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.MetricSummary"
+                    }
+                },
+                "slots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.SlotPoint"
+                    }
+                },
+                "trend": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.TrendPoint"
+                    }
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceCell": {
+            "type": "object",
+            "properties": {
+                "duplicates": {
+                    "description": "Duplicates counts other reports filed for the same church and month (not counted).",
+                    "type": "integer"
+                },
+                "expected": {
+                    "description": "Expected is whether the church owed this month's report (an eligible month whose window has opened).",
+                    "type": "boolean"
+                },
                 "month": {
+                    "type": "integer"
+                },
+                "report_id": {
+                    "type": "integer"
+                },
+                "review_status": {
+                    "type": "string",
+                    "enum": [
+                        "approved",
+                        "pending",
+                        "needs_revision"
+                    ]
+                },
+                "state": {
+                    "type": "string",
+                    "enum": [
+                        "not_required",
+                        "not_reviewed",
+                        "inactive",
+                        "not_yet_open",
+                        "awaiting_submission",
+                        "overdue_grace",
+                        "not_filed",
+                        "submitted"
+                    ]
+                },
+                "submitted_on": {
                     "type": "string"
                 },
-                "value": {
+                "timeliness": {
+                    "type": "string",
+                    "enum": [
+                        "on_time",
+                        "late",
+                        "after_cutoff",
+                        "before_open"
+                    ]
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceRow": {
+            "type": "object",
+            "properties": {
+                "approved": {
+                    "type": "integer"
+                },
+                "awaiting": {
+                    "type": "integer"
+                },
+                "cells": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceCell"
+                    }
+                },
+                "church_id": {
+                    "type": "integer"
+                },
+                "church_name": {
+                    "type": "string"
+                },
+                "duplicates": {
+                    "type": "integer"
+                },
+                "expected": {
+                    "type": "integer"
+                },
+                "late": {
+                    "type": "integer"
+                },
+                "needs_revision": {
+                    "type": "integer"
+                },
+                "not_filed": {
+                    "type": "integer"
+                },
+                "on_time": {
+                    "type": "integer"
+                },
+                "outside": {
+                    "type": "integer"
+                },
+                "overdue": {
+                    "type": "integer"
+                },
+                "pending": {
+                    "type": "integer"
+                },
+                "submitted": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceTotals": {
+            "type": "object",
+            "properties": {
+                "approved": {
+                    "type": "integer"
+                },
+                "awaiting": {
+                    "type": "integer"
+                },
+                "churches_needing_review": {
+                    "type": "integer"
+                },
+                "churches_with_submission": {
+                    "type": "integer"
+                },
+                "duplicates": {
+                    "type": "integer"
+                },
+                "expected": {
+                    "type": "integer"
+                },
+                "late": {
+                    "type": "integer"
+                },
+                "needs_revision": {
+                    "type": "integer"
+                },
+                "not_filed": {
+                    "type": "integer"
+                },
+                "on_time": {
+                    "type": "integer"
+                },
+                "outside": {
+                    "type": "integer"
+                },
+                "overdue": {
+                    "type": "integer"
+                },
+                "pending": {
+                    "type": "integer"
+                },
+                "submitted": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.Coverage": {
+            "type": "object",
+            "properties": {
+                "churches": {
+                    "type": "integer"
+                },
+                "churches_reported": {
+                    "type": "integer"
+                },
+                "expected": {
+                    "type": "integer"
+                },
+                "expected_reported": {
+                    "description": "ExpectedReported counts the reports in scope for expected church-months; OutsideReports\nthe ones for months a church was not required to report (they still count in totals).",
+                    "type": "integer"
+                },
+                "months": {
+                    "type": "integer"
+                },
+                "outside_reports": {
+                    "type": "integer"
+                },
+                "reports_in_scope": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.LikeForLike": {
+            "type": "object",
+            "properties": {
+                "change": {
+                    "description": "Change compares averages per church-service (Attendance) or totals; nil when not valid.",
+                    "type": "number",
+                    "x-nullable": true
+                },
+                "churches": {
+                    "type": "integer"
+                },
+                "current_observations": {
+                    "type": "integer"
+                },
+                "current_total": {
                     "type": "number"
                 },
-                "week": {
+                "previous_observations": {
+                    "type": "integer"
+                },
+                "previous_total": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.MetricSummary": {
+            "type": "object",
+            "properties": {
+                "avg_per_church_service": {
+                    "description": "AvgPerChurchService is Total / Observations: attendance per reported church-service (Attendance only).",
+                    "type": "number",
+                    "x-nullable": true
+                },
+                "churches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchValue"
+                    }
+                },
+                "churches_with_value": {
+                    "type": "integer"
+                },
+                "group": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "metric": {
+                    "type": "string"
+                },
+                "network_slots": {
+                    "type": "integer"
+                },
+                "network_slots_full": {
+                    "type": "integer"
+                },
+                "network_weekly": {
+                    "description": "NetworkWeekly is the average network total per reporting-week slot with any value (Attendance only).",
+                    "type": "number",
+                    "x-nullable": true
+                },
+                "observations": {
+                    "type": "integer"
+                },
+                "peak_month": {
+                    "type": "string"
+                },
+                "peak_value": {
+                    "type": "number"
+                },
+                "reports_with_value": {
+                    "description": "ReportsWithValue counts church-month reports with at least one value; ChurchesWithValue the churches.",
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "number",
+                    "x-nullable": true
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "zero_observations": {
                     "type": "integer"
                 }
             }
@@ -3964,6 +4593,27 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.SlotPoint": {
+            "type": "object",
+            "properties": {
+                "churches_reported": {
+                    "type": "integer"
+                },
+                "churches_with_value": {
+                    "type": "integer"
+                },
+                "month": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "number",
+                    "x-nullable": true
+                },
+                "week": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.StatusCount": {
             "type": "object",
             "properties": {
@@ -3972,6 +4622,46 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.TrendPoint": {
+            "type": "object",
+            "properties": {
+                "churches_expected": {
+                    "type": "integer"
+                },
+                "churches_reported": {
+                    "type": "integer"
+                },
+                "churches_with_value": {
+                    "type": "integer"
+                },
+                "counted": {
+                    "type": "boolean"
+                },
+                "expected_reported": {
+                    "description": "ExpectedReported is the churches reported among the expected ones; Partial when below ChurchesExpected.",
+                    "type": "integer"
+                },
+                "month": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "observations": {
+                    "type": "integer"
+                },
+                "partial": {
+                    "type": "boolean"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number",
+                    "x-nullable": true
                 }
             }
         },

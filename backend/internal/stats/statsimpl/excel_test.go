@@ -2,29 +2,27 @@ package statsimpl
 
 import (
 	"bytes"
-	"fmt"
+	"encoding/csv"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xuri/excelize/v2"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
-	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 )
 
 func TestMetricLabels_CoverEveryMetric(t *testing.T) {
 	for _, k := range report.MetricKeys {
-		if _, ok := metricLabels[k]; !ok {
-			t.Errorf("no label for metric %q", k)
-		}
+		assert.Contains(t, stats.MetricLabels, k)
 	}
-	if len(metricLabels) != len(report.MetricKeys) {
-		t.Errorf("%d labels for %d metrics", len(metricLabels), len(report.MetricKeys))
-	}
+	assert.Len(t, stats.MetricLabels, len(report.MetricKeys))
+	assert.Equal(t, "Legacy Persons Evangelized — meaning unverified", stats.MetricLabels[report.LegacyMetric])
 }
 
 // Every metric sits under exactly one analytics group.
@@ -33,283 +31,203 @@ func TestMetricGroups(t *testing.T) {
 	for _, g := range stats.MetricGroups {
 		grouped = append(grouped, g.Metrics...)
 	}
-	if got, want := slices.Sorted(slices.Values(grouped)), slices.Sorted(slices.Values(report.MetricKeys)); !slices.Equal(got, want) {
-		t.Errorf("grouped metrics = %v, want %v", got, want)
-	}
+	assert.Equal(t, slices.Sorted(slices.Values(report.MetricKeys)), slices.Sorted(slices.Values(grouped)))
 }
 
-func TestChange(t *testing.T) {
-	tests := []struct {
-		cur, prev float64
-		want      any
-	}{{0, 0, pct(0)}, {5, 0, "New"}, {15, 10, pct(0.5)}, {5, 10, pct(-0.5)}}
-	for _, tt := range tests {
-		if got := change(tt.cur, tt.prev); got != tt.want {
-			t.Errorf("change(%v, %v) = %v, want %v", tt.cur, tt.prev, got, tt.want)
-		}
-	}
-}
-
-func TestBuildAnalyticsWorkbook(t *testing.T) {
-	ten := 10.0
-	data := stats.AttendanceAnalytics{
-		Year: 2026, Metric: "worship_service", Status: stats.AttendanceStatusApproved, Period: "full_year",
-		Trend: []stats.AttendanceTrendPoint{
-			{Month: "January", Week: 1, Value: 1234.5}, {Month: "January", Week: 2, Value: 0}, {Month: "March", Week: 1, Value: 2000},
-		},
-		Churches: []stats.AttendanceChurch{{ChurchName: "Bethel", Value: 3234.5}, {ChurchName: "Grace", Value: 0}},
-		Summary: []stats.AttendanceMetricSummary{
-			{Metric: "worship_service", Group: "Attendance", Total: &ten, PeakMonth: "March", PeakValue: 10, Churches: []stats.AttendanceSummaryChurch{{ChurchName: "Bethel", Value: &ten}, {ChurchName: "Grace"}}},
-			{Metric: "sunday_school", Group: "Attendance", Churches: []stats.AttendanceSummaryChurch{{ChurchName: "Bethel"}, {ChurchName: "Grace"}}},
-		},
-		Comparison: &stats.AttendanceComparison{Year: 2025,
-			Trend:    []stats.AttendanceTrendPoint{{Month: "January", Week: 1, Value: 1000}},
-			Churches: []stats.AttendanceChurch{{ChurchName: "Zion", Value: 1000}},
-			Detail:   []stats.AttendanceDetail{{Metric: "worship_service", ChurchName: "Zion", Month: 1, Value: 1000}},
-			// Last year only January's first week was reported.
-			Weeks: 1, WeeksByMonth: map[int]int{1: 1},
-		},
-		// Two weeks of January and one of March have reports; no other month does.
-		Weeks: 3, WeeksByMonth: map[int]int{1: 2, 3: 1},
-		Detail:           []stats.AttendanceDetail{{Metric: "worship_service", ChurchName: "Bethel", Month: 3, Value: 10}},
-		NoReportChurches: []string{"Hope"},
-	}
-	loc, _ := time.LoadLocation("Asia/Manila")
-	// Dee's account was made in February, so January is not hers to report.
-	dee := stats.TrackerRow{UserID: 4, Name: "Dee", ChurchName: "Hope", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerSubmitted, CreatedAt: time.Date(2026, 2, 10, 0, 0, 0, 0, time.UTC)}
-	deeJan := dee
-	deeJan.SubmissionStatus = stats.TrackerNoReport
-	compliance := []monthTracker{
-		{year: 2026, month: time.January, rows: []stats.TrackerRow{
-			{UserID: 1, Name: "Ana", ChurchName: "Bethel", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerApproved},
-			{UserID: 2, Name: "Ben", ChurchName: "Grace", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerNoReport},
-			{UserID: 3, Name: "Cy", ChurchName: "Zion", UserStatus: user.UserStatusInactive, SubmissionStatus: stats.TrackerNoReport},
-			deeJan,
-		}},
-		{year: 2026, month: time.February, rows: []stats.TrackerRow{
-			{UserID: 1, Name: "Ana", ChurchName: "Bethel", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerPending},
-			{UserID: 2, Name: "Ben", ChurchName: "Grace", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerNeedsRevision},
-			dee,
-		}},
-	}
-	raw, err := buildAnalyticsWorkbook(data, 24, compliance, time.Date(2026, 10, 28, 14, 5, 0, 0, loc))
-	if err != nil {
-		t.Fatal(err)
-	}
+func openWorkbook(t *testing.T, raw []byte) *excelize.File {
+	t.Helper()
 	f, err := excelize.OpenReader(bytes.NewReader(raw))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = f.Close() }()
-
-	if got, want := f.GetSheetList(), []string{"Full Metrics Summary", "Summary", "Monthly Totals", "Weekly Trend", "Church Breakdown", "Metric Detail", "Submission Compliance"}; !slices.Equal(got, want) {
-		t.Fatalf("sheets = %v, want %v", got, want)
-	}
-	// AutoFilter is stored as the sheet's hidden _FilterDatabase name.
-	var filter string
-	for _, n := range f.GetDefinedName() {
-		if n.Name == "_xlnm._FilterDatabase" && n.Scope == "Metric Detail" {
-			filter = n.RefersTo
-		}
-	}
-	if want := "'Metric Detail'!$A$5:$F$7"; filter != want {
-		t.Errorf("Metric Detail filter = %q, want %q", filter, want)
-	}
-	get := func(sheet, ref string) string {
-		t.Helper()
-		v, err := f.GetCellValue(sheet, ref)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return v
-	}
-	for ref, want := range map[string]string{
-		"A1": "AMGCReports — Analytics Report",
-		"A2": "Worship Service · Full Year 2026 · Approved",
-		"A3": "Generated 28 Oct 2026, 14:05 (Asia/Manila)",
-		"A5": "KPI", "C5": "2025", "D5": "Change",
-		"B6": "3,234.50", "C6": "1,000.00", "D6": "+223.5%",
-		"B7": "March", "C7": "January",
-		"B8": "1 out of 24", "C8": "1",
-		// Averages divide by weeks with reports: 3 this year, 1 last year.
-		"A9": "Average per Week", "B9": "1,078.17", "C9": "1,000.00", "D9": "+7.8%",
-		// Active accounts submitted 4 of their 5 due reports; Cy is inactive and
-		// Dee's January predates her account.
-		"A10": "Submission Rate", "B10": "80.0%", "C10": "", "D10": "",
-	} {
-		if got := get("Summary", ref); got != want {
-			t.Errorf("Summary!%s = %q, want %q", ref, got, want)
-		}
-	}
-	// No change is a stored 0 (Excel shows "0.0%"; excelize's renderer ignores the zero section).
-	if v, _ := f.GetCellValue("Summary", "D8", excelize.Options{RawCellValue: true}); v != "0" {
-		t.Errorf("Summary!D8 raw = %q, want 0", v)
-	}
-	if merged, _ := f.GetMergeCells("Summary"); len(merged) != 1 || merged[0].GetStartAxis() != "A1" || merged[0].GetEndAxis() != "F1" {
-		t.Errorf("title merge = %v, want A1:F1", merged)
-	}
-
-	// The zero week is left out; the weeks with data keep their values.
-	if got := []string{get("Weekly Trend", "A6"), get("Weekly Trend", "B6"), get("Weekly Trend", "C6"), get("Weekly Trend", "A7"), get("Weekly Trend", "A8")}; !slices.Equal(got, []string{"January", "1", "1,234.50", "March", ""}) {
-		t.Errorf("trend rows = %v", got)
-	}
-	// A church only in last year is listed, at 0 this year: -100%.
-	if got := []string{get("Church Breakdown", "A8"), get("Church Breakdown", "B8"), get("Church Breakdown", "D8")}; !slices.Equal(got, []string{"Zion", "0.00", "-100.0%"}) {
-		t.Errorf("Zion row = %v", got)
-	}
-	// Peak month sits after the total; a church with no value for a metric gets a blank cell, not 0.
-	const full = "Full Metrics Summary"
-	row := func(sheet string, r, cols int) []string {
-		var out []string
-		for _, col := range "ABCDEFGHI"[:cols] {
-			out = append(out, get(sheet, string(col)+strconv.Itoa(r)))
-		}
-		return out
-	}
-	for _, c := range []struct {
-		sheet string
-		row   int
-		want  []string
-	}{
-		{full, 5, []string{"Metric", "Category", "Total for Period", "Avg per Week", "Peak Month", "Peak Month Total", "Bethel", "Grace", "Hope"}},
-		// A church with no report at all reads No Report, unlike a blank metric.
-		{full, 6, []string{"Worship Service", "Attendance", "10.00", "3.33", "March", "10.00", "10.00", "", "No Report"}},
-		// A metric with no data has no average or peak month.
-		{full, 7, []string{"Sunday School", "Attendance", "", "", "—", "", "", "", "No Report"}},
-		{"Monthly Totals", 5, []string{"Month", "Weeks", "2026 Total", "2026 Avg per Week", "2025 Total", "2025 Avg per Week", "Change (Avg)"}},
-		{"Monthly Totals", 6, []string{"January", "2", "1,234.50", "617.25", "1,000.00", "1,000.00", "-38.3%"}},
-		// Last year's March had no reported week, so it has no average and no change.
-		{"Monthly Totals", 7, []string{"March", "1", "2,000.00", "2,000.00", "0.00", "", ""}},
-		{"Monthly Totals", 8, []string{"", "", "", "", "", "", ""}},
-		{"Submission Compliance", 5, []string{"Church", "Worker", "Jan", "Feb", "Submitted", "Approved", "Submission Rate"}},
-		{"Submission Compliance", 6, []string{"Bethel", "Ana", "Approved", "Pending", "2", "1", "100.0%"}},
-		{"Submission Compliance", 7, []string{"Grace", "Ben", "No Report", "Needs Revision", "1", "0", "50.0%"}},
-		// A month before the account existed is a dash, outside the rate.
-		{"Submission Compliance", 8, []string{"Hope", "Dee", "—", "Pending", "1", "0", "100.0%"}},
-		// Inactive accounts are left out.
-		{"Submission Compliance", 9, []string{"", "", "", "", "", "", ""}},
-	} {
-		if got := row(c.sheet, c.row, len(c.want)); !slices.Equal(got, c.want) {
-			t.Errorf("%s row %d = %q, want %q", c.sheet, c.row, got, c.want)
-		}
-	}
-
-	// Status cells are colour-coded; the dash keeps the zebra fill.
-	for ref, want := range map[string]string{"C6": "C6EFCE", "D6": "FFEB9C", "C7": "FFC7CE", "D7": "FFEB9C", "C8": ""} {
-		id, _ := f.GetCellStyle("Submission Compliance", ref)
-		style, err := f.GetStyle(id)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got := strings.Join(style.Fill.Color, ""); got != want {
-			t.Errorf("Submission Compliance!%s fill = %q, want %q", ref, got, want)
-		}
-	}
-
-	if got, want := get(full, "A2"), "All Metrics · Full Year 2026 · Approved · 2 of 3 churches reporting"; got != want {
-		t.Errorf("%s subtitle = %q, want %q", full, got, want)
-	}
-	if layout, err := f.GetPageLayout(full); err != nil || *layout.Orientation != "landscape" || *layout.FitToWidth != 1 {
-		t.Errorf("%s page layout = %+v, %v", full, layout, err)
-	}
-	panes, err := f.GetPanes(full)
-	if err != nil || !panes.Freeze || panes.YSplit != headerRow || panes.XSplit != 1 {
-		t.Errorf("%s panes = %+v, %v", full, panes, err)
-	}
-	if panes, _ := f.GetPanes("Weekly Trend"); !panes.Freeze || panes.YSplit != headerRow || panes.XSplit != 0 {
-		t.Errorf("Weekly Trend panes = %+v", panes)
-	}
-
-	headerStyle, _ := f.GetCellStyle("Summary", "A5")
-	st, _ := f.GetStyle(headerStyle)
-	if !st.Font.Bold || st.Font.Color != "FFFFFF" || st.Fill.Color[0] != "404040" || st.Alignment.Horizontal != "center" {
-		t.Errorf("header style = font %+v fill %+v", st.Font, st.Fill)
-	}
-	even, _ := f.GetCellStyle("Church Breakdown", "A6")
-	odd, _ := f.GetCellStyle("Church Breakdown", "A7")
-	if oddStyle, _ := f.GetStyle(odd); even == odd || len(oddStyle.Fill.Color) == 0 || oddStyle.Fill.Color[0] != "F2F2F2" {
-		t.Errorf("zebra: even style %d, odd style %d", even, odd)
-	}
-	if w, _ := f.GetColWidth("Church Breakdown", "A"); w < 10 || w > 50 {
-		t.Errorf("column A width = %v", w)
-	}
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	return f
 }
 
-func TestDetailTable(t *testing.T) {
-	data := stats.AttendanceAnalytics{Year: 2026, Detail: []stats.AttendanceDetail{
-		{Metric: "sunday_school", ChurchName: "Bethel", Month: 1, Value: 5},
-		{Metric: "worship_service", ChurchName: "Grace", Month: 2, Value: 30},
-		{Metric: "worship_service", ChurchName: "Bethel", Month: 2, Value: 20},
-		{Metric: "worship_service", ChurchName: "Bethel", Month: 1, Value: 10},
-	}}
-	got := detailTable(data)
-	if !got.filter || !slices.Equal(got.headers, []string{"Metric", "Church", "Month", "2026"}) {
-		t.Fatalf("headers = %v, filter = %v", got.headers, got.filter)
+// sheetTable reads a sheet's header (row 5) and rows as raw values.
+func sheetTable(t *testing.T, f *excelize.File, sheet string) ([]string, [][]string) {
+	t.Helper()
+	rows, err := f.GetRows(sheet, excelize.Options{RawCellValue: true})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(rows), headerRow)
+	return rows[headerRow-1], rows[headerRow:]
+}
+
+func col(t *testing.T, header []string, name string) int {
+	t.Helper()
+	i := slices.Index(header, name)
+	require.GreaterOrEqual(t, i, 0, "no column %q in %v", name, header)
+	return i
+}
+
+func at(row []string, i int) string {
+	if i < len(row) {
+		return row[i]
 	}
-	// Form metric order (worship before sunday school), then church, then month.
-	want := [][]any{
-		{"Worship Service", "Bethel", "January", 10.0},
-		{"Worship Service", "Bethel", "February", 20.0},
-		{"Worship Service", "Grace", "February", 30.0},
-		{"Sunday School", "Bethel", "January", 5.0},
-	}
-	if fmt.Sprint(got.rows) != fmt.Sprint(want) {
-		t.Errorf("rows = %v, want %v", got.rows, want)
+	return ""
+}
+
+func TestBuildAnalyticsWorkbook_ReconcilesWithAnalysisAndCSV(t *testing.T) {
+	churches, reports := complete()
+	// A pending report under the Approved filter, and a blank metric.
+	early := rep(9001, 1, 2026, 10, "pending", map[string]*[5]*float64{"worship_service": weeks(f64(5))})
+	early.CreatedAt = time.Date(2026, 10, 20, 9, 0, 0, 0, manila)
+	reports = append(reports, early)
+	reports[0].Metrics["sunday_school"] = weeks(nil, f64(0))
+	q := query("worship_service")
+	q.Compare = true
+	data := analyze(analysis{q: q, now: testNow, churches: churches, reports: reports})
+	raw, err := buildAnalyticsWorkbook(data)
+	require.NoError(t, err)
+	f := openWorkbook(t, raw)
+
+	assert.Equal(t, []string{"Full Metrics Summary", "Summary", "Monthly Totals", "Weekly Trend", "Church Breakdown",
+		"Metric Detail", "Weekly Detail", "Submission Compliance", "Notes"}, f.GetSheetList())
+	for _, sheet := range f.GetSheetList() {
+		title, _ := f.GetCellValue(sheet, "A1")
+		assert.True(t, strings.HasPrefix(title, "AMGCReports — "+sheet), "%s title %q", sheet, title)
+		scope, _ := f.GetCellValue(sheet, "A2")
+		assert.Equal(t, "Full Year 2026 · All 24 churches · Approved reports only", scope)
+		cutoff, _ := f.GetCellValue(sheet, "A3")
+		assert.Contains(t, cutoff, "(Asia/Manila)")
+		assert.Contains(t, cutoff, "January–September 2026 (year to date")
 	}
 
-	data.Comparison = &stats.AttendanceComparison{Year: 2025, Detail: []stats.AttendanceDetail{
-		{Metric: "worship_service", ChurchName: "Bethel", Month: 1, Value: 5},
-		{Metric: "baptism", ChurchName: "Zion", Month: 3, Value: 2},
-	}}
-	got = detailTable(data)
-	if !slices.Equal(got.headers, []string{"Metric", "Church", "Month", "2026", "2025", "Change"}) {
-		t.Fatalf("compare headers = %v", got.headers)
+	// Full Metrics Summary: worship total and every church kept, as numbers.
+	header, rows := sheetTable(t, f, "Full Metrics Summary")
+	assert.Len(t, header, 7+24)
+	w := metricSummary(t, data, "worship_service")
+	assert.Equal(t, "43200", at(rows[0], col(t, header, "Total for Period")))
+	assert.Equal(t, strconv.Itoa(w.Observations), at(rows[0], col(t, header, "Recorded Entries")))
+	assert.Equal(t, "50", at(rows[0], col(t, header, "Avg per Church-Service")))
+	assert.Equal(t, "1200", at(rows[0], col(t, header, "Network Weekly Avg")))
+	typ, err := f.GetCellType("Full Metrics Summary", "D6")
+	require.NoError(t, err)
+	assert.NotEqual(t, excelize.CellTypeSharedString, typ, "totals are numbers, not text")
+
+	// Weekly Detail: the included worship rows add up to the same total, unrounded.
+	header, rows = sheetTable(t, f, "Weekly Detail")
+	var sum float64
+	var n int
+	for _, r := range rows {
+		if at(r, col(t, header, "Metric Code")) == "worship_service" && at(r, col(t, header, "Included in Selected Analytics")) == "true" && at(r, col(t, header, "Value State")) == "reported" {
+			v, err := strconv.ParseFloat(at(r, col(t, header, "Value")), 64)
+			require.NoError(t, err)
+			sum += v
+			n++
+		}
 	}
-	if r := got.rows[0]; r[4] != 5.0 || r[5] != change(10, 5) {
-		t.Errorf("Bethel January = %v, want 2025 = 5 and change(10, 5)", r)
+	assert.InDelta(t, *w.Total, sum, 1e-9)
+	assert.Equal(t, w.Observations, n)
+
+	// The CSV gives the same rows and total.
+	out, err := analyticsCSV(data, stats.CSVWeeklyDetail)
+	require.NoError(t, err)
+	require.True(t, bytes.HasPrefix(out, []byte("\uFEFF")), "byte-order mark for Excel")
+	records, err := csv.NewReader(bytes.NewReader(out[3:])).ReadAll()
+	require.NoError(t, err)
+	assert.Equal(t, weeklyDetailHeaders, records[0])
+	sum, n = 0, 0
+	blankZero := 0
+	for _, r := range records[1:] {
+		if r[9] == "worship_service" && r[15] == "true" && r[14] == "reported" {
+			v, _ := strconv.ParseFloat(r[13], 64)
+			sum += v
+			n++
+		}
+		if r[9] == "sunday_school" && r[6] == "1" {
+			switch r[5] {
+			case "1":
+				assert.Equal(t, []string{"", "blank"}, r[13:15], "a blank week is empty with its state")
+			case "2":
+				assert.Equal(t, []string{"0", "reported"}, r[13:15], "an explicit zero stays 0")
+				blankZero++
+			}
+		}
+		if r[6] == "9001" {
+			assert.Equal(t, "false", r[15], "the pending report is listed but not counted")
+		}
 	}
-	// A row only last year still appears, with 0 this year.
-	if r := got.rows[len(got.rows)-1]; fmt.Sprint(r[:5]) != fmt.Sprint([]any{"Baptism", "Zion", "March", 0.0, 2.0}) {
-		t.Errorf("last row = %v", r)
+	assert.InDelta(t, *w.Total, sum, 1e-9)
+	assert.Equal(t, w.Observations, n)
+	assert.Equal(t, 1, blankZero)
+
+	// Compliance: the month matrix and its legend colours.
+	header, rows = sheetTable(t, f, "Submission Compliance")
+	assert.Equal(t, "Approved · on time", at(rows[0], col(t, header, "Sep")))
+	assert.Equal(t, "Pending · before month end", at(rows[0], col(t, header, "Oct")), "an admin entry before the month ended")
+	assert.Equal(t, "Not Yet Open", at(rows[1], col(t, header, "Oct")))
+
+	// Summary: the comparison has no data, so changes are n/a, never 0% or infinite.
+	header, rows = sheetTable(t, f, "Summary")
+	assert.Equal(t, "n/a", at(rows[1], col(t, header, "Change")))
+}
+
+func TestBuildAnalyticsWorkbook_NoReportAndPendingCells(t *testing.T) {
+	churches := []stats.ChurchRecord{churchRec(1, month(2026, 1), nil, "active"), churchRec(2, month(2026, 1), nil, "active"), churchRec(3, month(2026, 1), nil, "active")}
+	reports := []stats.ReportData{
+		rep(1, 1, 2026, 1, "approved", map[string]*[5]*float64{"tithes_offering": weeks(f64(0))}),
+		rep(2, 2, 2026, 1, "pending", map[string]*[5]*float64{"worship_service": weeks(f64(9))}),
 	}
+	data := analyze(analysis{q: query("worship_service"), now: testNow, churches: churches, reports: reports})
+	raw, err := buildAnalyticsWorkbook(data)
+	require.NoError(t, err)
+	f := openWorkbook(t, raw)
+	header, rows := sheetTable(t, f, "Full Metrics Summary")
+	worship := rows[0]
+	assert.Equal(t, "—", at(worship, col(t, header, "Church 01")), "reported, left blank")
+	assert.Equal(t, "Not Approved", at(worship, col(t, header, "Church 02")))
+	assert.Equal(t, "No Report", at(worship, col(t, header, "Church 03")))
+	assert.Equal(t, "", at(worship, col(t, header, "Total for Period")), "no value is a blank, not 0")
+
+	// Church Breakdown matches the page's church rows; submission completeness counts the
+	// pending report, approval does not.
+	header, rows = sheetTable(t, f, "Church Breakdown")
+	require.Len(t, rows, len(data.ChurchRows))
+	for i, r := range data.ChurchRows {
+		assert.Equal(t, strconv.Itoa(r.Submitted), at(rows[i], col(t, header, "Submitted")))
+		assert.Equal(t, strconv.Itoa(r.Approved), at(rows[i], col(t, header, "Approved")))
+		require.NotNil(t, r.Completeness)
+		assert.Equal(t, strconv.FormatFloat(*r.Completeness, 'f', -1, 64), at(rows[i], col(t, header, "Submission Completeness")))
+	}
+	assert.InDelta(t, 1.0/9, *data.ChurchRows[1].Completeness, 1e-9, "Church 02 submitted 1 of 9 owed months")
+	assert.Equal(t, "0", at(rows[1], col(t, header, "Approved")), "but nothing is approved yet")
 }
 
 func TestBuildAnalyticsWorkbook_EmptyPeriod(t *testing.T) {
-	raw, err := buildAnalyticsWorkbook(stats.AttendanceAnalytics{Year: 2026, Metric: "baptism", Status: stats.AttendanceStatusAll, Period: "q3"}, 0, nil, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	f, err := excelize.OpenReader(bytes.NewReader(raw))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = f.Close() }()
-	if v, _ := f.GetCellValue("Weekly Trend", "A6"); v != "No data for this period." {
-		t.Errorf("empty trend A6 = %q", v)
-	}
-	if v, _ := f.GetCellValue("Submission Compliance", "A6"); v != "No month of this period is due yet." {
-		t.Errorf("empty compliance A6 = %q", v)
-	}
-	if v, _ := f.GetCellValue("Summary", "A2"); v != "Baptism · Q3 2026 · All Submitted" {
-		t.Errorf("subtitle = %q", v)
-	}
+	q := query("baptism")
+	q.Year = 2027
+	raw, err := buildAnalyticsWorkbook(analyze(analysis{q: q, now: testNow}))
+	require.NoError(t, err)
+	f := openWorkbook(t, raw)
+	v, _ := f.GetCellValue("Metric Detail", "A6")
+	assert.Equal(t, "No data for this period.", v)
+	v, _ = f.GetCellValue("Summary", "A3")
+	assert.Contains(t, v, "No month of this period has ended")
 }
 
-func TestDueMonths(t *testing.T) {
-	now := time.Date(2026, 10, 28, 0, 0, 0, 0, time.UTC)
-	for _, c := range []struct {
-		year   int
-		period string
-		want   []time.Month
-	}{
-		{2026, "q3", []time.Month{time.July, time.August, time.September}},
-		{2026, "q4", nil},      // October is still open
-		{2026, "october", nil}, // the current month is not due yet
-		{2025, "q1", []time.Month{time.January, time.February, time.March}},
-		{2027, "january", nil},
-	} {
-		if got := dueMonths(c.year, c.period, now); !slices.Equal(got, c.want) {
-			t.Errorf("dueMonths(%d, %q) = %v, want %v", c.year, c.period, got, c.want)
-		}
-	}
+func TestBuildCSV_EscapesAndGuardsFormulas(t *testing.T) {
+	out, err := buildCSV([]string{"Text", "Number", "Missing"}, [][]any{
+		{"Bethel, \"North\"\nchapel", 0.0, nil},
+		{"=HYPERLINK(\"x\")", -12.5, nil},
+		{"+63 912", 1234567.25, nil},
+		{"@cmd", 7, nil},
+		{"-dash", true, nil},
+	})
+	require.NoError(t, err)
+	require.True(t, bytes.HasPrefix(out, []byte("\uFEFF")))
+	assert.Contains(t, string(out), "\r\n", "CRLF rows")
+	records, err := csv.NewReader(bytes.NewReader(out[3:])).ReadAll()
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{
+		{"Text", "Number", "Missing"},
+		{"Bethel, \"North\"\nchapel", "0", ""},
+		{"'=HYPERLINK(\"x\")", "-12.5", ""},
+		{"'+63 912", "1234567.25", ""},
+		{"'@cmd", "7", ""},
+		{"'-dash", "true", ""},
+	}, records, "numbers stay plain numbers; text that starts like a formula is guarded")
+}
+
+func TestExportFilename(t *testing.T) {
+	q := stats.AttendanceQuery{Year: 2026, Period: "full_year", Status: stats.AttendanceStatusAll, ChurchIDs: []int64{1, 2}}
+	assert.Equal(t, "amgc-compliance_2026_full-year_all-submitted_2-churches.csv", stats.ExportFilename(q, stats.CSVCompliance, "csv"))
 }

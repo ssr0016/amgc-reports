@@ -12,8 +12,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Annual attendance analytics
-         * @description Weekly metric totals for the selected year period and by church. Defaults to approved reports; status=all includes pending, needs_revision, and approved reports. compare=true includes the same period from the previous year. Needs tracker:read.
+         * Period analytics
+         * @description Every metric's period figures with recorded-entry counts and coverage, the selected metric by month, week slot and church, and the church-by-month submission compliance (D-A31). Only months that have ended are counted; compare=true adds the same months of the previous year. Defaults to approved reports; status=all includes pending, needs_revision and approved. Compliance ignores status. Needs tracker:read.
          */
         get: {
             parameters: {
@@ -28,6 +28,8 @@ export interface paths {
                     period?: string;
                     /** @description Include the previous year's same period */
                     compare?: boolean;
+                    /** @description Comma-separated church ids; empty means every church */
+                    churches?: string;
                 };
                 header?: never;
                 path?: never;
@@ -95,8 +97,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Annual attendance analytics as Excel
-         * @description The same query and data as GET /admin/analytics/attendance, as a formatted .xlsx with Summary, Weekly Trend, Church Breakdown and All Metrics sheets. Needs tracker:read. Writes no audit row. Rate limited with the other Excel downloads, 5 per minute per user.
+         * Period analytics as Excel
+         * @description The same query and figures as GET /admin/analytics/attendance as a formatted .xlsx: Full Metrics Summary, Summary, Monthly Totals, Weekly Trend, Church Breakdown, Metric Detail, Weekly Detail, Submission Compliance and Notes. Needs tracker:read. Writes no audit row. Rate limited with the other Excel downloads, 5 per minute per user.
          */
         get: {
             parameters: {
@@ -111,6 +113,8 @@ export interface paths {
                     period?: string;
                     /** @description Include the previous year's same period */
                     compare?: boolean;
+                    /** @description Comma-separated church ids; empty means every church */
+                    churches?: string;
                 };
                 header?: never;
                 path?: never;
@@ -167,6 +171,104 @@ export interface paths {
                     };
                     content: {
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/analytics/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Period analytics as CSV
+         * @description One flat table under the analytics query: kind=weekly_detail is one row per report, metric and week slot (every status, with whether the row is in the selected analytics); kind=compliance is one row per church and month of the period. UTF-8 with a byte-order mark; numbers plain, missing values empty with a state column. Needs tracker:read. Writes no audit row. Rate limited with the Excel downloads.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description weekly_detail or compliance */
+                    kind: string;
+                    /** @description Year */
+                    year: number;
+                    /** @description Metric key */
+                    metric: string;
+                    /** @description approved or all; defaults to approved */
+                    status?: string;
+                    /** @description full_year, q1, q2, q3, q4, or a lowercase month; defaults to full_year */
+                    period?: string;
+                    /** @description Include the previous year's same period */
+                    compare?: boolean;
+                    /** @description Comma-separated church ids; empty means every church */
+                    churches?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": {
                             [key: string]: string;
                         };
                     };
@@ -279,6 +381,108 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/churches/{id}/reporting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Override a church's reporting months
+         * @description Optional per-church exceptions to the organization-wide start month (D-A32), as activity months ("YYYY-MM") on the church record, not a worker account. An empty start_month uses the organization default; an empty end_month is open-ended. The end must not be before the church's start. Needs users:write. Audits UPDATE_CHURCH_REPORTING.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Church ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Reporting months */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchReportingRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchScope"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -3615,63 +3819,227 @@ export interface components {
             role_id?: number;
             status?: string;
         };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AnalyticsMonth": {
+            month?: number;
+            name?: string;
+            /** @enum {string} */
+            state?: "not_yet_open" | "open" | "grace" | "closed";
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceAnalytics": {
-            churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"][];
-            comparison?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison"];
-            metric?: string;
+            /** @description ChurchOptions is every church that could be filtered on. */
+            church_options?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchOption"][];
+            /** @description ChurchRows is the selected metric for each church in scope, one row per church. */
+            church_rows?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchMetric"][];
+            /** @description Churches is the churches in scope (the filter applied), each with its eligibility. */
+            churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchScope"][];
+            comparison?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.Comparison"];
+            /** @description Compliance is the church-by-month submission matrix; it ignores the status filter. */
+            compliance?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceRow"][];
+            compliance_totals?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceTotals"];
+            /** @description Coverage is report counts over the counted months, for the status filter. */
+            coverage?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.Coverage"];
             /**
-             * @description NoReportChurches are active church accounts with no report in the period
-             *     (no approved one when Status is approved), so the page can list every church.
+             * @description CutoffMonth is the last month of the period that has ended (0 when none):
+             *     analytics count months 1..CutoffMonth only, so an unfinished year is year to date.
              */
-            no_report_churches?: string[];
+            cutoff_month?: number;
+            /**
+             * @description DefaultStartMonth is the organization-wide first reporting month ("YYYY-MM"),
+             *     used by every church without its own start month; "" when not configured.
+             */
+            default_start_month?: string;
+            /** @description GeneratedAt is when this answer was computed, in Asia/Manila. */
+            generated_at?: string;
+            metric?: string;
+            /** @description Metrics is every metric's period figures, in MetricGroups order. */
+            metrics?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.MetricSummary"][];
+            /** @description Months is every month of the period with its reporting state. */
+            months?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AnalyticsMonth"][];
             period?: string;
+            /** @description Slots is the selected metric per month and reporting-week slot (Week 1-5 of the form, not calendar weeks). */
+            slots?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.SlotPoint"][];
             status?: string;
-            summary?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary"][];
-            trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"][];
-            /**
-             * @description Weeks counts the weeks with reports: each month's distinct report weeks with
-             *     any metric value in scope. Averages per week divide by it, so a month nobody
-             *     reported does not pull them down.
-             */
-            weeks?: number;
+            /** @description Trend is the selected metric per month of the period. */
+            trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.TrendPoint"][];
             year?: number;
         };
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchMetric": {
+            approved?: number;
+            /** @description Average is Total / Observations (Attendance only). */
+            average?: number | null;
+            /** @description Change compares averages (Attendance) or totals; nil when either side has no data or the previous is 0. */
+            change?: number | null;
+            church_id?: number;
             church_name?: string;
-            value?: number;
-        };
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceComparison": {
-            churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceChurch"][];
-            trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint"][];
-            year?: number;
-        };
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary": {
-            churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch"][];
-            /** @description Group is the MetricGroups heading; summary rows come in MetricGroups order. */
-            group?: string;
-            metric?: string;
-            /** @description PeakMonth is the month with the highest total, earliest on a tie; "" when no month is above 0. */
-            peak_month?: string;
-            peak_value?: number;
+            /** @description Completeness is Submitted / Expected over the counted months; nil when nothing is expected. */
+            completeness?: number | null;
+            expected?: number;
+            observations?: number;
+            previous_average?: number | null;
+            previous_observations?: number;
+            previous_total?: number | null;
+            submitted?: number;
+            tithes_total?: number | null;
             total?: number | null;
         };
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch": {
-            church_name?: string;
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchOption": {
+            id?: number;
+            name?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchReportingRequest": {
+            end_month?: string;
+            start_month?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchScope": {
+            /**
+             * @description AccountStatus is "active" when any church account is active, else the first
+             *     account's status, or "none" when no account remains.
+             */
+            account_status?: string;
+            active?: boolean;
+            end_month?: string;
+            id?: number;
+            name?: string;
+            needs_review?: boolean;
+            start_is_default?: boolean;
+            start_month?: string;
+            workers?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchValue": {
+            church_id?: number;
+            observations?: number;
+            /** @enum {string} */
+            state?: "value" | "blank" | "not_approved" | "no_report";
             value?: number | null;
         };
-        "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceTrendPoint": {
-            month?: string;
-            value?: number;
-            week?: number;
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.Comparison": {
+            coverage?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.Coverage"];
+            like_for_like?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.LikeForLike"];
+            metrics?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.MetricSummary"][];
+            slots?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.SlotPoint"][];
+            trend?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.TrendPoint"][];
+            year?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceCell": {
+            /** @description Duplicates counts other reports filed for the same church and month (not counted). */
+            duplicates?: number;
+            /** @description Expected is whether the church owed this month's report (an eligible month whose window has opened). */
+            expected?: boolean;
+            month?: number;
+            report_id?: number;
+            /** @enum {string} */
+            review_status?: "approved" | "pending" | "needs_revision";
+            /** @enum {string} */
+            state?: "not_required" | "not_reviewed" | "inactive" | "not_yet_open" | "awaiting_submission" | "overdue_grace" | "not_filed" | "submitted";
+            submitted_on?: string;
+            /** @enum {string} */
+            timeliness?: "on_time" | "late" | "after_cutoff" | "before_open";
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceRow": {
+            approved?: number;
+            awaiting?: number;
+            cells?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceCell"][];
+            church_id?: number;
+            church_name?: string;
+            duplicates?: number;
+            expected?: number;
+            late?: number;
+            needs_revision?: number;
+            not_filed?: number;
+            on_time?: number;
+            outside?: number;
+            overdue?: number;
+            pending?: number;
+            submitted?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.ComplianceTotals": {
+            approved?: number;
+            awaiting?: number;
+            churches_needing_review?: number;
+            churches_with_submission?: number;
+            duplicates?: number;
+            expected?: number;
+            late?: number;
+            needs_revision?: number;
+            not_filed?: number;
+            on_time?: number;
+            outside?: number;
+            overdue?: number;
+            pending?: number;
+            submitted?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.Coverage": {
+            churches?: number;
+            churches_reported?: number;
+            expected?: number;
+            /**
+             * @description ExpectedReported counts the reports in scope for expected church-months; OutsideReports
+             *     the ones for months a church was not required to report (they still count in totals).
+             */
+            expected_reported?: number;
+            months?: number;
+            outside_reports?: number;
+            reports_in_scope?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.LikeForLike": {
+            /** @description Change compares averages per church-service (Attendance) or totals; nil when not valid. */
+            change?: number | null;
+            churches?: number;
+            current_observations?: number;
+            current_total?: number;
+            previous_observations?: number;
+            previous_total?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.MetricSummary": {
+            /** @description AvgPerChurchService is Total / Observations: attendance per reported church-service (Attendance only). */
+            avg_per_church_service?: number | null;
+            churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.ChurchValue"][];
+            churches_with_value?: number;
+            group?: string;
+            label?: string;
+            metric?: string;
+            network_slots?: number;
+            network_slots_full?: number;
+            /** @description NetworkWeekly is the average network total per reporting-week slot with any value (Attendance only). */
+            network_weekly?: number | null;
+            observations?: number;
+            peak_month?: string;
+            peak_value?: number;
+            /** @description ReportsWithValue counts church-month reports with at least one value; ChurchesWithValue the churches. */
+            reports_with_value?: number;
+            total?: number | null;
+            unit?: string;
+            zero_observations?: number;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.RoleCount": {
             count?: number;
             name?: string;
             role_id?: number;
         };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.SlotPoint": {
+            churches_reported?: number;
+            churches_with_value?: number;
+            month?: number;
+            total?: number | null;
+            week?: number;
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.StatusCount": {
             count?: number;
             status?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_stats.TrendPoint": {
+            churches_expected?: number;
+            churches_reported?: number;
+            churches_with_value?: number;
+            counted?: boolean;
+            /** @description ExpectedReported is the churches reported among the expected ones; Partial when below ChurchesExpected. */
+            expected_reported?: number;
+            month?: number;
+            name?: string;
+            observations?: number;
+            partial?: boolean;
+            state?: string;
+            value?: number | null;
         };
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta": {
             limit?: number;

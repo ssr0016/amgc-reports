@@ -46,9 +46,13 @@ func cell(t *testing.T, f *excelize.File, ref string) string {
 }
 
 func TestMetricRows_EveryKeyOnce(t *testing.T) {
-	require.Len(t, metricRows, len(report.MetricKeys))
+	require.Len(t, metricRows, len(report.MetricKeys)-1, "every metric but the legacy one")
+	require.NotContains(t, metricRows, report.LegacyMetric)
 	rows := map[int]string{}
 	for _, key := range report.MetricKeys {
+		if key == report.LegacyMetric {
+			continue
+		}
 		row, ok := metricRows[key]
 		require.True(t, ok, "no row for %s", key)
 		require.NotContains(t, rows, row, "row %d holds %s and %s", row, rows[row], key)
@@ -452,7 +456,7 @@ func TestBuildBulkWorkbook_ApprovedReports(t *testing.T) {
 		require.NoError(t, err)
 		return name
 	}
-	assert.Len(t, header[1], 26, "5 report columns and 21 metrics")
+	assert.Len(t, header[1], 27, "5 report columns and 22 metrics")
 	assert.Equal(t, []string{"Church", "Worker", "Area of Assignment", "Month", "Year", "Worship Service"}, header[1][:6])
 	ws, tithes, baptism, school := col("Worship Service"), col("Tithes & Offering"), col("Baptism"), col("Sunday School")
 	for ref, want := range map[string]string{
@@ -489,7 +493,7 @@ func TestBuildBulkWorkbook_ApprovedReports(t *testing.T) {
 	assert.Equal(t, "Approved Reports", sheets[1].Rows[0][0])
 	assert.Equal(t, "", sheets[1].Rows[0][1], "the merged title keeps its text in A1 only")
 	for _, row := range sheets[1].Rows {
-		assert.Len(t, row, 26)
+		assert.Len(t, row, 27)
 	}
 
 	t.Run("no approved reports is the dashboard alone (D-A16)", func(t *testing.T) {

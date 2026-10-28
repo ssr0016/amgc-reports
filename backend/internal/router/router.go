@@ -153,6 +153,9 @@ func Setup(
 	admin.GET("/tracker", statsHandler.GetTracker, perm("tracker:read"), limits.Read)
 	admin.GET("/analytics/attendance", statsHandler.GetAttendanceAnalytics, perm("tracker:read"), limits.Read)
 	admin.GET("/analytics/attendance/excel", statsHandler.ExportAttendanceAnalytics, perm("tracker:read"), limits.Export)
+	admin.GET("/analytics/csv", statsHandler.ExportAnalyticsCSV, perm("tracker:read"), limits.Export)
+	// A church's reporting months decide who is expected to report: an account admin's change.
+	admin.PUT("/churches/:id/reporting", statsHandler.SetChurchReporting, adminOnly, perm("users:write"), limits.Write)
 
 	// The audit trail, read-only (no other method is routed).
 	admin.GET("/audit-logs", auditHandler.List, perm("audit:read"), limits.Read)
