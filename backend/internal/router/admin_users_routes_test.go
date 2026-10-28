@@ -196,19 +196,19 @@ func TestAuthRegister_IsRemoved(t *testing.T) {
 	}
 }
 
-// Setting a password is a write: the route sits behind the same write limiter as
-// change-password, after the role and permission gates (so the limiter only sees admins).
-func TestResetPasswordRoute_IsRateLimited(t *testing.T) {
+// Every account write sits behind the write limiter, after the role and permission
+// gates (so the limiter only sees admins).
+func TestAdminUserWriteRoutes_AreRateLimited(t *testing.T) {
 	tooMany := func(echo.HandlerFunc) echo.HandlerFunc {
 		return func(echo.Context) error { return apperror.RateLimit("slow down") }
 	}
-	const body = `{"new_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK","confirm_password":"X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"}`
-	e, svc := adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: tooMany}, "admin", "users:write")
-
-	if got := reportRequestAs(e, http.MethodPost, "/api/v1/admin/users/1/reset-password", body, "1"); got != http.StatusTooManyRequests {
-		t.Fatalf("status = %d, want 429 from the write limiter", got)
-	}
-	if svc.calls != 0 {
-		t.Error("a limited request reached the service")
+	for _, rt := range adminUserRoutes {
+		e, svc := adminUsersServerWith(Limiters{Global: noLimit, Read: noLimit, Write: tooMany}, "admin", "users:write")
+		if got := reportRequestAs(e, rt.method, rt.path, rt.body, "1"); got != http.StatusTooManyRequests {
+			t.Errorf("%s: status = %d, want 429 from the write limiter", rt.name, got)
+		}
+		if svc.calls != 0 {
+			t.Errorf("%s: a limited request reached the service", rt.name)
+		}
 	}
 }

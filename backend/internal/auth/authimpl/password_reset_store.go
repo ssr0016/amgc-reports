@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
+	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 )
 
@@ -43,28 +44,33 @@ func (r *passwordResetStore) Create(ctx context.Context, userID int64) (*auth.Pa
 	if _, err := rand.Read(b); err != nil {
 		return nil, fmt.Errorf("generate token: %w", err)
 	}
-	token := base64.URLEncoding.EncodeToString(b)
+	raw := base64.URLEncoding.EncodeToString(b)
 
 	expiresAt := time.Now().Add(PasswordResetLifetime)
 
 	query, args, err := r.db.Builder.
 		Insert("password_resets").
 		Columns("user_id", "token", "expires_at").
-		Values(userID, token, expiresAt).
+		Values(userID, token.Hash(raw), expiresAt).
 		Suffix("RETURNING " + passwordResetColumns).
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
 
-	return scanPasswordReset(r.db.Pool.QueryRow(ctx, query, args...))
+	p, err := scanPasswordReset(r.db.Pool.QueryRow(ctx, query, args...))
+	if err != nil {
+		return nil, err
+	}
+	p.Token = raw // only the hash is stored; this is the one time the raw token exists
+	return p, nil
 }
 
-func (r *passwordResetStore) GetByToken(ctx context.Context, token string) (*auth.PasswordReset, error) {
+func (r *passwordResetStore) GetByToken(ctx context.Context, raw string) (*auth.PasswordReset, error) {
 	query, args, err := r.db.Builder.
 		Select(passwordResetColumns).
 		From("password_resets").
-		Where(sq.Eq{"token": token}).
+		Where(sq.Eq{"token": token.Hash(raw)}).
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)

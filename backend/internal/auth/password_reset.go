@@ -2,7 +2,8 @@ package auth
 
 import "time"
 
-// PasswordReset represents a password reset token.
+// PasswordReset represents a password reset token. Token is the raw token only on
+// the value Create returns; the column holds token.Hash of it.
 type PasswordReset struct {
 	ID        int64      `json:"id" db:"id"`
 	UserID    int64      `json:"user_id" db:"user_id"`

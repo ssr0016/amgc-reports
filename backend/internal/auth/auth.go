@@ -100,7 +100,8 @@ type VerificationStore interface {
 	DeleteExpired(ctx context.Context) (int64, error)
 }
 
-// PasswordResetStore defines the interface for password reset token access.
+// PasswordResetStore defines the interface for password reset token access. Like
+// RefreshStore it stores only token.Hash; GetByToken takes the raw token.
 type PasswordResetStore interface {
 	Create(ctx context.Context, userID int64) (*PasswordReset, error)
 	GetByToken(ctx context.Context, token string) (*PasswordReset, error)

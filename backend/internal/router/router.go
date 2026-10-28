@@ -123,20 +123,20 @@ func Setup(
 
 	// Permissions
 	admin.GET("/permissions", permissionHandler.List, adminOnly)
-	admin.POST("/permissions", permissionHandler.Create, adminOnly)
+	admin.POST("/permissions", permissionHandler.Create, adminOnly, perm("roles:write"), limits.Write)
 	admin.GET("/permissions/:id", permissionHandler.Get, adminOnly)
-	admin.DELETE("/permissions/:id", permissionHandler.Delete, adminOnly)
+	admin.DELETE("/permissions/:id", permissionHandler.Delete, adminOnly, perm("roles:write"), limits.Write)
 
 	// Users (admin management)
 	admin.GET("/users/:id", adminUserHandler.GetUser, adminOnly)
 	// The only way to create an account (there is no self-registration).
 	// users:write is a second, explicit gate after the admin role.
-	admin.POST("/users", adminUserHandler.CreateUser, adminOnly, perm("users:write"))
-	admin.PUT("/users/:id", adminUserHandler.UpdateUser, adminOnly, perm("users:write"))
-	admin.PUT("/users/:id/status", adminUserHandler.ChangeStatus, adminOnly, perm("users:write"))
+	admin.POST("/users", adminUserHandler.CreateUser, adminOnly, perm("users:write"), limits.Write)
+	admin.PUT("/users/:id", adminUserHandler.UpdateUser, adminOnly, perm("users:write"), limits.Write)
+	admin.PUT("/users/:id/status", adminUserHandler.ChangeStatus, adminOnly, perm("users:write"), limits.Write)
 	admin.PUT("/users/:id/role", adminUserHandler.ChangeRole, adminOnly, perm("users:write"), limits.Write)
-	admin.DELETE("/users/:id", adminUserHandler.DeleteUser, adminOnly, perm("users:write"))
-	admin.POST("/users/:id/restore", adminUserHandler.RestoreUser, adminOnly, perm("users:write"))
+	admin.DELETE("/users/:id", adminUserHandler.DeleteUser, adminOnly, perm("users:write"), limits.Write)
+	admin.POST("/users/:id/restore", adminUserHandler.RestoreUser, adminOnly, perm("users:write"), limits.Write)
 	// Sets another user's password (D-A12): a write, so it shares change-password's limiter.
 	admin.POST("/users/:id/reset-password", adminUserHandler.ResetPassword, adminOnly, perm("users:write"), limits.Write)
 
