@@ -160,15 +160,18 @@ func newFlatStyles(f *excelize.File, st *excelStyles, countFmt, moneyFmt int) er
 }
 
 // dashboardSheet is the bulk export's first sheet (D-A16); approvedSheet its
-// second, when the month has an approved report.
+// second, when the month has an approved report. summarySheet follows the
+// report sheet in a single export (D-A28).
 const (
 	dashboardSheet = "Report Dashboard"
 	approvedSheet  = "Approved Reports"
+	summarySheet   = "Summary"
 )
 
-// buildWorkbook renders one sheet per report, in order, into a new workbook.
-// Metrics must be loaded. Every value is written as a string or a number, never
-// as a formula, so report text that starts with "=" stays text.
+// buildWorkbook renders one sheet per report, in order, into a new workbook;
+// a single report also gets the Summary sheet. Metrics must be loaded. Every
+// value is written as a string or a number, never as a formula, so report text
+// that starts with "=" stays text.
 func buildWorkbook(reps []*report.Report) (*excelize.File, error) {
 	return renderWorkbook(nil, reps)
 }
@@ -184,7 +187,7 @@ func buildBulkWorkbook(rows []report.DashboardRow, reps []*report.Report) (*exce
 
 // renderWorkbook writes the dashboard first when rows is non-nil, then Approved
 // Reports when there are reports, then the report sheets, whose names never
-// reuse those two.
+// reuse those two. Without rows, one report is followed by its Summary sheet.
 func renderWorkbook(rows []report.DashboardRow, reps []*report.Report) (*excelize.File, error) {
 	f := excelize.NewFile()
 	if err := f.SetDefaultFont("Arial"); err != nil {
@@ -195,22 +198,15 @@ func renderWorkbook(rows []report.DashboardRow, reps []*report.Report) (*exceliz
 		return nil, err
 	}
 	var reserved []string
+	single := rows == nil && len(reps) == 1
+	if single {
+		reserved = []string{summarySheet}
+	}
 	if rows != nil {
-		if err := f.SetSheetName("Sheet1", dashboardSheet); err != nil {
-			return nil, fmt.Errorf("add sheet: %w", err)
-		}
-		if err := writeDashboard(f, rows, st); err != nil {
-			return nil, fmt.Errorf("write sheet %q: %w", dashboardSheet, err)
+		if err := writeBulkHead(f, rows, reps, st); err != nil {
+			return nil, err
 		}
 		reserved = []string{dashboardSheet, approvedSheet}
-		if len(reps) > 0 {
-			if _, err := f.NewSheet(approvedSheet); err != nil {
-				return nil, fmt.Errorf("add sheet: %w", err)
-			}
-			if err := writeApproved(f, reps, st); err != nil {
-				return nil, fmt.Errorf("write sheet %q: %w", approvedSheet, err)
-			}
-		}
 	}
 	for i, name := range sheetNames(reserved, reps) {
 		if i == 0 && rows == nil {
@@ -225,7 +221,38 @@ func renderWorkbook(rows []report.DashboardRow, reps []*report.Report) (*exceliz
 			return nil, fmt.Errorf("write sheet %q: %w", name, err)
 		}
 	}
+	if single {
+		if err := newSheet(f, summarySheet, func() error { return writeSummary(f, reps[0], st) }); err != nil {
+			return nil, err
+		}
+	}
 	return f, nil
+}
+
+// writeBulkHead writes the Report Dashboard into the first sheet, then Approved
+// Reports when there are reports.
+func writeBulkHead(f *excelize.File, rows []report.DashboardRow, reps []*report.Report, st excelStyles) error {
+	if err := f.SetSheetName("Sheet1", dashboardSheet); err != nil {
+		return fmt.Errorf("add sheet: %w", err)
+	}
+	if err := writeDashboard(f, rows, st); err != nil {
+		return fmt.Errorf("write sheet %q: %w", dashboardSheet, err)
+	}
+	if len(reps) == 0 {
+		return nil
+	}
+	return newSheet(f, approvedSheet, func() error { return writeApproved(f, reps, st) })
+}
+
+// newSheet adds the sheet sh and fills it with write.
+func newSheet(f *excelize.File, sh string, write func() error) error {
+	if _, err := f.NewSheet(sh); err != nil {
+		return fmt.Errorf("add sheet: %w", err)
+	}
+	if err := write(); err != nil {
+		return fmt.Errorf("write sheet %q: %w", sh, err)
+	}
+	return nil
 }
 
 // dashboardHeader is the Report Dashboard's header row, under its merged title.
@@ -375,6 +402,55 @@ func writeApproved(f *excelize.File, reps []*report.Report, st excelStyles) erro
 	return w.finish()
 }
 
+// summaryHeader is the Summary sheet's header row.
+var summaryHeader = []string{"Metric", "Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Total", "Average"}
+
+// writeSummary writes the single export's Summary sheet (D-A28): a merged
+// title naming the report, a frozen header, then one zebra row per metric in
+// report.MetricKeys order with its weeks, total and the average of the
+// reported weeks (the report sheet's Average). An unreported week is blank,
+// not 0, and a metric with no reported week has no total or average.
+func writeSummary(f *excelize.File, r *report.Report, st excelStyles) error {
+	sh := summarySheet
+	lastCol, err := excelize.ColumnNumberToName(len(summaryHeader))
+	if err != nil {
+		return err
+	}
+	steps := []error{
+		f.SetRowHeight(sh, 1, 30),
+		f.MergeCell(sh, "A1", lastCol+"1"),
+		f.SetCellStyle(sh, "A1", lastCol+"1", st.dashTitle),
+		f.SetCellStr(sh, "A1", fmt.Sprintf("Report Summary: %s, %s %d", sheetLabel(r), r.Month, r.Year)),
+		f.SetPanes(sh, &excelize.Panes{Freeze: true, XSplit: 1, YSplit: 2, TopLeftCell: "B3", ActivePane: "bottomRight"}),
+	}
+	w := &cellWriter{f: f, sh: sh, steps: steps, widths: make([]int, len(summaryHeader))}
+	for c, h := range summaryHeader {
+		w.put(c+1, 2, h, st.flatHeader)
+	}
+	for i, key := range report.MetricKeys {
+		row, odd, kind := i+3, i%2, flatCount
+		if key == "tithes_offering" {
+			kind = flatMoney
+		}
+		w.put(1, row, rowLabels[metricRows[key]], st.flat[flatText][odd])
+		sum, n := 0.0, 0
+		for week := 1; week <= 5; week++ {
+			var v any
+			if fv, err := r.Metrics[key][week].Float64Value(); err == nil && fv.Valid {
+				v, sum, n = fv.Float64, sum+fv.Float64, n+1
+			}
+			w.put(week+1, row, v, st.flat[kind][odd])
+		}
+		var total, avg any
+		if n > 0 {
+			total, avg = sum, sum/float64(n)
+		}
+		w.put(7, row, total, st.flat[kind][odd])
+		w.put(8, row, avg, st.flat[kind][odd])
+	}
+	return w.finish()
+}
+
 // cellWriter writes typed cells to one sheet, collecting errors and each
 // column's widest content for finish.
 type cellWriter struct {
@@ -433,10 +509,10 @@ func writeSheet(f *excelize.File, sh string, r *report.Report, st excelStyles) e
 	height := 15.75
 	strs := map[string]string{
 		"A1": "ANG MANANAMPALATAYANG GUMAWA", "A3": "NATIONAL WORKERS' MONTHLY MINISTRY REPORT",
-		"A4": "Month of:", "A5": "Worker", "A6": "Area of Assignment", "A7": "Name of Church/Outreach:",
+		"A4": "Month of:", "A5": "Worker:", "A6": "Area of Assignment:", "A7": "Name of Church/Outreach:",
 		"A8": "Weekly Attendance", "A9": "Activities", "G9": "Average",
 		"A29": "Other Statistics", "G30": "Average",
-		"A37": "Names:", "A40": "Narrative Report:", "A41": "Challenges/Problem Encountered", "A42": "Prayer Request",
+		"A37": "Names:", "A40": "Narrative Report:", "A41": "Challenges/Problem Encountered:", "A42": "Prayer Request:",
 		"B5": deref(r.Worker), "B6": deref(r.AreaAssignment), "B7": deref(r.ChurchName),
 		"B37": deref(r.Names), "B40": deref(r.NarrativeReport), "B41": deref(r.Challenges), "B42": deref(r.PrayerRequest),
 	}
@@ -531,11 +607,12 @@ var previewCols = [7]string{"A", "B", "C", "D", "E", "F", "G"}
 // The Average formulas are not cached in a new workbook, so column G is
 // calculated. excelize repeats a merged range's value in every cell it covers;
 // only the top-left cell keeps it here. With dashboard, the first sheet is the
-// Report Dashboard and is read as its title, header and one row per account, 6 wide.
+// Report Dashboard and is read as its title, header and one row per account, 6 wide;
+// without it, the Summary sheet is read the same way, 8 wide.
 func previewSheets(f *excelize.File, dashboard bool) ([]report.PreviewSheet, error) {
 	sheets := make([]report.PreviewSheet, 0, f.SheetCount)
 	for i, sh := range f.GetSheetList() {
-		if dashboard && (i == 0 || sh == approvedSheet) {
+		if (dashboard && (i == 0 || sh == approvedSheet)) || (!dashboard && sh == summarySheet) {
 			rows, err := dashboardRows(f, sh)
 			if err != nil {
 				return nil, err
@@ -573,7 +650,7 @@ func previewSheets(f *excelize.File, dashboard bool) ([]report.PreviewSheet, err
 	return sheets, nil
 }
 
-// dashboardRows reads a table sheet (the dashboard or Approved Reports) as
+// dashboardRows reads a table sheet (the dashboard, Approved Reports or Summary) as
 // written: GetRows ends at the last written row; short rows are padded to the
 // header's width and the merged title keeps its text in A1 only.
 func dashboardRows(f *excelize.File, sh string) ([][]string, error) {

@@ -668,9 +668,11 @@ func TestReportService_Preview(t *testing.T) {
 		p, err := preview(t, f, report.ExcelPreviewRequest{ReportID: rep.ID})
 		require.NoError(t, err)
 		assert.Equal(t, 1, p.Count)
-		assert.Equal(t, []string{"Gospel Bearer"}, names(p))
+		assert.Equal(t, []string{"Gospel Bearer", "Summary"}, names(p))
 		assert.Equal(t, "Gospel Bearer", p.Sheets[0].Rows[6][1]) // B7
 		assert.Len(t, p.Sheets[0].Rows, 42)
+		assert.Len(t, p.Sheets[1].Rows, 23, "Summary: title, header, 21 metrics")
+		assert.Len(t, p.Sheets[1].Rows[1], 8)
 	})
 
 	t.Run("a month: the dashboard, then the export's approved sheets", func(t *testing.T) {

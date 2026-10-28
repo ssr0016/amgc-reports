@@ -90,7 +90,7 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
               {[
                 ["Worker:", report.worker],
                 ["Area of Assignment:", report.area_assignment],
-                ["Name of Church/Outreach", report.church_name],
+                ["Name of Church/Outreach:", report.church_name],
                 ["Status:", report.status ? <ReportStatusBadge status={report.status} /> : "—"],
               ].map(([label, value], index) => (
                 <div key={index} className="grid grid-cols-[minmax(10rem,auto)_1fr] border-b border-black px-2 py-1 last:border-b-0 sm:odd:border-r">
@@ -113,8 +113,8 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
                 {([
                   ["names", "Names:"],
                   ["narrative_report", "Narrative Report:"],
-                  ["challenges", "Challenges/Problem Encountered"],
-                  ["prayer_request", "Prayer Request"],
+                  ["challenges", "Challenges/Problem Encountered:"],
+                  ["prayer_request", "Prayer Request:"],
                 ] as const).map(([field, label], index) => (
                   <div key={field} className={`grid grid-cols-[minmax(12rem,18%)_1fr] border-b border-black last:border-b-0 ${index % 2 ? "bg-slate-50" : "bg-white"}`}>
                     <dt className="border-r border-black px-2 py-1 font-bold">{label}</dt>

@@ -292,7 +292,7 @@ function ReportsList() {
         <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); (opener.current?.isConnected ? opener.current : document.getElementById("main-content"))?.focus(); }}>
           <AlertDialogHeader><AlertDialogTitle>Report Preview</AlertDialogTitle><AlertDialogDescription>Submission metadata</AlertDialogDescription></AlertDialogHeader>
           <dl className="grid grid-cols-2 gap-3 text-sm">
-            {([["Worker", metadataPreview?.worker], ["Month", metadataPreview?.month], ["Year", metadataPreview?.year], ["Area", metadataPreview?.area_assignment], ["Church", metadataPreview?.church_name], ["Status", metadataPreview && <ReportStatusBadge status={metadataPreview.status ?? (metadataPreview.completed ? "approved" : "pending")} />]] as [string, React.ReactNode][]).map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd>{value || "—"}</dd></div>)}
+            {([["Worker", metadataPreview?.worker], ["Month", metadataPreview?.month], ["Year", metadataPreview?.year], ["Area", metadataPreview?.area_assignment], ["Church", metadataPreview?.church_name], ["Status", metadataPreview && <ReportStatusBadge status={metadataPreview.status ?? (metadataPreview.completed ? "approved" : "pending")} />]] as [string, React.ReactNode][]).map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}:</dt><dd>{value || "—"}</dd></div>)}
           </dl>
           <AlertDialogFooter><AlertDialogCancel>Close</AlertDialogCancel></AlertDialogFooter>
         </AlertDialogContent>

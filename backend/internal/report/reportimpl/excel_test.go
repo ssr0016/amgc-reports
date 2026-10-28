@@ -75,16 +75,17 @@ func TestBuildWorkbook_Layout(t *testing.T) {
 	}
 	f := openWorkbook(t, rep)
 	sh := "Gospel Bearer"
-	require.Equal(t, []string{sh}, f.GetSheetList())
+	require.Equal(t, []string{sh, "Summary"}, f.GetSheetList())
 
 	for ref, want := range map[string]string{
 		"A1": "ANG MANANAMPALATAYANG GUMAWA", "A3": "NATIONAL WORKERS' MONTHLY MINISTRY REPORT",
-		"A4": "Month of:", "A5": "Worker", "B5": "Ptr. Ana", "A6": "Area of Assignment", "B6": "Leyte",
+		"A4": "Month of:", "A5": "Worker:", "B5": "Ptr. Ana", "A6": "Area of Assignment:", "B6": "Leyte",
 		"A7": "Name of Church/Outreach:", "B7": "Gospel Bearer", "A8": "Weekly Attendance",
 		"A9": "Activities", "B9": "Week 1", "F9": "Week 5", "G9": "Average",
 		"A19": "Baptism", "A21": "Leadership Conference", "A22": "Leadership Training",
 		"A29": "Other Statistics", "B30": "Week 1", "G30": "Average", "A36": "Person Led To Christ",
-		"A37": "Names:", "B37": "Juan, Maria", "A40": "Narrative Report:", "B41": "Rain", "B42": "Health",
+		"A37": "Names:", "B37": "Juan, Maria", "A40": "Narrative Report:",
+		"A41": "Challenges/Problem Encountered:", "B41": "Rain", "A42": "Prayer Request:", "B42": "Health",
 	} {
 		assert.Equal(t, want, cell(t, f, ref), ref)
 	}
@@ -289,6 +290,39 @@ func TestPreviewSheets(t *testing.T) {
 	} {
 		assert.Equal(t, want, at(ref), ref)
 	}
+}
+
+func TestBuildWorkbook_Summary(t *testing.T) {
+	rep := &report.Report{
+		ID: 7, Month: "September", Year: 2026, ChurchName: strPtr("Summary"),
+		Metrics: map[string]map[int]pgtype.Numeric{
+			"worship_service": {1: numeric(t, "59"), 2: numeric(t, "0"), 4: numeric(t, "100")},
+			"tithes_offering": {1: numeric(t, "1810.50"), 2: numeric(t, "200")},
+		},
+	}
+	f, err := buildWorkbook([]*report.Report{rep})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	// A church named like the Summary sheet gets " (2)".
+	require.Equal(t, []string{"Summary (2)", "Summary"}, f.GetSheetList())
+
+	sheets, err := previewSheets(f, false)
+	require.NoError(t, err)
+	rows := sheets[1].Rows
+	require.Len(t, rows, 2+len(report.MetricKeys))
+	assert.Equal(t, "Report Summary: Summary, September 2026", rows[0][0])
+	assert.Equal(t, summaryHeader, rows[1])
+	assert.Equal(t, []string{"Worship Service", "59", "0", "", "100", "", "159", "53"}, rows[2])
+	tithes := rows[2+slices.Index(report.MetricKeys, "tithes_offering")]
+	assert.Equal(t, []string{"Tithes & Offering", "1,810.50", "200.00", "", "", "", "2,010.50", "1,005.25"}, tithes)
+	// A metric with no reported week has no total or average.
+	assert.Equal(t, []string{"Sunday School", "", "", "", "", "", "", ""}, rows[3])
+
+	// A bulk workbook has no Summary sheet, and a church may use the name.
+	bulk, err := buildBulkWorkbook(nil, []*report.Report{rep})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = bulk.Close() })
+	assert.Equal(t, []string{"Report Dashboard", "Approved Reports", "Summary"}, bulk.GetSheetList())
 }
 
 func TestBuildBulkWorkbook_Dashboard(t *testing.T) {

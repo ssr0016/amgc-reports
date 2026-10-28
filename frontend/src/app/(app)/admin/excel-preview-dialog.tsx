@@ -85,7 +85,7 @@ export function ExcelPreviewDialog({
           />
         ) : (
           <>
-            {!single && (
+            {(!single || data.sheets.length > 1) && (
               <div className="flex flex-wrap items-end gap-4">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="preview-sheet">Sheet</Label>
@@ -102,11 +102,11 @@ export function ExcelPreviewDialog({
                     ))}
                   </NativeSelect>
                 </div>
-                <p className="pb-1.5 text-sm text-slate-700">{data.count} approved</p>
+                {!single && <p className="pb-1.5 text-sm text-slate-700">{data.count} approved</p>}
               </div>
             )}
             {shown && (
-              single || !TABLE_SHEETS.has(shown.name)
+              !(single ? shown.name === SUMMARY_SHEET : TABLE_SHEETS.has(shown.name))
                 ? <ExcelReportSheet rows={shown.rows} name={shown.name} status={previewStatus} />
                 : <ExcelDashboardSheet sheet={shown} />
             )}
@@ -169,7 +169,7 @@ function ExcelReportSheet({ rows, name, status }: { rows: string[][]; name: stri
       <section className="mt-4 border border-black">
         <h3 className="border-b border-black bg-black px-2 py-1 font-bold text-white">Report Details</h3>
         <dl className="grid gap-0">
-          {[[36, "Names:"], [39, "Narrative Report:"], [40, "Challenges/Problem Encountered"], [41, "Prayer Request"]].map(([row, label], index) => (
+          {[[36, "Names:"], [39, "Narrative Report:"], [40, "Challenges/Problem Encountered:"], [41, "Prayer Request:"]].map(([row, label], index) => (
             <div key={label} className={`grid grid-cols-[minmax(12rem,18%)_1fr] border-b border-black last:border-b-0 ${index % 2 ? "bg-slate-50" : "bg-white"}`}>
               <dt className="border-r border-black px-2 py-1 font-bold">{label}</dt>
               <dd className="whitespace-pre-wrap px-2 py-1 [overflow-wrap:anywhere]">{cell(Number(row), 1) || "—"}</dd>
@@ -209,8 +209,10 @@ function ExcelMetricTable({ title, rows, name }: { title: string; rows: string[]
   );
 }
 
-// The bulk export's table sheets; the backend reserves both names, so no church sheet can take them.
+// The table sheets: the bulk export's two and the single export's Summary. The backend reserves
+// each name in its export, so no church sheet can take it.
 const TABLE_SHEETS = new Set(["Report Dashboard", "Approved Reports"]);
+const SUMMARY_SHEET = "Summary";
 
 function ExcelDashboardSheet({ sheet }: { sheet: { name: string; rows: string[][] } }) {
   const title = sheet.rows[0]?.[0] || sheet.name;

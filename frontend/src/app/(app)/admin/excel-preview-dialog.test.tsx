@@ -84,6 +84,20 @@ describe("Excel preview dialog", () => {
     expect(screen.queryByLabelText("Sheet")).not.toBeInTheDocument();
   });
 
+  it("a single report with its Summary sheet offers both, and shows Summary as a table", async () => {
+    const summary = { name: "Summary", rows: [["Report Summary: Bethel, September 2026", ...Array(7).fill("")], ["Metric", "Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Total", "Average"], ["Worship Service", "59", "", "", "", "", "59", "59"]] };
+    h.previewExcel.mockResolvedValue({ count: 1, sheets: [{ name: "Bethel", rows: grid("Bethel title") }, summary] });
+    const { user } = renderDialog({ reportId: 7, label: "Bethel" });
+    await screen.findByRole("region", { name: "Sheet Bethel" });
+    expect(within(screen.getByLabelText("Sheet")).getAllByRole("option").map((o) => o.textContent)).toEqual(["Bethel", "Summary"]);
+    expect(screen.queryByText(/approved$/)).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Sheet"), "Summary");
+    const table = screen.getByRole("table", { name: "Sheet Summary" });
+    expect(within(table).getByText("Report Summary: Bethel, September 2026")).toBeInTheDocument();
+    expect(within(table).getAllByRole("columnheader").map((c) => c.textContent)).toContain("Average");
+    expect(within(table).getByText("Worship Service")).toBeInTheDocument();
+  });
+
   it("shows the single report status badge from the report data", async () => {
     h.previewExcel.mockResolvedValue({ count: 1, sheets: [{ name: "Bethel", rows: grid("Bethel title") }] });
     h.getReport.mockResolvedValue({ status: "needs_revision" });

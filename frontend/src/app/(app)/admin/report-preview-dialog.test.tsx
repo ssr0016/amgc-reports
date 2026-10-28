@@ -193,7 +193,7 @@ describe("ReportPreviewDialog", () => {
     renderDialog();
 
     const section = await screen.findByRole("region", { name: "Report Details" });
-    const labels = ["Names:", "Narrative Report:", "Challenges/Problem Encountered", "Prayer Request"];
+    const labels = ["Names:", "Narrative Report:", "Challenges/Problem Encountered:", "Prayer Request:"];
     for (const label of labels) {
       expect(within(section).getByText(label)).toBeInTheDocument();
     }
