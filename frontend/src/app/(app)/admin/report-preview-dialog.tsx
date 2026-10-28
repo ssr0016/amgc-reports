@@ -62,9 +62,11 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
   return (
     <AlertDialog open onOpenChange={(open) => !open && onClose()}>
       <AlertDialogContent className="max-h-[95vh] max-w-7xl overflow-y-auto bg-white text-black dark:bg-white dark:text-black">
-        <AlertDialogHeader className="sr-only">
-          <AlertDialogTitle>Report Preview</AlertDialogTitle>
-          <AlertDialogDescription>
+        <AlertDialogHeader className="-mx-4 -mt-4 place-items-start rounded-t-xl bg-black px-4 py-3 text-left text-white sm:-mx-6 sm:-mt-6 sm:px-6">
+          <AlertDialogTitle className="text-base font-bold tracking-tight">
+            AMGCReports — Report Preview
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-xs text-slate-300">
             {report ? `${report.month} ${report.year} — ${report.worker || "No worker"}` : "Report preview"}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -102,7 +104,7 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
 
             <section className="mt-4">
               <ReportMetricTable title="Activities" rows={excelMetricRows} report={report} />
-              <ReportMetricTable title="Other Statistics" rows={excelOtherRows} report={report} />
+              <ReportMetricTable title="Other Statistics" rows={excelOtherRows} report={report} names={report.names} />
             </section>
 
             <section aria-labelledby="preview-report-details" className="mt-4 border border-black">
@@ -111,7 +113,6 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
               </h3>
               <dl className="grid gap-0">
                 {([
-                  ["names", "Names:"],
                   ["narrative_report", "Narrative Report:"],
                   ["challenges", "Challenges/Problem Encountered:"],
                   ["prayer_request", "Prayer Request:"],
@@ -155,17 +156,21 @@ function ReportMetricTable({
   title,
   rows,
   report,
+  names,
 }: {
   title: string;
   rows: readonly { key: string; label: string }[];
   report: Report;
+  // Excel puts Names after the last statistic: a label row, then the names below it.
+  names?: string;
 }) {
+  const zebra = (index: number) => `border-black ${index % 2 ? "bg-slate-50 hover:bg-slate-100" : "bg-white hover:bg-slate-100"}`;
   return (
     <div className="mb-3 overflow-x-auto border border-black last:mb-0">
       <div className="bg-black px-2 py-1 font-bold text-white">{title}</div>
-      <Table aria-label={`${title} metrics`} className="table-fixed border-collapse text-[11px]">
-        <TableHeader>
-          <TableRow className="bg-slate-200 hover:bg-slate-200">
+      <Table aria-label={`${title} metrics`} className="table-fixed border-collapse text-[11px] tabular-nums">
+        <TableHeader className="bg-[#E0E0E0] shadow-none">
+          <TableRow className="border-black bg-[#E0E0E0] hover:bg-[#E0E0E0]">
             <TableHead className="w-[30%] border-r border-black px-2 py-1 font-bold text-black h-10 normal-case tracking-normal text-[11px]">Activities</TableHead>
             {WEEKS.map((w) => <TableHead key={w} className="border-r border-black px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Week {w.slice(4)}</TableHead>)}
             <TableHead className="px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Average</TableHead>
@@ -175,13 +180,25 @@ function ReportMetricTable({
           {rows.map((row, index) => {
             const values = report.metrics[row.key];
             return (
-              <TableRow key={row.key} className={index % 2 ? "bg-slate-50 hover:bg-slate-100" : "bg-white hover:bg-slate-100"}>
+              <TableRow key={row.key} className={zebra(index)}>
                 <TableCell className="border-r border-black px-2 py-1 font-medium text-black">{row.label}</TableCell>
                 {WEEKS.map((w) => <TableCell key={w} className="border-r border-black px-2 py-1 text-center text-black">{values?.[w] ?? "—"}</TableCell>)}
                 <TableCell className="px-2 py-1 text-center font-medium text-black">{calculateAverage(values)}</TableCell>
               </TableRow>
             );
           })}
+          {names !== undefined && (
+            <>
+              <TableRow className={zebra(rows.length)}>
+                <TableCell className="border-r border-black px-2 py-1 font-bold text-black">Names:</TableCell>
+                {WEEKS.map((w) => <TableCell key={w} className="border-r border-black px-2 py-1" />)}
+                <TableCell className="px-2 py-1" />
+              </TableRow>
+              <TableRow className={zebra(rows.length + 1)}>
+                <TableCell colSpan={WEEKS.length + 2} className="whitespace-pre-wrap px-2 py-1 text-black [overflow-wrap:anywhere]">{names || "—"}</TableCell>
+              </TableRow>
+            </>
+          )}
         </TableBody>
       </Table>
     </div>

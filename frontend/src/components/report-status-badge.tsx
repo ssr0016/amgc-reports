@@ -7,9 +7,9 @@ const STATUS = {
   no_report_submitted: ["No Report Submitted", "neutral"],
 } as const;
 
-export function ReportStatusBadge({ status }: { status: string }) {
+export function ReportStatusBadge({ status, className }: { status: string; className?: string }) {
   const key = status.toLowerCase().replaceAll(" ", "_");
   const [label, variant] = STATUS[key as keyof typeof STATUS] ?? [status, "neutral"];
 
-  return <Badge data-status={key} variant={variant}>{label}</Badge>;
+  return <Badge data-status={key} variant={variant} className={className}>{label}</Badge>;
 }

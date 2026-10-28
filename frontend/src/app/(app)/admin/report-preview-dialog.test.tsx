@@ -109,7 +109,7 @@ describe("ReportPreviewDialog", () => {
     h.getReport.mockReturnValue(new Promise(() => {})); // never resolves
     const { onClose } = renderDialog();
 
-    expect(screen.getByText("Report Preview")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "AMGCReports — Report Preview" })).toBeInTheDocument();
     // Loading is shown initially
     onClose.mockClear();
   });
@@ -193,11 +193,16 @@ describe("ReportPreviewDialog", () => {
     renderDialog();
 
     const section = await screen.findByRole("region", { name: "Report Details" });
-    const labels = ["Names:", "Narrative Report:", "Challenges/Problem Encountered:", "Prayer Request:"];
+    const labels = ["Narrative Report:", "Challenges/Problem Encountered:", "Prayer Request:"];
     for (const label of labels) {
       expect(within(section).getByText(label)).toBeInTheDocument();
     }
-    for (const value of Object.values(details)) {
+    const stats = screen.getByRole("table", { name: "Other Statistics metrics" });
+    expect(within(stats).getByText("Names:")).toBeInTheDocument();
+    const names = within(stats).getByText(details.names, { normalizer: (text) => text });
+    expect(names).toHaveClass("whitespace-pre-wrap", "[overflow-wrap:anywhere]");
+    expect(within(section).queryByText("Names:")).toBeNull();
+    for (const value of [details.narrative_report, details.challenges, details.prayer_request]) {
       const text = within(section).getByText(value, { normalizer: (text) => text });
       expect(text.textContent).toBe(value);
       expect(text).toHaveClass("whitespace-pre-wrap", "[overflow-wrap:anywhere]");
@@ -210,7 +215,7 @@ describe("ReportPreviewDialog", () => {
     renderDialog();
 
     const section = await screen.findByRole("region", { name: "Report Details" });
-    expect(within(section).getAllByText("—")).toHaveLength(4);
+    expect(within(section).getAllByText("—")).toHaveLength(3);
   });
 
   it("renders Week columns in header", async () => {

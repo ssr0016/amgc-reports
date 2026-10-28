@@ -84,6 +84,18 @@ describe("Excel preview dialog", () => {
     expect(screen.queryByLabelText("Sheet")).not.toBeInTheDocument();
   });
 
+  it("shows Names right after the last statistic, not in Report Details", async () => {
+    const rows = grid("Bethel title");
+    rows[35][0] = "Person Led To Christ";
+    rows[36] = ["Names:", "Ana\nJuan", "", "", "", "", ""];
+    h.previewExcel.mockResolvedValue({ count: 1, sheets: [{ name: "Bethel", rows }] });
+    renderDialog({ reportId: 7, label: "Bethel" });
+    const stats = await screen.findByRole("table", { name: "Sheet Bethel Other Statistics" });
+    const body = within(stats).getAllByRole("row").slice(1).map((r) => r.textContent);
+    expect(body.slice(-3)).toEqual([expect.stringContaining("Person Led To Christ"), "Names:", "Ana\nJuan"]);
+    expect(within(screen.getByRole("region", { name: "Sheet Bethel" })).getAllByText("Names:")).toHaveLength(1);
+  });
+
   it("a single report with its Summary sheet offers both, and shows Summary as a table", async () => {
     const summary = { name: "Summary", rows: [["Report Summary: Bethel, September 2026", ...Array(7).fill("")], ["Metric", "Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Total", "Average"], ["Worship Service", "59", "", "", "", "", "59", "59"]] };
     h.previewExcel.mockResolvedValue({ count: 1, sheets: [{ name: "Bethel", rows: grid("Bethel title") }, summary] });
@@ -123,6 +135,8 @@ describe("Excel preview dialog", () => {
     expect(within(table).getByText("September")).toBeInTheDocument();
     expect(within(table).getByText("No Report Submitted")).toBeInTheDocument();
     expect(within(table).getByText("Approved")).toBeInTheDocument();
+    expect(within(table).getByText("No Report Submitted")).toHaveClass("bg-red-100", "text-red-800");
+    expect(within(table).getByText("Approved")).toHaveClass("bg-green-100", "text-green-800");
     expect(screen.getByText("2 approved")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveClass("border-slate-700");
     expect(screen.getByRole("button", { name: "Download" })).toHaveClass("bg-slate-950");
