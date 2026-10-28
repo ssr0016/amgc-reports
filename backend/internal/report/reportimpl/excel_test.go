@@ -304,7 +304,7 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 	f, err := buildBulkWorkbook(rows, reps)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
-	assert.Equal(t, []string{"Report Dashboard", "Bethel", "report dashboard (2)"}, f.GetSheetList())
+	assert.Equal(t, []string{"Report Dashboard", "Approved Reports", "Bethel", "report dashboard (2)"}, f.GetSheetList())
 
 	const sh = "Report Dashboard"
 	merges, err := f.GetMergeCells(sh)
@@ -355,7 +355,7 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 
 	sheets, err := previewSheets(f, true)
 	require.NoError(t, err)
-	require.Len(t, sheets, 3)
+	require.Len(t, sheets, 4)
 	assert.Equal(t, [][]string{
 		{"Report Dashboard", "", "", "", "", ""},
 		{"Churches", "Month", "Year", "Status", "Coordinator's Remark", "Support Status"},
@@ -363,8 +363,8 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 		{"Bethel", "May", "2026", "Pending", "", ""},
 		{"Zion", "", "", "No Report Submitted", "", ""},
 	}, sheets[0].Rows)
-	assert.Len(t, sheets[1].Rows, 42)
-	assert.Len(t, sheets[1].Rows[0], 7)
+	assert.Len(t, sheets[2].Rows, 42)
+	assert.Len(t, sheets[2].Rows[0], 7)
 
 	t.Run("no reports and no accounts is the title and header alone", func(t *testing.T) {
 		f, err := buildBulkWorkbook(nil, nil)
@@ -377,5 +377,91 @@ func TestBuildBulkWorkbook_Dashboard(t *testing.T) {
 			{"Report Dashboard", "", "", "", "", ""},
 			{"Churches", "Month", "Year", "Status", "Coordinator's Remark", "Support Status"},
 		}, sheets[0].Rows)
+	})
+}
+
+func TestBuildBulkWorkbook_ApprovedReports(t *testing.T) {
+	reps := []*report.Report{
+		{ID: 1, Month: "May", Year: 2026, ChurchName: strPtr("=HYPERLINK(\"http://x\")"), Worker: strPtr("Ana"), AreaAssignment: strPtr("North"),
+			Metrics: map[string]map[int]pgtype.Numeric{
+				"worship_service": {1: numeric(t, "1200"), 2: numeric(t, "800")},
+				"tithes_offering": {1: numeric(t, "1810.50")},
+				"baptism":         {1: numeric(t, "0")},
+			}},
+		{ID: 2, Month: "May", Year: 2026, ChurchName: strPtr("Bethel"), Worker: strPtr("Ben"),
+			Metrics: map[string]map[int]pgtype.Numeric{"worship_service": {1: numeric(t, "50")}}},
+		{ID: 3, Month: "May", Year: 2026, ChurchName: strPtr("Approved Reports")},
+	}
+	f, err := buildBulkWorkbook([]report.DashboardRow{}, reps)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	sheetList := f.GetSheetList()
+	require.Len(t, sheetList, 5)
+	assert.Equal(t, []string{"Report Dashboard", "Approved Reports"}, sheetList[:2])
+	assert.Equal(t, "Approved Reports (2)", sheetList[4], "a church named like the sheet gets the duplicate suffix")
+
+	const sh = "Approved Reports"
+	get := func(ref string) string {
+		t.Helper()
+		v, err := f.GetCellValue(sh, ref)
+		require.NoError(t, err)
+		return v
+	}
+	// Metric columns are found by their header, so the test does not depend on MetricKeys order.
+	header, err := f.GetRows(sh)
+	require.NoError(t, err)
+	col := func(label string) string {
+		t.Helper()
+		i := slices.Index(header[1], label)
+		require.GreaterOrEqual(t, i, 0, label)
+		name, err := excelize.ColumnNumberToName(i + 1)
+		require.NoError(t, err)
+		return name
+	}
+	assert.Len(t, header[1], 26, "5 report columns and 21 metrics")
+	assert.Equal(t, []string{"Church", "Worker", "Area of Assignment", "Month", "Year", "Worship Service"}, header[1][:6])
+	ws, tithes, baptism, school := col("Worship Service"), col("Tithes & Offering"), col("Baptism"), col("Sunday School")
+	for ref, want := range map[string]string{
+		"A1": "Approved Reports",
+		"A3": `=HYPERLINK("http://x")`, "B3": "Ana", "C3": "North", "D3": "May", "E3": "2026",
+		ws + "3": "2,000", tithes + "3": "1,810.50", baptism + "3": "0", school + "3": "", // no week reported is blank, not 0
+		"A4": "Bethel", "C4": "", ws + "4": "50", tithes + "4": "",
+		"A6": "Total", ws + "6": "2,050", tithes + "6": "1,810.50", baptism + "6": "0", school + "6": "",
+	} {
+		assert.Equal(t, want, get(ref), ref)
+	}
+	formula, err := f.GetCellFormula(sh, "A3")
+	require.NoError(t, err)
+	assert.Empty(t, formula, "a church name that looks like a formula stays text")
+
+	panes, err := f.GetPanes(sh)
+	require.NoError(t, err)
+	assert.True(t, panes.Freeze)
+	assert.Equal(t, []int{1, 2}, []int{panes.XSplit, panes.YSplit}, "the church column and the header stay in view")
+
+	style := styleOf(t, f, sh)
+	assert.Equal(t, []string{"E0E0E0"}, style("F2").Fill.Color, "header")
+	assert.True(t, style("F2").Alignment.WrapText, "long metric labels wrap")
+	assert.Empty(t, style("A3").Fill.Color, "even row")
+	assert.Equal(t, []string{"F2F2F2"}, style("A4").Fill.Color, "odd row")
+	assert.True(t, style("A6").Font.Bold, "total row")
+	assert.Len(t, style(school+"3").Border, 4, "a blank metric is still bordered")
+
+	sheets, err := previewSheets(f, true)
+	require.NoError(t, err)
+	require.Len(t, sheets, 5)
+	assert.Equal(t, sh, sheets[1].Name)
+	require.Len(t, sheets[1].Rows, 6, "title, header, three reports and the total")
+	assert.Equal(t, "Approved Reports", sheets[1].Rows[0][0])
+	assert.Equal(t, "", sheets[1].Rows[0][1], "the merged title keeps its text in A1 only")
+	for _, row := range sheets[1].Rows {
+		assert.Len(t, row, 26)
+	}
+
+	t.Run("no approved reports is the dashboard alone (D-A16)", func(t *testing.T) {
+		f, err := buildBulkWorkbook([]report.DashboardRow{{Church: "Zion", Status: report.StatusNoReport}}, nil)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = f.Close() })
+		assert.Equal(t, []string{"Report Dashboard"}, f.GetSheetList())
 	})
 }

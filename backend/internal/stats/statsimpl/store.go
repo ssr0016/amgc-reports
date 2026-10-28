@@ -3,6 +3,7 @@ package statsimpl
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"golang.org/x/sync/errgroup"
@@ -53,7 +54,7 @@ func (r *store) Counts(ctx context.Context, month string, year int) (stats.Admin
 // (a unique index allows one per account and period) in a single query (D-A3).
 func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.TrackerRow, error) {
 	query, args, err := r.db.Builder.
-		Select("u.id", "u.name", "u.email", "COALESCE(u.church_name, '')", "u.status", "r.status").
+		Select("u.id", "u.name", "u.email", "COALESCE(u.church_name, '')", "u.status", "r.status", "u.created_at").
 		From("users u").
 		Join("roles ro ON ro.id = u.role_id").
 		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
@@ -72,7 +73,7 @@ func (r *store) Tracker(ctx context.Context, month string, year int) ([]stats.Tr
 	for rows.Next() {
 		var row stats.TrackerRow
 		var status *string // NULL when there is no report this month
-		if err := rows.Scan(&row.UserID, &row.Name, &row.Email, &row.ChurchName, &row.UserStatus, &status); err != nil {
+		if err := rows.Scan(&row.UserID, &row.Name, &row.Email, &row.ChurchName, &row.UserStatus, &status, &row.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan tracker: %w", err)
 		}
 		if status == nil {
@@ -229,12 +230,13 @@ func (r *store) attendanceChurches(ctx context.Context, metric string, year, sta
 
 func (r *store) attendanceSummary(ctx context.Context, year, startMonth, endMonth int, statusWhere string) ([]stats.AttendanceMetricSummary, error) {
 	query, args, err := r.db.Builder.
-		Select("rm.metric", "COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')", "SUM(rm.value)::double precision").
+		Select("rm.metric", "COALESCE(NULLIF(btrim(r.church_name), ''), 'Unassigned')",
+			"EXTRACT(MONTH FROM to_date(r.month, 'Month'))::int", "SUM(rm.value)::double precision").
 		From("reports r").
 		Join("report_metrics rm ON rm.report_id = r.id").
 		Where("r.deleted_at IS NULL AND r.year = ? AND EXTRACT(MONTH FROM to_date(r.month, 'Month')) BETWEEN ? AND ? "+statusWhere, year, startMonth, endMonth).
-		GroupBy("1", "2").
-		OrderBy("1", "2").
+		GroupBy("1", "2", "3").
+		OrderBy("1", "2", "3").
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build attendance summary query: %w", err)
@@ -246,18 +248,22 @@ func (r *store) attendanceSummary(ctx context.Context, year, startMonth, endMont
 	defer rows.Close()
 
 	valuesByMetric := make(map[string]map[string]float64)
+	monthlyByMetric := make(map[string]*[13]float64) // index 1-12 is the month
 	churchNames := make([]string, 0)
 	seenChurches := make(map[string]bool)
 	for rows.Next() {
 		var metric, church string
+		var month int
 		var value float64
-		if err := rows.Scan(&metric, &church, &value); err != nil {
+		if err := rows.Scan(&metric, &church, &month, &value); err != nil {
 			return nil, fmt.Errorf("scan attendance summary: %w", err)
 		}
 		if valuesByMetric[metric] == nil {
 			valuesByMetric[metric] = make(map[string]float64)
+			monthlyByMetric[metric] = new([13]float64)
 		}
-		valuesByMetric[metric][church] = value
+		valuesByMetric[metric][church] += value
+		monthlyByMetric[metric][month] += value
 		if !seenChurches[church] {
 			seenChurches[church] = true
 			churchNames = append(churchNames, church)
@@ -287,7 +293,23 @@ func (r *store) attendanceSummary(ctx context.Context, year, startMonth, endMont
 				metricChurches = append(metricChurches, stats.AttendanceSummaryChurch{ChurchName: church})
 			}
 		}
-		summary = append(summary, stats.AttendanceMetricSummary{Metric: metric, Total: total, Churches: metricChurches})
+		peak, peakValue := peakMonth(monthlyByMetric[metric])
+		summary = append(summary, stats.AttendanceMetricSummary{Metric: metric, Total: total, PeakMonth: peak, PeakValue: peakValue, Churches: metricChurches})
 	}
 	return summary, nil
+}
+
+// peakMonth is the month with the highest total, earliest on a tie; "" when
+// none is above 0. monthly is indexed by month number, 1-12.
+func peakMonth(monthly *[13]float64) (string, float64) {
+	peak, peakValue := "", 0.0
+	if monthly == nil {
+		return peak, peakValue
+	}
+	for m := 1; m <= 12; m++ {
+		if monthly[m] > peakValue {
+			peak, peakValue = time.Month(m).String(), monthly[m]
+		}
+	}
+	return peak, peakValue
 }

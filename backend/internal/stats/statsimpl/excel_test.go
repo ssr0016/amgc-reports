@@ -3,6 +3,8 @@ package statsimpl
 import (
 	"bytes"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 )
 
 func TestMetricLabels_CoverEveryMetric(t *testing.T) {
@@ -44,7 +47,8 @@ func TestBuildAnalyticsWorkbook(t *testing.T) {
 		},
 		Churches: []stats.AttendanceChurch{{ChurchName: "Bethel", Value: 3234.5}, {ChurchName: "Grace", Value: 0}},
 		Summary: []stats.AttendanceMetricSummary{
-			{Metric: "worship_service", Total: &ten, Churches: []stats.AttendanceSummaryChurch{{ChurchName: "Bethel", Value: &ten}, {ChurchName: "Grace"}}},
+			{Metric: "worship_service", Total: &ten, PeakMonth: "March", PeakValue: 10, Churches: []stats.AttendanceSummaryChurch{{ChurchName: "Bethel", Value: &ten}, {ChurchName: "Grace"}}},
+			{Metric: "sunday_school", Churches: []stats.AttendanceSummaryChurch{{ChurchName: "Bethel"}, {ChurchName: "Grace"}}},
 		},
 		Comparison: &stats.AttendanceComparison{Year: 2025,
 			Trend:    []stats.AttendanceTrendPoint{{Month: "January", Week: 1, Value: 1000}},
@@ -52,7 +56,24 @@ func TestBuildAnalyticsWorkbook(t *testing.T) {
 		},
 	}
 	loc, _ := time.LoadLocation("Asia/Manila")
-	raw, err := buildAnalyticsWorkbook(data, 24, time.Date(2026, 10, 28, 14, 5, 0, 0, loc))
+	// Dee's account was made in February, so January is not hers to report.
+	dee := stats.TrackerRow{UserID: 4, Name: "Dee", ChurchName: "Hope", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerSubmitted, CreatedAt: time.Date(2026, 2, 10, 0, 0, 0, 0, time.UTC)}
+	deeJan := dee
+	deeJan.SubmissionStatus = stats.TrackerNoReport
+	compliance := []monthTracker{
+		{year: 2026, month: time.January, rows: []stats.TrackerRow{
+			{UserID: 1, Name: "Ana", ChurchName: "Bethel", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerApproved},
+			{UserID: 2, Name: "Ben", ChurchName: "Grace", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerNoReport},
+			{UserID: 3, Name: "Cy", ChurchName: "Zion", UserStatus: user.UserStatusInactive, SubmissionStatus: stats.TrackerNoReport},
+			deeJan,
+		}},
+		{year: 2026, month: time.February, rows: []stats.TrackerRow{
+			{UserID: 1, Name: "Ana", ChurchName: "Bethel", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerPending},
+			{UserID: 2, Name: "Ben", ChurchName: "Grace", UserStatus: user.UserStatusActive, SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerNeedsRevision},
+			dee,
+		}},
+	}
+	raw, err := buildAnalyticsWorkbook(data, 24, compliance, time.Date(2026, 10, 28, 14, 5, 0, 0, loc))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +83,7 @@ func TestBuildAnalyticsWorkbook(t *testing.T) {
 	}
 	defer func() { _ = f.Close() }()
 
-	if got, want := f.GetSheetList(), []string{"Summary", "Weekly Trend", "Church Breakdown", "All Metrics"}; !slices.Equal(got, want) {
+	if got, want := f.GetSheetList(), []string{"Summary", "Monthly Totals", "Weekly Trend", "Church Breakdown", "Full Metrics Summary", "Submission Compliance"}; !slices.Equal(got, want) {
 		t.Fatalf("sheets = %v, want %v", got, want)
 	}
 	get := func(sheet, ref string) string {
@@ -81,6 +102,11 @@ func TestBuildAnalyticsWorkbook(t *testing.T) {
 		"B6": "3,234.50", "C6": "1,000.00", "D6": "+223.5%",
 		"B7": "March", "C7": "January",
 		"B8": "1 out of 24", "C8": "1",
+		// Jan-Sep 2026 are due (39 Sundays); all of 2025 is (52).
+		"A9": "Average per Week", "B9": "82.94", "C9": "19.23", "D9": "+331.3%",
+		// Active accounts submitted 4 of their 5 due reports; Cy is inactive and
+		// Dee's January predates her account.
+		"A10": "Submission Rate", "B10": "80.0%", "C10": "", "D10": "",
 	} {
 		if got := get("Summary", ref); got != want {
 			t.Errorf("Summary!%s = %q, want %q", ref, got, want)
@@ -102,14 +128,57 @@ func TestBuildAnalyticsWorkbook(t *testing.T) {
 	if got := []string{get("Church Breakdown", "A8"), get("Church Breakdown", "B8"), get("Church Breakdown", "D8")}; !slices.Equal(got, []string{"Zion", "0.00", "-100.0%"}) {
 		t.Errorf("Zion row = %v", got)
 	}
-	// A church with no value for a metric gets a blank cell, not 0.
-	if got := []string{get("All Metrics", "A6"), get("All Metrics", "C6"), get("All Metrics", "D6")}; !slices.Equal(got, []string{"Worship Service", "10.00", ""}) {
-		t.Errorf("All Metrics row = %v", got)
+	// Peak month sits after the total; a church with no value for a metric gets a blank cell, not 0.
+	const full = "Full Metrics Summary"
+	row := func(sheet string, r int) []string {
+		var out []string
+		for _, col := range "ABCDEFG" {
+			out = append(out, get(sheet, string(col)+strconv.Itoa(r)))
+		}
+		return out
+	}
+	for _, c := range []struct {
+		sheet string
+		row   int
+		want  []string
+	}{
+		{full, 5, []string{"Metric", "Total for Period", "Avg per Week", "Peak Month", "Peak Month Total", "Bethel", "Grace"}},
+		{full, 6, []string{"Worship Service", "10.00", "0.26", "March", "10.00", "10.00", ""}},
+		// A metric with no data has no average or peak month.
+		{full, 7, []string{"Sunday School", "", "", "—", "", "", ""}},
+		{"Monthly Totals", 5, []string{"Month", "Weeks", "2026 Total", "2026 Avg per Week", "2025 Total", "2025 Avg per Week", "Change (Avg)"}},
+		{"Monthly Totals", 6, []string{"January", "4", "1,234.50", get("Monthly Totals", "D6"), "1,000.00", "250.00", get("Monthly Totals", "G6")}},
+		// March 2026 has five Sundays; last year's March had nothing.
+		{"Monthly Totals", 7, []string{"March", "5", "2,000.00", "400.00", "0.00", "0.00", "New"}},
+		{"Monthly Totals", 8, []string{"", "", "", "", "", "", ""}},
+		{"Submission Compliance", 5, []string{"Church", "Worker", "Jan", "Feb", "Submitted", "Approved", "Submission Rate"}},
+		{"Submission Compliance", 6, []string{"Bethel", "Ana", "Approved", "Pending", "2", "1", "100.0%"}},
+		{"Submission Compliance", 7, []string{"Grace", "Ben", "No Report", "Needs Revision", "1", "0", "50.0%"}},
+		// A month before the account existed is a dash, outside the rate.
+		{"Submission Compliance", 8, []string{"Hope", "Dee", "—", "Pending", "1", "0", "100.0%"}},
+		// Inactive accounts are left out.
+		{"Submission Compliance", 9, []string{"", "", "", "", "", "", ""}},
+	} {
+		if got := row(c.sheet, c.row); !slices.Equal(got, c.want) {
+			t.Errorf("%s row %d = %q, want %q", c.sheet, c.row, got, c.want)
+		}
 	}
 
-	panes, err := f.GetPanes("All Metrics")
+	// Status cells are colour-coded; the dash keeps the zebra fill.
+	for ref, want := range map[string]string{"C6": "C6EFCE", "D6": "FFEB9C", "C7": "FFC7CE", "D7": "FFEB9C", "C8": ""} {
+		id, _ := f.GetCellStyle("Submission Compliance", ref)
+		style, err := f.GetStyle(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Join(style.Fill.Color, ""); got != want {
+			t.Errorf("Submission Compliance!%s fill = %q, want %q", ref, got, want)
+		}
+	}
+
+	panes, err := f.GetPanes(full)
 	if err != nil || !panes.Freeze || panes.YSplit != headerRow || panes.XSplit != 1 {
-		t.Errorf("All Metrics panes = %+v, %v", panes, err)
+		t.Errorf("%s panes = %+v, %v", full, panes, err)
 	}
 	if panes, _ := f.GetPanes("Weekly Trend"); !panes.Freeze || panes.YSplit != headerRow || panes.XSplit != 0 {
 		t.Errorf("Weekly Trend panes = %+v", panes)
@@ -131,7 +200,7 @@ func TestBuildAnalyticsWorkbook(t *testing.T) {
 }
 
 func TestBuildAnalyticsWorkbook_EmptyPeriod(t *testing.T) {
-	raw, err := buildAnalyticsWorkbook(stats.AttendanceAnalytics{Year: 2026, Metric: "baptism", Status: stats.AttendanceStatusAll, Period: "q3"}, 0, time.Now())
+	raw, err := buildAnalyticsWorkbook(stats.AttendanceAnalytics{Year: 2026, Metric: "baptism", Status: stats.AttendanceStatusAll, Period: "q3"}, 0, nil, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +212,41 @@ func TestBuildAnalyticsWorkbook_EmptyPeriod(t *testing.T) {
 	if v, _ := f.GetCellValue("Weekly Trend", "A6"); v != "No data for this period." {
 		t.Errorf("empty trend A6 = %q", v)
 	}
+	if v, _ := f.GetCellValue("Submission Compliance", "A6"); v != "No month of this period is due yet." {
+		t.Errorf("empty compliance A6 = %q", v)
+	}
 	if v, _ := f.GetCellValue("Summary", "A2"); v != "Baptism · Q3 2026 · All Submitted" {
 		t.Errorf("subtitle = %q", v)
+	}
+}
+
+func TestSundays(t *testing.T) {
+	for _, c := range []struct {
+		year  int
+		month time.Month
+		want  int
+	}{{2026, time.February, 4}, {2026, time.March, 5}, {2026, time.August, 5}, {2025, time.January, 4}, {2024, time.December, 5}} {
+		if got := sundays(c.year, c.month); got != c.want {
+			t.Errorf("sundays(%d, %s) = %d, want %d", c.year, c.month, got, c.want)
+		}
+	}
+}
+
+func TestDueMonths(t *testing.T) {
+	now := time.Date(2026, 10, 28, 0, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		year   int
+		period string
+		want   []time.Month
+	}{
+		{2026, "q3", []time.Month{time.July, time.August, time.September}},
+		{2026, "q4", nil},      // October is still open
+		{2026, "october", nil}, // the current month is not due yet
+		{2025, "q1", []time.Month{time.January, time.February, time.March}},
+		{2027, "january", nil},
+	} {
+		if got := dueMonths(c.year, c.period, now); !slices.Equal(got, c.want) {
+			t.Errorf("dueMonths(%d, %q) = %v, want %v", c.year, c.period, got, c.want)
+		}
 	}
 }

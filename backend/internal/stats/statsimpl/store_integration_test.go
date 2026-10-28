@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,6 +47,7 @@ func TestStore_AnalyticsAttendance(t *testing.T) {
 		require.NoError(t, err)
 	}
 	create("January", 2026, "2")
+	create("March", 2026, "7")
 	create("April", 2026, "9")
 	create("January", 2025, "3")
 
@@ -56,18 +58,23 @@ func TestStore_AnalyticsAttendance(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got.Trend, 15)
 	require.Len(t, got.Churches, 1)
-	assert.Equal(t, 2.0, got.Churches[0].Value)
+	assert.Equal(t, 9.0, got.Churches[0].Value)
 	require.Len(t, got.Summary, 21)
+	worship := got.Summary[0]
+	assert.Equal(t, "March", worship.PeakMonth)
+	assert.Equal(t, 7.0, worship.PeakValue)
 	tithes := got.Summary[8]
 	assert.Equal(t, "tithes_offering", tithes.Metric)
 	require.NotNil(t, tithes.Total)
 	assert.Equal(t, 120.50, *tithes.Total)
+	assert.Equal(t, "January", tithes.PeakMonth)
 	require.Len(t, tithes.Churches, 1)
 	require.NotNil(t, tithes.Churches[0].Value)
 	assert.Equal(t, 120.50, *tithes.Churches[0].Value)
 	baptism := got.Summary[18]
 	require.NotNil(t, baptism.Total)
 	assert.Equal(t, 0.0, *baptism.Total)
+	assert.Empty(t, baptism.PeakMonth) // a total of 0 has no peak
 	sundaySchool := got.Summary[1]
 	assert.Nil(t, sundaySchool.Total)
 	require.Len(t, sundaySchool.Churches, 1)
@@ -280,6 +287,10 @@ func TestStore_Tracker(t *testing.T) {
 	t.Run("church accounts only, with their status, by church then name", func(t *testing.T) {
 		got, err := store.Tracker(ctx, "january", 2026)
 		require.NoError(t, err)
+		for i := range got {
+			assert.False(t, got[i].CreatedAt.IsZero(), "created_at of %s", got[i].Name)
+			got[i].CreatedAt = time.Time{}
+		}
 		assert.Equal(t, []stats.TrackerRow{
 			{UserID: bob, Name: "Bob", Email: "bob@example.com", ChurchName: "antioch", UserStatus: "active", SubmissionStatus: stats.TrackerSubmitted, ReviewStatus: stats.TrackerPending},
 			{UserID: cora, Name: "Cora", Email: "cora@example.com", ChurchName: "Antioch", UserStatus: "inactive", SubmissionStatus: stats.TrackerNoReport},

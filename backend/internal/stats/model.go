@@ -1,6 +1,9 @@
 package stats
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // ErrPeriod is returned when only one of month and year is given, or the month
 // is not an English month name. The handler maps it to 422.
@@ -51,9 +54,12 @@ type AttendanceChurch struct {
 }
 
 type AttendanceMetricSummary struct {
-	Metric   string                    `json:"metric"`
-	Total    *float64                  `json:"total" extensions:"x-nullable"`
-	Churches []AttendanceSummaryChurch `json:"churches"`
+	Metric string   `json:"metric"`
+	Total  *float64 `json:"total" extensions:"x-nullable"`
+	// PeakMonth is the month with the highest total, earliest on a tie; "" when no month is above 0.
+	PeakMonth string                    `json:"peak_month"`
+	PeakValue float64                   `json:"peak_value"`
+	Churches  []AttendanceSummaryChurch `json:"churches"`
 }
 
 type AttendanceSummaryChurch struct {
@@ -142,4 +148,6 @@ type TrackerRow struct {
 	UserStatus       string `json:"user_status"`
 	SubmissionStatus string `json:"submission_status" enums:"submitted,no_report"`
 	ReviewStatus     string `json:"review_status,omitempty" enums:"approved,pending,needs_revision"`
+	// CreatedAt is when the account was made; the Excel compliance sheet skips earlier months.
+	CreatedAt time.Time `json:"-"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.TrackerRow

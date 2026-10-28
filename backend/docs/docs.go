@@ -3896,6 +3896,13 @@ const docTemplate = `{
                 "metric": {
                     "type": "string"
                 },
+                "peak_month": {
+                    "description": "PeakMonth is the month with the highest total, earliest on a tie; \"\" when no month is above 0.",
+                    "type": "string"
+                },
+                "peak_value": {
+                    "type": "number"
+                },
                 "total": {
                     "type": "number",
                     "x-nullable": true

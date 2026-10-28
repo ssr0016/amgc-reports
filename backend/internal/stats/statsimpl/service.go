@@ -91,7 +91,19 @@ func (s *service) AnalyticsExcel(ctx context.Context, q stats.AttendanceQuery) (
 	if err != nil {
 		return nil, err
 	}
-	return buildAnalyticsWorkbook(data, counts.ChurchesTotal, s.now().In(s.loc))
+	now := s.now().In(s.loc)
+	var compliance []monthTracker
+	for _, m := range dueMonths(data.Year, data.Period, now) {
+		rows, err := s.store.Tracker(ctx, m.String(), data.Year)
+		if err != nil {
+			return nil, fmt.Errorf("tracker for %s %d: %w", m, data.Year, err)
+		}
+		for i := range rows {
+			rows[i].CreatedAt = rows[i].CreatedAt.In(s.loc) // the creation month is a Manila month
+		}
+		compliance = append(compliance, monthTracker{year: data.Year, month: m, rows: rows})
+	}
+	return buildAnalyticsWorkbook(data, counts.ChurchesTotal, compliance, now)
 }
 
 func validAnalyticsMetric(metric string) bool {

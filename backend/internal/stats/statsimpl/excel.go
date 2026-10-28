@@ -10,6 +10,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/stats"
+	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 )
 
 // The Analytics page's Excel download (M5 follow-up). Each sheet is one table
@@ -54,8 +55,27 @@ func periodLabel(period string) string {
 }
 
 // Cell values: a string is text, an int a count, a float64 a metric value, a
-// pct a ratio shown as a signed percentage, and nil a blank cell.
-type pct float64
+// pct a ratio shown as a signed percentage, a rate an unsigned one, a status a
+// colour-coded report status, and nil a blank cell.
+type (
+	pct    float64
+	rate   float64
+	status string
+)
+
+const (
+	statusApproved      status = "Approved"
+	statusPending       status = "Pending"
+	statusNeedsRevision status = "Needs Revision"
+	statusNoReport      status = "No Report"
+)
+
+// statusColors are Excel's own good/neutral/bad cell styles: {fill, font}.
+// Pending and Needs Revision share amber: both still need an admin.
+var statusColors = map[status][2]string{
+	statusApproved: {"C6EFCE", "006100"}, statusPending: {"FFEB9C", "9C5700"}, statusNeedsRevision: {"FFEB9C", "9C5700"},
+	statusNoReport: {"FFC7CE", "9C0006"},
+}
 
 type table struct {
 	sheet          string
@@ -71,6 +91,7 @@ const (
 	kindCount
 	kindValue
 	kindPct
+	kindRate
 )
 
 func kindOf(v any) cellKind {
@@ -81,13 +102,16 @@ func kindOf(v any) cellKind {
 		return kindValue
 	case pct:
 		return kindPct
+	case rate:
+		return kindRate
 	}
 	return kindText
 }
 
 type analyticsStyles struct {
 	title, subtitle, generated, header int
-	cells                              [4][2]int // [kind][odd row]
+	cells                              [5][2]int // [kind][odd row]
+	status                             map[status]int
 }
 
 func newAnalyticsStyles(f *excelize.File) (analyticsStyles, error) {
@@ -111,7 +135,7 @@ func newAnalyticsStyles(f *excelize.File) (analyticsStyles, error) {
 			Border: border, Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center", WrapText: true},
 		}},
 	}
-	numFmts := [4]string{kindCount: "#,##0", kindValue: "#,##0.00", kindPct: "+0.0%;-0.0%;0.0%"}
+	numFmts := [5]string{kindCount: "#,##0", kindValue: "#,##0.00", kindPct: "+0.0%;-0.0%;0.0%", kindRate: "0.0%"}
 	for kind := range st.cells {
 		for odd := range st.cells[kind] {
 			s := &excelize.Style{Font: font(11, false, "000000"), Border: border, Alignment: &excelize.Alignment{Vertical: "center"}}
@@ -135,6 +159,17 @@ func newAnalyticsStyles(f *excelize.File) (analyticsStyles, error) {
 		}
 		*sp.id = id
 	}
+	st.status = map[status]int{}
+	for s, c := range statusColors {
+		id, err := f.NewStyle(&excelize.Style{
+			Font: font(11, false, c[1]), Fill: excelize.Fill{Type: "pattern", Pattern: 1, Color: []string{c[0]}},
+			Border: border, Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		})
+		if err != nil {
+			return analyticsStyles{}, fmt.Errorf("new status style: %w", err)
+		}
+		st.status[s] = id
+	}
 	return st, nil
 }
 
@@ -145,12 +180,14 @@ func displayWidth(v any) int {
 		return 0
 	case string:
 		return utf8.RuneCountInString(v)
+	case status:
+		return utf8.RuneCountInString(string(v))
 	case int:
 		return len(strconv.Itoa(v)) + len(strconv.Itoa(v))/3
 	case float64:
 		digits := len(strconv.FormatFloat(v, 'f', 0, 64))
 		return digits + digits/3 + 3
-	case pct:
+	case pct, rate:
 		return 8
 	}
 	return 0
@@ -238,7 +275,11 @@ func writeCells(f *excelize.File, st analyticsStyles, t table) ([]int, error) {
 			if err := writeCell(f, t.sheet, ref, v); err != nil {
 				return nil, err
 			}
-			if err := f.SetCellStyle(t.sheet, ref, ref, st.cells[kindOf(v)][r%2]); err != nil {
+			style := st.cells[kindOf(v)][r%2]
+			if s, ok := v.(status); ok && st.status[s] != 0 {
+				style = st.status[s] // a coloured status replaces the zebra fill
+			}
+			if err := f.SetCellStyle(t.sheet, ref, ref, style); err != nil {
 				return nil, err
 			}
 			widths[c] = max(widths[c], displayWidth(v))
@@ -253,6 +294,10 @@ func writeCell(f *excelize.File, sheet, ref string, v any) error {
 		return nil
 	case pct:
 		return f.SetCellFloat(sheet, ref, float64(v), -1, 64)
+	case rate:
+		return f.SetCellFloat(sheet, ref, float64(v), -1, 64)
+	case status:
+		return f.SetCellStr(sheet, ref, string(v))
 	default:
 		return f.SetCellValue(sheet, ref, v)
 	}
@@ -309,10 +354,88 @@ func orDash(s string) string {
 	return s
 }
 
-// buildAnalyticsWorkbook lays out data on four sheets: Summary (the KPI cards),
-// Weekly Trend, Church Breakdown and All Metrics. churchesTotal is the page's
-// "out of" count; now is the generated-at time.
-func buildAnalyticsWorkbook(data stats.AttendanceAnalytics, churchesTotal int64, now time.Time) ([]byte, error) {
+// monthTracker is one due month's tracker rows, for the compliance sheet.
+type monthTracker struct {
+	year  int
+	month time.Month
+	rows  []stats.TrackerRow
+}
+
+// counts reports whether row is due for mt: an active account, and not a month
+// that ended before the account existed (unless a report was filed anyway).
+func (mt monthTracker) counts(row stats.TrackerRow) bool {
+	if row.UserStatus != user.UserStatusActive {
+		return false
+	}
+	c := row.CreatedAt
+	beforeCreation := mt.year < c.Year() || mt.year == c.Year() && mt.month < c.Month()
+	return !beforeCreation || row.SubmissionStatus == stats.TrackerSubmitted
+}
+
+// dueMonths is the period's months whose reports are due by now: a month is
+// reported after it ends, so the current month and later are not yet due.
+func dueMonths(year int, period string, now time.Time) []time.Month {
+	start, end, _ := stats.AnalyticsPeriodBounds(period)
+	var out []time.Month
+	for m := time.Month(start); m <= time.Month(end); m++ {
+		if year > now.Year() || year == now.Year() && m >= now.Month() {
+			break
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+// sundays counts a month's Sundays, the weeks the report form records.
+func sundays(year int, m time.Month) int {
+	first := time.Date(year, m, 1, 0, 0, 0, 0, time.UTC)
+	firstSunday := 1 + (7-int(first.Weekday()))%7
+	return (first.AddDate(0, 1, -1).Day()-firstSunday)/7 + 1
+}
+
+// monthNumber is the month a trend point's name stands for; 0 when unknown.
+func monthNumber(name string) time.Month {
+	t, err := time.Parse("January", name)
+	if err != nil {
+		return 0
+	}
+	return t.Month()
+}
+
+// periodWeeks is the Sundays in the period's due months plus any month that
+// already has data (a report filed before its month is over).
+func periodWeeks(year int, period string, trend []stats.AttendanceTrendPoint, now time.Time) int {
+	months := map[time.Month]bool{}
+	for _, m := range dueMonths(year, period, now) {
+		months[m] = true
+	}
+	for _, p := range trend {
+		if p.Value != 0 {
+			months[monthNumber(p.Month)] = true
+		}
+	}
+	weeks := 0
+	for m := range months {
+		if m != 0 {
+			weeks += sundays(year, m)
+		}
+	}
+	return weeks
+}
+
+// perWeek is total over weeks, blank when there are no weeks.
+func perWeek(total float64, weeks int) any {
+	if weeks == 0 {
+		return nil
+	}
+	return total / float64(weeks)
+}
+
+// buildAnalyticsWorkbook lays out data on six sheets: Summary (the KPI cards),
+// Monthly Totals, Weekly Trend, Church Breakdown, Full Metrics Summary and
+// Submission Compliance. churchesTotal is the page's "out of" count;
+// compliance is the tracker for each due month; now is the generated-at time.
+func buildAnalyticsWorkbook(data stats.AttendanceAnalytics, churchesTotal int64, compliance []monthTracker, now time.Time) ([]byte, error) {
 	f := excelize.NewFile()
 	defer func() { _ = f.Close() }()
 	st, err := newAnalyticsStyles(f)
@@ -325,7 +448,11 @@ func buildAnalyticsWorkbook(data stats.AttendanceAnalytics, churchesTotal int64,
 	}
 	subtitle := fmt.Sprintf("%s · %s %d · %s", metricLabel(data.Metric), periodLabel(data.Period), data.Year, status)
 	generated := "Generated " + now.Format("2 Jan 2006, 15:04") + " (" + now.Location().String() + ")"
-	for _, t := range []table{summaryTable(data, churchesTotal), trendTable(data), churchTable(data), allMetricsTable(data)} {
+	weeks := periodWeeks(data.Year, data.Period, data.Trend, now)
+	for _, t := range []table{
+		summaryTable(data, churchesTotal, weeks, compliance), monthlyTable(data), trendTable(data),
+		churchTable(data), allMetricsTable(data, weeks), complianceTable(compliance),
+	} {
 		if err := writeTable(f, st, t, subtitle, generated); err != nil {
 			return nil, err
 		}
@@ -341,22 +468,74 @@ func buildAnalyticsWorkbook(data stats.AttendanceAnalytics, churchesTotal int64,
 	return buf.Bytes(), nil
 }
 
-// summaryTable is the page's three KPI cards.
-func summaryTable(data stats.AttendanceAnalytics, churchesTotal int64) table {
+// summaryTable is the page's three KPI cards, the average per week and the
+// submission rate. weeks is periodWeeks for data's year.
+func summaryTable(data stats.AttendanceAnalytics, churchesTotal int64, weeks int, compliance []monthTracker) table {
 	total, peak, peakValue := totalAndPeak(data.Trend)
 	active := activeChurches(data.Churches)
 	t := table{sheet: "Summary", headers: []string{"KPI", "Value"}, rows: [][]any{
 		{"Total", total},
 		{"Peak Month", orDash(peak)},
 		{"Active Churches", fmt.Sprintf("%d out of %d", active, churchesTotal)},
+		{"Average per Week", perWeek(total, weeks)},
+		{"Submission Rate", submissionRate(compliance)},
 	}}
 	if cmp := data.Comparison; cmp != nil {
 		prevTotal, prevPeak, prevPeakValue := totalAndPeak(cmp.Trend)
 		prevActive := activeChurches(cmp.Churches)
+		// Last year is over, so every month of its period is due.
+		prevAvg := perWeek(prevTotal, periodWeeks(cmp.Year, data.Period, nil, time.Date(cmp.Year+1, 1, 1, 0, 0, 0, 0, time.UTC)))
 		t.headers = append(t.headers, strconv.Itoa(cmp.Year), "Change")
 		t.rows[0] = append(t.rows[0], prevTotal, change(total, prevTotal))
 		t.rows[1] = append(t.rows[1], orDash(prevPeak), change(peakValue, prevPeakValue))
 		t.rows[2] = append(t.rows[2], prevActive, change(float64(active), float64(prevActive)))
+		t.rows[3] = append(t.rows[3], prevAvg, changeOf(t.rows[3][1], prevAvg))
+	}
+	return t
+}
+
+// changeOf is change for two perWeek cells; blank when either is blank.
+func changeOf(current, previous any) any {
+	c, ok1 := current.(float64)
+	p, ok2 := previous.(float64)
+	if !ok1 || !ok2 {
+		return nil
+	}
+	return change(c, p)
+}
+
+// monthlyTable is each month's total and average per week, so a 5-Sunday month
+// compares fairly with a 4-Sunday one. It lists months with data this year or last.
+func monthlyTable(data stats.AttendanceAnalytics) table {
+	y := strconv.Itoa(data.Year)
+	t := table{sheet: "Monthly Totals", headers: []string{"Month", "Weeks", y + " Total", y + " Avg per Week"}}
+	monthly := func(trend []stats.AttendanceTrendPoint) map[time.Month]float64 {
+		out := map[time.Month]float64{}
+		for _, p := range trend {
+			out[monthNumber(p.Month)] += p.Value
+		}
+		return out
+	}
+	current, previous := monthly(data.Trend), map[time.Month]float64{}
+	cmp := data.Comparison
+	if cmp != nil {
+		py := strconv.Itoa(cmp.Year)
+		t.headers = append(t.headers, py+" Total", py+" Avg per Week", "Change (Avg)")
+		previous = monthly(cmp.Trend)
+	}
+	start, end, _ := stats.AnalyticsPeriodBounds(data.Period)
+	for m := time.Month(start); m <= time.Month(end); m++ {
+		if current[m] == 0 && previous[m] == 0 {
+			continue
+		}
+		weeks := sundays(data.Year, m)
+		avg := perWeek(current[m], weeks)
+		row := []any{m.String(), weeks, current[m], avg}
+		if cmp != nil {
+			prevAvg := perWeek(previous[m], sundays(cmp.Year, m))
+			row = append(row, previous[m], prevAvg, changeOf(avg, prevAvg))
+		}
+		t.rows = append(t.rows, row)
 	}
 	return t
 }
@@ -415,10 +594,10 @@ func churchTable(data stats.AttendanceAnalytics) table {
 	return t
 }
 
-// allMetricsTable is every metric's period total, overall and per church; a
-// church with no value for a metric gets a blank cell.
-func allMetricsTable(data stats.AttendanceAnalytics) table {
-	t := table{sheet: "All Metrics", headers: []string{"Metric", "Total for Period"}, freezeFirstCol: true}
+// allMetricsTable is every metric's period total and peak month, overall and
+// per church; a church with no value for a metric gets a blank cell.
+func allMetricsTable(data stats.AttendanceAnalytics, weeks int) table {
+	t := table{sheet: "Full Metrics Summary", headers: []string{"Metric", "Total for Period", "Avg per Week", "Peak Month", "Peak Month Total"}, freezeFirstCol: true}
 	var names []string
 	seen := map[string]bool{}
 	for _, row := range data.Summary {
@@ -441,11 +620,110 @@ func allMetricsTable(data stats.AttendanceAnalytics) table {
 		for _, c := range row.Churches {
 			values[c.ChurchName] = c.Value
 		}
-		out := []any{metricLabel(row.Metric), optional(row.Total)}
+		var peakValue any
+		if row.PeakMonth != "" {
+			peakValue = row.PeakValue
+		}
+		var avg any
+		if row.Total != nil {
+			avg = perWeek(*row.Total, weeks)
+		}
+		out := []any{metricLabel(row.Metric), optional(row.Total), avg, orDash(row.PeakMonth), peakValue}
 		for _, name := range names {
 			out = append(out, optional(values[name]))
 		}
 		t.rows = append(t.rows, out)
 	}
 	return t
+}
+
+// reviewLabel is a tracker row's status as the compliance sheet shows it.
+func reviewLabel(row stats.TrackerRow) status {
+	switch {
+	case row.SubmissionStatus == stats.TrackerNoReport:
+		return statusNoReport
+	case row.ReviewStatus == stats.TrackerApproved:
+		return statusApproved
+	case row.ReviewStatus == stats.TrackerNeedsRevision:
+		return statusNeedsRevision
+	}
+	return statusPending
+}
+
+// complianceTable is each active church account's report status for every due
+// month of the period, with its submitted and approved counts and rate. A month
+// before the account existed shows a dash and is not counted.
+// shortcut: uses today's account status, so a church deactivated mid-year drops
+// out of earlier months too; upgrade if admins need historical membership.
+func complianceTable(compliance []monthTracker) table {
+	t := table{sheet: "Submission Compliance", headers: []string{"Church", "Worker"}, freezeFirstCol: true}
+	if len(compliance) == 0 {
+		t.rows = [][]any{{"No month of this period is due yet."}}
+		return t
+	}
+	type account struct {
+		church, name string
+		statuses     map[time.Month]status
+	}
+	var order []int64
+	accounts := map[int64]*account{}
+	for _, mt := range compliance {
+		t.headers = append(t.headers, mt.month.String()[:3])
+		for _, row := range mt.rows {
+			if !mt.counts(row) {
+				continue
+			}
+			a := accounts[row.UserID]
+			if a == nil {
+				a = &account{church: orDash(row.ChurchName), name: row.Name, statuses: map[time.Month]status{}}
+				accounts[row.UserID] = a
+				order = append(order, row.UserID)
+			}
+			a.statuses[mt.month] = reviewLabel(row)
+		}
+	}
+	t.headers = append(t.headers, "Submitted", "Approved", "Submission Rate")
+	for _, id := range order {
+		a := accounts[id]
+		out := []any{a.church, a.name}
+		due, submitted, approved := 0, 0, 0
+		for _, mt := range compliance {
+			s, ok := a.statuses[mt.month]
+			if !ok {
+				out = append(out, "—")
+				continue
+			}
+			out = append(out, s)
+			due++
+			if s != statusNoReport {
+				submitted++
+			}
+			if s == statusApproved {
+				approved++
+			}
+		}
+		t.rows = append(t.rows, append(out, submitted, approved, rate(float64(submitted)/float64(due))))
+	}
+	return t
+}
+
+// submissionRate is the share of active accounts' due reports that were
+// submitted; blank when nothing is due.
+func submissionRate(compliance []monthTracker) any {
+	due, submitted := 0, 0
+	for _, mt := range compliance {
+		for _, row := range mt.rows {
+			if !mt.counts(row) {
+				continue
+			}
+			due++
+			if row.SubmissionStatus == stats.TrackerSubmitted {
+				submitted++
+			}
+		}
+	}
+	if due == 0 {
+		return nil
+	}
+	return rate(float64(submitted) / float64(due))
 }

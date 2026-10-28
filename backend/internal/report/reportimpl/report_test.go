@@ -562,7 +562,7 @@ func TestReportService_ExportMonth(t *testing.T) {
 		assert.Equal(t, "Church Growth Program Report May 2026.xlsx", x.Filename)
 		wb := open(t, x)
 		// dave's "bethel" is pending: no sheet. carol's church may not take the dashboard's name.
-		assert.Equal(t, []string{"Report Dashboard", "Bethel", "Report Dashboard (2)", "zion"}, wb.GetSheetList())
+		assert.Equal(t, []string{"Report Dashboard", "Approved Reports", "Bethel", "Report Dashboard (2)", "zion"}, wb.GetSheetList())
 		gotDashboard := dashboardOf(t, wb)
 		assert.Equal(t, wantDashboard, gotDashboard)
 
@@ -579,7 +579,7 @@ func TestReportService_ExportMonth(t *testing.T) {
 		x, err := f.svc.ExportMonth(ctx, alice, "", may)
 		require.NoError(t, err)
 		wb := open(t, x)
-		assert.Equal(t, []string{"Report Dashboard", "zion"}, wb.GetSheetList())
+		assert.Equal(t, []string{"Report Dashboard", "Approved Reports", "zion"}, wb.GetSheetList())
 		assert.Equal(t, wantDashboard[:2], dashboardOf(t, wb), "the dashboard is the title and header alone")
 	})
 
@@ -615,7 +615,7 @@ func TestReportService_ExportMonth(t *testing.T) {
 		}
 		x, err := f.svc.ExportMonth(ctx, bob, "", report.ExportReportsRequest{Month: "July", Year: 2026})
 		require.NoError(t, err)
-		assert.Equal(t, []string{"Report Dashboard", "Bethel", strings.Repeat("🙏", 15)}, open(t, x).GetSheetList())
+		assert.Equal(t, []string{"Report Dashboard", "Approved Reports", "Bethel", strings.Repeat("🙏", 15)}, open(t, x).GetSheetList())
 	})
 
 	t.Run("the cap counts approved reports only", func(t *testing.T) {
@@ -678,9 +678,10 @@ func TestReportService_Preview(t *testing.T) {
 		p, err := preview(t, f, report.ExcelPreviewRequest{Month: "May", Year: 2026})
 		require.NoError(t, err)
 		assert.Equal(t, 3, p.Count)
-		assert.Equal(t, []string{"Report Dashboard", "Bethel", "Report Dashboard (2)", "zion"}, names(p))
+		assert.Equal(t, []string{"Report Dashboard", "Approved Reports", "Bethel", "Report Dashboard (2)", "zion"}, names(p))
 		assert.Equal(t, wantDashboard, p.Sheets[0].Rows)
-		assert.Len(t, p.Sheets[1].Rows, 42)
+		assert.Len(t, p.Sheets[1].Rows, 6, "Approved Reports: title, header, three reports, total")
+		assert.Len(t, p.Sheets[2].Rows, 42)
 	})
 
 	t.Run("a month with no approved reports is the dashboard alone", func(t *testing.T) {

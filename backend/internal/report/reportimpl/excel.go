@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+	"unicode/utf8"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/xuri/excelize/v2"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
@@ -48,6 +50,10 @@ type excelStyles struct {
 	weekHeader, mainLabel, subLabel, cell, money, names, textLabel, text int
 	// Report Dashboard.
 	dashTitle, dashHeader, dashChurch, dashMonth, dashYear, dashApproved, dashOpen, dashRemark, dashRemarkSet int
+	// Approved Reports: [flatText|flatCount|flatMoney][odd row], then the bold total row.
+	flatHeader int
+	flat       [3][2]int
+	flatTotal  [3]int
 }
 
 // sides returns thin black borders on the named sides: l, r, t and b.
@@ -75,7 +81,7 @@ func newExcelStyles(f *excelize.File) (excelStyles, error) {
 	top, bottom := &excelize.Alignment{Vertical: "top"}, &excelize.Alignment{Vertical: "bottom"}
 	wrap := &excelize.Alignment{Vertical: "top", WrapText: true}
 	center := &excelize.Alignment{Horizontal: "center", Vertical: "center"}
-	monthFmt, moneyFmt := "mmmm yyyy", 4 // 4 is the built-in #,##0.00
+	monthFmt, moneyFmt, countFmt := "mmmm yyyy", 4, 3 // 4 is the built-in #,##0.00, 3 is #,##0
 
 	var st excelStyles
 	for _, s := range []struct {
@@ -115,11 +121,50 @@ func newExcelStyles(f *excelize.File) (excelStyles, error) {
 		}
 		*s.id = id
 	}
-	return st, nil
+	return st, newFlatStyles(f, &st, countFmt, moneyFmt)
 }
 
-// dashboardSheet is the bulk export's first sheet (D-A16).
-const dashboardSheet = "Report Dashboard"
+// newFlatStyles adds the Approved Reports styles: the dashboard's header with
+// wrapping, zebra rows with thin borders, and a bold total row.
+func newFlatStyles(f *excelize.File, st *excelStyles, countFmt, moneyFmt int) error {
+	header, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{Family: "Arial", Size: 10, Bold: true}, Fill: fill("E0E0E0"), Border: sides("lrtb"),
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center", WrapText: true},
+	})
+	if err != nil {
+		return fmt.Errorf("new style: %w", err)
+	}
+	st.flatHeader = header
+	numFmts := [3]int{flatCount: countFmt, flatMoney: moneyFmt}
+	for kind := range st.flat {
+		for odd := range 3 { // 0 and 1 are the zebra rows, 2 the total row
+			s := &excelize.Style{Font: &excelize.Font{Family: "Arial", Size: 10, Bold: odd == 2}, Border: sides("lrtb"), NumFmt: numFmts[kind]}
+			switch odd {
+			case 1:
+				s.Fill = fill("F2F2F2")
+			case 2:
+				s.Fill = fill("E0E0E0")
+			}
+			id, err := f.NewStyle(s)
+			if err != nil {
+				return fmt.Errorf("new style: %w", err)
+			}
+			if odd == 2 {
+				st.flatTotal[kind] = id
+			} else {
+				st.flat[kind][odd] = id
+			}
+		}
+	}
+	return nil
+}
+
+// dashboardSheet is the bulk export's first sheet (D-A16); approvedSheet its
+// second, when the month has an approved report.
+const (
+	dashboardSheet = "Report Dashboard"
+	approvedSheet  = "Approved Reports"
+)
 
 // buildWorkbook renders one sheet per report, in order, into a new workbook.
 // Metrics must be loaded. Every value is written as a string or a number, never
@@ -137,8 +182,9 @@ func buildBulkWorkbook(rows []report.DashboardRow, reps []*report.Report) (*exce
 	return renderWorkbook(rows, reps)
 }
 
-// renderWorkbook writes the dashboard first when rows is non-nil, then the
-// report sheets, whose names never reuse the dashboard's.
+// renderWorkbook writes the dashboard first when rows is non-nil, then Approved
+// Reports when there are reports, then the report sheets, whose names never
+// reuse those two.
 func renderWorkbook(rows []report.DashboardRow, reps []*report.Report) (*excelize.File, error) {
 	f := excelize.NewFile()
 	if err := f.SetDefaultFont("Arial"); err != nil {
@@ -156,7 +202,15 @@ func renderWorkbook(rows []report.DashboardRow, reps []*report.Report) (*exceliz
 		if err := writeDashboard(f, rows, st); err != nil {
 			return nil, fmt.Errorf("write sheet %q: %w", dashboardSheet, err)
 		}
-		reserved = []string{dashboardSheet}
+		reserved = []string{dashboardSheet, approvedSheet}
+		if len(reps) > 0 {
+			if _, err := f.NewSheet(approvedSheet); err != nil {
+				return nil, fmt.Errorf("add sheet: %w", err)
+			}
+			if err := writeApproved(f, reps, st); err != nil {
+				return nil, fmt.Errorf("write sheet %q: %w", approvedSheet, err)
+			}
+		}
 	}
 	for i, name := range sheetNames(reserved, reps) {
 		if i == 0 && rows == nil {
@@ -224,6 +278,124 @@ func writeDashboard(f *excelize.File, rows []report.DashboardRow, st excelStyles
 		if r.Year != 0 {
 			steps = append(steps, f.SetCellInt(sh, "C"+n, int64(r.Year)))
 		}
+	}
+	for _, err := range steps {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Approved Reports cell kinds.
+const (
+	flatText = iota
+	flatCount
+	flatMoney
+)
+
+// approvedHeader is Approved Reports' first columns; the 21 metrics follow, in
+// report.MetricKeys order, under their report-sheet labels.
+var approvedHeader = []string{"Church", "Worker", "Area of Assignment", "Month", "Year"}
+
+// monthTotal sums a metric's reported weeks; false when no week is reported.
+func monthTotal(weeks map[int]pgtype.Numeric) (float64, bool) {
+	sum, ok := 0.0, false
+	for week, v := range weeks {
+		fv, err := v.Float64Value()
+		if err != nil || !fv.Valid || week < 1 || week > 5 {
+			continue
+		}
+		sum, ok = sum+fv.Float64, true
+	}
+	return sum, ok
+}
+
+// writeApproved writes every approved report as one row of month totals under
+// a merged title and a frozen header, with zebra rows and a bold Total row. A
+// metric with no reported week is blank, not 0; text is never a formula.
+func writeApproved(f *excelize.File, reps []*report.Report, st excelStyles) error {
+	sh := approvedSheet
+	header := slices.Clone(approvedHeader)
+	for _, key := range report.MetricKeys {
+		header = append(header, rowLabels[metricRows[key]])
+	}
+	lastCol, err := excelize.ColumnNumberToName(len(header))
+	if err != nil {
+		return err
+	}
+	steps := []error{
+		f.SetRowHeight(sh, 1, 30),
+		f.SetRowHeight(sh, 2, 42),
+		f.MergeCell(sh, "A1", lastCol+"1"),
+		f.SetCellStyle(sh, "A1", lastCol+"1", st.dashTitle),
+		f.SetCellStr(sh, "A1", approvedSheet),
+		f.SetCellStyle(sh, "A2", lastCol+"2", st.flatHeader),
+		f.SetPanes(sh, &excelize.Panes{Freeze: true, XSplit: 1, YSplit: 2, TopLeftCell: "B3", ActivePane: "bottomRight"}),
+		f.SetPageLayout(sh, &excelize.PageLayoutOptions{Orientation: ptrTo("landscape")}),
+	}
+	widths := make([]int, len(header))
+	put := func(col, row int, v any, style int) {
+		ref, err := excelize.CoordinatesToCellName(col, row)
+		if err != nil {
+			steps = append(steps, err)
+			return
+		}
+		w := 0
+		switch v := v.(type) {
+		case string:
+			steps, w = append(steps, f.SetCellStr(sh, ref, v)), utf8.RuneCountInString(v)
+		case int:
+			steps, w = append(steps, f.SetCellInt(sh, ref, int64(v))), len(strconv.Itoa(v))
+		case float64:
+			digits := len(strconv.FormatFloat(v, 'f', 0, 64))
+			steps, w = append(steps, f.SetCellFloat(sh, ref, v, -1, 64)), digits+digits/3+3
+		}
+		widths[col-1] = max(widths[col-1], w)
+		steps = append(steps, f.SetCellStyle(sh, ref, ref, style))
+	}
+	for c, h := range header {
+		put(c+1, 2, h, st.flatHeader)
+		widths[c] = min(widths[c], 14) // long metric labels wrap instead of widening the column
+	}
+	kindOf := func(key string) int {
+		if key == "tithes_offering" {
+			return flatMoney
+		}
+		return flatCount
+	}
+	totals, reported := map[string]float64{}, map[string]bool{}
+	for i, r := range reps {
+		row, odd := i+3, i%2
+		for c, v := range []any{deref(r.ChurchName), deref(r.Worker), deref(r.AreaAssignment), r.Month, int(r.Year)} {
+			put(c+1, row, v, st.flat[flatText][odd])
+		}
+		for c, key := range report.MetricKeys {
+			var v any
+			if sum, ok := monthTotal(r.Metrics[key]); ok {
+				v, totals[key], reported[key] = sum, totals[key]+sum, true
+			}
+			put(len(approvedHeader)+c+1, row, v, st.flat[kindOf(key)][odd])
+		}
+	}
+	row := len(reps) + 3
+	put(1, row, "Total", st.flatTotal[flatText])
+	for c := 2; c <= len(approvedHeader); c++ {
+		put(c, row, nil, st.flatTotal[flatText])
+	}
+	for c, key := range report.MetricKeys {
+		var v any
+		if reported[key] {
+			v = totals[key]
+		}
+		put(len(approvedHeader)+c+1, row, v, st.flatTotal[kindOf(key)])
+	}
+	for c, w := range widths {
+		col, err := excelize.ColumnNumberToName(c + 1)
+		if err != nil {
+			return err
+		}
+		steps = append(steps, f.SetColWidth(sh, col, col, float64(min(max(w+2, 10), 40))))
 	}
 	for _, err := range steps {
 		if err != nil {
@@ -345,7 +517,7 @@ var previewCols = [7]string{"A", "B", "C", "D", "E", "F", "G"}
 func previewSheets(f *excelize.File, dashboard bool) ([]report.PreviewSheet, error) {
 	sheets := make([]report.PreviewSheet, 0, f.SheetCount)
 	for i, sh := range f.GetSheetList() {
-		if dashboard && i == 0 {
+		if dashboard && (i == 0 || sh == approvedSheet) {
 			rows, err := dashboardRows(f, sh)
 			if err != nil {
 				return nil, err
@@ -383,9 +555,9 @@ func previewSheets(f *excelize.File, dashboard bool) ([]report.PreviewSheet, err
 	return sheets, nil
 }
 
-// dashboardRows reads the dashboard as written: every row has a church, so
-// GetRows ends at the last account; short rows are padded to the 6 columns and
-// the merged title keeps its text in A1 only.
+// dashboardRows reads a table sheet (the dashboard or Approved Reports) as
+// written: GetRows ends at the last written row; short rows are padded to the
+// header's width and the merged title keeps its text in A1 only.
 func dashboardRows(f *excelize.File, sh string) ([][]string, error) {
 	rows, err := f.GetRows(sh)
 	if err != nil {
@@ -395,10 +567,18 @@ func dashboardRows(f *excelize.File, sh string) ([][]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	width := len(dashboardHeader)
+	if len(rows) > 1 {
+		width = max(width, len(rows[1]))
+	}
 	for i, r := range rows {
-		r = append(r, make([]string, len(dashboardHeader)-len(r))...)
+		r = append(r, make([]string, width-len(r))...)
 		for j := range r {
-			if covered[previewCols[j]+strconv.Itoa(i+1)] {
+			name, err := excelize.CoordinatesToCellName(j+1, i+1)
+			if err != nil {
+				return nil, err
+			}
+			if covered[name] {
 				r[j] = ""
 			}
 		}

@@ -3637,6 +3637,9 @@ export interface components {
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceMetricSummary": {
             churches?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch"][];
             metric?: string;
+            /** @description PeakMonth is the month with the highest total, earliest on a tie; "" when no month is above 0. */
+            peak_month?: string;
+            peak_value?: number;
             total?: number | null;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AttendanceSummaryChurch": {
