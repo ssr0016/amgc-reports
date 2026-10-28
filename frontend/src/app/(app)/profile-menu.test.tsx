@@ -5,7 +5,7 @@ import { ProfileMenu } from "./profile-menu";
 
 const h = vi.hoisted(() => ({ role: "admin" }));
 vi.mock("@/lib/session", () => ({
-  useSession: () => ({ user: { name: "Ana", email: "a@b.c", role: h.role } }),
+  useSession: () => ({ user: { name: "Ana", email: "a@b.c", role: h.role }, isAdmin: h.role === "admin" }),
 }));
 
 describe("profile menu", () => {
@@ -38,6 +38,14 @@ describe("profile menu", () => {
     expect(items[2]).toHaveAccessibleName("Sign Out");
     await user.click(items[2]);
     expect(onSignOut).toHaveBeenCalledOnce();
+  });
+
+  it("hides Change Password from non-admins", async () => {
+    h.role = "user";
+    const user = userEvent.setup();
+    render(<ProfileMenu onSignOut={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Ana · user" }));
+    expect(screen.getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["Profile", "Sign Out"]);
   });
 
   it("opens from the keyboard, and Escape closes it and returns focus to the button", async () => {

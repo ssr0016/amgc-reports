@@ -7,7 +7,7 @@ import { useSession } from "@/lib/session";
 
 // The avatar and name are one button, avatar-only below sm so the header stays one row; e2e/auth.spec.ts looks for the "{name} · {role}" text.
 export function ProfileMenu({ onSignOut }: { onSignOut: () => void }) {
-  const { user } = useSession();
+  const { user, isAdmin } = useSession();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -24,9 +24,12 @@ export function ProfileMenu({ onSignOut }: { onSignOut: () => void }) {
         <DropdownMenuItem asChild>
           <Link href="/account/profile">Profile</Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/account/password">Change Password</Link>
-        </DropdownMenuItem>
+        {/* Church users get passwords from an admin; the page stays reachable by URL. */}
+        {isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link href="/account/password">Change Password</Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={onSignOut}>Sign Out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

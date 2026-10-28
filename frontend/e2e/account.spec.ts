@@ -36,8 +36,10 @@ test.describe.configure({ mode: "serial" });
 test("a wrong current password is shown on that field and keeps you signed in", async ({ page }) => {
   await signIn(page, account.password);
   await page.getByRole("button", { name: `${account.name} · user` }).click();
-  await page.getByRole("menuitem", { name: "Change Password" }).click();
-  await expect(page).toHaveURL(/\/account\/password$/);
+  await expect(page.getByRole("menuitem", { name: "Change Password" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/\/reports$/); // goto before the login lands would drop the session
+  await page.goto("/account/password");
   await page.getByLabel("Current password").fill("not-the-password");
   await page.getByLabel("New password").fill(next);
   await page.getByLabel("Confirm password").fill(next);
