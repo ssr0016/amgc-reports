@@ -338,7 +338,12 @@ func (s *service) ToggleComplete(ctx context.Context, userID int64, ip string, i
 		if rep.CompletedAt == nil {
 			return fmt.Errorf("approve report %d: completed_at is nil", rep.ID)
 		}
-		return s.enqueueNotification(ctx, "approved", rep, rep.CompletedAt.Unix())
+		for _, recipientID := range s.resolveRecipients(ctx, rep, userID) {
+			if err := s.enqueueNotification(ctx, "approved", rep, recipientID, rep.CompletedAt.Unix()); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, mapErr(err)
@@ -363,7 +368,12 @@ func (s *service) RequestRevision(ctx context.Context, userID int64, ip string, 
 		if rep.UpdatedAt.IsZero() {
 			return fmt.Errorf("request revision report %d: updated_at is zero", rep.ID)
 		}
-		return s.enqueueNotification(ctx, "needs_revision", rep, rep.UpdatedAt.Unix())
+		for _, recipientID := range s.resolveRecipients(ctx, rep, userID) {
+			if err := s.enqueueNotification(ctx, "needs_revision", rep, recipientID, rep.UpdatedAt.Unix()); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, mapErr(err)
@@ -371,20 +381,27 @@ func (s *service) RequestRevision(ctx context.Context, userID int64, ip string, 
 	return &report.ReportMetadata{ID: rep.ID, Completed: rep.Completed, Status: rep.Status, CompletedAt: rep.CompletedAt, CompletedBy: rep.CompletedBy}, nil
 }
 
-func (s *service) enqueueNotification(ctx context.Context, eventType string, rep *report.Report, marker int64) error {
-	owner, err := s.users.GetByID(ctx, rep.CreatedBy)
-	if err != nil {
-		return fmt.Errorf("get report owner for notification: %w", err)
+func (s *service) resolveRecipients(_ context.Context, rep *report.Report, actorID int64) []int64 {
+	if rep.CreatedBy == actorID {
+		return []int64{rep.CreatedBy}
 	}
-	if owner == nil {
-		return fmt.Errorf("report owner %d: %w", rep.CreatedBy, database.ErrNotFound)
+	return []int64{rep.CreatedBy, actorID}
+}
+
+func (s *service) enqueueNotification(ctx context.Context, eventType string, rep *report.Report, recipientID int64, marker int64) error {
+	recipient, err := s.users.GetByID(ctx, recipientID)
+	if err != nil {
+		return fmt.Errorf("get notification recipient for report %d: %w", rep.ID, err)
+	}
+	if recipient == nil {
+		return fmt.Errorf("notification recipient %d: %w", recipientID, database.ErrNotFound)
 	}
 	return s.notifications.Enqueue(ctx, report.Notification{
 		EventType:       eventType,
-		IdempotencyKey:  fmt.Sprintf("%s:%d:%d", eventType, rep.ID, marker),
+		IdempotencyKey:  fmt.Sprintf("%s:%d:%d:%d", eventType, rep.ID, recipientID, marker),
 		ReportID:        rep.ID,
-		RecipientUserID: owner.ID,
-		RecipientEmail:  owner.Email,
+		RecipientUserID: recipientID,
+		RecipientEmail:  recipient.Email,
 		Month:           rep.Month,
 		Year:            int(rep.Year),
 		AdminRemark:     deref(rep.AdminNotes),

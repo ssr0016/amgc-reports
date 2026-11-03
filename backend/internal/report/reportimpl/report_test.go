@@ -370,11 +370,15 @@ func TestReportService_RequestRevision_EnqueuesNeedsRevisionNotification(t *test
 	require.Len(t, entries, 2)
 	assert.Equal(t, audit.ActionCreateReport, entries[0].Action)
 	assert.Equal(t, audit.ActionUnapproveReport, entries[1].Action)
-	require.Len(t, f.notifications.events, 1)
-	n := f.notifications.events[0]
-	assert.Equal(t, "needs_revision", n.EventType)
-	assert.Equal(t, "needs_revision:"+strconv.FormatInt(created.ID, 10)+":"+strconv.FormatInt(active.UpdatedAt.Unix(), 10), n.IdempotencyKey)
-	assert.Equal(t, "Please clarify the totals", n.AdminRemark)
+	require.Len(t, f.notifications.events, 2)
+	assert.Equal(t, "needs_revision", f.notifications.events[0].EventType)
+	assert.Equal(t, "needs_revision", f.notifications.events[1].EventType)
+	assert.Equal(t, alice, f.notifications.events[0].RecipientUserID)
+	assert.Equal(t, bob, f.notifications.events[1].RecipientUserID)
+	assert.Equal(t, "needs_revision:"+strconv.FormatInt(created.ID, 10)+":"+strconv.FormatInt(alice, 10)+":"+strconv.FormatInt(active.UpdatedAt.Unix(), 10), f.notifications.events[0].IdempotencyKey)
+	assert.Equal(t, "needs_revision:"+strconv.FormatInt(created.ID, 10)+":"+strconv.FormatInt(bob, 10)+":"+strconv.FormatInt(active.UpdatedAt.Unix(), 10), f.notifications.events[1].IdempotencyKey)
+	assert.Equal(t, "Please clarify the totals", f.notifications.events[0].AdminRemark)
+	assert.Equal(t, "Please clarify the totals", f.notifications.events[1].AdminRemark)
 }
 
 func TestReportService_BulkApproval_EnqueuesOneNotificationPerReport(t *testing.T) {
@@ -398,9 +402,13 @@ func TestReportService_BulkApproval_EnqueuesOneNotificationPerReport(t *testing.
 	assert.Equal(t, audit.ActionApproveReport, entries[3].Action)
 	assert.Equal(t, "1", *entries[2].TargetID)
 	assert.Equal(t, "2", *entries[3].TargetID)
-	require.Len(t, f.notifications.events, 2)
+	require.Len(t, f.notifications.events, 3)
 	assert.Equal(t, one.ID, f.notifications.events[0].ReportID)
-	assert.Equal(t, two.ID, f.notifications.events[1].ReportID)
+	assert.Equal(t, alice, f.notifications.events[0].RecipientUserID)
+	assert.Equal(t, one.ID, f.notifications.events[1].ReportID)
+	assert.Equal(t, bob, f.notifications.events[1].RecipientUserID)
+	assert.Equal(t, two.ID, f.notifications.events[2].ReportID)
+	assert.Equal(t, bob, f.notifications.events[2].RecipientUserID)
 }
 
 func TestReportService_ToggleComplete_EnqueuesApprovalNotification(t *testing.T) {
@@ -420,19 +428,22 @@ func TestReportService_ToggleComplete_EnqueuesApprovalNotification(t *testing.T)
 	require.NoError(t, err)
 	assert.NotContains(t, string(body), "secret text")
 	assert.NotContains(t, string(body), "narrative")
-	require.Len(t, f.notifications.events, 1)
-	n := f.notifications.events[0]
-	assert.Equal(t, "approved", n.EventType)
-	assert.Equal(t, "approved:"+strconv.FormatInt(created.ID, 10)+":"+strconv.FormatInt(on.CompletedAt.Unix(), 10), n.IdempotencyKey)
-	assert.Equal(t, alice, n.RecipientUserID)
-	assert.Equal(t, "ana@example.com", n.RecipientEmail)
+	require.Len(t, f.notifications.events, 2)
+	assert.Equal(t, "approved", f.notifications.events[0].EventType)
+	assert.Equal(t, "approved", f.notifications.events[1].EventType)
+	assert.Equal(t, alice, f.notifications.events[0].RecipientUserID)
+	assert.Equal(t, bob, f.notifications.events[1].RecipientUserID)
+	assert.Equal(t, "approved:"+strconv.FormatInt(created.ID, 10)+":"+strconv.FormatInt(alice, 10)+":"+strconv.FormatInt(on.CompletedAt.Unix(), 10), f.notifications.events[0].IdempotencyKey)
+	assert.Equal(t, "approved:"+strconv.FormatInt(created.ID, 10)+":"+strconv.FormatInt(bob, 10)+":"+strconv.FormatInt(on.CompletedAt.Unix(), 10), f.notifications.events[1].IdempotencyKey)
+	assert.Equal(t, "ana@example.com", f.notifications.events[0].RecipientEmail)
+	assert.Equal(t, "bob@example.com", f.notifications.events[1].RecipientEmail)
 
 	off, err := f.svc.ToggleComplete(ctx, bob, "", created.ID, "Fix the missing totals")
 	require.NoError(t, err)
 	assert.False(t, off.Completed)
 	assert.Nil(t, off.CompletedBy)
 	assert.Equal(t, "Fix the missing totals", *f.reports.active(created.ID).AdminNotes)
-	assert.Len(t, f.notifications.events, 1, "unapprove must not enqueue a notification")
+	assert.Len(t, f.notifications.events, 2, "unapprove must not enqueue a notification")
 
 	entries := f.audit.Entries()
 	require.Len(t, entries, 3)
@@ -452,8 +463,23 @@ func TestReportService_ToggleComplete_DoesNotEnqueueOnUnapprove(t *testing.T) {
 	require.NoError(t, err)
 	_, err = f.svc.ToggleComplete(ctx, bob, "", created.ID, "Fix totals")
 	require.NoError(t, err)
-	assert.Len(t, f.notifications.events, 1)
+	assert.Len(t, f.notifications.events, 2)
 	assert.Equal(t, "approved", f.notifications.events[0].EventType)
+	assert.Equal(t, "approved", f.notifications.events[1].EventType)
+}
+
+func TestReportService_NotificationRecipients_DeduplicateOwnerAndActor(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	created, err := f.svc.Create(ctx, alice, "", req("April"))
+	require.NoError(t, err)
+
+	_, err = f.svc.ToggleComplete(ctx, alice, "", created.ID)
+	require.NoError(t, err)
+
+	require.Len(t, f.notifications.events, 1)
+	assert.Equal(t, alice, f.notifications.events[0].RecipientUserID)
+	assert.Equal(t, "ana@example.com", f.notifications.events[0].RecipientEmail)
 }
 
 func TestReportService_Update_DoesNotEnqueueNotification(t *testing.T) {
