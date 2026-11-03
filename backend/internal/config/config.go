@@ -112,6 +112,9 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) validateEmailConfig() error {
+	if c.Email.Enabled() && c.IsProduction() && c.App.FrontendURL == "" {
+		return fmt.Errorf("FRONTEND_URL is required when email is enabled in production")
+	}
 	missing := make([]string, 0, 3)
 	if c.Email.APIKey == "" {
 		missing = append(missing, "RESEND_API_KEY")

@@ -33,7 +33,8 @@ type User struct {
 	ChurchName     *string `json:"church_name,omitempty" db:"church_name"`
 
 	// AvatarURL is the public URL of the profile picture; nil shows initials.
-	AvatarURL *string `json:"avatar_url,omitempty" db:"avatar_url"`
+	AvatarURL          *string `json:"avatar_url,omitempty" db:"avatar_url"`
+	DailyDigestEnabled bool    `json:"daily_digest_enabled" db:"daily_digest_enabled"`
 
 	// DeletedAt is set while the account is soft-deleted (D-A11); nil means not deleted.
 	DeletedAt *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`

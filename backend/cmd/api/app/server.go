@@ -132,14 +132,15 @@ func run() error {
 		RefreshTTL: cfg.Auth.RefreshTTL, RefreshIdleTTL: cfg.Auth.RefreshIdleTTL,
 	})
 	passwordResetService := authimpl.NewPasswordResetService(userRepo, passwordResetRepo, log)
-	notificationSink := outbox.NewStore(db)
+	notificationStore := outbox.NewStore(db)
+	notificationSink := notificationStore
 	inAppNotifications := notificationimpl.NewStore(db)
 	reportService := reportimpl.NewService(reportRepo, auditRepo, db, userRepo, notificationSink, inAppNotifications)
 	notificationHandler := notificationrest.NewNotificationHandler(inAppNotifications)
 	statsService := statsimpl.NewService(statsimpl.NewStore(db), auditRepo, db)
 	userService := userimpl.NewService(userRepo, roleRepo, auditRepo, db)
 
-	cancelWorker, workerDone, err := startNotificationWorker(cfg, db, log)
+	cancelWorker, workerDone, err := startNotificationWorker(cfg, db, notificationStore, log)
 	if err != nil {
 		return err
 	}
@@ -232,7 +233,7 @@ func run() error {
 	return nil
 }
 
-func startNotificationWorker(cfg *config.Config, db *database.DB, log *slog.Logger) (context.CancelFunc, chan struct{}, error) {
+func startNotificationWorker(cfg *config.Config, db *database.DB, notificationStore *outbox.Store, log *slog.Logger) (context.CancelFunc, chan struct{}, error) {
 	if !cfg.Email.Enabled() {
 		log.Info("email delivery disabled (dev mode)")
 		return nil, nil, nil
@@ -241,7 +242,7 @@ func startNotificationWorker(cfg *config.Config, db *database.DB, log *slog.Logg
 	if err != nil {
 		return nil, nil, err
 	}
-	notificationWorker := emailworker.New(outbox.NewQueue(db), mailer, emailworker.Options{Logger: log})
+	notificationWorker := emailworker.New(outbox.NewQueue(db), mailer, emailworker.Options{Logger: log, DigestScheduler: notificationStore, ReportsURL: cfg.App.FrontendURL})
 	workerCtx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {

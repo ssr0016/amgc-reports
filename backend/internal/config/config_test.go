@@ -57,6 +57,7 @@ func TestLoad_WithAllEnvVars(t *testing.T) {
 	_ = os.Setenv("APP_ENV", "production")
 	_ = os.Setenv("APP_PORT", "9090")
 	_ = os.Setenv("APP_URL", "https://api.example.com")
+	_ = os.Setenv("FRONTEND_URL", "https://reports.example.com/")
 	_ = os.Setenv("DATABASE_URL", "postgres://user:pass@host:5432/db")
 	_ = os.Setenv("REFRESH_TTL", "3600")
 	_ = os.Setenv("LOG_LEVEL", "warn")
@@ -81,6 +82,9 @@ func TestLoad_WithAllEnvVars(t *testing.T) {
 	}
 	if cfg.App.URL != "https://api.example.com" {
 		t.Errorf("App.URL = %s, want https://api.example.com", cfg.App.URL)
+	}
+	if cfg.App.FrontendURL != "https://reports.example.com" {
+		t.Errorf("App.FrontendURL = %s, want https://reports.example.com", cfg.App.FrontendURL)
 	}
 
 	// Database
@@ -247,7 +251,7 @@ func TestConfig_IsMethods(t *testing.T) {
 // cleanupEnv removes all env vars used by config.
 func cleanupEnv() {
 	for _, key := range []string{
-		"APP_ENV", "APP_PORT", "PORT", "APP_URL",
+		"APP_ENV", "APP_PORT", "PORT", "APP_URL", "FRONTEND_URL",
 		"DATABASE_URL", "MIGRATE_DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME",
 		"JWT_SECRET", "JWT_ISSUER", "JWT_AUDIENCE", "JWT_ACCESS_TTL", "REFRESH_TTL", "REFRESH_IDLE_TTL", "COOKIE_DOMAIN",
 		"LOG_LEVEL", "LOG_FORMAT",
@@ -489,6 +493,7 @@ func TestLoad_ObservabilityDefaultsByStage(t *testing.T) {
 				env["APP_ENV"] = tt.appEnv
 			}
 			if tt.appEnv == "prod" || tt.appEnv == "production" {
+				env["FRONTEND_URL"] = "https://reports.example.com"
 				env["RESEND_API_KEY"] = "key"
 				env["EMAIL_FROM"] = "from@example.com"
 				env["EMAIL_REPLY_TO"] = "admin@example.com"
@@ -511,7 +516,7 @@ func TestLoad_SwaggerEnabledOverride(t *testing.T) {
 		want  bool
 		stage string
 	}{
-		{"production, explicitly on", map[string]string{"APP_ENV": "production", "SWAGGER_ENABLED": "true", "RESEND_API_KEY": "key", "EMAIL_FROM": "from@example.com", "EMAIL_REPLY_TO": "admin@example.com"}, true, "prod"},
+		{"production, explicitly on", map[string]string{"APP_ENV": "production", "FRONTEND_URL": "https://reports.example.com", "SWAGGER_ENABLED": "true", "RESEND_API_KEY": "key", "EMAIL_FROM": "from@example.com", "EMAIL_REPLY_TO": "admin@example.com"}, true, "prod"},
 		{"development, explicitly off", map[string]string{"APP_ENV": "development", "SWAGGER_ENABLED": "false"}, false, "dev"},
 	}
 	for _, tt := range tests {

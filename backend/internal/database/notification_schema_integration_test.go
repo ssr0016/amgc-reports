@@ -86,3 +86,21 @@ func TestUserNotificationsSchema_Constraints(t *testing.T) {
 	require.ErrorAs(t, err, &pgErr)
 	assert.Equal(t, "23503", pgErr.Code)
 }
+
+func TestNotificationSchema_DailyDigest(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	ctx := context.Background()
+
+	var defaultValue string
+	require.NoError(t, tdb.Pool.QueryRow(ctx, `SELECT column_default FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'notification_prefs'`).Scan(&defaultValue))
+	assert.Contains(t, defaultValue, "daily_digest")
+
+	var payloadDefault string
+	require.NoError(t, tdb.Pool.QueryRow(ctx, `SELECT column_default FROM information_schema.columns WHERE table_name = 'report_notification_outbox' AND column_name = 'payload'`).Scan(&payloadDefault))
+	assert.Contains(t, payloadDefault, "{}")
+
+	var constraint string
+	require.NoError(t, tdb.Pool.QueryRow(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'chk_report_notification_event_type'`).Scan(&constraint))
+	assert.Contains(t, constraint, "daily_digest")
+}

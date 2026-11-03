@@ -22,6 +22,7 @@ type Session = {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateAvatar: (userId: number, url: string) => void;
+  updateUser: (user: Me) => void;
 };
 
 const SessionContext = createContext<Session | null>(null);
@@ -95,12 +96,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setUser((current) => current?.user_id === userId ? { ...current, avatar_url: url } : current);
   }
 
+  function updateUser(next: Me) {
+    setUser((current) => current?.user_id === next.user_id ? next : current);
+  }
+
   const can = (permission: Permission) => !!user?.permissions.includes(permission);
   const isAdmin = user?.role === "admin";
   const canAdmin = isAdmin || ADMIN_AREA.some(can);
 
   return (
-    <SessionContext.Provider value={{ user, status, can, isAdmin, canAdmin, signIn, signOut, updateAvatar }}>
+    <SessionContext.Provider value={{ user, status, can, isAdmin, canAdmin, signIn, signOut, updateAvatar, updateUser }}>
       {children}
     </SessionContext.Provider>
   );

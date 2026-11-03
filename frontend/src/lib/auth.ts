@@ -34,3 +34,7 @@ export async function getCurrentUser(): Promise<Me | null> {
     throw e;
   }
 }
+
+export function updateDailyDigest(enabled: boolean): Promise<Me> {
+  return api<Me>("/auth/me/notification-preferences", { method: "PUT", body: { daily_digest: enabled } });
+}

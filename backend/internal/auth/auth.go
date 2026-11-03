@@ -55,6 +55,7 @@ type TokenPair struct {
 // refresh tokens, Me and ChangePassword.
 type Service interface {
 	Me(ctx context.Context, userID int64) (*MeResponse, error)
+	UpdateNotificationPreferences(ctx context.Context, userID int64, dailyDigest bool) error
 	Login(ctx context.Context, email, password, ip string) (*user.User, error)
 	ChangePassword(ctx context.Context, userID int64, ip, keepFamily, current, next string) error
 	StartSession(ctx context.Context, userID int64, ip, userAgent string) (*TokenPair, error)

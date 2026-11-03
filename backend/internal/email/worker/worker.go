@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -22,6 +23,8 @@ type Options struct {
 	InFlightTimeout time.Duration
 	Now             func() time.Time
 	Logger          *slog.Logger
+	DigestScheduler outbox.DigestScheduler
+	ReportsURL      string
 }
 
 type Worker struct {
@@ -35,6 +38,9 @@ type Worker struct {
 	inFlightTimeout time.Duration
 	now             func() time.Time
 	logger          *slog.Logger
+	digestScheduler outbox.DigestScheduler
+	reportsURL      string
+	manila          *time.Location
 }
 
 func New(queue outbox.Queue, mailer email.Mailer, options Options) *Worker {
@@ -62,10 +68,15 @@ func New(queue outbox.Queue, mailer email.Mailer, options Options) *Worker {
 	if options.Logger == nil {
 		options.Logger = slog.Default()
 	}
+	manila, err := time.LoadLocation("Asia/Manila")
+	if err != nil {
+		panic(err)
+	}
 	return &Worker{queue: queue, mailer: mailer, pollInterval: options.PollInterval,
 		leaseTimeout: options.LeaseTimeout, maxAttempts: options.MaxAttempts,
 		backoffBase: options.BackoffBase, backoffMax: options.BackoffMax,
-		inFlightTimeout: options.InFlightTimeout, now: options.Now, logger: options.Logger}
+		inFlightTimeout: options.InFlightTimeout, now: options.Now, logger: options.Logger,
+		digestScheduler: options.DigestScheduler, reportsURL: options.ReportsURL, manila: manila}
 }
 
 func (w *Worker) Run(ctx context.Context) error {
@@ -90,6 +101,14 @@ func (w *Worker) Run(ctx context.Context) error {
 }
 
 func (w *Worker) RunOnce(ctx context.Context) error {
+	if w.digestScheduler != nil {
+		now := w.now().In(w.manila)
+		if now.Hour() >= 8 {
+			if err := w.digestScheduler.ScheduleDailyDigest(ctx, now, w.reportsURL); err != nil {
+				return err
+			}
+		}
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -108,8 +127,17 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 }
 
 func (w *Worker) process(_ context.Context, job *outbox.Job) error {
-	data := email.ReportNotificationData{ReportMonth: job.ReportMonth, ReportYear: job.ReportYear, EventType: job.EventType, AdminRemark: job.AdminRemark}
-	message, err := email.RenderReportNotification(data)
+	var message email.Message
+	var err error
+	if job.EventType == "daily_digest" {
+		var data email.DailyDigestData
+		if err = json.Unmarshal(job.Payload, &data); err == nil {
+			message, err = email.RenderDailyDigest(data)
+		}
+	} else {
+		data := email.ReportNotificationData{ReportMonth: job.ReportMonth, ReportYear: job.ReportYear, EventType: job.EventType, AdminRemark: job.AdminRemark}
+		message, err = email.RenderReportNotification(data)
+	}
 	if err != nil {
 		return w.skip(job, fmt.Sprintf("render notification: %v", err))
 	}

@@ -57,7 +57,7 @@ func TestAuthHandler_Me(t *testing.T) {
 	users := userimpl.NewMockStore()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
 		if id == 7 {
-			return &user.User{ID: 7, Name: "Ed", Email: "ed@example.org", RoleID: 2, Role: &accesscontrol.Role{Name: "editor"}}, nil
+			return &user.User{ID: 7, Name: "Ed", Email: "ed@example.org", RoleID: 2, Role: &accesscontrol.Role{Name: "editor"}, DailyDigestEnabled: true}, nil
 		}
 		return nil, nil
 	}
@@ -71,7 +71,7 @@ func TestAuthHandler_Me(t *testing.T) {
 		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 			t.Fatal(err)
 		}
-		if len(got) != 8 || got["user_id"] != float64(7) || got["name"] != "Ed" ||
+		if len(got) != 9 || got["user_id"] != float64(7) || got["name"] != "Ed" ||
 			got["email"] != "ed@example.org" || got["role"] != "editor" {
 			t.Errorf("body = %s", rec.Body.String())
 		}
@@ -80,6 +80,9 @@ func TestAuthHandler_Me(t *testing.T) {
 			if v, ok := got[key]; !ok || v != "" {
 				t.Errorf("%s = %v (present: %v), want an empty string", key, v, ok)
 			}
+		}
+		if got["daily_digest"] != true {
+			t.Errorf("daily_digest = %v, want true", got["daily_digest"])
 		}
 		// The worker on a report is the user's name, so /auth/me has no separate worker.
 		if _, ok := got["worker"]; ok {

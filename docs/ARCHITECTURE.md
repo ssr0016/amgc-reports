@@ -28,6 +28,7 @@ Frontend API types are generated from `backend/docs/swagger.json` (`npm run gen:
 - Runbook and environment variables: [backend/SETUP.md](../backend/SETUP.md).
 - **Vercel** hosts the frontend (D-F6). TODO (confirm): current Vercel deployment state; F14 is the production smoke test.
 - Local and dev run migrations at startup; production does not.
+- Daily digest email delivery uses `FRONTEND_URL` for Admin Reports links. Apply migration `20261103150000_add_daily_digest.sql` to Neon before production rollout; the outbox unique key creates at most one digest per active eligible admin and Manila day.
 
 ## Auth
 

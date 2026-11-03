@@ -2376,6 +2376,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update current user's notification preferences */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Notification preferences */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateNotificationPreferencesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/refresh": {
         parameters: {
             query?: never;
@@ -3735,12 +3776,6 @@ export interface components {
             resource?: string;
             updated_at?: string;
         };
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse": {
-            action?: string;
-            id?: number;
-            name?: string;
-            resource?: string;
-        };
         "github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role": {
             created_at?: string;
             description?: string;
@@ -3750,14 +3785,6 @@ export interface components {
             permissions?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission"][];
             updated_at?: string;
             /** @description UserCount is how many accounts hold the role (loaded on demand). */
-            user_count?: number;
-        };
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse": {
-            description?: string;
-            id?: number;
-            name?: string;
-            permissions?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"][];
-            updated_at?: string;
             user_count?: number;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest": {
@@ -3870,6 +3897,7 @@ export interface components {
             /** @description AvatarURL is empty when the user has no profile picture. */
             avatar_url?: string;
             church_name?: string;
+            daily_digest?: boolean;
             email?: string;
             name?: string;
             permissions?: string[];
@@ -3941,6 +3969,9 @@ export interface components {
             submission_status?: "submitted" | "no_report";
             user_id?: number;
             user_status?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateNotificationPreferencesRequest": {
+            daily_digest: boolean;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateReportRequest": {
             area_assignment?: string;

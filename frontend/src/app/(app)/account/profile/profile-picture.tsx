@@ -17,6 +17,7 @@ import { queryClient } from "@/lib/query";
 import { useSession } from "@/lib/session";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
 import { PageHeader, PageShell } from "@/components/page-shell";
+import { NotificationPreferences } from "./notification-preferences";
 
 export function ProfilePicture() {
   const { user, updateAvatar } = useSession();
@@ -81,6 +82,7 @@ export function ProfilePicture() {
           </div>
         </PanelSection>
       </Card>
+      <NotificationPreferences />
       <form onSubmit={onSubmit} noValidate aria-busy={pending}>
         <Card className={panelCard}>
           <PanelSection title="Profile picture" icon={Camera} tile="bg-sky-500/10 text-sky-400" description="Update the picture shown with your account.">

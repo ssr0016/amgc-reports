@@ -162,3 +162,34 @@ func TestQueue_ClaimNextUsesSkipLocked(t *testing.T) {
 	}
 	assert.Equal(t, 1, claimed)
 }
+
+func TestStore_ScheduleDailyDigestIsIdempotentAndCarriesPayload(t *testing.T) {
+	f := newOutboxFixture(t)
+	ctx := context.Background()
+	_, err := f.db.Pool.Exec(ctx, `INSERT INTO roles (name, description) VALUES ('admin', 'Admin') ON CONFLICT (name) DO NOTHING`)
+	require.NoError(t, err)
+	_, err = f.db.Pool.Exec(ctx, `INSERT INTO permissions (name, resource, action) VALUES ('reports:approve', 'reports', 'approve') ON CONFLICT (name) DO NOTHING`)
+	require.NoError(t, err)
+	var adminID int64
+	require.NoError(t, f.db.Pool.QueryRow(ctx, `
+		INSERT INTO users (email, name, password_hash, role_id, notification_prefs)
+		VALUES ('digest-admin@example.com', 'Digest Admin', 'hash', (SELECT id FROM roles WHERE name = 'admin'), NULL)
+		RETURNING id`).Scan(&adminID))
+	_, err = f.db.Pool.Exec(ctx, `
+		INSERT INTO role_permissions (role_id, permission_id)
+		SELECT (SELECT id FROM roles WHERE name = 'admin'), id FROM permissions WHERE name = 'reports:approve'
+		ON CONFLICT DO NOTHING`)
+	require.NoError(t, err)
+
+	day := time.Date(2026, time.November, 3, 8, 5, 0, 0, time.FixedZone("Asia/Manila", 8*60*60))
+	s := NewStore(f.db)
+	require.NoError(t, s.ScheduleDailyDigest(ctx, day, "https://reports.example.com/"))
+	require.NoError(t, s.ScheduleDailyDigest(ctx, day, "https://reports.example.com/"))
+
+	var count int
+	var payload []byte
+	require.NoError(t, f.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM report_notification_outbox WHERE recipient_user_id = $1`, adminID).Scan(&count))
+	assert.Equal(t, 1, count)
+	require.NoError(t, f.db.Pool.QueryRow(ctx, `SELECT payload FROM report_notification_outbox WHERE recipient_user_id = $1`, adminID).Scan(&payload))
+	assert.Contains(t, string(payload), `"reports_url": "https://reports.example.com/admin?tab=reports"`)
+}

@@ -15,8 +15,13 @@ type MeResponse struct {
 	AreaAssignment string `json:"area_assignment"`
 	ChurchName     string `json:"church_name"`
 	// AvatarURL is empty when the user has no profile picture.
-	AvatarURL string `json:"avatar_url"`
+	AvatarURL          string `json:"avatar_url"`
+	DailyDigestEnabled bool   `json:"daily_digest"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse
+
+type UpdateNotificationPreferencesRequest struct {
+	DailyDigest *bool `json:"daily_digest" validate:"required"`
+} // @name github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateNotificationPreferencesRequest
 
 // ChangePasswordRequest is the body of POST /auth/change-password. The 72-byte
 // limit on the new password is checked in the service, because bcrypt counts bytes

@@ -2,6 +2,7 @@ package outbox
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -22,6 +23,7 @@ type Job struct {
 	ReportMonth    string
 	ReportYear     int
 	AdminRemark    string
+	Payload        json.RawMessage
 	Attempts       int
 	ClaimedAt      time.Time
 }
@@ -58,11 +60,11 @@ func (s *Store) ClaimNext(ctx context.Context, now time.Time, leaseTimeout time.
 			WHERE o.id = candidate.id
 				RETURNING o.id, o.idempotency_key, o.event_type, o.report_id,
 				o.recipient_email, o.report_month, o.report_year,
-				o.admin_remark, o.attempts, o.claimed_at
+				o.admin_remark, o.payload, o.attempts, o.claimed_at
 		`, now, now.Add(-leaseTimeout)).Scan(
 			&candidate.ID, &candidate.IdempotencyKey, &candidate.EventType, &candidate.ReportID,
 			&candidate.RecipientEmail, &candidate.ReportMonth, &candidate.ReportYear,
-			&adminRemark, &candidate.Attempts, &candidate.ClaimedAt,
+			&adminRemark, &candidate.Payload, &candidate.Attempts, &candidate.ClaimedAt,
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil

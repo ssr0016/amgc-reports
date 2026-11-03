@@ -51,6 +51,7 @@ type Service interface {
 // Store defines the interface for user data access.
 type Store interface {
 	GetByID(ctx context.Context, id int64) (*User, error)
+	UpdateNotificationPreferences(ctx context.Context, id int64, dailyDigest bool) error
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*User, error)
 	Create(ctx context.Context, n NewUser) (*User, error)

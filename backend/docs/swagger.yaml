@@ -322,6 +322,8 @@ definitions:
         type: string
       church_name:
         type: string
+      daily_digest:
+        type: boolean
       email:
         type: string
       name:
@@ -472,6 +474,13 @@ definitions:
       user_status:
         type: string
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateNotificationPreferencesRequest:
+    properties:
+      daily_digest:
+        type: boolean
+    required:
+    - daily_digest
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateReportRequest:
     properties:
       area_assignment:
@@ -599,34 +608,6 @@ definitions:
         type: string
       type:
         type: string
-    type: object
-  github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse:
-    properties:
-      action:
-        type: string
-      id:
-        type: integer
-      name:
-        type: string
-      resource:
-        type: string
-    type: object
-  github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse:
-    properties:
-      description:
-        type: string
-      id:
-        type: integer
-      name:
-        type: string
-      permissions:
-        items:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse'
-        type: array
-      updated_at:
-        type: string
-      user_count:
-        type: integer
     type: object
   github_com_ssr0016_pastoral-reports_backend_internal_stats.AnalyticsMonth:
     properties:
@@ -2651,6 +2632,29 @@ paths:
       security:
       - CookieAuth: []
       summary: Get current user
+      tags:
+      - auth
+  /auth/me/notification-preferences:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Notification preferences
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateNotificationPreferencesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse'
+      security:
+      - CookieAuth: []
+      summary: Update current user's notification preferences
       tags:
       - auth
   /auth/refresh:

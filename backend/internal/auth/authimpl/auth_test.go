@@ -237,12 +237,12 @@ func TestAuthService_Me(t *testing.T) {
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
 		switch id {
 		case 1:
-			return &user.User{ID: 1, Name: "Ed", Email: "ed@example.org", RoleID: 20, Role: &accesscontrol.Role{Name: "editor"}}, nil
+			return &user.User{ID: 1, Name: "Ed", Email: "ed@example.org", RoleID: 20, Role: &accesscontrol.Role{Name: "editor"}, DailyDigestEnabled: true}, nil
 		case 2: // no role assigned
-			return &user.User{ID: 2, Name: "Nora", Email: "nora@example.org"}, nil
+			return &user.User{ID: 2, Name: "Nora", Email: "nora@example.org", DailyDigestEnabled: true}, nil
 		case 3: // profile set by the admin
 			a, c := "Metro", "AMGC 1"
-			return &user.User{ID: 3, Name: "Pia", Email: "pia@example.org", AreaAssignment: &a, ChurchName: &c}, nil
+			return &user.User{ID: 3, Name: "Pia", Email: "pia@example.org", AreaAssignment: &a, ChurchName: &c, DailyDigestEnabled: true}, nil
 		}
 		return nil, nil
 	}
@@ -256,7 +256,7 @@ func TestAuthService_Me(t *testing.T) {
 			t.Fatalf("Me() failed: %v", err)
 		}
 		want := auth.MeResponse{UserID: 1, Name: "Ed", Email: "ed@example.org", Role: "editor",
-			Permissions: []string{"reports:approve", "reports:read"}}
+			Permissions: []string{"reports:approve", "reports:read"}, DailyDigestEnabled: true}
 		if fmt.Sprint(*got) != fmt.Sprint(want) {
 			t.Errorf("Me() = %+v, want %+v", *got, want)
 		}

@@ -2167,6 +2167,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/me/notification-preferences": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Update current user's notification preferences",
+                "parameters": [
+                    {
+                        "description": "Notification preferences",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateNotificationPreferencesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.MeResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/refresh": {
             "post": {
                 "description": "Trades the refresh_token cookie for a new access token and a new refresh token, both set as cookies. The old refresh token stops working. Answers 401 and clears the cookies when the refresh token is unknown, expired, idle too long, revoked, or its account may no longer sign in. A token that was rotated within the last 10 seconds (a second tab) is a 401 that leaves the cookies alone.",
@@ -3340,15 +3378,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse": {
-            "type": "object",
-            "properties": {
-                "action": {"type": "string"},
-                "id": {"type": "integer"},
-                "name": {"type": "string"},
-                "resource": {"type": "string"}
-            }
-        },
         "github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role": {
             "type": "object",
             "properties": {
@@ -3378,20 +3407,6 @@ const docTemplate = `{
                     "description": "UserCount is how many accounts hold the role (loaded on demand).",
                     "type": "integer"
                 }
-            }
-        },
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse": {
-            "type": "object",
-            "properties": {
-                "description": {"type": "string"},
-                "id": {"type": "integer"},
-                "name": {"type": "string"},
-                "permissions": {
-                    "type": "array",
-                    "items": {"$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"}
-                },
-                "updated_at": {"type": "string"},
-                "user_count": {"type": "integer"}
             }
         },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest": {
@@ -3787,6 +3802,9 @@ const docTemplate = `{
                 "church_name": {
                     "type": "string"
                 },
+                "daily_digest": {
+                    "type": "boolean"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -4009,6 +4027,17 @@ const docTemplate = `{
                 },
                 "user_status": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.UpdateNotificationPreferencesRequest": {
+            "type": "object",
+            "required": [
+                "daily_digest"
+            ],
+            "properties": {
+                "daily_digest": {
+                    "type": "boolean"
                 }
             }
         },

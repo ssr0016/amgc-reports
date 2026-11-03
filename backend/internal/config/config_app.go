@@ -1,18 +1,30 @@
 package config
 
+import (
+	"os"
+	"strings"
+)
+
 // AppConfig holds general app settings.
 type AppConfig struct {
-	Env  string
-	Port string
-	URL  string
+	Env         string
+	Port        string
+	URL         string
+	FrontendURL string
 }
 
 func (cfg *Config) appConfig() {
 	// Port: PORT is injected by platforms such as Render; APP_PORT wins.
+	env := getEnv("APP_ENV", "local")
+	frontendURL := strings.TrimRight(os.Getenv("FRONTEND_URL"), "/")
+	if frontendURL == "" && env != "prod" && env != "production" {
+		frontendURL = "http://localhost:3000"
+	}
 	cfg.App = AppConfig{
-		Env:  getEnv("APP_ENV", "local"),
-		Port: getEnv("APP_PORT", getEnv("PORT", "8080")),
-		URL:  getEnv("APP_URL", "http://localhost:8080"),
+		Env:         env,
+		Port:        getEnv("APP_PORT", getEnv("PORT", "8080")),
+		URL:         getEnv("APP_URL", "http://localhost:8080"),
+		FrontendURL: frontendURL,
 	}
 }
 

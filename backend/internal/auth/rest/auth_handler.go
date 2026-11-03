@@ -199,3 +199,30 @@ func (h *AuthHandler) Me(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, me)
 }
+
+// UpdateNotificationPreferences godoc
+// @Summary Update current user's notification preferences
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param body body auth.UpdateNotificationPreferencesRequest true "Notification preferences"
+// @Success 200 {object} auth.MeResponse
+// @Router /auth/me/notification-preferences [put]
+func (h *AuthHandler) UpdateNotificationPreferences(c echo.Context) error {
+	caller, ok := request.UserFrom(c.Request().Context())
+	if !ok {
+		return apperror.Unauthorized("not authenticated")
+	}
+	var req auth.UpdateNotificationPreferencesRequest
+	if err := c.Bind(&req); err != nil {
+		return apperror.BadRequest("invalid request body").WithError(err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return err
+	}
+	if err := h.authService.UpdateNotificationPreferences(c.Request().Context(), caller.ID, *req.DailyDigest); err != nil {
+		return apperror.Internal("failed to update notification preferences").WithError(err)
+	}
+	return h.Me(c)
+}

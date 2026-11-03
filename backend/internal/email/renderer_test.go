@@ -111,3 +111,14 @@ func TestRenderReportNotification_NoMarkupInPlainText(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, strings.ContainsAny(message.PlainText, "<>"))
 }
+
+func TestRenderDailyDigest(t *testing.T) {
+	message, err := RenderDailyDigest(DailyDigestData{ReportMonth: "November", ReportYear: 2026, PendingCount: 4, MissingCount: 2, ReportsURL: `https://reports.example/admin?tab=reports&x=\"<bad>`})
+	require.NoError(t, err)
+	assert.Equal(t, "Daily report digest", message.Subject)
+	assert.Contains(t, message.HTML, "November 2026")
+	assert.Contains(t, message.HTML, "4")
+	assert.Contains(t, message.HTML, "2")
+	assert.Contains(t, message.HTML, "%3cbad%3e")
+	assert.Contains(t, message.PlainText, "https://reports.example/admin?tab=reports")
+}

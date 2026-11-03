@@ -20,28 +20,29 @@ type MockStore struct {
 	fails  map[failKey]*failure
 
 	// Override functions for testing specific behaviors
-	GetByIDFunc                   func(ctx context.Context, id int64) (*user.User, error)
-	GetByEmailFunc                func(ctx context.Context, email string) (*user.User, error)
-	CreateWithPasswordFunc        func(ctx context.Context, email, name, hash string) (*user.User, error)
-	CreateFunc                    func(ctx context.Context, n user.NewUser) (*user.User, error)
-	UpdateProfileFunc             func(ctx context.Context, id int64, p user.UserProfile) (*user.User, error)
-	ListFunc                      func(ctx context.Context, emailFilter, status string, roleID int64, pg pagination.Params) ([]user.User, int64, error)
-	UpdateRoleFunc                func(ctx context.Context, userID, roleID int64) error
-	GetWithRoleFunc               func(ctx context.Context, id int64) (*user.User, error)
-	MarkEmailVerifiedFunc         func(ctx context.Context, userID int64) error
-	UpdatePasswordFunc            func(ctx context.Context, userID int64, hash string) error
-	UpdatePasswordKeepSessionFunc func(ctx context.Context, userID int64, hash, keepToken string) (int64, error)
-	LoginLockedFunc               func(ctx context.Context, userID int64, ip string) (bool, error)
-	RecordFailedLoginFunc         func(ctx context.Context, userID int64, ip string, maxAttempts int, lockDuration time.Duration) error
-	ResetLoginAttemptsFunc        func(ctx context.Context, userID int64, ip string) error
-	ClearLockoutFunc              func(ctx context.Context, userID int64) error
-	UpdateStatusFunc              func(ctx context.Context, id int64, status string) (*user.User, error)
-	RevokeSessionsFunc            func(ctx context.Context, userID int64) (int64, error)
-	LockActiveAdminsFunc          func(ctx context.Context) ([]int64, error)
-	LockUserFunc                  func(ctx context.Context, userID int64) error
-	SoftDeleteFunc                func(ctx context.Context, id, deletedBy int64, reason string) (*user.User, error)
-	RestoreFunc                   func(ctx context.Context, id int64) (*user.User, error)
-	GetCallerFunc                 func(ctx context.Context, id int64) (*user.Caller, error)
+	GetByIDFunc                       func(ctx context.Context, id int64) (*user.User, error)
+	UpdateNotificationPreferencesFunc func(ctx context.Context, id int64, dailyDigest bool) error
+	GetByEmailFunc                    func(ctx context.Context, email string) (*user.User, error)
+	CreateWithPasswordFunc            func(ctx context.Context, email, name, hash string) (*user.User, error)
+	CreateFunc                        func(ctx context.Context, n user.NewUser) (*user.User, error)
+	UpdateProfileFunc                 func(ctx context.Context, id int64, p user.UserProfile) (*user.User, error)
+	ListFunc                          func(ctx context.Context, emailFilter, status string, roleID int64, pg pagination.Params) ([]user.User, int64, error)
+	UpdateRoleFunc                    func(ctx context.Context, userID, roleID int64) error
+	GetWithRoleFunc                   func(ctx context.Context, id int64) (*user.User, error)
+	MarkEmailVerifiedFunc             func(ctx context.Context, userID int64) error
+	UpdatePasswordFunc                func(ctx context.Context, userID int64, hash string) error
+	UpdatePasswordKeepSessionFunc     func(ctx context.Context, userID int64, hash, keepToken string) (int64, error)
+	LoginLockedFunc                   func(ctx context.Context, userID int64, ip string) (bool, error)
+	RecordFailedLoginFunc             func(ctx context.Context, userID int64, ip string, maxAttempts int, lockDuration time.Duration) error
+	ResetLoginAttemptsFunc            func(ctx context.Context, userID int64, ip string) error
+	ClearLockoutFunc                  func(ctx context.Context, userID int64) error
+	UpdateStatusFunc                  func(ctx context.Context, id int64, status string) (*user.User, error)
+	RevokeSessionsFunc                func(ctx context.Context, userID int64) (int64, error)
+	LockActiveAdminsFunc              func(ctx context.Context) ([]int64, error)
+	LockUserFunc                      func(ctx context.Context, userID int64) error
+	SoftDeleteFunc                    func(ctx context.Context, id, deletedBy int64, reason string) (*user.User, error)
+	RestoreFunc                       func(ctx context.Context, id int64) (*user.User, error)
+	GetCallerFunc                     func(ctx context.Context, id int64) (*user.Caller, error)
 
 	// Roles, when set, gives GetCaller the role's permissions; nil means none.
 	Roles accesscontrol.RoleStore
@@ -93,15 +94,30 @@ func (m *MockStore) CreateWithPassword(ctx context.Context, email, name, hash st
 	defer m.mu.Unlock()
 
 	usr := &user.User{
-		ID:           m.nextID,
-		Email:        email,
-		Name:         name,
-		PasswordHash: hash,
-		Status:       user.UserStatusActive,
+		ID:                 m.nextID,
+		Email:              email,
+		Name:               name,
+		PasswordHash:       hash,
+		Status:             user.UserStatusActive,
+		DailyDigestEnabled: true,
 	}
 	m.users[m.nextID] = usr
 	m.nextID++
 	return usr, nil
+}
+
+func (m *MockStore) UpdateNotificationPreferences(ctx context.Context, id int64, dailyDigest bool) error {
+	if m.UpdateNotificationPreferencesFunc != nil {
+		return m.UpdateNotificationPreferencesFunc(ctx, id, dailyDigest)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	usr, ok := m.users[id]
+	if !ok {
+		return fmt.Errorf("users: %w", database.ErrNotFound)
+	}
+	usr.DailyDigestEnabled = dailyDigest
+	return nil
 }
 
 // Create inserts an account (mock).

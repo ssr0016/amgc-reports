@@ -7,6 +7,10 @@ type Models = {
     : never]: Schemas[K];
 };
 type Model<N extends keyof Models> = Models[N];
+type AccessModels = {
+  [K in keyof Schemas as K extends `github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.${infer N}` ? N : never]: Schemas[K];
+};
+type AccessModel<N extends keyof AccessModels> = AccessModels[N];
 type StatsModels = {
   [K in keyof Schemas as K extends `github_com_ssr0016_pastoral-reports_backend_internal_stats.${infer N}` ? N : never]: Schemas[K];
 };
@@ -36,10 +40,10 @@ export type ExcelPreview = { count: number; sheets: Required<Model<"PreviewSheet
 export type ReportMetadata = Always<Model<"ReportMetadata">, "id" | "completed">;
 
 export type User = Always<Model<"UserResponse">, "id" | "email" | "name" | "role_id" | "email_verified" | "created_at" | "status">;
-export type Role = Always<Model<"RoleResponse">, "id" | "name">;
+export type Role = Always<AccessModel<"Role">, "id" | "name">;
 // The list and get always send user_count; permissions is left out when the role has none.
-export type RoleDetail = Always<Model<"RoleResponse">, "id" | "name" | "description" | "user_count">;
-export type PermissionInfo = Always<Model<"PermissionResponse">, "id" | "name" | "resource" | "action">;
+export type RoleDetail = Always<AccessModel<"Role">, "id" | "name" | "description" | "user_count">;
+export type PermissionInfo = Always<AccessModel<"Permission">, "id" | "name" | "resource" | "action">;
 export type RoleInput = Model<"UpdateRoleRequest">;
 export type UserInput = Model<"CreateUserRequest">;
 export type UserUpdate = Model<"UpdateUserRequest">;

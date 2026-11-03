@@ -2,6 +2,7 @@ package userimpl
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -20,12 +21,13 @@ type store struct{ db *database.DB }
 // NewStore returns the user.Store over db.
 func NewStore(db *database.DB) user.Store { return &store{db: db} }
 
-const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, created_at, updated_at, area_assignment, church_name, status, deleted_at, deleted_by, deleted_reason, avatar_url"
+const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, created_at, updated_at, area_assignment, church_name, status, deleted_at, deleted_by, deleted_reason, avatar_url, notification_prefs"
 
 // scanUser scans a single user from a row.
 func scanUser(row pgx.Row) (*user.User, error) {
 	var u user.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL)
+	var prefs []byte
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL, &prefs)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -35,7 +37,18 @@ func scanUser(row pgx.Row) (*user.User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("scan user: %w", err)
 	}
+	u.DailyDigestEnabled = digestEnabled(prefs)
 	return &u, nil
+}
+
+func digestEnabled(raw []byte) bool {
+	var prefs map[string]any
+	if json.Unmarshal(raw, &prefs) == nil {
+		if value, ok := prefs["daily_digest"].(bool); ok {
+			return value
+		}
+	}
+	return true
 }
 
 func (r *store) GetByID(ctx context.Context, id int64) (*user.User, error) {
@@ -49,6 +62,17 @@ func (r *store) GetByID(ctx context.Context, id int64) (*user.User, error) {
 	}
 
 	return scanUser(r.db.Querier(ctx).QueryRow(ctx, query, args...))
+}
+
+func (r *store) UpdateNotificationPreferences(ctx context.Context, id int64, dailyDigest bool) error {
+	result, err := r.db.Querier(ctx).Exec(ctx, `UPDATE users SET notification_prefs = jsonb_set(COALESCE(notification_prefs, '{}'::jsonb), '{daily_digest}', to_jsonb($2::boolean), true), updated_at = NOW() WHERE id = $1`, id, dailyDigest)
+	if err != nil {
+		return fmt.Errorf("update notification preferences: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("users: %w", database.ErrNotFound)
+	}
+	return nil
 }
 
 func (r *store) GetByEmail(ctx context.Context, email string) (*user.User, error) {
@@ -205,9 +229,11 @@ func (r *store) List(ctx context.Context, emailFilter, status string, roleID int
 	var users []user.User
 	for rows.Next() {
 		var u user.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL); err != nil {
+		var prefs []byte
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.DeletedAt, &u.DeletedBy, &u.DeletedReason, &u.AvatarURL, &prefs); err != nil {
 			return nil, 0, fmt.Errorf("scan row: %w", err)
 		}
+		u.DailyDigestEnabled = digestEnabled(prefs)
 		users = append(users, u)
 	}
 	if err := rows.Err(); err != nil {
@@ -287,7 +313,7 @@ func (r *store) withRole(ctx context.Context, id int64, perms *[]string) (*user.
 	sb := r.db.Builder.
 		Select(
 			"u.id", "u.email", "u.name", "u.password_hash", "u.role_id",
-			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status", "u.tokens_valid_after", "u.deleted_at", "u.avatar_url",
+			"u.created_at", "u.updated_at", "u.area_assignment", "u.church_name", "u.status", "u.tokens_valid_after", "u.deleted_at", "u.avatar_url", "u.notification_prefs",
 			"r.id", "r.name", "r.description", "r.created_at", "r.updated_at",
 		).
 		From("users u").
@@ -306,10 +332,11 @@ func (r *store) withRole(ctx context.Context, id int64, perms *[]string) (*user.
 	var rID *int64
 	var rName, rDesc *string
 	var rCreatedAt, rUpdatedAt *time.Time
+	var prefs []byte
 
 	dest := []any{
 		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID,
-		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.TokensValidAfter, &u.DeletedAt, &u.AvatarURL,
+		&u.CreatedAt, &u.UpdatedAt, &u.AreaAssignment, &u.ChurchName, &u.Status, &u.TokensValidAfter, &u.DeletedAt, &u.AvatarURL, &prefs,
 		&rID, &rName, &rDesc, &rCreatedAt, &rUpdatedAt,
 	}
 	if perms != nil {
@@ -322,6 +349,7 @@ func (r *store) withRole(ctx context.Context, id int64, perms *[]string) (*user.
 	if err != nil {
 		return nil, fmt.Errorf("query user: %w", err)
 	}
+	u.DailyDigestEnabled = digestEnabled(prefs)
 
 	// Attach role if loaded
 	if rID != nil {

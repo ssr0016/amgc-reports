@@ -76,6 +76,7 @@ func Setup(
 	// ============================================================
 	authProtected := auth.Group("", authn, ourmiddleware.RequireAuth())
 	authProtected.GET("/me", authHandler.Me)
+	authProtected.PUT("/me/notification-preferences", authHandler.UpdateNotificationPreferences, limits.Write)
 	// Shares the per-user write bucket. It runs after RequireAuth, so only a signed-in
 	// caller uses tokens. The lockout counter, not this limit, stops password guessing.
 	authProtected.POST("/change-password", authHandler.ChangePassword, limits.Write)
