@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{if eq .EventType "approved"}}Your report has been approved{{else}}Your report needs revision{{end}}</title>
+</head>
+<body style="margin:0; padding:24px 12px; background:#ffffff; color:#171717; font-family:Circular, 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+  <div style="width:100%; max-width:600px; margin:0 auto;">
+    <div style="border-top:6px solid #3ecf8e; padding:24px 0 16px;">
+      <p style="margin:0 0 16px; font-size:20px; line-height:1.4; font-weight:500;">
+        {{if eq .EventType "approved"}}Your report has been approved{{else}}Your report needs revision{{end}}
+      </p>
+      <p style="margin:0; color:#707070; font-size:16px; line-height:1.5;">
+        Report period: <strong style="color:#171717;">{{.ReportMonth}} {{.ReportYear}}</strong>
+      </p>
+    </div>
+    {{if and (eq .EventType "needs_revision") .AdminRemark}}
+    <div style="margin:24px 0; padding:16px; border:1px solid #c7c7c7; border-left:4px solid #3ecf8e; border-radius:8px;">
+      <p style="margin:0 0 8px; color:#707070; font-size:14px; line-height:1.4;">Admin remark</p>
+      <p style="margin:0; color:#171717; font-size:16px; line-height:1.5; white-space:pre-wrap;">{{.AdminRemark}}</p>
+    </div>
+    {{end}}
+    <p style="margin:32px 0 0; padding-top:16px; border-top:1px solid #ededed; color:#707070; font-size:13px; line-height:1.5;">
+      This is an automated message from AmgReports.
+    </p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{{if eq .EventType "approved"}}Your report has been approved{{else}}Your report needs revision{{end}}
+
+Report period: {{.ReportMonth}} {{.ReportYear}}
+{{if and (eq .EventType "needs_revision") .AdminRemark}}
+Admin remark:
+{{.AdminRemark}}
+{{end}}
+This is an automated message from AmgReports.
