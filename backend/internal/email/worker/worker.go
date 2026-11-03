@@ -103,10 +103,8 @@ func (w *Worker) Run(ctx context.Context) error {
 func (w *Worker) RunOnce(ctx context.Context) error {
 	if w.digestScheduler != nil {
 		now := w.now().In(w.manila)
-		if now.Hour() >= 8 {
-			if err := w.digestScheduler.ScheduleDailyDigest(ctx, now, w.reportsURL); err != nil {
-				return err
-			}
+		if err := w.digestScheduler.ScheduleDailyDigest(ctx, now, w.reportsURL); err != nil {
+			return err
 		}
 	}
 	for {

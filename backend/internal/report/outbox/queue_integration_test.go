@@ -185,11 +185,22 @@ func TestStore_ScheduleDailyDigestIsIdempotentAndCarriesPayload(t *testing.T) {
 	s := NewStore(f.db)
 	require.NoError(t, s.ScheduleDailyDigest(ctx, day, "https://reports.example.com/"))
 	require.NoError(t, s.ScheduleDailyDigest(ctx, day, "https://reports.example.com/"))
+	require.NoError(t, s.ScheduleDailyDigest(ctx, day.Add(time.Minute), "https://reports.example.com/"))
 
 	var count int
 	var payload []byte
+	var keys []string
 	require.NoError(t, f.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM report_notification_outbox WHERE recipient_user_id = $1`, adminID).Scan(&count))
-	assert.Equal(t, 1, count)
+	assert.Equal(t, 2, count)
+	rows, err := f.db.Pool.Query(ctx, `SELECT idempotency_key FROM report_notification_outbox WHERE recipient_user_id = $1 ORDER BY idempotency_key`, adminID)
+	require.NoError(t, err)
+	for rows.Next() {
+		var key string
+		require.NoError(t, rows.Scan(&key))
+		keys = append(keys, key)
+	}
+	rows.Close()
+	assert.Equal(t, []string{"daily-digest:2026-11-03:08:05:" + fmt.Sprint(adminID), "daily-digest:2026-11-03:08:06:" + fmt.Sprint(adminID)}, keys)
 	require.NoError(t, f.db.Pool.QueryRow(ctx, `SELECT payload FROM report_notification_outbox WHERE recipient_user_id = $1`, adminID).Scan(&payload))
 	assert.Contains(t, string(payload), `"reports_url": "https://reports.example.com/admin?tab=reports"`)
 }

@@ -38,9 +38,9 @@ func (s *Store) ScheduleDailyDigest(ctx context.Context, day time.Time, reportsU
 		)
 		INSERT INTO report_notification_outbox
 			(idempotency_key, event_type, recipient_user_id, recipient_email, report_month, report_year, payload)
-		SELECT 'daily-digest:' || $3 || ':' || u.id, 'daily_digest', u.id, u.email, $2, $1,
+		SELECT 'daily-digest:' || $3 || ':' || $4 || ':' || u.id, 'daily_digest', u.id, u.email, $2, $1,
 			jsonb_build_object('month', $2, 'year', $1, 'pending_count', c.pending_count,
-				'missing_count', c.missing_count, 'reports_url', $4::text)
+				'missing_count', c.missing_count, 'reports_url', $5::text)
 		FROM users u JOIN roles r ON r.id = u.role_id
 		JOIN role_permissions rpp ON rpp.role_id = r.id
 		JOIN permissions p ON p.id = rpp.permission_id AND p.name = 'reports:approve'
@@ -49,7 +49,7 @@ func (s *Store) ScheduleDailyDigest(ctx context.Context, day time.Time, reportsU
 			AND CASE WHEN u.notification_prefs->>'daily_digest' IN ('true', 'false')
 				THEN (u.notification_prefs->>'daily_digest')::boolean ELSE true END
 		ON CONFLICT (idempotency_key) DO NOTHING
-	`, year, month, day.Format("2006-01-02"), reportsURL)
+	`, year, month, day.Format("2006-01-02"), day.Format("15:04"), reportsURL)
 	if err != nil {
 		return fmt.Errorf("schedule daily digest: %w", err)
 	}
