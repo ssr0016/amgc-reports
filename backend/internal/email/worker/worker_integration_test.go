@@ -5,6 +5,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,11 +23,14 @@ import (
 )
 
 type fakeMailer struct {
+	mu       sync.Mutex
 	messages []email.Message
 	errors   []error
 }
 
 func (f *fakeMailer) Send(_ context.Context, message email.Message) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.messages = append(f.messages, message)
 	if len(f.errors) == 0 {
 		return nil
@@ -34,6 +38,12 @@ func (f *fakeMailer) Send(_ context.Context, message email.Message) error {
 	err := f.errors[0]
 	f.errors = f.errors[1:]
 	return err
+}
+
+func (f *fakeMailer) GetMessages() []email.Message {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]email.Message(nil), f.messages...)
 }
 
 type workerFixture struct {
@@ -77,8 +87,9 @@ func stateFor(t *testing.T, db *database.DB, idempotencyKey string) string {
 func TestWorker_RunOnce_SendsPendingRow(t *testing.T) {
 	f := newWorkerFixture(t, "approved")
 	require.NoError(t, workerFor(f, Options{}).RunOnce(context.Background()))
-	assert.Len(t, f.mail.messages, 1)
-	assert.Equal(t, "worker-owner@example.com", f.mail.messages[0].To)
+	messages := f.mail.GetMessages()
+	assert.Len(t, messages, 1)
+	assert.Equal(t, "worker-owner@example.com", messages[0].To)
 	assert.Equal(t, "sent", stateFor(t, f.db, f.job.IdempotencyKey))
 }
 
@@ -87,7 +98,7 @@ func TestWorker_Run_PollsAfterTicker(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { defer close(done); _ = workerFor(f, Options{PollInterval: time.Millisecond}).Run(ctx) }()
-	require.Eventually(t, func() bool { return len(f.mail.messages) == 1 }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool { return len(f.mail.GetMessages()) == 1 }, time.Second, time.Millisecond)
 	cancel()
 	select {
 	case <-done:
@@ -145,16 +156,17 @@ func TestWorker_FailedRowDoesNotStopLaterRows(t *testing.T) {
 	require.NoError(t, outbox.NewStore(f.db).Enqueue(context.Background(), second))
 	f.mail.errors = []error{errors.New("temporary failure"), nil}
 	require.NoError(t, workerFor(f, Options{MaxAttempts: 2}).RunOnce(context.Background()))
-	assert.Len(t, f.mail.messages, 2)
+	assert.Len(t, f.mail.GetMessages(), 2)
 }
 
 func TestWorker_RendererUsesOutboxSnapshot(t *testing.T) {
 	f := newWorkerFixture(t, "needs_revision")
 	require.NoError(t, workerFor(f, Options{}).RunOnce(context.Background()))
-	require.Len(t, f.mail.messages, 1)
-	assert.Contains(t, f.mail.messages[0].PlainText, "April 2026")
-	assert.Contains(t, f.mail.messages[0].PlainText, "Please clarify")
-	assert.Equal(t, "Your report needs revision", f.mail.messages[0].Subject)
+	messages := f.mail.GetMessages()
+	require.Len(t, messages, 1)
+	assert.Contains(t, messages[0].PlainText, "April 2026")
+	assert.Contains(t, messages[0].PlainText, "Please clarify")
+	assert.Equal(t, "Your report needs revision", messages[0].Subject)
 }
 
 func TestWorker_CancellationStopsPolling(t *testing.T) {
@@ -162,7 +174,7 @@ func TestWorker_CancellationStopsPolling(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	require.NoError(t, workerFor(f, Options{}).Run(ctx))
-	assert.Empty(t, f.mail.messages)
+	assert.Empty(t, f.mail.GetMessages())
 }
 
 func TestWorker_InFlightFailureIsBounded(t *testing.T) {
