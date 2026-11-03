@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateAuth(t *testing.T) {
@@ -59,6 +62,9 @@ func TestLoad_WithAllEnvVars(t *testing.T) {
 	_ = os.Setenv("LOG_LEVEL", "warn")
 	_ = os.Setenv("LOG_FORMAT", "json")
 	_ = os.Setenv("CORS_ALLOWED_ORIGINS", "https://app.example.com,https://admin.example.com")
+	_ = os.Setenv("RESEND_API_KEY", "resend-key")
+	_ = os.Setenv("EMAIL_FROM", "reports@example.com")
+	_ = os.Setenv("EMAIL_REPLY_TO", "admin@example.com")
 	defer cleanupEnv()
 
 	cfg, err := Load()
@@ -107,6 +113,9 @@ func TestLoad_WithAllEnvVars(t *testing.T) {
 	if !cfg.IsProduction() {
 		t.Error("IsProduction() = false, want true")
 	}
+	if !cfg.Email.Enabled() {
+		t.Error("Email.Enabled() = false, want true")
+	}
 }
 
 func TestLoad_WithDefaults(t *testing.T) {
@@ -141,6 +150,45 @@ func TestLoad_MissingDatabaseURL(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Fatal("Load() expected error, got nil")
+	}
+}
+
+func TestLoad_EmailConfiguration(t *testing.T) {
+	tests := []struct {
+		name       string
+		appEnv     string
+		email      map[string]string
+		wantErr    bool
+		wantEnable bool
+		wantInErr  string
+	}{
+		{name: "production missing all", appEnv: "production", wantErr: true, wantInErr: "RESEND_API_KEY"},
+		{name: "prod missing one", appEnv: "prod", email: map[string]string{
+			"RESEND_API_KEY": "key", "EMAIL_FROM": "from@example.com",
+		}, wantErr: true, wantInErr: "EMAIL_REPLY_TO"},
+		{name: "dev missing all", appEnv: "dev", wantEnable: false},
+		{name: "local partial", appEnv: "local", email: map[string]string{
+			"EMAIL_FROM": "from@example.com",
+		}, wantErr: true, wantInErr: "RESEND_API_KEY"},
+		{name: "development complete", appEnv: "development", email: map[string]string{
+			"RESEND_API_KEY": "key", "EMAIL_FROM": "from@example.com", "EMAIL_REPLY_TO": "admin@example.com",
+		}, wantEnable: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := map[string]string{"APP_ENV": tt.appEnv, "CORS_ALLOWED_ORIGINS": "http://localhost:3000"}
+			for key, value := range tt.email {
+				env[key] = value
+			}
+			cfg, err := loadWithEnv(t, env)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantInErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantEnable, cfg.Email.Enabled())
+		})
 	}
 }
 
@@ -208,6 +256,7 @@ func cleanupEnv() {
 		"SWAGGER_ENABLED", "METRICS_USER", "METRICS_PASSWORD",
 		"REPORTS_WRITE_RATE_LIMIT", "REPORTS_WRITE_BURST", "REPORTS_READ_RATE_LIMIT", "REPORTS_READ_BURST",
 		"R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "R2_PUBLIC_URL",
+		"RESEND_API_KEY", "EMAIL_FROM", "EMAIL_REPLY_TO",
 	} {
 		_ = os.Unsetenv(key)
 	}
@@ -439,6 +488,11 @@ func TestLoad_ObservabilityDefaultsByStage(t *testing.T) {
 			if tt.appEnv != "" {
 				env["APP_ENV"] = tt.appEnv
 			}
+			if tt.appEnv == "prod" || tt.appEnv == "production" {
+				env["RESEND_API_KEY"] = "key"
+				env["EMAIL_FROM"] = "from@example.com"
+				env["EMAIL_REPLY_TO"] = "admin@example.com"
+			}
 			cfg, err := loadWithEnv(t, env)
 			if err != nil {
 				t.Fatalf("Load() failed: %v", err)
@@ -457,7 +511,7 @@ func TestLoad_SwaggerEnabledOverride(t *testing.T) {
 		want  bool
 		stage string
 	}{
-		{"production, explicitly on", map[string]string{"APP_ENV": "production", "SWAGGER_ENABLED": "true"}, true, "prod"},
+		{"production, explicitly on", map[string]string{"APP_ENV": "production", "SWAGGER_ENABLED": "true", "RESEND_API_KEY": "key", "EMAIL_FROM": "from@example.com", "EMAIL_REPLY_TO": "admin@example.com"}, true, "prod"},
 		{"development, explicitly off", map[string]string{"APP_ENV": "development", "SWAGGER_ENABLED": "false"}, false, "dev"},
 	}
 	for _, tt := range tests {

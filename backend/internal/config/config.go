@@ -19,9 +19,20 @@ type Config struct {
 	Reports  ReportsConfig
 	Admin    AdminConfig
 	Storage  StorageConfig
+	Email    EmailConfig
 	Stage    Stage
 
 	Observability ObservabilityConfig
+}
+
+type EmailConfig struct {
+	APIKey  string
+	From    string
+	ReplyTo string
+}
+
+func (c EmailConfig) Enabled() bool {
+	return c.APIKey != "" && c.From != "" && c.ReplyTo != ""
 }
 
 // Load reads configuration from environment variables.
@@ -42,6 +53,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg.adminConfig()
+	cfg.emailConfig()
 
 	if err := cfg.storageConfig(); err != nil {
 		return nil, fmt.Errorf("config validation: %w", err)
@@ -93,6 +105,29 @@ func (c *Config) Validate() error {
 	if p := c.Observability.MetricsPassword; p != "" && len(p) < minMetricsPasswordLen {
 		return fmt.Errorf("METRICS_PASSWORD must be at least %d characters", minMetricsPasswordLen)
 	}
+	if err := c.validateEmailConfig(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Config) validateEmailConfig() error {
+	missing := make([]string, 0, 3)
+	if c.Email.APIKey == "" {
+		missing = append(missing, "RESEND_API_KEY")
+	}
+	if c.Email.From == "" {
+		missing = append(missing, "EMAIL_FROM")
+	}
+	if c.Email.ReplyTo == "" {
+		missing = append(missing, "EMAIL_REPLY_TO")
+	}
+	if len(missing) > 0 && len(missing) < 3 {
+		return fmt.Errorf("email configuration incomplete: missing %s", strings.Join(missing, ", "))
+	}
+	if len(missing) == 3 && c.IsProduction() {
+		return fmt.Errorf("email configuration incomplete in production: missing %s", strings.Join(missing, ", "))
+	}
 	return nil
 }
 
@@ -105,6 +140,14 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func (cfg *Config) emailConfig() {
+	cfg.Email = EmailConfig{
+		APIKey:  os.Getenv("RESEND_API_KEY"),
+		From:    os.Getenv("EMAIL_FROM"),
+		ReplyTo: os.Getenv("EMAIL_REPLY_TO"),
+	}
 }
 
 // getEnvBool reads a boolean. An unset or empty variable gives fallback; a
