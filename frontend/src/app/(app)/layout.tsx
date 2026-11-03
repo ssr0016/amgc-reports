@@ -11,6 +11,7 @@ import { useSession } from "@/lib/session";
 import { ProfileMenu } from "./profile-menu";
 import { Sidebar } from "./sidebar";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
+import { NotificationBell } from "@/components/notification-bell";
 
 // Client-side guard: the API's session cookies cannot tell proxy.ts whether a session is
 // live (plan section 1.2), so nothing private renders until /auth/me answers. proxy.ts
@@ -67,6 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
+            <NotificationBell />
             <ProfileMenu
               onSignOut={() => {
                 signingOut.current = true;

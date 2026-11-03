@@ -27,7 +27,7 @@ func NewPermissionHandler(permissionRepo accesscontrol.PermissionStore) *Permiss
 // @Produce      json
 // @Security     CookieAuth
 // @Param        resource query string false "Filter by resource"
-// @Success      200 {array} accesscontrol.PermissionResponse
+// @Success      200 {array} accesscontrol.Permission
 // @Router       /admin/permissions [get]
 func (h *PermissionHandler) List(c echo.Context) error {
 	params := pagination.FromQuery(c.QueryParams())
@@ -57,7 +57,7 @@ func (h *PermissionHandler) List(c echo.Context) error {
 // @Produce      json
 // @Security     CookieAuth
 // @Param        id path int true "Permission ID"
-// @Success      200 {object} accesscontrol.PermissionResponse
+// @Success      200 {object} accesscontrol.Permission
 // @Router       /admin/permissions/{id} [get]
 func (h *PermissionHandler) Get(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -82,7 +82,7 @@ func (h *PermissionHandler) Get(c echo.Context) error {
 // @Produce      json
 // @Security     CookieAuth
 // @Param        body body CreatePermissionRequest true "Permission payload"
-// @Success      201 {object} accesscontrol.PermissionResponse
+// @Success      201 {object} accesscontrol.Permission
 // @Router       /admin/permissions [post]
 func (h *PermissionHandler) Create(c echo.Context) error {
 	var req CreatePermissionRequest

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,6 +16,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
+	"github.com/ssr0016/pastoral-reports/backend/internal/notification"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
@@ -27,6 +29,43 @@ func num(s string) *json.Number { n := json.Number(s); return &n }
 type failingNotificationSink struct {
 	db  *database.DB
 	err error
+}
+
+type failingInAppStore struct{ err error }
+
+func (s failingInAppStore) CreateReportSubmitted(context.Context, int64, string) error { return s.err }
+func (failingInAppStore) ListUnread(context.Context, int64) ([]notification.Notification, error) {
+	return nil, nil
+}
+func (failingInAppStore) MarkRead(context.Context, int64, int64) error { return nil }
+
+func TestReportService_CreateNotificationFailureRollsBack(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
+	ctx := context.Background()
+	users := userimpl.NewStore(db)
+	reports := NewStore(db)
+	audits := auditimpl.NewStore(db)
+	owner, err := users.CreateWithPassword(ctx, "create-notify-owner@example.com", "Owner", "hash")
+	require.NoError(t, err)
+	caller := stubbedCaller{Store: users, roles: stubRoles{perms: map[int64][]string{
+		owner.RoleID: {"reports:read", "reports:write", "reports:delete"},
+	}}}
+	boom := errors.New("in-app notification insert failed")
+	svc := NewService(reports, audits, db, caller, nil, failingInAppStore{err: boom}).(*service)
+	svc.now = func() time.Time { return time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC) }
+
+	_, err = svc.Create(ctx, owner.ID, "", report.CreateReportRequest{
+		Month: "April", Metrics: map[string]report.MetricWeeks{"outreach": {Week1: num("3")}},
+	})
+	require.ErrorIs(t, err, boom)
+
+	var count int
+	for _, table := range []string{"reports", "report_metrics", "audit_logs", "user_notifications"} {
+		require.NoError(t, tdb.Pool.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", table)).Scan(&count))
+		assert.Zero(t, count, table)
+	}
 }
 
 func (s failingNotificationSink) Enqueue(ctx context.Context, n report.Notification) error {

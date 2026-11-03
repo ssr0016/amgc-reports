@@ -26,6 +26,8 @@ import (
 	emailworker "github.com/ssr0016/pastoral-reports/backend/internal/email/worker"
 	"github.com/ssr0016/pastoral-reports/backend/internal/logger"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
+	"github.com/ssr0016/pastoral-reports/backend/internal/notification/notificationimpl"
+	notificationrest "github.com/ssr0016/pastoral-reports/backend/internal/notification/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report/outbox"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report/reportimpl"
 	reportrest "github.com/ssr0016/pastoral-reports/backend/internal/report/rest"
@@ -131,7 +133,9 @@ func run() error {
 	})
 	passwordResetService := authimpl.NewPasswordResetService(userRepo, passwordResetRepo, log)
 	notificationSink := outbox.NewStore(db)
-	reportService := reportimpl.NewService(reportRepo, auditRepo, db, userRepo, notificationSink)
+	inAppNotifications := notificationimpl.NewStore(db)
+	reportService := reportimpl.NewService(reportRepo, auditRepo, db, userRepo, notificationSink, inAppNotifications)
+	notificationHandler := notificationrest.NewNotificationHandler(inAppNotifications)
 	statsService := statsimpl.NewService(statsimpl.NewStore(db), auditRepo, db)
 	userService := userimpl.NewService(userRepo, roleRepo, auditRepo, db)
 
@@ -186,6 +190,7 @@ func run() error {
 			Write:  ourmiddleware.RateLimitByUser(rate.Limit(float64(cfg.Reports.WriteRatePerMinute)/60), cfg.Reports.WriteBurst),
 			Export: ourmiddleware.RateLimitByUser(rate.Limit(exportRatePerMinute/60.0), exportBurst),
 		},
+		notificationHandler,
 	)
 
 	server := newHTTPServer(cfg, e)

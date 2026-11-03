@@ -14,6 +14,14 @@ export const ACCOUNTS = {
     area_assignment: "Muntinlupa",
     church_name: "Visionaires Christian Church",
   },
+  notifier: {
+    email: "e2e-notifier@example.com",
+    password: "E2eNotifier!2345",
+    name: "E2E Notifier",
+    role: "user",
+    area_assignment: "Notification Area",
+    church_name: "Notification Church",
+  },
 } as const;
 export type Role = keyof typeof ACCOUNTS;
 

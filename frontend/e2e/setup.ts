@@ -30,7 +30,7 @@ setup("create accounts and save one session per role", async ({ playwright }) =>
 
   const admin = await signIn("admin");
   const roles: { id: number; name: string }[] = (await (await admin.ctx.get(`${API}/admin/roles?limit=100`)).json()).data;
-  for (const role of ["editor", "user"] as const) {
+  for (const role of ["editor", "user", "notifier"] as const) {
     const { password, email, name, ...rest } = ACCOUNTS[role];
     const roleId = roles.find((r) => r.name === rest.role)?.id;
     expect(roleId, `seeded role ${rest.role}`).toBeDefined();
@@ -47,7 +47,7 @@ setup("create accounts and save one session per role", async ({ playwright }) =>
   await saveSession(admin.ctx, "admin");
   await admin.ctx.dispose();
 
-  for (const role of ["editor", "user"] as const) {
+  for (const role of ["editor", "user", "notifier"] as const) {
     const { ctx } = await signIn(role);
     await saveSession(ctx, role);
     await ctx.dispose();

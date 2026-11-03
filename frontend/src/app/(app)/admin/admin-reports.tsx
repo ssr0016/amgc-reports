@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Bell, Check, Download, Eye, Loader2, Pencil, Trash2, Undo2 } from "lucide-react";
+import { Check, Download, Eye, Loader2, Pencil, Trash2, Undo2 } from "lucide-react";
 import { iconButton, REPORTS_DESCRIPTION, ReportsStats, ReportsTableCard, tone } from "@/components/reports-dashboard";
 import { AuthField } from "@/components/auth-field";
 import { Can } from "@/components/can";
@@ -124,9 +124,6 @@ export function AdminReports() {
             {downloading.includes("bulk") ? "Downloading…" : "Download Bulk"}
           </Button>
         </Can>
-        <Button variant="outline" className="size-11" disabled aria-label="Notifications — email alerts coming soon" title="Email alerts coming soon">
-          <Bell aria-hidden="true" />
-        </Button>
       </PageHeader>
       <ReportsStats data={error ? undefined : data} />
       <ReportsTableCard rows={error || isPending ? [] : data?.data ?? []} selectable={can("reports:approve") || can("reports:export") || can("reports:write")} onRevisedChange={(on) => { setRevised(on); setPage(1); }} bulkActions={can("reports:approve") ? {

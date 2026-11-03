@@ -67,7 +67,7 @@ func actorID(c echo.Context) (int64, error) {
 // @Tags         admin/roles
 // @Produce      json
 // @Security     CookieAuth
-// @Success      200 {array} accesscontrol.RoleResponse
+// @Success      200 {array} accesscontrol.Role
 // @Router       /admin/roles [get]
 func (h *RoleHandler) List(c echo.Context) error {
 	params := pagination.FromQuery(c.QueryParams())
@@ -101,7 +101,7 @@ func (h *RoleHandler) List(c echo.Context) error {
 // @Produce      json
 // @Security     CookieAuth
 // @Param        id path int true "Role ID"
-// @Success      200 {object} accesscontrol.RoleResponse
+// @Success      200 {object} accesscontrol.Role
 // @Router       /admin/roles/{id} [get]
 func (h *RoleHandler) Get(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -137,7 +137,7 @@ func (h *RoleHandler) Get(c echo.Context) error {
 // @Produce      json
 // @Security     CookieAuth
 // @Param        body body accesscontrol.CreateRoleRequest true "Role payload"
-// @Success      201 {object} accesscontrol.RoleResponse
+// @Success      201 {object} accesscontrol.Role
 // @Failure      409 {object} map[string]string
 // @Failure      422 {object} map[string]string
 // @Router       /admin/roles [post]
@@ -170,7 +170,7 @@ func (h *RoleHandler) Create(c echo.Context) error {
 // @Security     CookieAuth
 // @Param        id path int true "Role ID"
 // @Param        body body accesscontrol.UpdateRoleRequest true "Role payload"
-// @Success      200 {object} accesscontrol.RoleResponse
+// @Success      200 {object} accesscontrol.Role
 // @Failure      404 {object} map[string]string
 // @Failure      409 {object} map[string]string
 // @Failure      422 {object} map[string]string

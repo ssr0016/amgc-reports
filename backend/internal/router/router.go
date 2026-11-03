@@ -10,6 +10,7 @@ import (
 	auditrest "github.com/ssr0016/pastoral-reports/backend/internal/audit/rest"
 	authrest "github.com/ssr0016/pastoral-reports/backend/internal/auth/rest"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
+	notificationrest "github.com/ssr0016/pastoral-reports/backend/internal/notification/rest"
 	reportrest "github.com/ssr0016/pastoral-reports/backend/internal/report/rest"
 	statsrest "github.com/ssr0016/pastoral-reports/backend/internal/stats/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
@@ -42,6 +43,7 @@ func Setup(
 	statsHandler *statsrest.StatsHandler,
 	auditHandler *auditrest.AuditHandler,
 	limits Limiters,
+	notificationHandlers ...*notificationrest.NotificationHandler,
 ) {
 	// authenticate only runs in the groups that need a user, so public routes never read a token.
 	authn := authenticate
@@ -91,6 +93,12 @@ func Setup(
 	users.GET("/:id", userHandler.GetUser, perm("users:list"))
 	// Any signed-in user may set their own picture; it shares the per-user write bucket.
 	users.POST("/me/avatar", avatarHandler.UploadAvatar, limits.Write)
+
+	if len(notificationHandlers) > 0 && notificationHandlers[0] != nil {
+		notifications := api.Group("/notifications", authn, ourmiddleware.RequireAuth())
+		notifications.GET("", notificationHandlers[0].List, limits.Read)
+		notifications.PATCH("/:id/read", notificationHandlers[0].MarkRead, limits.Write)
+	}
 
 	// ============================================================
 	// Reports (permission-gated; the service applies the _any ownership scope)

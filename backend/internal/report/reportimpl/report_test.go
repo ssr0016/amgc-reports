@@ -18,6 +18,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
+	"github.com/ssr0016/pastoral-reports/backend/internal/notification"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
@@ -35,6 +36,23 @@ type fakeNotifications struct {
 	events []report.Notification
 	err    error
 }
+
+type fakeInAppNotifications struct {
+	reportIDs []int64
+	messages  []string
+}
+
+func (f *fakeInAppNotifications) CreateReportSubmitted(_ context.Context, reportID int64, message string) error {
+	f.reportIDs = append(f.reportIDs, reportID)
+	f.messages = append(f.messages, message)
+	return nil
+}
+
+func (*fakeInAppNotifications) ListUnread(context.Context, int64) ([]notification.Notification, error) {
+	return nil, nil
+}
+
+func (*fakeInAppNotifications) MarkRead(context.Context, int64, int64) error { return nil }
 
 func (f *fakeNotifications) Enqueue(_ context.Context, n report.Notification) error {
 	if f.err != nil {
@@ -74,6 +92,7 @@ type fixture struct {
 	reports       *MockStore
 	audit         *auditimpl.MockStore
 	notifications *fakeNotifications
+	inApp         *fakeInAppNotifications
 }
 
 func newFixture() fixture {
@@ -99,9 +118,9 @@ func newFixture() fixture {
 		roleR: {"reports:read", "reports:write", "reports:delete", "reports:read_any"},
 		roleD: {"reports:read", "reports:read_any", "reports:delete_any"},
 	}}
-	f := fixture{reports: NewMockStore(), audit: auditimpl.NewMockStore(), notifications: &fakeNotifications{}}
+	f := fixture{reports: NewMockStore(), audit: auditimpl.NewMockStore(), notifications: &fakeNotifications{}, inApp: &fakeInAppNotifications{}}
 	users.Roles = roles
-	f.svc = newService(f.reports, f.audit, fakeTx{}, users, f.notifications)
+	f.svc = newService(f.reports, f.audit, fakeTx{}, users, f.notifications, f.inApp)
 	f.svc.now = func() time.Time { return time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC) }
 	return f
 }
@@ -128,6 +147,8 @@ func TestReportService_Create(t *testing.T) {
 		assert.Equal(t, "user", *e.PerformedByRole)
 		assert.Equal(t, "10.0.0.1", *e.IPAddress)
 		assert.Equal(t, map[string]any{"month": "April", "year": 2026, "count": 1}, e.Details)
+		assert.Equal(t, []int64{1}, f.inApp.reportIDs)
+		assert.Equal(t, []string{"Report submitted by Ana"}, f.inApp.messages)
 	})
 
 	t.Run("uses profile metadata and is pending for reviewers", func(t *testing.T) {

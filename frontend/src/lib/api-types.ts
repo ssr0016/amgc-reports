@@ -516,7 +516,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"][];
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission"][];
                     };
                 };
             };
@@ -543,7 +543,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"];
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission"];
                     };
                 };
             };
@@ -580,7 +580,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"];
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission"];
                     };
                 };
             };
@@ -913,7 +913,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"][];
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role"][];
                     };
                 };
             };
@@ -943,7 +943,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"];
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role"];
                     };
                 };
                 /** @description Conflict */
@@ -1002,7 +1002,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"];
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role"];
                     };
                 };
             };
@@ -1034,7 +1034,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"];
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role"];
                     };
                 };
                 /** @description Not Found */
@@ -2637,6 +2637,151 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List unread notifications
+         * @description Returns unread notifications for the authenticated user, newest first.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_notification.NotificationResponse"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark notification as read
+         * @description Marks one notification as read for the authenticated user.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Notification ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/ready": {
         parameters: {
             query?: never;
@@ -3582,6 +3727,39 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        "github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission": {
+            action?: string;
+            created_at?: string;
+            id?: number;
+            name?: string;
+            resource?: string;
+            updated_at?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse": {
+            action?: string;
+            id?: number;
+            name?: string;
+            resource?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role": {
+            created_at?: string;
+            description?: string;
+            id?: number;
+            name?: string;
+            /** @description Permissions attached to this role (loaded on demand) */
+            permissions?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission"][];
+            updated_at?: string;
+            /** @description UserCount is how many accounts hold the role (loaded on demand). */
+            user_count?: number;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse": {
+            description?: string;
+            id?: number;
+            name?: string;
+            permissions?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"][];
+            updated_at?: string;
+            user_count?: number;
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest": {
             confirm_password: string;
             new_password: string;
@@ -3705,12 +3883,6 @@ export interface components {
             week4?: number;
             week5?: number;
         };
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse": {
-            action?: string;
-            id?: number;
-            name?: string;
-            resource?: string;
-        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.PreviewSheet": {
             name?: string;
             rows?: string[][];
@@ -3750,15 +3922,6 @@ export interface components {
             user_notes?: string;
             worker?: string;
             year?: number;
-        };
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse": {
-            created_at?: string;
-            description?: string;
-            id?: number;
-            name?: string;
-            permissions?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"][];
-            updated_at?: string;
-            user_count?: number;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest": {
             admin_notes?: string;
@@ -3818,6 +3981,16 @@ export interface components {
             name?: string;
             role_id?: number;
             status?: string;
+        };
+        "github_com_ssr0016_pastoral-reports_backend_internal_notification.NotificationResponse": {
+            created_at?: string;
+            id?: number;
+            message?: string;
+            metadata?: {
+                [key: string]: unknown;
+            };
+            read_at?: string;
+            type?: string;
         };
         "github_com_ssr0016_pastoral-reports_backend_internal_stats.AnalyticsMonth": {
             month?: number;

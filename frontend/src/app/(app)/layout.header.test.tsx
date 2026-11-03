@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), use
 vi.mock("@/lib/session", () => ({
   useSession: () => ({ status: "authenticated", user: { name: "Ana", email: "a@b.c", role: "admin" }, isAdmin: true, canAdmin: true, can: () => true, signOut: vi.fn() }),
 }));
+vi.mock("@/lib/notifications", () => ({ listUnreadNotifications: vi.fn().mockResolvedValue([]), markNotificationRead: vi.fn() }));
 const renderLayout = () => render(<QueryProvider><AppLayout>content</AppLayout></QueryProvider>);
 
 describe("app header", () => {
@@ -23,6 +24,7 @@ describe("app header", () => {
     renderLayout();
     const header = within(screen.getByRole("banner"));
     expect(header.getAllByRole("link").map((a) => a.textContent)).toEqual(["AMGCReports"]);
+    expect(header.getByRole("button", { name: /Notifications/ })).toBeInTheDocument();
     expect(header.getByRole("button", { name: "Ana · admin" })).toBeInTheDocument();
     for (const name of ["Admin", "Users", "Account"]) {
       expect(header.queryByRole("link", { name })).not.toBeInTheDocument();

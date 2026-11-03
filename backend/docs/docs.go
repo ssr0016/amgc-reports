@@ -545,7 +545,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"
+                                "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission"
                             }
                         }
                     }
@@ -582,7 +582,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission"
                         }
                     }
                 }
@@ -615,7 +615,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission"
                         }
                     }
                 }
@@ -896,7 +896,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
+                                "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role"
                             }
                         }
                     }
@@ -934,7 +934,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role"
                         }
                     },
                     "409": {
@@ -985,7 +985,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role"
                         }
                     }
                 }
@@ -1029,7 +1029,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role"
                         }
                     },
                     "404": {
@@ -2340,6 +2340,116 @@ const docTemplate = `{
                 }
             }
         },
+        "/notifications": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Returns unread notifications for the authenticated user, newest first.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "List unread notifications",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_notification.NotificationResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/{id}/read": {
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Marks one notification as read for the authenticated user.",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Mark notification as read",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Notification ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/ready": {
             "get": {
                 "description": "Returns OK if the DB is connected",
@@ -3207,6 +3317,83 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "resource": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string"},
+                "id": {"type": "integer"},
+                "name": {"type": "string"},
+                "resource": {"type": "string"}
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Role": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "description": "Permissions attached to this role (loaded on demand)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_accesscontrol.Permission"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_count": {
+                    "description": "UserCount is how many accounts hold the role (loaded on demand).",
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse": {
+            "type": "object",
+            "properties": {
+                "description": {"type": "string"},
+                "id": {"type": "integer"},
+                "name": {"type": "string"},
+                "permissions": {
+                    "type": "array",
+                    "items": {"$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"}
+                },
+                "updated_at": {"type": "string"},
+                "user_count": {"type": "integer"}
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.AdminResetPasswordRequest": {
             "type": "object",
             "required": [
@@ -3640,23 +3827,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "resource": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.PreviewSheet": {
             "type": "object",
             "properties": {
@@ -3777,35 +3947,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "year": {
-                    "type": "integer"
-                }
-            }
-        },
-        "github_com_ssr0016_pastoral-reports_backend_internal_model.RoleResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "permissions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.PermissionResponse"
-                    }
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_count": {
                     "type": "integer"
                 }
             }
@@ -4022,6 +4163,30 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ssr0016_pastoral-reports_backend_internal_notification.NotificationResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "read_at": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }

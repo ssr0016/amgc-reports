@@ -14,6 +14,7 @@ import (
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
+	"github.com/ssr0016/pastoral-reports/backend/internal/notification"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/pkg/pagination"
@@ -33,6 +34,7 @@ type service struct {
 	tx            database.TxRunner
 	users         user.Store
 	notifications report.NotificationSink
+	inApp         notification.Store
 	now           func() time.Time
 	loc           *time.Location // months are counted in Philippine time, whatever the server clock says
 }
@@ -43,6 +45,14 @@ func (noopNotificationSink) Enqueue(context.Context, report.Notification) error 
 	return nil
 }
 
+type noopInAppStore struct{}
+
+func (noopInAppStore) CreateReportSubmitted(context.Context, int64, string) error { return nil }
+func (noopInAppStore) ListUnread(context.Context, int64) ([]notification.Notification, error) {
+	return nil, nil
+}
+func (noopInAppStore) MarkRead(context.Context, int64, int64) error { return nil }
+
 // NewService returns the report.Service over its stores.
 func NewService(
 	reports report.Store,
@@ -50,8 +60,9 @@ func NewService(
 	tx database.TxRunner,
 	users user.Store,
 	notifications report.NotificationSink,
+	inApps ...notification.Store,
 ) report.Service {
-	return newService(reports, audit, tx, users, notifications)
+	return newService(reports, audit, tx, users, notifications, inApps...)
 }
 
 // newService is NewService with the concrete type, so tests can set the clock.
@@ -61,6 +72,7 @@ func newService(
 	tx database.TxRunner,
 	users user.Store,
 	notifications report.NotificationSink,
+	inApps ...notification.Store,
 ) *service {
 	loc, err := time.LoadLocation("Asia/Manila")
 	if err != nil {
@@ -69,9 +81,16 @@ func newService(
 	if notifications == nil {
 		notifications = noopNotificationSink{}
 	}
+	var inApp notification.Store
+	if len(inApps) > 0 {
+		inApp = inApps[0]
+	}
+	if inApp == nil {
+		inApp = noopInAppStore{}
+	}
 	return &service{
 		reports: reports, audit: audit, tx: tx, users: users,
-		notifications: notifications, now: time.Now, loc: loc,
+		notifications: notifications, inApp: inApp, now: time.Now, loc: loc,
 	}
 }
 
@@ -215,12 +234,23 @@ func (s *service) Create(ctx context.Context, userID int64, ip string, req repor
 		if rep, err = s.reports.Create(ctx, userID, year, req); err != nil {
 			return err
 		}
+		if err := s.inApp.CreateReportSubmitted(ctx, rep.ID, submittedMessage(rep)); err != nil {
+			return err
+		}
 		return s.audit.Insert(ctx, a.auditEntry(ip, audit.ActionCreateReport, rep))
 	})
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	return respond(rep), nil
+}
+
+func submittedMessage(rep *report.Report) string {
+	worker := strings.TrimSpace(deref(rep.Worker))
+	if worker == "" {
+		return "Report submitted"
+	}
+	return "Report submitted by " + worker
 }
 
 // Get returns one report. Without reports:read_any only the owner's report is visible.
