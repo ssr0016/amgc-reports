@@ -305,12 +305,79 @@ func TestReportService_Update(t *testing.T) {
 	_, err = f.svc.Update(ctx, alice, "", 9999, upd)
 	require.ErrorIs(t, err, report.ErrReportNotFound)
 
+	_, err = f.svc.RequestRevision(ctx, bob, "", created.ID, "Please clarify the totals")
+	require.NoError(t, err)
+	f.reports.UpdateFunc = func(_ context.Context, id int64, _ int, req report.UpdateReportRequest) (*report.Report, error) {
+		active := f.reports.active(id)
+		now := time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC)
+		active.Status = "pending"
+		active.LastRevisedAt = &now
+		active.UserNotes = ptr(req.UserNotes)
+		return copyReport(active), nil
+	}
+	resubmitted := report.UpdateReportRequest(req("April"))
+	resubmitted.UserNotes = "I corrected the weekly totals."
+	got, err = f.svc.Update(ctx, alice, "", created.ID, resubmitted)
+	require.NoError(t, err)
+	assert.Equal(t, "pending", got.Status)
+	assert.NotNil(t, got.LastRevisedAt)
+	assert.Equal(t, "I corrected the weekly totals.", got.UserNotes)
+	entries := f.audit.Entries()
+	assert.Equal(t, audit.ActionUnapproveReport, entries[len(entries)-2].Action)
+	assert.Equal(t, audit.ActionUpdateReport, entries[len(entries)-1].Action)
+
+	f.reports.UpdateFunc = nil
 	f.svc.now = func() time.Time { return time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC) }
 	_, err = f.svc.Create(ctx, alice, "", req("May"))
 	require.NoError(t, err)
 	upd.Month = "May"
 	_, err = f.svc.Update(ctx, alice, "", created.ID, upd)
 	require.ErrorIs(t, err, report.ErrReportExists)
+}
+
+func TestReportService_RequestRevision(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	created, err := f.svc.Create(ctx, alice, "", req("April"))
+	require.NoError(t, err)
+
+	meta, err := f.svc.RequestRevision(ctx, bob, "", created.ID, "Please clarify the totals")
+	require.NoError(t, err)
+	assert.Equal(t, created.ID, meta.ID)
+	assert.Equal(t, "needs_revision", meta.Status)
+	assert.False(t, meta.Completed)
+
+	active := f.reports.active(created.ID)
+	require.NotNil(t, active.AdminNotes)
+	assert.Equal(t, "Please clarify the totals", *active.AdminNotes)
+
+	entries := f.audit.Entries()
+	require.Len(t, entries, 2)
+	assert.Equal(t, audit.ActionCreateReport, entries[0].Action)
+	assert.Equal(t, audit.ActionUnapproveReport, entries[1].Action)
+}
+
+func TestReportService_BulkApprovalIsIndistinguishableFromIndividual(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	one, err := f.svc.Create(ctx, alice, "", req("April"))
+	require.NoError(t, err)
+	two, err := f.svc.Create(ctx, bob, "", req("May"))
+	require.NoError(t, err)
+
+	for _, id := range []int64{one.ID, two.ID} {
+		meta, err := f.svc.ToggleComplete(ctx, bob, "", id)
+		require.NoError(t, err)
+		assert.True(t, meta.Completed)
+		assert.Equal(t, "approved", meta.Status)
+	}
+
+	entries := f.audit.Entries()
+	require.Len(t, entries, 4)
+	assert.Equal(t, audit.ActionApproveReport, entries[2].Action)
+	assert.Equal(t, audit.ActionApproveReport, entries[3].Action)
+	assert.Equal(t, "1", *entries[2].TargetID)
+	assert.Equal(t, "2", *entries[3].TargetID)
 }
 
 func TestReportService_ToggleComplete(t *testing.T) {
