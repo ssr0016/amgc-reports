@@ -159,16 +159,16 @@ function ExcelReportSheet({ rows, name, status }: { rows: string[][]; name: stri
         {/* Static public asset; Next image optimization is unnecessary for this fixed report logo. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/amgc-logo.png" alt="AMGC logo" className="mx-auto mb-2 h-16 w-auto object-contain" />
-        <h1 className="text-lg font-bold">{cell(0, 0)}</h1>
-        <h2 className="text-sm font-bold">{cell(2, 0)}</h2>
+        <h1 className="break-words text-[clamp(1rem,4vw,1.125rem)] font-bold leading-tight">{cell(0, 0)}</h1>
+        <h2 className="break-words text-[clamp(0.75rem,3vw,0.875rem)] font-bold leading-tight">{cell(2, 0)}</h2>
         <p className="mt-1 text-xs">{cell(3, 0)} {cell(3, 1)}</p>
       </div>
 
       <section className="grid grid-cols-1 border-x border-b border-black sm:grid-cols-2">
         {[[4, "Worker:"], [5, "Area of Assignment:"], [6, "Name of Church/Outreach:"], [null, "Status:"]].map(([row, label]) => (
-          <div key={label} className="grid grid-cols-[minmax(10rem,auto)_1fr] border-b border-black px-2 py-1 last:border-b-0 sm:odd:border-r">
-            <span className="font-bold">{label}</span>
-            <span>{row === null ? (status ? <ExcelStatusBadge status={status} /> : "—") : cell(Number(row), 1) || "—"}</span>
+          <div key={label} className="grid grid-cols-[minmax(8.5rem,auto)_minmax(0,1fr)] border-b border-black px-2 py-1 last:border-b-0 sm:odd:border-r">
+            <span className="break-words font-bold">{label}</span>
+            <span className="min-w-0 break-words">{row === null ? (status ? <ExcelStatusBadge status={status} /> : "—") : cell(Number(row), 1) || "—"}</span>
           </div>
         ))}
       </section>
@@ -182,9 +182,9 @@ function ExcelReportSheet({ rows, name, status }: { rows: string[][]; name: stri
         <h3 className="border-b border-black bg-black px-2 py-1 font-bold text-white">Report Details</h3>
         <dl className="grid gap-0">
           {[[39, "Narrative Report:"], [40, "Challenges/Problem Encountered:"], [41, "Prayer Request:"]].map(([row, label], index) => (
-            <div key={label} className={`grid grid-cols-[minmax(12rem,18%)_1fr] border-b border-black last:border-b-0 ${index % 2 ? "bg-slate-50" : "bg-white"}`}>
+            <div key={label} className={`grid grid-cols-[minmax(8.5rem,18%)_minmax(0,1fr)] border-b border-black last:border-b-0 ${index % 2 ? "bg-slate-50" : "bg-white"}`}>
               <dt className="border-r border-black px-2 py-1 font-bold">{label}</dt>
-              <dd className="whitespace-pre-wrap px-2 py-1 [overflow-wrap:anywhere]">{cell(Number(row), 1) || "—"}</dd>
+              <dd className="min-w-0 whitespace-pre-wrap px-2 py-1 [overflow-wrap:anywhere]">{cell(Number(row), 1) || "—"}</dd>
             </div>
           ))}
         </dl>
@@ -199,19 +199,19 @@ function ExcelMetricTable({ title, rows, name, names }: { title: string; rows: s
   return (
     <div className="mb-3 overflow-x-auto border border-black last:mb-0">
       <div className="bg-black px-2 py-1 font-bold text-white">{title}</div>
-      <Table aria-label={`Sheet ${name} ${title}`} className="table-fixed border-collapse text-[11px]">
+      <Table aria-label={`Sheet ${name} ${title}`} className="min-w-[760px] table-fixed border-collapse text-[11px]">
         <TableHeader>
           <TableRow className="bg-slate-200 hover:bg-slate-200">
-            <TableHead className="w-[30%] border-r border-black px-2 py-1 font-bold text-black h-10 normal-case tracking-normal text-[11px]">Activities</TableHead>
-            {Array.from({ length: 5 }, (_, i) => <TableHead key={i} className="border-r border-black px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Week {i + 1}</TableHead>)}
-            <TableHead className="px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Average</TableHead>
+            <TableHead className="w-[220px] border-r border-black px-2 py-1 font-bold text-black h-10 normal-case tracking-normal text-[11px]">Activities</TableHead>
+            {Array.from({ length: 5 }, (_, i) => <TableHead key={i} className="w-[76px] whitespace-nowrap border-r border-black px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Week {i + 1}</TableHead>)}
+            <TableHead className="w-[76px] whitespace-nowrap px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Average</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.map((cells, index) => (
             <TableRow key={index} className={zebra(index)}>
               {cells.slice(0, 7).map((text, column) => (
-                <TableCell key={column} className={`${column < 6 ? "border-r border-black" : ""} px-2 py-1 text-black ${column === 0 ? "font-medium" : "text-center"}`}>
+                <TableCell key={column} className={`${column < 6 ? "border-r border-black" : ""} px-2 py-1 text-black ${column === 0 ? "font-medium whitespace-normal break-words" : "text-center"}`}>
                   {text || "—"}
                 </TableCell>
               ))}
@@ -246,8 +246,8 @@ function ExcelDashboardSheet({ sheet }: { sheet: { name: string; rows: string[][
   const rows = sheet.rows.slice(2).filter((row) => row.some(Boolean)).map((row) => row.slice(0, headers.length));
 
   return (
-    <div role="region" aria-label={`Sheet ${sheet.name}`} tabIndex={0} className="max-h-[60vh] overflow-auto rounded-lg border border-slate-300 bg-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-      <Table aria-label={`Sheet ${sheet.name}`} style={{ minWidth: Math.max(760, headers.length * 110) }} className="table-fixed border-collapse bg-white text-[11px] text-black">
+    <div role="region" aria-label={`Sheet ${sheet.name}`} tabIndex={0} className="max-h-[60vh] overflow-y-auto rounded-lg border border-slate-300 bg-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+      <Table aria-label={`Sheet ${sheet.name}`} style={{ minWidth: Math.max(760, headers.length * 110) }} className="w-max min-w-full table-fixed border-collapse bg-white text-[11px] text-black">
         <caption className="sr-only">Sheet {sheet.name}</caption>
         <TableHeader>
           <TableRow className="bg-slate-100 hover:bg-slate-100">
@@ -257,7 +257,7 @@ function ExcelDashboardSheet({ sheet }: { sheet: { name: string; rows: string[][
           </TableRow>
           <TableRow className="bg-slate-200 hover:bg-slate-200">
             {headers.map((text, c) => (
-              <TableHead key={c} scope="col" className={`${c < headers.length - 1 ? "border-r border-slate-300" : ""} px-3 py-2 font-bold text-slate-900 h-10 normal-case tracking-normal text-[11px] ${c === 0 ? "text-left" : "text-center"}`}>
+              <TableHead key={c} scope="col" className={`${c < headers.length - 1 ? "border-r border-slate-300" : ""} min-w-32 whitespace-normal break-words px-3 py-2 font-bold text-slate-900 h-10 normal-case tracking-normal text-[11px] ${c === 0 ? "text-left" : "text-center"}`}>
                 {text}
               </TableHead>
             ))}

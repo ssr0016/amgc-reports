@@ -84,8 +84,8 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
               {/* Static public asset; Next image optimization is unnecessary for this fixed report logo. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/amgc-logo.png" alt="AMGC logo" className="mx-auto mb-2 h-16 w-auto object-contain" />
-              <h1 className="text-lg font-bold">ANG MANANAMPALATAYANG GUMAWA</h1>
-              <h2 className="text-sm font-bold">NATIONAL WORKERS&apos; MONTHLY MINISTRY REPORT</h2>
+              <h1 className="break-words text-[clamp(1rem,4vw,1.125rem)] font-bold leading-tight">ANG MANANAMPALATAYANG GUMAWA</h1>
+              <h2 className="break-words text-[clamp(0.75rem,3vw,0.875rem)] font-bold leading-tight">NATIONAL WORKERS&apos; MONTHLY MINISTRY REPORT</h2>
               <p className="mt-1 text-xs">Month of: {report.month} {report.year}</p>
             </header>
 
@@ -96,9 +96,9 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
                 ["Name of Church/Outreach:", report.church_name],
                 ["Status:", report.status ? <ReportStatusBadge status={report.status} /> : "—"],
               ].map(([label, value], index) => (
-                <div key={index} className="grid grid-cols-[minmax(10rem,auto)_1fr] border-b border-black px-2 py-1 last:border-b-0 sm:odd:border-r">
-                  <span className="font-bold">{label}</span>
-                  <span>{value || "—"}</span>
+                <div key={index} className="grid grid-cols-[minmax(8.5rem,auto)_minmax(0,1fr)] border-b border-black px-2 py-1 last:border-b-0 sm:odd:border-r">
+                  <span className="break-words font-bold">{label}</span>
+                  <span className="min-w-0 break-words">{value || "—"}</span>
                 </div>
               ))}
             </section>
@@ -118,9 +118,9 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
                   ["challenges", "Challenges/Problem Encountered:"],
                   ["prayer_request", "Prayer Request:"],
                 ] as const).map(([field, label], index) => (
-                  <div key={field} className={`grid grid-cols-[minmax(12rem,18%)_1fr] border-b border-black last:border-b-0 ${index % 2 ? "bg-slate-50" : "bg-white"}`}>
+                  <div key={field} className={`grid grid-cols-[minmax(8.5rem,18%)_minmax(0,1fr)] border-b border-black last:border-b-0 ${index % 2 ? "bg-slate-50" : "bg-white"}`}>
                     <dt className="border-r border-black px-2 py-1 font-bold">{label}</dt>
-                    <dd className="whitespace-pre-wrap px-2 py-1 [overflow-wrap:anywhere]">{report[field] || "—"}</dd>
+                    <dd className="min-w-0 whitespace-pre-wrap px-2 py-1 [overflow-wrap:anywhere]">{report[field] || "—"}</dd>
                   </div>
                 ))}
               </dl>
@@ -169,12 +169,12 @@ function ReportMetricTable({
   return (
     <div className="mb-3 overflow-x-auto border border-black last:mb-0">
       <div className="bg-black px-2 py-1 font-bold text-white">{title}</div>
-      <Table aria-label={`${title} metrics`} className="table-fixed border-collapse text-[11px] tabular-nums">
+      <Table aria-label={`${title} metrics`} className="min-w-[760px] table-fixed border-collapse text-[11px] tabular-nums">
         <TableHeader className="bg-[#E0E0E0] shadow-none">
           <TableRow className="border-black bg-[#E0E0E0] hover:bg-[#E0E0E0]">
-            <TableHead className="w-[30%] border-r border-black px-2 py-1 font-bold text-black h-10 normal-case tracking-normal text-[11px]">Activities</TableHead>
-            {WEEKS.map((w) => <TableHead key={w} className="border-r border-black px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Week {w.slice(4)}</TableHead>)}
-            <TableHead className="px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Average</TableHead>
+            <TableHead className="w-[220px] border-r border-black px-2 py-1 font-bold text-black h-10 normal-case tracking-normal text-[11px]">Activities</TableHead>
+            {WEEKS.map((w) => <TableHead key={w} className="w-[76px] whitespace-nowrap border-r border-black px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Week {w.slice(4)}</TableHead>)}
+            <TableHead className="w-[76px] whitespace-nowrap px-2 py-1 text-center font-bold text-black h-10 normal-case tracking-normal text-[11px]">Average</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -182,7 +182,7 @@ function ReportMetricTable({
             const values = report.metrics[row.key];
             return (
               <TableRow key={row.key} className={zebra(index)}>
-                <TableCell className="border-r border-black px-2 py-1 font-medium text-black">{row.label}</TableCell>
+                <TableCell className="border-r border-black px-2 py-1 font-medium text-black whitespace-normal break-words">{row.label}</TableCell>
                 {WEEKS.map((w) => <TableCell key={w} className="border-r border-black px-2 py-1 text-center text-black">{values?.[w] ?? "—"}</TableCell>)}
                 <TableCell className="px-2 py-1 text-center font-medium text-black">{calculateAverage(values)}</TableCell>
               </TableRow>

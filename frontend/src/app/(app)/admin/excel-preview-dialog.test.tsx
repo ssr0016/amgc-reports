@@ -161,6 +161,23 @@ describe("Excel preview dialog", () => {
     expect(within(table).getByText("Total")).toBeInTheDocument();
   });
 
+  it("wraps long Approved Reports headers instead of letting them spill over the table", async () => {
+    const header = ["Church", "Worker", "Legacy Persons Evangelized — meaning unverified"];
+    h.previewExcel.mockResolvedValue({
+      count: 1,
+      sheets: [
+        dashboard(["Bethel", "September", "2026", "Approved", "Checked", "Ready"]),
+        { name: "Approved Reports", rows: [["Approved Reports", "", ""], header, ["Bethel", "Ana", "1"]] },
+      ],
+    });
+    const { user } = renderDialog();
+    await screen.findByRole("table", { name: "Sheet Report Dashboard" });
+    await user.selectOptions(screen.getByLabelText("Sheet"), "Approved Reports");
+
+    const table = screen.getByRole("table", { name: "Sheet Approved Reports" });
+    expect(within(table).getByRole("columnheader", { name: "Legacy Persons Evangelized — meaning unverified" })).toHaveClass("whitespace-normal");
+  });
+
   it("a month with no approved reports shows the dashboard alone and can still download", async () => {
     h.previewExcel.mockResolvedValue({ count: 0, sheets: [dashboard(["Abba", "", "", "No Report Submitted", "", ""])] });
     renderDialog();
