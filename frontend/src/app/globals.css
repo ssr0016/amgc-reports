@@ -52,6 +52,45 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 :root {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --primary: #3ecf8e;
+  --primary-deep: #24b47e;
+  --primary-foreground: #171717;
+  --secondary: #f1f5f3;
+  --secondary-foreground: var(--foreground);
+  --muted: #f1f5f3;
+  --muted-foreground: #52605a;
+  --accent: #e8f5ef;
+  --accent-foreground: var(--foreground);
+  --destructive: #dc2626;
+  --border: #d7e0db;
+  --input: #718078;
+  --ring: #16805a;
+  --approved: var(--primary);
+  --pending: #a16207;
+  --chart-1: var(--primary);
+  --chart-2: #52605a;
+  --chart-3: #718078;
+  --chart-4: #9aa9a1;
+  --chart-5: #d7e0db;
+  --radius: 12px;
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+.dark {
   color-scheme: dark;
   --background: #1c1c1c;
   --foreground: #ededed;
@@ -59,9 +98,6 @@
   --card-foreground: var(--foreground);
   --popover: #202020;
   --popover-foreground: var(--foreground);
-  --primary: #3ecf8e;
-  --primary-deep: #24b47e;
-  --primary-foreground: #171717;
   --secondary: #2e2e2e;
   --secondary-foreground: var(--foreground);
   --muted: #292929;
@@ -72,22 +108,11 @@
   --border: #353535;
   --input: #707070;
   --ring: var(--primary);
-  --approved: var(--primary);
   --pending: #facc15;
-  --chart-1: var(--primary);
   --chart-2: #b2b2b2;
   --chart-3: #9a9a9a;
   --chart-4: #707070;
   --chart-5: #dfdfdf;
-  --radius: 12px;
-  --sidebar: var(--background);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--accent);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ring);
 }
 
 @layer base {

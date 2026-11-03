@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { GlobalActivityIndicator } from "@/components/global-activity-indicator";
 import { QueryProvider } from "@/lib/query";
 import { SessionProvider } from "@/lib/session";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -30,10 +31,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${mono.variable} dark h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => { const saved = localStorage.getItem("theme"); const theme = saved === "light" || saved === "dark" ? saved : (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"); document.documentElement.classList.toggle("dark", theme === "dark"); })();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <QueryProvider>
           <GlobalActivityIndicator />
-          <SessionProvider>{children}</SessionProvider>
+          <ThemeProvider><SessionProvider>{children}</SessionProvider></ThemeProvider>
           <Toaster />
         </QueryProvider>
       </body>

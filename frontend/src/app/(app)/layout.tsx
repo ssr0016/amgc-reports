@@ -12,6 +12,7 @@ import { ProfileMenu } from "./profile-menu";
 import { Sidebar } from "./sidebar";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
 import { NotificationBell } from "@/components/notification-bell";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Client-side guard: the API's session cookies cannot tell proxy.ts whether a session is
 // live (plan section 1.2), so nothing private renders until /auth/me answers. proxy.ts
@@ -69,6 +70,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <NotificationBell />
+            <ThemeToggle />
             <ProfileMenu
               onSignOut={() => {
                 signingOut.current = true;

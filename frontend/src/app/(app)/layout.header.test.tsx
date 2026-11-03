@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { QueryProvider } from "@/lib/query";
+import { ThemeProvider } from "@/components/theme-provider";
 import AppLayout from "./layout";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reports", useSearchParams: () => new URLSearchParams() }));
@@ -8,7 +9,7 @@ vi.mock("@/lib/session", () => ({
   useSession: () => ({ status: "authenticated", user: { name: "Ana", email: "a@b.c", role: "admin" }, isAdmin: true, canAdmin: true, can: () => true, signOut: vi.fn() }),
 }));
 vi.mock("@/lib/notifications", () => ({ listUnreadNotifications: vi.fn().mockResolvedValue([]), markNotificationRead: vi.fn() }));
-const renderLayout = () => render(<QueryProvider><AppLayout>content</AppLayout></QueryProvider>);
+const renderLayout = () => render(<ThemeProvider><QueryProvider><AppLayout>content</AppLayout></QueryProvider></ThemeProvider>);
 
 describe("app header", () => {
   // WCAG 1.4.10: at 320 px the row (Menu, name, profile menu) can be wider than the screen.

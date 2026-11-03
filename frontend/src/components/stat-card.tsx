@@ -4,11 +4,11 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 
 // Icon tiles, dots and glows are decorative; the label carries the meaning.
 const TONE = {
-  neutral: { tile: "bg-muted text-foreground", dot: "bg-muted-foreground", glow: "hover:ring-white/15 hover:shadow-white/5" },
-  green: { tile: "bg-primary/10 text-primary", dot: "bg-primary", glow: "hover:ring-primary/30 hover:shadow-primary/15" },
-  sky: { tile: "bg-sky-500/10 text-sky-400", dot: "bg-sky-400", glow: "hover:ring-sky-400/30 hover:shadow-sky-500/15" },
-  amber: { tile: "bg-amber-500/10 text-amber-400", dot: "bg-amber-400", glow: "hover:ring-amber-400/30 hover:shadow-amber-500/15" },
-  red: { tile: "bg-red-500/10 text-red-400", dot: "bg-red-400", glow: "hover:ring-red-400/30 hover:shadow-red-500/15" },
+  neutral: { tile: "bg-muted text-foreground", dot: "bg-muted-foreground", glow: "hover:ring-foreground/15 hover:shadow-foreground/5" },
+  green: { tile: "bg-primary/10 text-primary-deep dark:text-primary", dot: "bg-primary", glow: "hover:ring-primary/30 hover:shadow-primary/15" },
+  sky: { tile: "bg-sky-500/10 text-sky-600 dark:text-sky-400", dot: "bg-sky-600 dark:bg-sky-400", glow: "hover:ring-sky-400/30 hover:shadow-sky-500/15" },
+  amber: { tile: "bg-amber-500/10 text-amber-700 dark:text-amber-400", dot: "bg-amber-700 dark:bg-amber-400", glow: "hover:ring-amber-400/30 hover:shadow-amber-500/15" },
+  red: { tile: "bg-red-500/10 text-red-600 dark:text-red-400", dot: "bg-red-600 dark:bg-red-400", glow: "hover:ring-red-400/30 hover:shadow-red-500/15" },
 };
 
 export type StatTone = keyof typeof TONE;
@@ -17,7 +17,7 @@ export type StatTone = keyof typeof TONE;
 export function StatCard({ label, value, icon: Icon, tone, note }: { label: string; value?: ReactNode; icon: LucideIcon; tone: StatTone; note?: ReactNode }) {
   return (
     <Card
-      className={`group border-white/[0.06] bg-card/80 bg-linear-to-b from-white/[0.03] to-transparent shadow-sm ring-1 ring-transparent transition-shadow duration-200 hover:shadow-lg ${TONE[tone].glow}`}
+      className={`group border-border bg-card/80 bg-linear-to-b from-foreground/[0.03] to-transparent shadow-sm ring-1 ring-transparent transition-shadow duration-200 hover:shadow-lg ${TONE[tone].glow}`}
     >
       <CardHeader className="gap-2">
         <CardDescription className="text-xs font-medium tracking-wide uppercase">{label}</CardDescription>
