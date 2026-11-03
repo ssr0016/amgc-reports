@@ -24,6 +24,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/logger"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
+	"github.com/ssr0016/pastoral-reports/backend/internal/report/outbox"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report/reportimpl"
 	reportrest "github.com/ssr0016/pastoral-reports/backend/internal/report/rest"
 	"github.com/ssr0016/pastoral-reports/backend/internal/router"
@@ -127,7 +128,8 @@ func run() error {
 		RefreshTTL: cfg.Auth.RefreshTTL, RefreshIdleTTL: cfg.Auth.RefreshIdleTTL,
 	})
 	passwordResetService := authimpl.NewPasswordResetService(userRepo, passwordResetRepo, log)
-	reportService := reportimpl.NewService(reportRepo, auditRepo, db, userRepo, nil)
+	notificationSink := outbox.NewStore(db)
+	reportService := reportimpl.NewService(reportRepo, auditRepo, db, userRepo, notificationSink)
 	statsService := statsimpl.NewService(statsimpl.NewStore(db), auditRepo, db)
 	userService := userimpl.NewService(userRepo, roleRepo, auditRepo, db)
 
