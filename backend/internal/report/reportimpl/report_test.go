@@ -748,6 +748,24 @@ func TestReportService_ExportMonth(t *testing.T) {
 		assert.Equal(t, map[string]any{"month": "May", "year": 2026, "count": 3}, e.Details)
 	})
 
+	t.Run("approved report with no church is shown under Unassigned", func(t *testing.T) {
+		f := newFixture()
+		ctx := context.Background()
+		r := req("May")
+		y := 2026
+		r.Year, r.ChurchName = &y, ""
+		rep, err := f.reports.Create(ctx, 78, 2026, r)
+		require.NoError(t, err)
+		_, err = f.reports.ToggleComplete(ctx, rep.ID, bob)
+		require.NoError(t, err)
+		f.reports.Accounts = []MockAccount{{ID: 78, Church: ""}}
+
+		x, err := f.svc.ExportMonth(ctx, bob, "", may)
+		require.NoError(t, err)
+		wb := open(t, x)
+		assert.Equal(t, []string{"Unassigned", "May", "2026", "Approved", "Checked", "Ready for Pick Up"}, dashboardOf(t, wb)[2])
+	})
+
 	t.Run("without read_any only the caller's approved reports, and no other accounts", func(t *testing.T) {
 		f := monthFixture(t)
 		x, err := f.svc.ExportMonth(ctx, alice, "", may)

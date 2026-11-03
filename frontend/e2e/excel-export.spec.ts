@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
+import type { APIRequestContext } from "@playwright/test";
 import { ACCOUNTS, authFile, earlierPeriod, expect, previousPeriod, send, test } from "./support";
 
 test.use({ storageState: authFile("admin") });
@@ -25,13 +26,36 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
   });
   expect(unsubmitted.status(), await unsubmitted.text()).toBe(201);
   const { id: unsubmittedUserId } = await unsubmitted.json();
+  let unassignedUserId = 0;
+  let unassignedReportId = 0;
+  let unassigned: APIRequestContext | undefined;
   try {
     const moved = await send(request, "PUT", `/reports/${id}`, { ...period, ...fixture });
     expect(moved.status(), await moved.text()).toBe(200);
     // Only approved reports get a sheet in the bulk file (D-A16).
     expect((await send(request, "PATCH", `/reports/${id}/complete`)).status()).toBe(200);
 
-    await page.goto("/admin");
+    const createdUnassigned = await send(request, "POST", "/admin/users", {
+      email: "e2e-export-unassigned@example.com",
+      name: "E2E Unassigned",
+      password: "E2eUnassigned!23456",
+      confirm_password: "E2eUnassigned!23456",
+      church_name: "",
+    });
+    expect(createdUnassigned.status(), await createdUnassigned.text()).toBe(201);
+    unassignedUserId = (await createdUnassigned.json()).id;
+    unassigned = await playwright.request.newContext({ extraHTTPHeaders: { "CF-Connecting-IP": clientIp } });
+    expect((await send(unassigned, "POST", "/auth/login", {
+      email: "e2e-export-unassigned@example.com",
+      password: "E2eUnassigned!23456",
+    })).status()).toBe(200);
+    const unassignedFiled = await send(unassigned, "POST", "/reports", { ...previousPeriod(), ...fixture });
+    expect(unassignedFiled.status(), await unassignedFiled.text()).toBe(201);
+    unassignedReportId = (await unassignedFiled.json()).id;
+    expect((await send(request, "PUT", `/reports/${unassignedReportId}`, { ...period, ...fixture })).status()).toBe(200);
+    expect((await send(request, "PATCH", `/reports/${unassignedReportId}/complete`)).status()).toBe(200);
+
+    await page.goto("/admin?tab=reports");
     const reports = page.getByRole("region", { name: "Reports" });
     await reports.getByLabel("Month").selectOption(period.month);
     await reports.getByLabel("Year").selectOption(String(period.year));
@@ -48,6 +72,7 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
     await expect(sheet).toHaveValue("0");
     // This church account has no reports.
     await expect(dialog.getByRole("table", { name: "Sheet Report Dashboard" }).getByRole("row").filter({ hasText: "E2E Unsubmitted Church" })).toContainText("No Report Submitted");
+    await expect(dialog.getByRole("table", { name: "Sheet Report Dashboard" }).getByRole("row").filter({ hasText: "Unassigned" })).toContainText("Approved");
     await sheet.selectOption({ label: church });
     await expect(dialog.getByRole("region", { name: `Sheet ${church}`, exact: true })).toContainText(worker);
     expect((await new AxeBuilder({ page }).include('[role="alertdialog"]').analyze()).violations).toEqual([]);
@@ -74,6 +99,9 @@ test("an admin previews, then downloads, the month and one report as Excel", asy
   } finally {
     // Soft delete, so a later run can file the month again.
     expect((await send(request, "DELETE", `/reports/${id}`)).status()).toBe(204);
+    if (unassignedReportId) expect((await send(request, "DELETE", `/reports/${unassignedReportId}`)).status()).toBe(204);
+    if (unassigned) await unassigned.dispose();
+    if (unassignedUserId) expect((await send(request, "DELETE", `/admin/users/${unassignedUserId}`)).status()).toBe(200);
     expect((await send(request, "DELETE", `/admin/users/${unsubmittedUserId}`)).status()).toBe(200);
   }
 });

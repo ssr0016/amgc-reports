@@ -174,7 +174,11 @@ func (m *MockStore) Dashboard(_ context.Context, month string, year int) ([]repo
 	defer m.mu.Unlock()
 	out := []report.DashboardRow{}
 	for _, acc := range m.Accounts {
-		row := report.DashboardRow{Church: acc.Church, Status: report.StatusNoReport}
+		church := acc.Church
+		if strings.TrimSpace(church) == "" {
+			church = report.UnassignedChurch
+		}
+		row := report.DashboardRow{Church: church, Status: report.StatusNoReport}
 		for _, r := range m.reports {
 			if r.DeletedAt == nil && r.CreatedBy == acc.ID && int(r.Year) == year && strings.EqualFold(r.Month, month) {
 				row.Month, row.Year, row.Status = r.Month, int(r.Year), r.Status

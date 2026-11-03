@@ -72,8 +72,9 @@
   --border: #d7e0db;
   --input: #718078;
   --ring: #16805a;
-  --approved: var(--primary);
-  --pending: #a16207;
+  --approved: #166534;
+  --pending: #92400e;
+  --needs-revision: #991b1b;
   --chart-1: var(--primary);
   --chart-2: #52605a;
   --chart-3: #718078;
@@ -109,6 +110,7 @@
   --input: #707070;
   --ring: var(--primary);
   --pending: #facc15;
+  --needs-revision: #fca5a5;
   --chart-2: #b2b2b2;
   --chart-3: #9a9a9a;
   --chart-4: #707070;

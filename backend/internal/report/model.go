@@ -184,15 +184,19 @@ type PreviewSheet struct {
 
 // The Report Dashboard statuses (D-A16).
 const (
-	StatusApproved = "Approved"
-	StatusPending  = "Pending"
-	StatusNoReport = "No Report Submitted"
+	StatusApproved   = "Approved"
+	StatusPending    = "Pending"
+	StatusNoReport   = "No Report Submitted"
+	UnassignedChurch = "Unassigned"
 )
 
-// ChurchAccount is the SQL condition for a church account (D-A24), over users u
-// inner-joined to its role ro: the user role, not deleted, with a church name.
-// Account status is not filtered. The Tracker and the Report Dashboard share it.
+// ChurchAccount is the SQL condition for a tracked church account (D-A24): a
+// user-role account that is not deleted and has a church name.
 const ChurchAccount = "ro.name = '" + accesscontrol.DefaultRoleName + "' AND u.deleted_at IS NULL AND btrim(COALESCE(u.church_name, '')) <> ''"
+
+// DashboardAccount also keeps blank-profile accounts so Excel can show their
+// reports under Unassigned instead of dropping them.
+const DashboardAccount = "ro.name = '" + accesscontrol.DefaultRoleName + "' AND u.deleted_at IS NULL"
 
 // DashboardRow is one church account on the bulk export's Report Dashboard
 // sheet (D-A16, D-A19): the account's church, its report's month and year, and

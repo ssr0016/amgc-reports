@@ -338,12 +338,12 @@ func (r *store) SoftDelete(ctx context.Context, id int64) error {
 // account gives one row (D-A16, D-A24).
 func (r *store) Dashboard(ctx context.Context, month string, year int) ([]report.DashboardRow, error) {
 	q, args, err := r.db.Builder.
-		Select("u.church_name", "r.month", "r.year", "r.status").
+		Select("COALESCE(NULLIF(btrim(u.church_name), ''), '"+report.UnassignedChurch+"')", "r.month", "r.year", "r.status").
 		From("users u").
 		Join("roles ro ON ro.id = u.role_id").
 		LeftJoin("reports r ON r.created_by = u.id AND r.deleted_at IS NULL AND r.year = ? AND r.month = ?", year, report.CanonicalMonth(month)).
-		Where(report.ChurchAccount).
-		OrderBy("lower(u.church_name)", "u.id").
+		Where(report.DashboardAccount).
+		OrderBy("lower(COALESCE(NULLIF(btrim(u.church_name), ''), '"+report.UnassignedChurch+"'))", "u.id").
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build dashboard query: %w", err)

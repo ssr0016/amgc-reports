@@ -28,10 +28,10 @@ export type PreviewTarget = { reportId: number; label: string } | { month: strin
 
 // Excel status tones; dark: repeats them because this dialog stays white in the dark theme.
 const EXCEL_TONE: Record<string, string> = {
-  approved: "bg-green-100 text-green-800 dark:bg-green-100 dark:text-green-800",
-  pending: "bg-amber-100 text-amber-800 dark:bg-amber-100 dark:text-amber-800",
-  needs_revision: "bg-amber-100 text-amber-800 dark:bg-amber-100 dark:text-amber-800",
-  no_report_submitted: "bg-red-100 text-red-800 dark:bg-red-100 dark:text-red-800",
+  approved: "bg-green-100 text-green-900 dark:bg-green-100 dark:text-green-900",
+  pending: "bg-amber-100 text-amber-900 dark:bg-amber-100 dark:text-amber-900",
+  needs_revision: "bg-red-100 text-red-900 dark:bg-red-100 dark:text-red-900",
+  no_report_submitted: "bg-red-100 text-red-900 dark:bg-red-100 dark:text-red-900",
 };
 
 function ExcelStatusBadge({ status }: { status: string }) {
