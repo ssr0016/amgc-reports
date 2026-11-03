@@ -235,6 +235,39 @@ export function ReportForm({
     }),
   );
 
+  const renderLongText = ([name, label, placeholder, help]: (typeof longTexts)[number]) =>
+    restricted ? (
+      <div key={name} className="flex flex-col gap-2">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-sm text-muted-foreground">Restricted</p>
+      </div>
+    ) : (
+      <div key={name} className="flex flex-col gap-2">
+        <Label htmlFor={name}>{label}</Label>
+        <Textarea
+          id={name}
+          name={name}
+          rows={4}
+          placeholder={placeholder}
+          value={form[name]}
+          onChange={(e) => setField(name, e.target.value)}
+          aria-invalid={!!errors[name]}
+          aria-describedby={errors[name] ? `${name}-note ${name}-hint` : `${name}-hint`}
+        />
+        <p id={`${name}-hint`} className="text-sm text-muted-foreground">
+          {help}
+        </p>
+        {errors[name] && (
+          <p id={`${name}-note`} className="text-sm text-destructive">
+            {errors[name]}
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          {[...form[name]].length} / {TEXT_LIMITS[name]}
+        </p>
+      </div>
+    );
+
   return (
     <form ref={formRef} onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-6">
       <fieldset
@@ -360,6 +393,7 @@ export function ReportForm({
                   ))}
                 </TableBody>
               </Table>
+              {section.title === "Weekly Ministry" && renderLongText(longTexts[0])}
             </section>
           );
         })}
@@ -368,39 +402,7 @@ export function ReportForm({
           <h2 id="section-details" className={headingClass}>
             Report Details
           </h2>
-          {longTexts.map(([name, label, placeholder, help]) =>
-            restricted ? (
-              <div key={name} className="flex flex-col gap-2">
-                <p className="text-sm font-medium">{label}</p>
-                <p className="text-sm text-muted-foreground">Restricted</p>
-              </div>
-            ) : (
-            <div key={name} className="flex flex-col gap-2">
-              <Label htmlFor={name}>{label}</Label>
-              <Textarea
-                id={name}
-                name={name}
-                rows={4}
-                placeholder={placeholder}
-                value={form[name]}
-                onChange={(e) => setField(name, e.target.value)}
-                aria-invalid={!!errors[name]}
-                aria-describedby={errors[name] ? `${name}-note ${name}-hint` : `${name}-hint`}
-              />
-              <p id={`${name}-hint`} className="text-sm text-muted-foreground">
-                {help}
-              </p>
-              {errors[name] && (
-                <p id={`${name}-note`} className="text-sm text-destructive">
-                  {errors[name]}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {[...form[name]].length} / {TEXT_LIMITS[name]}
-              </p>
-            </div>
-            ),
-          )}
+          {longTexts.slice(1).map(renderLongText)}
         </section>
       </fieldset>
 

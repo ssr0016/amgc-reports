@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertDialog,
@@ -105,7 +106,7 @@ export function ReportPreviewDialog({ reportId, onClose }: { reportId: number; o
 
             <section className="mt-4">
               <ReportMetricTable title="Activities" rows={excelMetricRows} report={report} />
-              <ReportMetricTable title="Other Statistics" rows={excelOtherRows.filter((row) => row.key !== "person_evangelized" || report.metrics.person_evangelized)} report={report} names={report.names} />
+              <ReportMetricTable title="Other Statistics" rows={excelOtherRows.filter((row) => row.key !== "person_evangelized" || report.metrics.person_evangelized)} report={report} names={report.names ?? ""} />
             </section>
 
             <section aria-labelledby="preview-report-details" className="mt-4 border border-black">
@@ -181,25 +182,27 @@ function ReportMetricTable({
           {rows.map((row, index) => {
             const values = report.metrics[row.key];
             return (
-              <TableRow key={row.key} className={zebra(index)}>
-                <TableCell className="border-r border-black px-2 py-1 font-medium text-black whitespace-normal break-words">{row.label}</TableCell>
-                {WEEKS.map((w) => <TableCell key={w} className="border-r border-black px-2 py-1 text-center text-black">{values?.[w] ?? "—"}</TableCell>)}
-                <TableCell className="px-2 py-1 text-center font-medium text-black">{calculateAverage(values)}</TableCell>
-              </TableRow>
+              <Fragment key={row.key}>
+                <TableRow className={zebra(index)}>
+                  <TableCell className="border-r border-black px-2 py-1 font-medium text-black whitespace-normal break-words">{row.label}</TableCell>
+                  {WEEKS.map((w) => <TableCell key={w} className="border-r border-black px-2 py-1 text-center text-black">{values?.[w] ?? "—"}</TableCell>)}
+                  <TableCell className="px-2 py-1 text-center font-medium text-black">{calculateAverage(values)}</TableCell>
+                </TableRow>
+                {names !== undefined && row.key === "person_led_to_christ" && (
+                  <>
+                    <TableRow key="names-label" className={zebra(index + 1)}>
+                      <TableCell className="border-r border-black px-2 py-1 font-bold text-black">Names:</TableCell>
+                      {WEEKS.map((w) => <TableCell key={w} className="border-r border-black px-2 py-1" />)}
+                      <TableCell className="px-2 py-1" />
+                    </TableRow>
+                    <TableRow key="names-value" className={zebra(index + 2)}>
+                      <TableCell colSpan={WEEKS.length + 2} className="whitespace-pre-wrap px-2 py-1 text-black [overflow-wrap:anywhere]">{names || "—"}</TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </Fragment>
             );
           })}
-          {names !== undefined && (
-            <>
-              <TableRow className={zebra(rows.length)}>
-                <TableCell className="border-r border-black px-2 py-1 font-bold text-black">Names:</TableCell>
-                {WEEKS.map((w) => <TableCell key={w} className="border-r border-black px-2 py-1" />)}
-                <TableCell className="px-2 py-1" />
-              </TableRow>
-              <TableRow className={zebra(rows.length + 1)}>
-                <TableCell colSpan={WEEKS.length + 2} className="whitespace-pre-wrap px-2 py-1 text-black [overflow-wrap:anywhere]">{names || "—"}</TableCell>
-              </TableRow>
-            </>
-          )}
         </TableBody>
       </Table>
     </div>

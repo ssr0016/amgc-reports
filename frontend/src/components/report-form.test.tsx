@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
@@ -127,6 +127,15 @@ describe("ReportForm", () => {
     expect(screen.getByLabelText("Prayer Request")).toHaveAccessibleDescription(
       "List your prayer requests here so the team can pray for you.",
     );
+  });
+
+  it("places Names of New Believers after the Weekly Ministry metrics", () => {
+    setup();
+    const table = screen.getByRole("table", { name: "Weekly Ministry metrics" });
+    const personLedToChrist = within(table).getByRole("row", { name: /Persons Led to Christ/ });
+    const names = screen.getByLabelText("Names of New Believers");
+
+    expect(personLedToChrist.compareDocumentPosition(names) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("submits the typed values, sending only the weeks that have a value", async () => {

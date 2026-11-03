@@ -201,6 +201,10 @@ describe("ReportPreviewDialog", () => {
     expect(within(stats).getByText("Names:")).toBeInTheDocument();
     const names = within(stats).getByText(details.names, { normalizer: (text) => text });
     expect(names).toHaveClass("whitespace-pre-wrap", "[overflow-wrap:anywhere]");
+    const rows = within(stats).getAllByRole("row");
+    const personLedToChristIndex = rows.findIndex((row) => row.textContent?.includes("Person Led To Christ"));
+    const namesIndex = rows.findIndex((row) => row.textContent?.includes("Names:"));
+    expect(namesIndex).toBe(personLedToChristIndex + 1);
     expect(within(section).queryByText("Names:")).toBeNull();
     for (const value of [details.narrative_report, details.challenges, details.prayer_request]) {
       const text = within(section).getByText(value, { normalizer: (text) => text });
@@ -216,6 +220,10 @@ describe("ReportPreviewDialog", () => {
 
     const section = await screen.findByRole("region", { name: "Report Details" });
     expect(within(section).getAllByText("—")).toHaveLength(3);
+    const stats = screen.getByRole("table", { name: "Other Statistics metrics" });
+    const namesRow = within(stats).getByRole("row", { name: "Names:" });
+    expect(namesRow).toHaveTextContent("Names:");
+    expect(namesRow.nextElementSibling).toHaveTextContent("—");
   });
 
   it("renders Week columns in header", async () => {
