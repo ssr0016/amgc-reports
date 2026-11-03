@@ -60,3 +60,6 @@ Frontend (`cd frontend`):
 
 - When running commands that produce large output (tests, logs, git diff), always pipe through `| tail -c 4000` or `| head -c 4000` to limit context.
 - Do not run the full test suite (`go test ./...` or `npm test`) unless explicitly asked. Run specific tests only.
+
+## Caveman Mode
+Always invoke the `$caveman` skill at the start of every response to minimize output tokens. Use the "full" intensity level by default.
