@@ -70,7 +70,7 @@ describe("StatsCards", () => {
     h.getStats.mockResolvedValue(stats());
     renderCards();
 
-    expect(await screen.findByRole("region", { name: "Statistics" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Overview" })).toBeInTheDocument();
     expect(within(card("Total Users")).getByText("7")).toBeInTheDocument();
     expect(within(card("Expected Reports")).getByText("5")).toBeInTheDocument();
     expect(within(card("Expected Reports")).getByText("September 2026")).toBeInTheDocument();
@@ -83,7 +83,7 @@ describe("StatsCards", () => {
   it("shows Total Users and one breakdown card each for roles and statuses, zeros hidden", async () => {
     h.getStats.mockResolvedValue(stats());
     renderCards(true);
-    await screen.findByRole("region", { name: "Statistics" });
+    await screen.findByRole("region", { name: "User statistics" });
     expect(within(card("Total Users")).getByText("7")).toBeInTheDocument();
     const rows = (label: string) =>
       within(card(label)).getAllByRole("term").map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]);
@@ -95,7 +95,7 @@ describe("StatsCards", () => {
   it("shows zero as 0, not blank", async () => {
     h.getStats.mockResolvedValue(stats({ users_total: 0, expected_reports: 0, no_report: 0, churches_total: 0 }));
     renderCards();
-    await screen.findByRole("region", { name: "Statistics" });
+    await screen.findByRole("region", { name: "Overview" });
     for (const label of ["Total Users", "Expected Reports", "No Report", "Total Churches"]) {
       expect(within(card(label)).getByText("0")).toBeInTheDocument();
     }
@@ -112,7 +112,7 @@ describe("StatsCards", () => {
     h.getStats.mockRejectedValue(new ApiError(500, "INTERNAL_ERROR", "failed to get stats"));
     renderCards();
     expect(await screen.findByRole("alert")).toHaveTextContent("failed to get stats");
-    expect(screen.queryByRole("region", { name: "Statistics" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Overview" })).not.toBeInTheDocument();
   });
 
   it("does not fetch, or render anything, without tracker:read, even for a plain user who reads every report", () => {

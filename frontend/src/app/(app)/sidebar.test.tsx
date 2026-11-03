@@ -20,7 +20,7 @@ describe("sidebar", () => {
   it("groups all main destinations without account links", () => {
     renderSidebar();
     expect(nav().getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "/reports", "/admin?tab=reports", "/admin?tab=analytics", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs",
+      "/reports", "/admin?tab=overview", "/admin?tab=reports", "/admin?tab=analytics", "/admin?tab=tracker", "/admin?tab=users", "/admin?tab=roles", "/admin?tab=logs",
     ]);
     expect(nav().queryByText("Settings")).not.toBeInTheDocument();
   });
@@ -29,7 +29,7 @@ describe("sidebar", () => {
     h.isAdmin = false;
     h.permissions = ["tracker:read", "roles:write"];
     renderSidebar();
-    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Analytics", "Tracker"]);
+    expect(nav().getAllByRole("link").map((a) => a.textContent)).toEqual(["Overview", "Analytics", "Tracker"]);
   });
 
   it("shows workers reports without admin or account links", async () => {
@@ -42,8 +42,8 @@ describe("sidebar", () => {
 
   it.each([
     ["/reports/new", "", "Community Reports"], ["/reports/5/edit", "", "Community Reports"],
-    ["/admin", "", "Admin All Reports"], ["/admin", "logs", "Admin Logs"],
-    ["/admin", "unknown", "Admin All Reports"], ["/admin/users/new", "", "Admin Users"],
+    ["/admin", "", "Admin Overview"], ["/admin", "logs", "Admin Logs"],
+    ["/admin", "unknown", "Admin Overview"], ["/admin/users/new", "", "Admin Users"],
     ["/admin/roles/3/edit", "", "Admin Roles"],
   ])("marks one current link on %s?tab=%s", (path, tab, name) => {
     Object.assign(h, { path, tab });
@@ -56,7 +56,7 @@ describe("sidebar", () => {
   it("uses the same forbidden-tab fallback as the admin panel", () => {
     Object.assign(h, { isAdmin: false, permissions: ["tracker:read"], path: "/admin", tab: "roles" });
     renderSidebar();
-    expect(nav().getByRole("link", { name: "Admin Analytics" })).toHaveAttribute("aria-current", "page");
+    expect(nav().getByRole("link", { name: "Admin Overview" })).toHaveAttribute("aria-current", "page");
   });
 
 });

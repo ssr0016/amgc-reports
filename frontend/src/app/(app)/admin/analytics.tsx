@@ -78,8 +78,7 @@ export function Analytics() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-medium tracking-tight">Analytics</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Ministry activity, attendance, giving and submission completeness for the churches and period you choose.</p>
+          <h2 className="text-xl font-medium tracking-tight">Ministry Insights &amp; Trends</h2>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

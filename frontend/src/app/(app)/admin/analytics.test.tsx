@@ -118,6 +118,8 @@ describe("analytics", () => {
     renderAnalytics();
     expect(screen.getByRole("status", { name: "Loading analytics" })).toBeInTheDocument();
     await screen.findByText("Monthly trend");
+    expect(screen.getByRole("heading", { name: "Ministry Insights & Trends" })).toBeInTheDocument();
+    expect(screen.queryByText("Ministry activity, attendance, giving and submission completeness for the churches and period you choose.")).not.toBeInTheDocument();
     expect(h.getAttendanceAnalytics).toHaveBeenLastCalledWith(defaults);
     const scope = screen.getByLabelText("Analytics scope");
     // The count says which churches it covers, so it can be read against the Total Churches card.

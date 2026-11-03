@@ -55,7 +55,7 @@ export function StatsCards({ users = false }: { users?: boolean }) {
 
   if (users) {
     return (
-      <section aria-label="Statistics" className="flex flex-col gap-4 lg:gap-5">
+      <section aria-label="User statistics" className="flex flex-col gap-4 lg:gap-5">
         <StatCard label="Total Users" value={data.users_total} icon={Users} tone="neutral" />
         <div className="grid gap-4 md:grid-cols-2 lg:gap-5">
           <StatCard label="Roles Breakdown" icon={Shield} tone="sky" note={breakdown(data.role_counts.map((r) => ({ label: r.name, count: r.count })))} />
@@ -77,7 +77,7 @@ export function StatsCards({ users = false }: { users?: boolean }) {
     { label: "Total Churches", value: data.churches_total, icon: Church, tone: "sky" },
   ];
   return (
-    <section aria-label="Statistics" className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
+    <section aria-label="Overview" className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
       {cardList(cards)}
     </section>
   );

@@ -21,7 +21,7 @@ describe("AdminPanel", () => {
   beforeEach(() => { Object.assign(h, { isAdmin: true, permissions: [], tab: "" }); });
 
   it.each([
-    ["", "Reports", "admin reports"], ["unknown", "Reports", "admin reports"],
+    ["", "Overview", "stats"], ["unknown", "Overview", "stats"],
     ["reports", "Reports", "admin reports"], ["tracker", "Tracker", "tracker"],
     ["analytics", "Analytics", "analytics"],
     ["users", "Users", "users panel"], ["roles", "Roles", "roles panel"], ["logs", "Logs", "audit logs"],
@@ -32,11 +32,11 @@ describe("AdminPanel", () => {
     // findByText: Analytics is loaded with next/dynamic, so it arrives a tick later.
     expect(await within(screen.getByRole("region", { name })).findByText(text)).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByText("stats") !== null).toBe(!["Reports", "Tracker", "Logs"].includes(name));
+    expect(screen.queryByText("stats") !== null).toBe(["Overview", "Users", "Roles"].includes(name));
   });
 
   it.each([
-    [["tracker:read"], "analytics", "Analytics"], [["users:list"], "logs", "Users"],
+    [["tracker:read"], "overview", "Overview"], [["users:list"], "logs", "Users"],
     [["audit:read"], "reports", "Logs"], [["reports:approve"], "roles", "Reports"], [["reports:export"], "", "Reports"],
   ])("preserves the first permitted section for %j", (permissions, tab, name) => {
     Object.assign(h, { isAdmin: false, permissions, tab });

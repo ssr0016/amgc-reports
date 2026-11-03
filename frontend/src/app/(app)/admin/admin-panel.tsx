@@ -26,6 +26,7 @@ export function AdminPanel() {
   // Each tab shows only to those who may use it (37b); the server still enforces every route.
   const tabs = adminSections(can, isAdmin);
   const panels: Record<string, React.ReactNode> = {
+    overview: <StatsCards />,
     reports: <AdminReports />,
     analytics: <Analytics />,
     tracker: <Tracker />,
@@ -38,15 +39,18 @@ export function AdminPanel() {
 
   return (
     <PageShell className={`${tab === "reports" ? reportsTheme : ""} max-w-7xl`}>
-      <PageHeader title={<>Admin{tab && ` / ${tabs.find((t) => t.value === tab)?.label}`}</>} />
+      <PageHeader
+        title={<>Admin{tab && ` / ${tabs.find((t) => t.value === tab)?.label}`}</>}
+        description={tab === "overview" ? "Operational snapshot of users, reporting coverage, and churches." : undefined}
+      />
       {canAdmin && tab ? (
         <>
           {/* Tracker has its own month-scoped summary, so the global cards would duplicate or contradict it.
               Logs is for finding events, not a summary, so it shows no cards. */}
-          {tab === "roles" ? <RoleStats /> : !["reports", "tracker", "logs"].includes(tab) && <StatsCards users={tab === "users"} />}
+          {tab === "roles" ? <RoleStats /> : tab === "users" && <StatsCards users />}
           <section aria-label={tabs.find((t) => t.value === tab)?.label} className="min-w-0">
             {/* Reports, logs and roles draw their own cards. */}
-            {["reports", "logs", "roles"].includes(tab) ? panels[tab] : <Card className="p-4 sm:p-6">{panels[tab]}</Card>}
+            {["overview", "reports", "logs", "roles"].includes(tab) ? panels[tab] : <Card className="p-4 sm:p-6">{panels[tab]}</Card>}
           </section>
         </>
       ) : (

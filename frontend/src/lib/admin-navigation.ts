@@ -3,6 +3,7 @@ import type { Permission } from "./permissions";
 // Shared by the sidebar and panel so their permission gates and fallback order agree.
 export function adminSections(can: (permission: Permission) => boolean, isAdmin: boolean) {
   return [
+    { value: "overview", label: "Overview", allowed: can("tracker:read") },
     { value: "reports", label: "Reports", allowed: can("reports:approve") || can("reports:export") },
     { value: "analytics", label: "Analytics", allowed: can("tracker:read") },
     { value: "tracker", label: "Tracker", allowed: can("tracker:read") },
