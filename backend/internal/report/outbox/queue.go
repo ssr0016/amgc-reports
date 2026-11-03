@@ -39,6 +39,7 @@ func (s *Store) ClaimNext(ctx context.Context, now time.Time, leaseTimeout time.
 	var job *Job
 	err := s.db.InTransaction(ctx, func(txCtx context.Context) error {
 		var candidate Job
+		var adminRemark *string
 		err := s.db.Querier(txCtx).QueryRow(txCtx, `
 			WITH candidate AS (
 				SELECT id
@@ -61,13 +62,16 @@ func (s *Store) ClaimNext(ctx context.Context, now time.Time, leaseTimeout time.
 		`, now, now.Add(-leaseTimeout)).Scan(
 			&candidate.ID, &candidate.IdempotencyKey, &candidate.EventType, &candidate.ReportID,
 			&candidate.RecipientEmail, &candidate.ReportMonth, &candidate.ReportYear,
-			&candidate.AdminRemark, &candidate.Attempts, &candidate.ClaimedAt,
+			&adminRemark, &candidate.Attempts, &candidate.ClaimedAt,
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
 		if err != nil {
 			return fmt.Errorf("claim notification: %w", err)
+		}
+		if adminRemark != nil {
+			candidate.AdminRemark = *adminRemark
 		}
 		job = &candidate
 		return nil

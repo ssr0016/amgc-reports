@@ -26,6 +26,22 @@ func TestQueue_ClaimNextClaimsDuePending(t *testing.T) {
 	assert.Equal(t, 1, job.Attempts)
 }
 
+func TestQueue_ClaimNextHandlesNullAdminRemark(t *testing.T) {
+	f := newOutboxFixture(t)
+	_, err := f.db.Pool.Exec(context.Background(), `
+		INSERT INTO report_notification_outbox (
+			idempotency_key, event_type, report_id, recipient_user_id,
+			recipient_email, report_month, report_year, admin_remark
+		) VALUES ($1, 'approved', $2, $3, $4, 'April', 2026, NULL)
+	`, "approved:null-remark", f.report.ID, f.recipient, "first@example.com")
+	require.NoError(t, err)
+
+	job, err := NewQueue(f.db).ClaimNext(context.Background(), time.Now().UTC(), time.Minute)
+	require.NoError(t, err)
+	require.NotNil(t, job)
+	assert.Equal(t, "", job.AdminRemark)
+}
+
 func TestQueue_ClaimNextReturnsNilWhenNoRowDue(t *testing.T) {
 	f := newOutboxFixture(t)
 	n := notificationFor(f)
