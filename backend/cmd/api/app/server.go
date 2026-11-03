@@ -22,6 +22,8 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth/token"
 	"github.com/ssr0016/pastoral-reports/backend/internal/config"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
+	"github.com/ssr0016/pastoral-reports/backend/internal/email/resend"
+	emailworker "github.com/ssr0016/pastoral-reports/backend/internal/email/worker"
 	"github.com/ssr0016/pastoral-reports/backend/internal/logger"
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report/outbox"
@@ -133,6 +135,11 @@ func run() error {
 	statsService := statsimpl.NewService(statsimpl.NewStore(db), auditRepo, db)
 	userService := userimpl.NewService(userRepo, roleRepo, auditRepo, db)
 
+	cancelWorker, workerDone, err := startNotificationWorker(cfg, db, log)
+	if err != nil {
+		return err
+	}
+
 	// Handlers
 	authHandler := authrest.NewAuthHandler(authService, authrest.NewCookies(cfg.Auth, cfg.IsProduction()))
 	userHandler := userrest.NewUserHandler(userRepo)
@@ -208,11 +215,51 @@ func run() error {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Error("shutdown error", "error", err)
-		return err
+	cancelNotificationWorker(cancelWorker)
+	shutdownErr := server.Shutdown(shutdownCtx)
+	waitNotificationWorker(workerDone, shutdownCtx, log)
+	if shutdownErr != nil {
+		log.Error("shutdown error", "error", shutdownErr)
+		return shutdownErr
 	}
 
 	log.Info("server stopped")
 	return nil
+}
+
+func startNotificationWorker(cfg *config.Config, db *database.DB, log *slog.Logger) (context.CancelFunc, chan struct{}, error) {
+	if !cfg.Email.Enabled() {
+		log.Info("email delivery disabled (dev mode)")
+		return nil, nil, nil
+	}
+	mailer, err := resend.New(cfg.Email.APIKey, cfg.Email.From, cfg.Email.ReplyTo, http.DefaultClient)
+	if err != nil {
+		return nil, nil, err
+	}
+	notificationWorker := emailworker.New(outbox.NewQueue(db), mailer, emailworker.Options{Logger: log})
+	workerCtx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = notificationWorker.Run(workerCtx)
+	}()
+	return cancel, done, nil
+}
+
+func cancelNotificationWorker(cancel context.CancelFunc) {
+	if cancel == nil {
+		return
+	}
+	cancel()
+}
+
+func waitNotificationWorker(done chan struct{}, ctx context.Context, log *slog.Logger) {
+	if done == nil {
+		return
+	}
+	select {
+	case <-done:
+	case <-ctx.Done():
+		log.Warn("notification worker did not stop before shutdown timeout")
+	}
 }
