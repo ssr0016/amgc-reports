@@ -31,6 +31,19 @@ func (fakeTx) InTransaction(ctx context.Context, fn func(context.Context) error)
 	return fn(ctx)
 }
 
+type fakeNotifications struct {
+	events []report.Notification
+	err    error
+}
+
+func (f *fakeNotifications) Enqueue(_ context.Context, n report.Notification) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.events = append(f.events, n)
+	return nil
+}
+
 // stubRoles serves permissions by role ID; other methods panic if called.
 type stubRoles struct {
 	accesscontrol.RoleStore
@@ -57,9 +70,10 @@ const (
 )
 
 type fixture struct {
-	svc     *service
-	reports *MockStore
-	audit   *auditimpl.MockStore
+	svc           *service
+	reports       *MockStore
+	audit         *auditimpl.MockStore
+	notifications *fakeNotifications
 }
 
 func newFixture() fixture {
@@ -68,25 +82,26 @@ func newFixture() fixture {
 		switch id {
 		case alice:
 			church := "Gospel Bearer"
-			return &user.User{ID: alice, Name: "Ana", RoleID: roleU, ChurchName: &church, Role: &accesscontrol.Role{Name: "user"}}, nil
+			return &user.User{ID: alice, Email: "ana@example.com", Name: "Ana", RoleID: roleU, ChurchName: &church, Role: &accesscontrol.Role{Name: "user"}}, nil
 		case bob:
-			return &user.User{ID: bob, Name: "Bob", RoleID: roleE, Role: &accesscontrol.Role{Name: "editor"}}, nil
+			return &user.User{ID: bob, Email: "bob@example.com", Name: "Bob", RoleID: roleE, Role: &accesscontrol.Role{Name: "editor"}}, nil
 		case carol:
-			return &user.User{ID: carol, Name: "Carol", RoleID: roleR, Role: &accesscontrol.Role{Name: "user"}}, nil
+			return &user.User{ID: carol, Email: "carol@example.com", Name: "Carol", RoleID: roleR, Role: &accesscontrol.Role{Name: "user"}}, nil
 		case dave:
-			return &user.User{ID: dave, Name: "Dave", RoleID: roleD, Role: &accesscontrol.Role{Name: "custom"}}, nil
+			return &user.User{ID: dave, Email: "dave@example.com", Name: "Dave", RoleID: roleD, Role: &accesscontrol.Role{Name: "custom"}}, nil
 		}
 		return nil, nil
 	}
+	users.GetByIDFunc = users.GetWithRoleFunc
 	roles := stubRoles{perms: map[int64][]string{
 		roleU: {"reports:read", "reports:write", "reports:delete"},
 		roleE: {"reports:read", "reports:write", "reports:delete", "reports:read_any", "reports:write_any", "reports:delete_any"},
 		roleR: {"reports:read", "reports:write", "reports:delete", "reports:read_any"},
 		roleD: {"reports:read", "reports:read_any", "reports:delete_any"},
 	}}
-	f := fixture{reports: NewMockStore(), audit: auditimpl.NewMockStore()}
+	f := fixture{reports: NewMockStore(), audit: auditimpl.NewMockStore(), notifications: &fakeNotifications{}}
 	users.Roles = roles
-	f.svc = newService(f.reports, f.audit, fakeTx{}, users)
+	f.svc = newService(f.reports, f.audit, fakeTx{}, users, f.notifications)
 	f.svc.now = func() time.Time { return time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC) }
 	return f
 }
@@ -335,7 +350,7 @@ func TestReportService_Update(t *testing.T) {
 	require.ErrorIs(t, err, report.ErrReportExists)
 }
 
-func TestReportService_RequestRevision(t *testing.T) {
+func TestReportService_RequestRevision_EnqueuesNeedsRevisionNotification(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
 	created, err := f.svc.Create(ctx, alice, "", req("April"))
@@ -355,9 +370,14 @@ func TestReportService_RequestRevision(t *testing.T) {
 	require.Len(t, entries, 2)
 	assert.Equal(t, audit.ActionCreateReport, entries[0].Action)
 	assert.Equal(t, audit.ActionUnapproveReport, entries[1].Action)
+	require.Len(t, f.notifications.events, 1)
+	n := f.notifications.events[0]
+	assert.Equal(t, "needs_revision", n.EventType)
+	assert.Equal(t, "needs_revision:"+strconv.FormatInt(created.ID, 10)+":"+strconv.FormatInt(active.UpdatedAt.Unix(), 10), n.IdempotencyKey)
+	assert.Equal(t, "Please clarify the totals", n.AdminRemark)
 }
 
-func TestReportService_BulkApprovalIsIndistinguishableFromIndividual(t *testing.T) {
+func TestReportService_BulkApproval_EnqueuesOneNotificationPerReport(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
 	one, err := f.svc.Create(ctx, alice, "", req("April"))
@@ -378,9 +398,12 @@ func TestReportService_BulkApprovalIsIndistinguishableFromIndividual(t *testing.
 	assert.Equal(t, audit.ActionApproveReport, entries[3].Action)
 	assert.Equal(t, "1", *entries[2].TargetID)
 	assert.Equal(t, "2", *entries[3].TargetID)
+	require.Len(t, f.notifications.events, 2)
+	assert.Equal(t, one.ID, f.notifications.events[0].ReportID)
+	assert.Equal(t, two.ID, f.notifications.events[1].ReportID)
 }
 
-func TestReportService_ToggleComplete(t *testing.T) {
+func TestReportService_ToggleComplete_EnqueuesApprovalNotification(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
 	created, err := f.svc.Create(ctx, alice, "", req("April"))
@@ -397,12 +420,19 @@ func TestReportService_ToggleComplete(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(body), "secret text")
 	assert.NotContains(t, string(body), "narrative")
+	require.Len(t, f.notifications.events, 1)
+	n := f.notifications.events[0]
+	assert.Equal(t, "approved", n.EventType)
+	assert.Equal(t, "approved:"+strconv.FormatInt(created.ID, 10)+":"+strconv.FormatInt(on.CompletedAt.Unix(), 10), n.IdempotencyKey)
+	assert.Equal(t, alice, n.RecipientUserID)
+	assert.Equal(t, "ana@example.com", n.RecipientEmail)
 
 	off, err := f.svc.ToggleComplete(ctx, bob, "", created.ID, "Fix the missing totals")
 	require.NoError(t, err)
 	assert.False(t, off.Completed)
 	assert.Nil(t, off.CompletedBy)
 	assert.Equal(t, "Fix the missing totals", *f.reports.active(created.ID).AdminNotes)
+	assert.Len(t, f.notifications.events, 1, "unapprove must not enqueue a notification")
 
 	entries := f.audit.Entries()
 	require.Len(t, entries, 3)
@@ -411,6 +441,36 @@ func TestReportService_ToggleComplete(t *testing.T) {
 
 	_, err = f.svc.ToggleComplete(ctx, bob, "", 9999)
 	require.ErrorIs(t, err, report.ErrReportNotFound)
+}
+
+func TestReportService_ToggleComplete_DoesNotEnqueueOnUnapprove(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	created, err := f.svc.Create(ctx, alice, "", req("April"))
+	require.NoError(t, err)
+	_, err = f.svc.ToggleComplete(ctx, bob, "", created.ID)
+	require.NoError(t, err)
+	_, err = f.svc.ToggleComplete(ctx, bob, "", created.ID, "Fix totals")
+	require.NoError(t, err)
+	assert.Len(t, f.notifications.events, 1)
+	assert.Equal(t, "approved", f.notifications.events[0].EventType)
+}
+
+func TestReportService_Update_DoesNotEnqueueNotification(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	created, err := f.svc.Create(ctx, alice, "", req("April"))
+	require.NoError(t, err)
+	_, err = f.svc.Update(ctx, alice, "", created.ID, report.UpdateReportRequest(req("April")))
+	require.NoError(t, err)
+	assert.Empty(t, f.notifications.events)
+}
+
+func TestReportService_Create_DoesNotEnqueueNotification(t *testing.T) {
+	f := newFixture()
+	_, err := f.svc.Create(context.Background(), alice, "", req("April"))
+	require.NoError(t, err)
+	assert.Empty(t, f.notifications.events)
 }
 
 // D-18: callers without ownership, write_any or delete_any get no free text and

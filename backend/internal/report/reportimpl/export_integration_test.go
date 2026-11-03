@@ -61,8 +61,8 @@ func TestReportService_Export_Integration(t *testing.T) {
 	require.NoError(t, err)
 	roles := stubRoles{perms: map[int64][]string{admin.RoleID: {"reports:read", "reports:read_any"}}}
 	caller := stubbedCaller{Store: users, roles: roles}
-	svc := NewService(reports, auditimpl.NewStore(db), db, caller)
-	failing := NewService(reports, failingAudit{}, db, caller)
+	svc := NewService(reports, auditimpl.NewStore(db), db, caller, nil)
+	failing := NewService(reports, failingAudit{}, db, caller, nil)
 
 	file := func(email, church string, approve bool) *report.Report {
 		t.Helper()

@@ -28,6 +28,25 @@ var (
 // MaxExportReports caps the reports in one bulk Excel export (D-A6).
 const MaxExportReports = 100
 
+// Notification is a report-status notification request.
+// It contains recipient and report snapshots so later user changes do not
+// alter an already-enqueued notification.
+type Notification struct {
+	EventType       string
+	IdempotencyKey  string
+	ReportID        int64
+	RecipientUserID int64
+	RecipientEmail  string
+	Month           string
+	Year            int
+	AdminRemark     string
+}
+
+// NotificationSink accepts durable report notification work.
+type NotificationSink interface {
+	Enqueue(ctx context.Context, n Notification) error
+}
+
 // Service holds the report business rules: year default, ownership scope
 // (D-1), and one transaction per mutation covering report, metrics and audit
 // (D-10, D-14). ip is recorded in the audit row.

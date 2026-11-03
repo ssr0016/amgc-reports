@@ -28,12 +28,19 @@ import (
 // (nil, nil) for a missing report, while Update, SoftDelete and ToggleComplete
 // return ErrNotFound. Both become report.ErrReportNotFound here.
 type service struct {
-	reports report.Store
-	audit   audit.Store
-	tx      database.TxRunner
-	users   user.Store
-	now     func() time.Time
-	loc     *time.Location // months are counted in Philippine time, whatever the server clock says
+	reports       report.Store
+	audit         audit.Store
+	tx            database.TxRunner
+	users         user.Store
+	notifications report.NotificationSink
+	now           func() time.Time
+	loc           *time.Location // months are counted in Philippine time, whatever the server clock says
+}
+
+type noopNotificationSink struct{}
+
+func (noopNotificationSink) Enqueue(context.Context, report.Notification) error {
+	return nil
 }
 
 // NewService returns the report.Service over its stores.
@@ -42,8 +49,9 @@ func NewService(
 	audit audit.Store,
 	tx database.TxRunner,
 	users user.Store,
+	notifications report.NotificationSink,
 ) report.Service {
-	return newService(reports, audit, tx, users)
+	return newService(reports, audit, tx, users, notifications)
 }
 
 // newService is NewService with the concrete type, so tests can set the clock.
@@ -52,12 +60,19 @@ func newService(
 	audit audit.Store,
 	tx database.TxRunner,
 	users user.Store,
+	notifications report.NotificationSink,
 ) *service {
 	loc, err := time.LoadLocation("Asia/Manila")
 	if err != nil {
 		panic(fmt.Sprintf("load Asia/Manila (is tzdata installed?): %v", err))
 	}
-	return &service{reports: reports, audit: audit, tx: tx, users: users, now: time.Now, loc: loc}
+	if notifications == nil {
+		notifications = noopNotificationSink{}
+	}
+	return &service{
+		reports: reports, audit: audit, tx: tx, users: users,
+		notifications: notifications, now: time.Now, loc: loc,
+	}
 }
 
 type actor struct {
@@ -314,7 +329,16 @@ func (s *service) ToggleComplete(ctx context.Context, userID int64, ip string, i
 		if rep.Completed {
 			action = audit.ActionApproveReport
 		}
-		return s.audit.Insert(ctx, a.auditEntry(ip, action, rep))
+		if err := s.audit.Insert(ctx, a.auditEntry(ip, action, rep)); err != nil {
+			return err
+		}
+		if !rep.Completed {
+			return nil
+		}
+		if rep.CompletedAt == nil {
+			return fmt.Errorf("approve report %d: completed_at is nil", rep.ID)
+		}
+		return s.enqueueNotification(ctx, "approved", rep, rep.CompletedAt.Unix())
 	})
 	if err != nil {
 		return nil, mapErr(err)
@@ -333,12 +357,38 @@ func (s *service) RequestRevision(ctx context.Context, userID int64, ip string, 
 		if rep, err = s.reports.RequestRevision(ctx, id, userID, adminNotes...); err != nil {
 			return err
 		}
-		return s.audit.Insert(ctx, a.auditEntry(ip, audit.ActionUnapproveReport, rep))
+		if err := s.audit.Insert(ctx, a.auditEntry(ip, audit.ActionUnapproveReport, rep)); err != nil {
+			return err
+		}
+		if rep.UpdatedAt.IsZero() {
+			return fmt.Errorf("request revision report %d: updated_at is zero", rep.ID)
+		}
+		return s.enqueueNotification(ctx, "needs_revision", rep, rep.UpdatedAt.Unix())
 	})
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	return &report.ReportMetadata{ID: rep.ID, Completed: rep.Completed, Status: rep.Status, CompletedAt: rep.CompletedAt, CompletedBy: rep.CompletedBy}, nil
+}
+
+func (s *service) enqueueNotification(ctx context.Context, eventType string, rep *report.Report, marker int64) error {
+	owner, err := s.users.GetByID(ctx, rep.CreatedBy)
+	if err != nil {
+		return fmt.Errorf("get report owner for notification: %w", err)
+	}
+	if owner == nil {
+		return fmt.Errorf("report owner %d: %w", rep.CreatedBy, database.ErrNotFound)
+	}
+	return s.notifications.Enqueue(ctx, report.Notification{
+		EventType:       eventType,
+		IdempotencyKey:  fmt.Sprintf("%s:%d:%d", eventType, rep.ID, marker),
+		ReportID:        rep.ID,
+		RecipientUserID: owner.ID,
+		RecipientEmail:  owner.Email,
+		Month:           rep.Month,
+		Year:            int(rep.Year),
+		AdminRemark:     deref(rep.AdminNotes),
+	})
 }
 
 func respond(r *report.Report) *report.ReportResponse {

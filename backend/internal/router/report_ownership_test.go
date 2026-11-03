@@ -88,7 +88,7 @@ func ownershipServer() *echo.Echo {
 		return &user.User{ID: id, RoleID: id, Role: &accesscontrol.Role{Name: role}}, nil
 	}
 	users.Roles = byRole{}
-	svc := reportimpl.NewService(reportimpl.NewMockStore(), auditimpl.NewMockStore(), runTx{}, users)
+	svc := reportimpl.NewService(reportimpl.NewMockStore(), auditimpl.NewMockStore(), runTx{}, users, nil)
 
 	e := echo.New()
 	e.Validator = validator.New()

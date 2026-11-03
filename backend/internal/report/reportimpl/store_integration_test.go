@@ -6,11 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit"
+	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/database"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report"
 	"github.com/ssr0016/pastoral-reports/backend/internal/testutil"
@@ -20,6 +23,72 @@ import (
 )
 
 func num(s string) *json.Number { n := json.Number(s); return &n }
+
+type failingNotificationSink struct {
+	db  *database.DB
+	err error
+}
+
+func (s failingNotificationSink) Enqueue(ctx context.Context, n report.Notification) error {
+	_, err := s.db.Querier(ctx).Exec(ctx, `
+		INSERT INTO report_notification_outbox
+			(idempotency_key, event_type, report_id, recipient_user_id,
+			 recipient_email, report_month, report_year, admin_remark)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''))
+	`, n.IdempotencyKey, n.EventType, n.ReportID, n.RecipientUserID,
+		n.RecipientEmail, n.Month, n.Year, n.AdminRemark)
+	if err != nil {
+		return err
+	}
+	return s.err
+}
+
+func TestReportService_NotificationFailureAbortsTransition(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	db := &database.DB{Pool: tdb.Pool, Builder: database.NewStatementBuilder()}
+	ctx := context.Background()
+	users := userimpl.NewStore(db)
+	reports := NewStore(db)
+	audits := auditimpl.NewStore(db)
+
+	owner, err := users.CreateWithPassword(ctx, "notify-owner@example.com", "Owner", "hash")
+	require.NoError(t, err)
+	admin, err := users.CreateWithPassword(ctx, "notify-admin@example.com", "Admin", "hash")
+	require.NoError(t, err)
+	roles := stubRoles{perms: map[int64][]string{
+		owner.RoleID: {"reports:read", "reports:write", "reports:delete"},
+		admin.RoleID: {"reports:read", "reports:read_any", "reports:approve"},
+	}}
+	caller := stubbedCaller{Store: users, roles: roles}
+	created, err := reports.Create(ctx, owner.ID, 2026, report.CreateReportRequest{Month: "April"})
+	require.NoError(t, err)
+
+	boom := errors.New("outbox insert failed")
+	svc := NewService(reports, audits, db, caller, failingNotificationSink{db: db, err: boom})
+	_, err = svc.ToggleComplete(ctx, admin.ID, "", created.ID)
+	require.ErrorIs(t, err, boom)
+
+	got, err := reports.Get(ctx, created.ID)
+	require.NoError(t, err)
+	assert.False(t, got.Completed)
+	assert.Equal(t, "pending", got.Status)
+
+	var auditCount int
+	err = tdb.Pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM audit_logs
+		WHERE action = $1 AND target_id = $2
+	`, audit.ActionApproveReport, fmt.Sprint(created.ID)).Scan(&auditCount)
+	require.NoError(t, err)
+	assert.Zero(t, auditCount)
+
+	var outboxCount int
+	err = tdb.Pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM report_notification_outbox WHERE report_id = $1
+	`, created.ID).Scan(&outboxCount)
+	require.NoError(t, err)
+	assert.Zero(t, outboxCount)
+}
 
 func TestReportRepo(t *testing.T) {
 	tdb := testutil.SetupPostgres(t)
