@@ -1,7 +1,7 @@
 import { api, ApiError, downloadFile } from "./api";
-import type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetadata } from "./api-schema";
+import type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetadata, ReportSummary } from "./api-schema";
 
-export type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetadata };
+export type { ExcelPreview, MetricWeeks, Page, Report, ReportInput, ReportMetadata, ReportSummary };
 
 export type ReportFilters = {
   mine?: boolean;
@@ -16,13 +16,13 @@ export type ReportFilters = {
   limit?: number;
 };
 
-export function listReports(filters: ReportFilters = {}): Promise<Page<Report>> {
+export function listReports(filters: ReportFilters = {}): Promise<Page<ReportSummary>> {
   const qs = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value !== undefined && value !== "") qs.set(key, String(value));
   }
   const query = qs.toString();
-  return api<Page<Report>>(`/reports${query ? `?${query}` : ""}`);
+  return api<Page<ReportSummary>>(`/reports${query ? `?${query}` : ""}`);
 }
 
 export const getReport = (id: number) => api<Report>(`/reports/${id}`);

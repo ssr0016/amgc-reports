@@ -36,6 +36,10 @@ export type Report = Always<
   Model<"ReportResponse">,
   "id" | "created_by" | "month" | "year" | "metrics" | "completed" | "created_at" | "updated_at" | "owner_status"
 >;
+export type ReportSummary = Always<
+  Model<"ReportSummary">,
+  "id" | "created_by" | "month" | "year" | "completed" | "created_at" | "owner_status"
+>;
 export type ExcelPreview = { count: number; sheets: Required<Model<"PreviewSheet">>[] };
 export type ReportMetadata = Always<Model<"ReportMetadata">, "id" | "completed">;
 

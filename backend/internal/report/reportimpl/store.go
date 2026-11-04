@@ -209,7 +209,7 @@ func listWhere(p report.ListReportsParams) sq.And {
 	return where
 }
 
-// rowWithTotal scans a trailing COUNT(*) OVER() column into total, after the columns scanReport reads.
+// rowWithTotal scans a trailing COUNT(*) OVER() column into total, after the report columns.
 type rowWithTotal struct {
 	pgx.Row
 	total *int64
@@ -217,15 +217,30 @@ type rowWithTotal struct {
 
 func (w rowWithTotal) Scan(dest ...any) error { return w.Row.Scan(append(dest, w.total)...) }
 
-// List returns one page of reports (newest first) with metrics, and the total
+// List returns one page of report summaries (newest first) and the total.
+func (r *store) List(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error) {
+	return r.list(ctx, p, pg, false)
+}
+
+// ListWithDetails includes report text and metrics for current reports and bulk exports.
+func (r *store) ListWithDetails(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error) {
+	return r.list(ctx, p, pg, true)
+}
+
+// list returns one page and the total
 // count of matching reports. The total comes from COUNT(*) OVER() on the page query,
 // which equals a plain count because created_by is NOT NULL with a foreign key, so
 // the users join drops no row.
-func (r *store) List(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error) {
+func (r *store) list(ctx context.Context, p report.ListReportsParams, pg pagination.Params, withDetails bool) ([]*report.Report, int64, error) {
 	where := listWhere(p)
+	columns := "r.id, r.created_by, r.month, r.year, r.worker, r.area_assignment, r.church_name, " +
+		"r.completed, r.status, r.last_revised_at, r.created_at"
+	if withDetails {
+		columns = reportColumnsWithAlias("r")
+	}
 
 	listQ, listArgs, err := r.db.Builder.
-		Select(reportColumnsWithAlias("r"), "u.status", "u.deleted_at", "COUNT(*) OVER()").
+		Select(columns, "u.status", "u.deleted_at", "COUNT(*) OVER()").
 		From("reports r").
 		Join("users u ON u.id = r.created_by").
 		Where(where).
@@ -244,9 +259,18 @@ func (r *store) List(ctx context.Context, p report.ListReportsParams, pg paginat
 	reports := []*report.Report{}
 	var total int64
 	for rows.Next() {
-		rep, err := scanReport(rowWithTotal{Row: rows, total: &total}, true)
+		var rep *report.Report
+		row := rowWithTotal{Row: rows, total: &total}
+		if withDetails {
+			rep, err = scanReport(row, true)
+		} else {
+			rep = &report.Report{}
+			err = row.Scan(&rep.ID, &rep.CreatedBy, &rep.Month, &rep.Year, &rep.Worker,
+				&rep.AreaAssignment, &rep.ChurchName, &rep.Completed, &rep.Status,
+				&rep.LastRevisedAt, &rep.CreatedAt, &rep.OwnerStatus, &rep.OwnerDeletedAt)
+		}
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, fmt.Errorf("scan list report: %w", err)
 		}
 		reports = append(reports, rep)
 	}
@@ -264,8 +288,10 @@ func (r *store) List(ctx context.Context, p report.ListReportsParams, pg paginat
 			return nil, 0, fmt.Errorf("count reports: %w", err)
 		}
 	}
-	if err := r.loadMetrics(ctx, reports); err != nil {
-		return nil, 0, err
+	if withDetails {
+		if err := r.loadMetrics(ctx, reports); err != nil {
+			return nil, 0, err
+		}
 	}
 	return reports, total, nil
 }

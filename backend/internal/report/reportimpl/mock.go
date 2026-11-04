@@ -147,6 +147,20 @@ func (m *MockStore) Get(ctx context.Context, id int64) (*report.Report, error) {
 }
 
 func (m *MockStore) List(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error) {
+	reports, total, err := m.ListWithDetails(ctx, p, pg)
+	if err != nil {
+		return nil, 0, err
+	}
+	for i, r := range reports {
+		c := *r
+		c.Metrics = nil
+		c.Names, c.NarrativeReport, c.Challenges, c.PrayerRequest, c.AdminNotes, c.UserNotes = nil, nil, nil, nil, nil, nil
+		reports[i] = &c
+	}
+	return reports, total, nil
+}
+
+func (m *MockStore) ListWithDetails(ctx context.Context, p report.ListReportsParams, pg pagination.Params) ([]*report.Report, int64, error) {
 	if m.ListFunc != nil {
 		return m.ListFunc(ctx, p, pg)
 	}

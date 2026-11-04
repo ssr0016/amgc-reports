@@ -36,7 +36,7 @@ import {
   listReports,
   MONTHS,
   reportAction,
-  type Report,
+  type ReportSummary,
   type ReportFilters,
 } from "@/lib/reports";
 import { useSession } from "@/lib/session";
@@ -72,7 +72,7 @@ function filtersFrom(params: URLSearchParams): ReportFilters {
 }
 
 // Which report a row action is for, so a screen reader user can tell the rows apart.
-const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
+const rowName = (r: ReportSummary) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
 
 function ReportsList() {
   const router = useRouter();
@@ -83,9 +83,9 @@ function ReportsList() {
   const query = { ...filters, revised: revised || undefined };
   const allowed = can("reports:read");
   const { approve, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
-  const [unapproveTarget, setUnapproveTarget] = useState<Report | null>(null);
+  const [unapproveTarget, setUnapproveTarget] = useState<ReportSummary | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
-  const [metadataPreview, setMetadataPreview] = useState<Report | null>(null);
+  const [metadataPreview, setMetadataPreview] = useState<ReportSummary | null>(null);
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
 
@@ -105,13 +105,13 @@ function ReportsList() {
 
   // The report the delete dialog is asking about, if any.
   const queryClient = useQueryClient();
-  const [target, setTarget] = useState<{ report: Report; period: string } | null>(null);
+  const [target, setTarget] = useState<{ report: ReportSummary; period: string } | null>(null);
   // The dialog is controlled and has no trigger element, so Radix cannot return focus
   // by itself: remember the Delete button that opened it (WCAG 2.4.3).
   const opener = useRef<HTMLElement | null>(null);
 
   const del = useMutation({
-    mutationFn: (report: Report) =>
+    mutationFn: (report: ReportSummary) =>
       deleteReport(report.id).catch((err) => {
         // 404: it was already deleted elsewhere, so the list below is just stale.
         if (!(err instanceof ApiError && err.status === 404)) throw err;
@@ -134,9 +134,9 @@ function ReportsList() {
   const deleteError = del.error ? errorText(del.error, "Could not delete the report. Try again.") : "";
 
   // Another user's report is readable (read_any) but only its owner, or someone with the _any permission, may change it.
-  const mine = (r: Report) => r.created_by === user?.user_id;
-  const canEdit = (r: Report) => can("reports:write") && (mine(r) || can("reports:write_any"));
-  const canDelete = (r: Report) => can("reports:delete") && (mine(r) || can("reports:delete_any"));
+  const mine = (r: ReportSummary) => r.created_by === user?.user_id;
+  const canEdit = (r: ReportSummary) => can("reports:write") && (mine(r) || can("reports:write_any"));
+  const canDelete = (r: ReportSummary) => can("reports:delete") && (mine(r) || can("reports:delete_any"));
 
   // Filters apply as they change. The text boxes wait 300 ms after the last key,
   // so typing does not spend the per-user read rate limit one request per letter.

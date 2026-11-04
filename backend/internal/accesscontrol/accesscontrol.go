@@ -68,6 +68,8 @@ type RoleStore interface {
 	// CountUsers counts every account holding the role, deleted ones included.
 	CountUsers(ctx context.Context, roleID int64) (int64, error)
 	GetPermissions(ctx context.Context, roleID int64) ([]Permission, error)
+	// GetPermissionsByRoleIDs groups permissions by role, ordered by permission name.
+	GetPermissionsByRoleIDs(ctx context.Context, roleIDs []int64) (map[int64][]Permission, error)
 	// ReplacePermissions makes ids the role's whole permission set.
 	ReplacePermissions(ctx context.Context, roleID int64, ids []int64) error
 	AssignPermission(ctx context.Context, roleID, permissionID int64) error

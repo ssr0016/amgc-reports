@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AttendanceAnalytics, MetricSummary } from "@/lib/analytics";
 import { Analytics } from "./analytics";
+import { ApiError } from "@/lib/api";
 
 const h = vi.hoisted(() => ({
   getAttendanceAnalytics: vi.fn(),
@@ -11,6 +12,7 @@ const h = vi.hoisted(() => ({
   exportAnalyticsCsv: vi.fn(),
   setChurchReporting: vi.fn(),
   listReports: vi.fn(),
+  getReport: vi.fn(),
   saveFile: vi.fn(),
   perms: new Set(["tracker:read"]),
 }));
@@ -24,6 +26,7 @@ vi.mock("@/lib/analytics", async (importOriginal) => ({
 vi.mock("@/lib/reports", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/reports")>()),
   listReports: h.listReports,
+  getReport: h.getReport,
 }));
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
@@ -235,9 +238,10 @@ describe("analytics", () => {
   it("filters churches, sorts the comparison and opens a church", async () => {
     h.perms = new Set(["tracker:read", "reports:read_any"]);
     h.listReports.mockResolvedValue({ data: [
-      { id: 11, month: "January", year, church_name: "Bethel", narrative_report: "Revival week", challenges: "", prayer_request: "Rain" },
-      { id: 99, month: "January", year, church_name: "Bethel North", narrative_report: "Other church" },
+      { id: 11, month: "January", year, church_name: "Bethel" },
+      { id: 99, month: "January", year, church_name: "Bethel North" },
     ], meta: {} });
+    h.getReport.mockResolvedValue({ id: 11, month: "January", year, church_name: "Bethel", narrative_report: "Revival week", challenges: "", prayer_request: "Rain" });
     const { user } = renderAnalytics();
     await screen.findByText("Monthly trend");
     await user.click(screen.getByText("All churches (3)"));
@@ -255,6 +259,53 @@ describe("analytics", () => {
     expect(await within(dialog).findByText("Revival week")).toBeInTheDocument();
     expect(within(dialog).queryByText("Other church")).not.toBeInTheDocument();
     expect(h.listReports).toHaveBeenCalledWith({ church: "Bethel", year, limit: 100 });
+    expect(h.getReport).toHaveBeenCalledExactlyOnceWith(11);
+  });
+
+  it("keeps available narratives visible when another detail request fails", async () => {
+    h.perms = new Set(["tracker:read", "reports:read_any"]);
+    h.listReports.mockResolvedValue({ data: [
+      { id: 11, month: "January", year, church_name: "Bethel" },
+      { id: 12, month: "January", year, church_name: "Bethel" },
+    ], meta: {} });
+    h.getReport.mockImplementation(async (id: number) => {
+      if (id === 12) throw new ApiError(500, "INTERNAL", "Failed to load report");
+      return { id, month: "January", year, narrative_report: "Available narrative" };
+    });
+    const { user } = renderAnalytics();
+    const table = await screen.findByRole("table", { name: "Church comparison" });
+    await user.click(within(table).getByRole("button", { name: "Bethel" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(await within(dialog).findByText("Available narrative")).toBeInTheDocument();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("Some report details could not be loaded.");
+  });
+
+  it("loads more than 20 narratives sequentially and retries a rate-limited detail", async () => {
+    h.perms = new Set(["tracker:read", "reports:read_any"]);
+    const summaries = Array.from({ length: 22 }, (_, i) => ({ id: i + 1, month: "January", year, church_name: "Bethel" }));
+    h.listReports.mockResolvedValue({ data: summaries, meta: {} });
+    let active = 0;
+    let maxActive = 0;
+    let limited = false;
+    h.getReport.mockImplementation(async (id: number) => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      await Promise.resolve();
+      active--;
+      if (id === 20 && !limited) {
+        limited = true;
+        throw new ApiError(429, "RATE_LIMIT", "Slow down", undefined, 0.001);
+      }
+      return { ...summaries[id - 1], narrative_report: `Narrative ${id}` };
+    });
+    const { user } = renderAnalytics();
+    const table = await screen.findByRole("table", { name: "Church comparison" });
+    await user.click(within(table).getByRole("button", { name: "Bethel" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(await within(dialog).findByText("Narrative 22")).toBeInTheDocument();
+    expect(within(dialog).getByText("Narrative 20")).toBeInTheDocument();
+    expect(maxActive).toBe(1);
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("downloads Excel and both CSVs with the selected filters", async () => {

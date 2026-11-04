@@ -81,14 +81,21 @@ func (h *RoleHandler) List(c echo.Context) error {
 		return apperror.Internal("failed to list roles").WithError(err)
 	}
 
-	// Load permissions for each role
-	out := make([]accesscontrol.RoleResponse, 0, len(roles))
-	for i := range roles {
-		perms, err := h.roleRepo.GetPermissions(c.Request().Context(), roles[i].ID)
+	// Load the page's permissions in one query.
+	var perms map[int64][]accesscontrol.Permission
+	if len(roles) > 0 {
+		roleIDs := make([]int64, len(roles))
+		for i := range roles {
+			roleIDs[i] = roles[i].ID
+		}
+		perms, err = h.roleRepo.GetPermissionsByRoleIDs(c.Request().Context(), roleIDs)
 		if err != nil {
 			return apperror.Internal("failed to load permissions").WithError(err)
 		}
-		roles[i].Permissions = perms
+	}
+	out := make([]accesscontrol.RoleResponse, 0, len(roles))
+	for i := range roles {
+		roles[i].Permissions = perms[roles[i].ID]
 		out = append(out, roles[i].ToResponse())
 	}
 

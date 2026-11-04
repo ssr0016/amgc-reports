@@ -2594,7 +2594,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse"
+                            "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportSummary"
                         }
                     },
                     "400": {
@@ -3962,6 +3962,55 @@
                 }
             }
         },
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.ReportSummary": {
+            "type": "object",
+            "properties": {
+                "area_assignment": {
+                    "type": "string"
+                },
+                "church_name": {
+                    "type": "string"
+                },
+                "completed": {
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "last_revised_at": {
+                    "type": "string"
+                },
+                "month": {
+                    "type": "string"
+                },
+                "owner_deleted_at": {
+                    "type": "string"
+                },
+                "owner_status": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "approved",
+                        "needs_revision"
+                    ]
+                },
+                "worker": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest": {
             "type": "object",
             "properties": {
@@ -4883,13 +4932,13 @@
                 }
             }
         },
-        "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse": {
+        "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportSummary": {
             "type": "object",
             "properties": {
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse"
+                        "$ref": "#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportSummary"
                     }
                 },
                 "meta": {

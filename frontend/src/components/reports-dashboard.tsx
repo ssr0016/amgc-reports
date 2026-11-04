@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ReportOwnerBadges } from "@/components/report-owner-badges";
-import type { Page, Report } from "@/lib/reports";
+import type { Page, ReportSummary } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { getStats } from "@/lib/stats";
 import { CircleCheck, Clock, FilePen, FileText, Filter, Loader2, RefreshCw, type LucideIcon } from "lucide-react";
@@ -29,12 +29,12 @@ export const tone = {
 export { dashboardTheme as reportsTheme } from "./dashboard-theme";
 
 // Resubmitted after a revision request, whatever its status now.
-const isRevised = (r: Report) => !!r.last_revised_at;
+const isRevised = (r: ReportSummary) => !!r.last_revised_at;
 const revisedOn = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" });
 
 export const REPORTS_DESCRIPTION = "Monthly ministry reports from workers across AMGC churches.";
 
-export function ReportsStats({ data }: { data?: Page<Report> }) {
+export function ReportsStats({ data }: { data?: Page<ReportSummary> }) {
   const { can } = useSession();
   const allowed = can("tracker:read");
   const stats = useQuery({ queryKey: ["admin-stats"], queryFn: getStats, enabled: allowed, staleTime: 30_000 });
@@ -63,24 +63,24 @@ export function ReportsStats({ data }: { data?: Page<Report> }) {
 }
 
 export function ReportsTableCard({ rows, filters, children, actions, selectable, bulkActions, onRevisedChange }: {
-  rows: Report[];
+  rows: ReportSummary[];
   filters: ReactNode;
   children: ReactNode;
-  actions: (report: Report) => ReactNode;
+  actions: (report: ReportSummary) => ReactNode;
   selectable: boolean;
   bulkActions?: {
     busy?: boolean;
-    approve: (reports: Report[]) => Promise<void>;
-    unapprove: (reports: Report[], adminNotes: string) => Promise<void>;
+    approve: (reports: ReportSummary[]) => Promise<void>;
+    unapprove: (reports: ReportSummary[], adminNotes: string) => Promise<void>;
   };
   /** The Revised tab asks the server for every revised report, so the page refetches. */
   onRevisedChange: (revised: boolean) => void;
 }) {
   const [status, setStatus] = useState("all");
-  const [selectedReports, setSelectedReports] = useState<Report[]>([]);
+  const [selectedReports, setSelectedReports] = useState<ReportSummary[]>([]);
   const [bulkUnapproveOpen, setBulkUnapproveOpen] = useState(false);
   const [bulkAdminNotes, setBulkAdminNotes] = useState("");
-  const reportStatus = (r: Report) => r.status ?? (r.completed ? "approved" : "pending");
+  const reportStatus = (r: ReportSummary) => r.status ?? (r.completed ? "approved" : "pending");
   const visible = rows.filter((r) => status === "all" || (status === "revised" ? isRevised(r) : reportStatus(r) === status));
   function pickStatus(value: string) {
     if ((value === "revised") !== (status === "revised")) onRevisedChange(value === "revised");
@@ -89,7 +89,7 @@ export function ReportsTableCard({ rows, filters, children, actions, selectable,
   const selectedIds = new Set(selectedReports.map((r) => r.id));
   const selectedVisible = visible.filter((r) => selectedIds.has(r.id));
   const allSelected = visible.length > 0 && selectedVisible.length === visible.length;
-  function toggleReport(report: Report) {
+  function toggleReport(report: ReportSummary) {
     setSelectedReports((current) => current.some((r) => r.id === report.id) ? current.filter((r) => r.id !== report.id) : [...current, report]);
   }
   function toggleVisible() {

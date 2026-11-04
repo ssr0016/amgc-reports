@@ -57,6 +57,7 @@ func (s *store) ListUnread(ctx context.Context, userID int64) ([]notification.No
 		From("user_notifications").
 		Where(sq.Eq{"user_id": userID, "read_at": nil}).
 		OrderBy("created_at DESC", "id DESC").
+		Limit(50).
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build list notifications query: %w", err)

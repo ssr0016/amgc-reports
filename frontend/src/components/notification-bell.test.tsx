@@ -53,4 +53,27 @@ describe("NotificationBell", () => {
     await userEvent.click(await screen.findByRole("button", { name: /notifications, no unread/i }));
     expect(await screen.findByText("No unread notifications")).toBeInTheDocument();
   });
+
+  it("announces a capped count and refills older notifications after marking one read", async () => {
+    const notifications = Array.from({ length: 51 }, (_, index) => ({
+      id: index + 1,
+      type: "report_submitted",
+      message: `Report ${index + 1}`,
+      metadata: { report_id: index + 1 },
+      created_at: "2026-11-03T08:00:00Z",
+    }));
+    h.list.mockResolvedValueOnce(notifications.slice(0, 50)).mockResolvedValue(notifications.slice(1));
+    h.markRead.mockResolvedValue(undefined);
+    renderBell();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Notifications, at least 50 unread" }));
+    expect(screen.getAllByRole("menuitem")).toHaveLength(50);
+    expect(screen.queryByRole("menuitem", { name: "Report 51" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Report 1" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Notifications, at least 50 unread" }));
+    expect(await screen.findByRole("menuitem", { name: "Report 51" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Report 1" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("menuitem")).toHaveLength(50);
+  });
 });

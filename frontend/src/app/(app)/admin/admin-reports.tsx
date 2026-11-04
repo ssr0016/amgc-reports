@@ -21,7 +21,7 @@ import {
   FIRST_YEAR,
   listReports,
   MONTHS,
-  type Report,
+  type ReportSummary,
 } from "@/lib/reports";
 import { useSession } from "@/lib/session";
 import { ExcelPreviewDialog } from "./excel-preview-dialog";
@@ -46,7 +46,7 @@ import { TableSkeleton } from "@/components/loading-skeletons";
 import { PageHeader } from "@/components/page-shell";
 
 // Which report a row control is for, so a screen reader user can tell the rows apart.
-const rowName = (r: Report) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
+const rowName = (r: ReportSummary) => `${r.month} ${r.year}${r.worker ? `, ${r.worker}` : ""}`;
 
 // The Reports tab of the admin panel: one month at a time, chosen with the Month and Year dropdowns.
 // They live in state, not the URL, and start on the previous month, the same period as the stats cards.
@@ -79,12 +79,12 @@ export function AdminReports() {
   });
 
   const { approve, revision, bulkToggle, busy, download, downloading, preview, setPreview, reportPreview, setReportPreview } = useReportActions();
-  const [statusTarget, setStatusTarget] = useState<{ report: Report; action: "unapprove" | "revision" } | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{ report: ReportSummary; action: "unapprove" | "revision" } | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
   const queryClient = useQueryClient();
-  const [target, setTarget] = useState<Report | null>(null);
+  const [target, setTarget] = useState<ReportSummary | null>(null);
   const del = useMutation({
-    mutationFn: (report: Report) => deleteReport(report.id),
+    mutationFn: (report: ReportSummary) => deleteReport(report.id),
     onSuccess: async (_data, report) => {
       clearReportDraftStorage(report, user?.user_id);
       setTarget(null);

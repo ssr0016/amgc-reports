@@ -31,7 +31,8 @@ export function NotificationBell() {
   if (!allowed) return null;
 
   const notifications = query.data ?? [];
-  const label = query.isPending ? "Notifications" : `Notifications, ${notifications.length ? `${notifications.length} unread` : "no unread"}`;
+  const unreadCount = notifications.length >= 50 ? "at least 50" : notifications.length;
+  const label = query.isPending ? "Notifications" : `Notifications, ${notifications.length ? `${unreadCount} unread` : "no unread"}`;
   const select = (item: Notification) => {
     markRead.mutate(item.id, { onSuccess: () => router.push("/admin?tab=reports") });
   };
@@ -44,7 +45,7 @@ export function NotificationBell() {
           {notifications.length > 0 && <span data-unread-dot aria-hidden="true" className="absolute right-2 top-2 size-2 rounded-full bg-destructive" />}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
+      <DropdownMenuContent align="end" className="max-h-[min(24rem,var(--radix-dropdown-menu-content-available-height))] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto">
         {query.isPending && <p className="px-2 py-3 text-sm text-muted-foreground">Loading notifications…</p>}
         {query.isError && <p className="px-2 py-3 text-sm text-destructive">Unable to load notifications.</p>}
         {!query.isPending && !query.isError && notifications.length === 0 && (

@@ -54,7 +54,7 @@ type Service interface {
 	Current(ctx context.Context, userID int64) (*ReportResponse, error)
 	Create(ctx context.Context, userID int64, ip string, req CreateReportRequest) (*ReportResponse, error)
 	Get(ctx context.Context, userID, id int64) (*ReportResponse, error)
-	List(ctx context.Context, userID int64, p ListReportsParams, pg pagination.Params) ([]ReportResponse, int64, error)
+	List(ctx context.Context, userID int64, p ListReportsParams, pg pagination.Params) ([]ReportSummary, int64, error)
 	Update(ctx context.Context, userID int64, ip string, id int64, req UpdateReportRequest) (*ReportResponse, error)
 	Delete(ctx context.Context, userID int64, ip string, id int64) error
 	ToggleComplete(ctx context.Context, userID int64, ip string, id int64, adminNotes ...string) (*ReportMetadata, error)
@@ -75,6 +75,8 @@ type Store interface {
 	Create(ctx context.Context, userID int64, year int, req CreateReportRequest) (*Report, error)
 	Get(ctx context.Context, id int64) (*Report, error)
 	List(ctx context.Context, p ListReportsParams, pg pagination.Params) ([]*Report, int64, error)
+	// ListWithDetails includes report text and metrics for current reports and bulk exports.
+	ListWithDetails(ctx context.Context, p ListReportsParams, pg pagination.Params) ([]*Report, int64, error)
 	Update(ctx context.Context, id int64, year int, req UpdateReportRequest) (*Report, error)
 	SoftDelete(ctx context.Context, id int64) error
 	ToggleComplete(ctx context.Context, id, approverID int64, adminNotes ...string) (*Report, error)

@@ -190,7 +190,7 @@ func (s *service) Current(ctx context.Context, userID int64) (*report.ReportResp
 		return nil, err
 	}
 	month, year := s.previousMonth()
-	reports, _, err := s.reports.List(ctx, report.ListReportsParams{
+	reports, _, err := s.reports.ListWithDetails(ctx, report.ListReportsParams{
 		Month: month, Year: year, CreatedBy: userID,
 	}, pagination.Params{Page: 1, Limit: 1})
 	if err != nil {
@@ -269,7 +269,7 @@ func (s *service) Get(ctx context.Context, userID, id int64) (*report.ReportResp
 }
 
 // List returns one page. Without reports:read_any the list is limited to the caller's own reports.
-func (s *service) List(ctx context.Context, userID int64, p report.ListReportsParams, pg pagination.Params) ([]report.ReportResponse, int64, error) {
+func (s *service) List(ctx context.Context, userID int64, p report.ListReportsParams, pg pagination.Params) ([]report.ReportSummary, int64, error) {
 	a, err := s.actor(ctx, userID)
 	if err != nil {
 		return nil, 0, err
@@ -281,11 +281,11 @@ func (s *service) List(ctx context.Context, userID int64, p report.ListReportsPa
 	if err != nil {
 		return nil, 0, fmt.Errorf("list reports: %w", err)
 	}
-	out := make([]report.ReportResponse, 0, len(reports))
+	out := make([]report.ReportSummary, 0, len(reports))
 	for _, r := range reports {
 		resp := r.ToResponse()
 		a.redact(&resp)
-		out = append(out, resp)
+		out = append(out, resp.ToSummary())
 	}
 	return out, total, nil
 }
@@ -545,7 +545,7 @@ func (s *service) monthForExport(ctx context.Context, userID int64, month string
 	if !a.perms["reports:read_any"] {
 		p.CreatedBy = userID
 	}
-	reps, total, err := s.reports.List(ctx, p, pagination.Params{Page: 1, Limit: report.MaxExportReports})
+	reps, total, err := s.reports.ListWithDetails(ctx, p, pagination.Params{Page: 1, Limit: report.MaxExportReports})
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("list reports: %w", err)
 	}

@@ -139,7 +139,7 @@ func (h *ReportHandler) GetReport(c echo.Context) error {
 // @Param        status query string false "Status: pending, approved or needs_revision"
 // @Param        revised query bool false "Only reports resubmitted after a revision request, any status"
 // @Param        mine query bool false "Only the authenticated user's reports"
-// @Success      200 {object} pagination.Response[report.ReportResponse]
+// @Success      200 {object} pagination.Response[report.ReportSummary]
 // @Failure      400 {object} map[string]string
 // @Failure      401 {object} map[string]string
 // @Failure      403 {object} map[string]string
@@ -181,9 +181,9 @@ func (h *ReportHandler) ListReports(c echo.Context) error {
 		return reportError(err, "failed to list reports")
 	}
 	if reports == nil {
-		reports = []report.ReportResponse{} // JSON [] not null
+		reports = []report.ReportSummary{} // JSON [] not null
 	}
-	return c.JSON(http.StatusOK, pagination.Response[report.ReportResponse]{
+	return c.JSON(http.StatusOK, pagination.Response[report.ReportSummary]{
 		Data: reports,
 		Meta: pagination.NewMeta(pg, total),
 	})

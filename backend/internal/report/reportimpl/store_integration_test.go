@@ -140,7 +140,8 @@ func TestReportRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	mk := func(month, worker string, metrics map[string]report.MetricWeeks) report.CreateReportRequest {
-		return report.CreateReportRequest{Month: month, Worker: worker, NarrativeReport: "n", Metrics: metrics}
+		return report.CreateReportRequest{Month: month, Worker: worker, ChurchName: "Bethel", AreaAssignment: "North",
+			Names: "Ana", NarrativeReport: "n", Challenges: "challenges", PrayerRequest: "prayer", Metrics: metrics}
 	}
 	create := func(req report.CreateReportRequest, year int) *report.Report {
 		t.Helper()
@@ -162,6 +163,9 @@ func TestReportRepo(t *testing.T) {
 		assert.Equal(t, "120.00", string(*w.Week1))
 		assert.Equal(t, "0.50", string(*w.Week3))
 		assert.Nil(t, w.Week2)
+		assert.Equal(t, "n", *got.NarrativeReport)
+		assert.Equal(t, "challenges", *got.Challenges)
+		assert.Equal(t, "prayer", *got.PrayerRequest)
 	})
 
 	t.Run("duplicate month/year is database.ErrUniqueViolation", func(t *testing.T) {
@@ -169,7 +173,19 @@ func TestReportRepo(t *testing.T) {
 		require.ErrorIs(t, err, database.ErrUniqueViolation)
 	})
 
-	t.Run("list filters escape wildcards and load metrics for the page", func(t *testing.T) {
+	t.Run("detail list keeps text and metrics for current reports and exports", func(t *testing.T) {
+		got, total, err := repo.ListWithDetails(ctx, report.ListReportsParams{CreatedBy: user.ID, Month: "January"}, pagination.Params{Page: 1, Limit: 10})
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, total)
+		require.Len(t, got, 1)
+		assert.Equal(t, jan.ID, got[0].ID)
+		assert.Equal(t, "n", *got[0].NarrativeReport)
+		assert.Equal(t, "challenges", *got[0].Challenges)
+		assert.Equal(t, "prayer", *got[0].PrayerRequest)
+		assert.Equal(t, "120.00", string(*got[0].ToResponse().Metrics["tithes_offering"].Week1))
+	})
+
+	t.Run("list filters escape wildcards and return summaries", func(t *testing.T) {
 		create(mk("February", "Bob", map[string]report.MetricWeeks{"outreach": {Week1: num("3")}}), 2026)
 		pg := pagination.Params{Page: 1, Limit: 10}
 
@@ -178,7 +194,16 @@ func TestReportRepo(t *testing.T) {
 		assert.EqualValues(t, 1, total)
 		require.Len(t, got, 1)
 		assert.Equal(t, jan.ID, got[0].ID)
-		assert.Contains(t, got[0].Metrics, "tithes_offering")
+		assert.Nil(t, got[0].Metrics)
+		assert.Nil(t, got[0].Names)
+		assert.Nil(t, got[0].NarrativeReport)
+		assert.Nil(t, got[0].Challenges)
+		assert.Nil(t, got[0].PrayerRequest)
+		assert.Equal(t, "Bethel", *got[0].ChurchName)
+		assert.Equal(t, "North", *got[0].AreaAssignment)
+		assert.Equal(t, user.ID, got[0].CreatedBy)
+		assert.Equal(t, "pending", got[0].Status)
+		assert.Equal(t, jan.CreatedAt, got[0].CreatedAt)
 
 		// "_" must not act as a single-char wildcard: "A_a" would match "Ana" if unescaped
 		_, total, err = repo.List(ctx, report.ListReportsParams{Worker: "A_a"}, pg)
@@ -188,7 +213,7 @@ func TestReportRepo(t *testing.T) {
 		got, total, err = repo.List(ctx, report.ListReportsParams{Month: "FEBRUARY", Year: 2026}, pg)
 		require.NoError(t, err)
 		assert.EqualValues(t, 1, total)
-		assert.Contains(t, got[0].Metrics, "outreach")
+		assert.Nil(t, got[0].Metrics)
 
 		got, total, err = repo.List(ctx, report.ListReportsParams{}, pagination.Params{Page: 2, Limit: 1})
 		require.NoError(t, err)

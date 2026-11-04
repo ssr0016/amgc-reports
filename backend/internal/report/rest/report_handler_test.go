@@ -29,7 +29,7 @@ type fakeReportSvc struct {
 	gotNotes  []string
 	gotList   report.ListReportsParams
 	gotPage   pagination.Params
-	listData  []report.ReportResponse
+	listData  []report.ReportSummary
 	gotExport report.ExportReportsRequest
 	gotPrev   report.ExcelPreviewRequest
 	total     int64
@@ -51,7 +51,7 @@ func (f *fakeReportSvc) Get(_ context.Context, uid, id int64) (*report.ReportRes
 	return &report.ReportResponse{ID: id}, f.err
 }
 
-func (f *fakeReportSvc) List(_ context.Context, uid int64, p report.ListReportsParams, pg pagination.Params) ([]report.ReportResponse, int64, error) {
+func (f *fakeReportSvc) List(_ context.Context, uid int64, p report.ListReportsParams, pg pagination.Params) ([]report.ReportSummary, int64, error) {
 	f.gotUser, f.gotList, f.gotPage = uid, p, pg
 	return f.listData, f.total, f.err
 }
@@ -254,11 +254,11 @@ func TestReportHandler_Success(t *testing.T) {
 		}
 	})
 	t.Run("list is {data, meta} with filters and paging", func(t *testing.T) {
-		f := &fakeReportSvc{listData: []report.ReportResponse{{ID: 1}}, total: 41}
+		f := &fakeReportSvc{listData: []report.ReportSummary{{ID: 1}}, total: 41}
 		rec, _ := serveReport(t, f, 5, http.MethodGet, "/reports?year=2026&month=May&worker=Ana&area=N&church=C&page=2&limit=20", "")
 		var got struct {
-			Data []report.ReportResponse `json:"data"`
-			Meta pagination.Meta         `json:"meta"`
+			Data []report.ReportSummary `json:"data"`
+			Meta pagination.Meta        `json:"meta"`
 		}
 		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 			t.Fatal(err)

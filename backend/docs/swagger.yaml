@@ -433,6 +433,39 @@ definitions:
       year:
         type: integer
     type: object
+  github_com_ssr0016_pastoral-reports_backend_internal_model.ReportSummary:
+    properties:
+      area_assignment:
+        type: string
+      church_name:
+        type: string
+      completed:
+        type: boolean
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      id:
+        type: integer
+      last_revised_at:
+        type: string
+      month:
+        type: string
+      owner_deleted_at:
+        type: string
+      owner_status:
+        type: string
+      status:
+        enum:
+        - pending
+        - approved
+        - needs_revision
+        type: string
+      worker:
+        type: string
+      year:
+        type: integer
+    type: object
   github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest:
     properties:
       admin_notes:
@@ -1088,11 +1121,11 @@ definitions:
       meta:
         $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta'
     type: object
-  ? github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse
+  ? github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportSummary
   : properties:
       data:
         items:
-          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse'
+          $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_internal_model.ReportSummary'
         type: array
       meta:
         $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta'
@@ -2921,7 +2954,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse'
+            $ref: '#/definitions/github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportSummary'
         "400":
           description: Bad Request
           schema:

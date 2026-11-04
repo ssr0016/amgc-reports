@@ -2922,7 +2922,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse"];
+                        "application/json": components["schemas"]["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportSummary"];
                     };
                 };
                 /** @description Bad Request */
@@ -3951,6 +3951,22 @@ export interface components {
             worker?: string;
             year?: number;
         };
+        "github_com_ssr0016_pastoral-reports_backend_internal_model.ReportSummary": {
+            area_assignment?: string;
+            church_name?: string;
+            completed?: boolean;
+            created_at?: string;
+            created_by?: number;
+            id?: number;
+            last_revised_at?: string;
+            month?: string;
+            owner_deleted_at?: string;
+            owner_status?: string;
+            /** @enum {string} */
+            status?: "pending" | "approved" | "needs_revision";
+            worker?: string;
+            year?: number;
+        };
         "github_com_ssr0016_pastoral-reports_backend_internal_model.StatusRequest": {
             admin_notes?: string;
         };
@@ -4255,8 +4271,8 @@ export interface components {
             data?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.AuditLogResponse"][];
             meta?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"];
         };
-        "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportResponse": {
-            data?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse"][];
+        "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_ReportSummary": {
+            data?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_internal_model.ReportSummary"][];
             meta?: components["schemas"]["github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Meta"];
         };
         "github_com_ssr0016_pastoral-reports_backend_pkg_pagination.Response-github_com_ssr0016_pastoral-reports_backend_internal_model_UserResponse": {

@@ -50,7 +50,7 @@ func (okReportSvc) Create(context.Context, int64, string, report.CreateReportReq
 func (okReportSvc) Get(context.Context, int64, int64) (*report.ReportResponse, error) {
 	return &report.ReportResponse{}, nil
 }
-func (okReportSvc) List(context.Context, int64, report.ListReportsParams, pagination.Params) ([]report.ReportResponse, int64, error) {
+func (okReportSvc) List(context.Context, int64, report.ListReportsParams, pagination.Params) ([]report.ReportSummary, int64, error) {
 	return nil, 0, nil
 }
 func (okReportSvc) Update(context.Context, int64, string, int64, report.UpdateReportRequest) (*report.ReportResponse, error) {

@@ -122,6 +122,58 @@ func TestStore_ListUnreadAndMarkRead_AreUserScoped(t *testing.T) {
 
 }
 
+func TestStore_ListUnread_CapsNewestAndRefillsAfterMarkRead(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	db, err := database.NewWithURL(context.Background(), tdb.DSN)
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Pool.Close() })
+	ctx := context.Background()
+	userID := insertNotificationUser(t, tdb, "capped-reader", "user", "active", false)
+	otherID := insertNotificationUser(t, tdb, "other-capped-reader", "user", "active", false)
+
+	var firstID, secondID int64
+	for _, id := range []*int64{&firstID, &secondID} {
+		require.NoError(t, tdb.Pool.QueryRow(ctx, `
+			INSERT INTO user_notifications (user_id, type, message, created_at)
+			VALUES ($1, 'report_submitted', 'newest tied', '2026-11-03T09:00:00Z')
+			RETURNING id`, userID).Scan(id))
+	}
+	_, err = tdb.Pool.Exec(ctx, `
+		INSERT INTO user_notifications (user_id, type, message, created_at)
+		SELECT $1, 'report_submitted', 'older ' || i,
+			'2026-11-03T08:00:00Z'::timestamptz + i * INTERVAL '1 second'
+		FROM generate_series(0, 52) AS i`, userID)
+	require.NoError(t, err)
+	_, err = tdb.Pool.Exec(ctx, `
+		INSERT INTO user_notifications (user_id, type, message, created_at, read_at)
+		VALUES ($1, 'report_submitted', 'already read', '2026-11-03T10:00:00Z', NOW()),
+			($2, 'report_submitted', 'other user', '2026-11-03T10:00:00Z', NULL)`, userID, otherID)
+	require.NoError(t, err)
+
+	store := NewStore(db)
+	got, err := store.ListUnread(ctx, userID)
+	require.NoError(t, err)
+	require.Len(t, got, 50)
+	assert.Equal(t, secondID, got[0].ID)
+	assert.Equal(t, firstID, got[1].ID)
+	assert.Equal(t, "older 5", got[49].Message)
+	for i, row := range got {
+		assert.Equal(t, userID, row.UserID)
+		assert.Nil(t, row.ReadAt)
+		if i > 0 {
+			assert.False(t, row.CreatedAt.After(got[i-1].CreatedAt))
+		}
+	}
+
+	require.NoError(t, store.MarkRead(ctx, userID, secondID))
+	got, err = store.ListUnread(ctx, userID)
+	require.NoError(t, err)
+	require.Len(t, got, 50)
+	assert.Equal(t, firstID, got[0].ID)
+	assert.Equal(t, "older 4", got[49].Message)
+}
+
 func insertNotificationUser(t *testing.T, tdb *testutil.TestDB, name, role, status string, deleted bool) int64 {
 	t.Helper()
 	var id int64

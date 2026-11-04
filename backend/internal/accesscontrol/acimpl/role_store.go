@@ -220,6 +220,39 @@ func (r *roleStore) GetPermissions(ctx context.Context, roleID int64) ([]accessc
 	return perms, rows.Err()
 }
 
+func (r *roleStore) GetPermissionsByRoleIDs(ctx context.Context, roleIDs []int64) (map[int64][]accesscontrol.Permission, error) {
+	perms := make(map[int64][]accesscontrol.Permission)
+	if len(roleIDs) == 0 {
+		return perms, nil
+	}
+	query, args, err := r.db.Builder.
+		Select("rp.role_id", "p.id", "p.name", "p.resource", "p.action", "p.created_at", "p.updated_at").
+		From("permissions p").
+		Join("role_permissions rp ON rp.permission_id = p.id").
+		Where(sq.Eq{"rp.role_id": roleIDs}).
+		OrderBy("p.name ASC").
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+
+	rows, err := r.db.Querier(ctx).Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query permissions: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var roleID int64
+		var p accesscontrol.Permission
+		if err := rows.Scan(&roleID, &p.ID, &p.Name, &p.Resource, &p.Action, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan permission: %w", err)
+		}
+		perms[roleID] = append(perms[roleID], p)
+	}
+	return perms, rows.Err()
+}
+
 func (r *roleStore) AssignPermission(ctx context.Context, roleID, permissionID int64) error {
 	query, args, err := r.db.Builder.
 		Insert("role_permissions").

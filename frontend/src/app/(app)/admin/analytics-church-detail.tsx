@@ -15,9 +15,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ErrorRetry } from "@/components/error-retry";
 import { TableSkeleton } from "@/components/loading-skeletons";
 import { monthLabel, type AttendanceAnalytics } from "@/lib/analytics";
-import { listReports } from "@/lib/reports";
+import { getReport, listReports } from "@/lib/reports";
 import { cellText } from "./analytics-compliance";
 import { formatValue } from "./analytics-format";
+import { ApiError } from "@/lib/api";
+import type { Report } from "@/lib/reports";
 
 // ChurchDetail is one church's period: its reporting months, every month's
 // report status, its metric totals and, for readers of every report, its narratives.
@@ -94,20 +96,41 @@ export function ChurchDetail({ data, churchId, canReadReports, onClose }: { data
 // so its own permission checks apply; the analytics answer carries no text.
 function Narratives({ data, churchName }: { data: AttendanceAnalytics; churchName: string }) {
   const months = new Set(data.months.map((m) => m.name));
-  const { data: page, error, isPending, refetch } = useQuery({
-    queryKey: ["church-narratives", churchName, data.year],
-    queryFn: () => listReports({ church: churchName, year: data.year, limit: 100 }),
-  });
   const key = churchName.trim().toLowerCase();
-  // The list filter matches part of a name; keep this church's own reports, in the period.
-  const reports = (page?.data ?? [])
-    .filter((r) => (r.church_name ?? "").trim().toLowerCase() === key && months.has(r.month))
+  const { data: details, error, isPending, refetch } = useQuery({
+    queryKey: ["church-narratives", churchName, data.year, data.months.map((m) => m.name)],
+    queryFn: async ({ signal }) => {
+      const page = await listReports({ church: churchName, year: data.year, limit: 100 });
+      // The list filter matches part of a name; load details only for this church and period.
+      const reports = page.data.filter((r) => (r.church_name ?? "").trim().toLowerCase() === key && months.has(r.month));
+      const details: Report[] = [];
+      let failed = 0;
+      for (const report of reports) {
+        signal.throwIfAborted();
+        try {
+          try {
+            details.push(await getReport(report.id));
+          } catch (error) {
+            if (!(error instanceof ApiError && error.isRateLimited)) throw error;
+            await new Promise((resolve) => setTimeout(resolve, (error.retryAfter ?? 1) * 1000));
+            signal.throwIfAborted();
+            details.push(await getReport(report.id));
+          }
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 404)) failed++;
+        }
+      }
+      return { reports: details, failed };
+    },
+  });
+  const reports = [...(details?.reports ?? [])]
     .sort((a, b) => data.months.findIndex((m) => m.name === a.month) - data.months.findIndex((m) => m.name === b.month));
   return (
     <section aria-labelledby="church-narratives" className="flex flex-col gap-2">
       <h3 id="church-narratives" className="text-sm font-medium">Narratives, challenges and prayer requests</h3>
+      {!!details?.failed && <ErrorRetry message="Some report details could not be loaded." onRetry={() => refetch()} />}
       {isPending ? <TableSkeleton columns={3} rows={3} /> : error ? <ErrorRetry message={error.message} onRetry={() => refetch()} /> : reports.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No reports in this period.</p>
+        !details?.failed && <p className="text-sm text-muted-foreground">No reports in this period.</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {reports.map((r) => (

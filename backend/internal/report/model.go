@@ -142,6 +142,33 @@ type ReportResponse struct {
 	UpdatedAt       time.Time              `json:"updated_at"`
 } // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ReportResponse
 
+// ReportSummary carries list fields and the metadata used by row actions and badges.
+type ReportSummary struct {
+	ID             int64      `json:"id"`
+	CreatedBy      int64      `json:"created_by"`
+	Month          string     `json:"month"`
+	Year           int        `json:"year"`
+	Worker         string     `json:"worker,omitempty"`
+	AreaAssignment string     `json:"area_assignment,omitempty"`
+	ChurchName     string     `json:"church_name,omitempty"`
+	Completed      bool       `json:"completed"`
+	Status         string     `json:"status" enums:"pending,approved,needs_revision"`
+	LastRevisedAt  *time.Time `json:"last_revised_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	OwnerStatus    string     `json:"owner_status"`
+	OwnerDeletedAt *time.Time `json:"owner_deleted_at,omitempty"`
+} // @name github_com_ssr0016_pastoral-reports_backend_internal_model.ReportSummary
+
+// ToSummary omits detail fields after the caller's visibility rules are applied.
+func (r ReportResponse) ToSummary() ReportSummary {
+	return ReportSummary{
+		ID: r.ID, CreatedBy: r.CreatedBy, Month: r.Month, Year: r.Year,
+		Worker: r.Worker, AreaAssignment: r.AreaAssignment, ChurchName: r.ChurchName,
+		Completed: r.Completed, Status: r.Status, LastRevisedAt: r.LastRevisedAt,
+		CreatedAt: r.CreatedAt, OwnerStatus: r.OwnerStatus, OwnerDeletedAt: r.OwnerDeletedAt,
+	}
+}
+
 // ReportMetadata is the result of approve/unapprove. It carries no report text:
 // the caller may hold reports:approve without being allowed to read the report (D-1).
 type ReportMetadata struct {

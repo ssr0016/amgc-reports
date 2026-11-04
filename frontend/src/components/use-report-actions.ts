@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ApiError, saveFile } from "@/lib/api";
 import { errorText } from "@/lib/auth-form";
-import { exportReport, requestRevision, toggleComplete, type Page, type Report } from "@/lib/reports";
+import { exportReport, requestRevision, toggleComplete, type Page, type ReportSummary } from "@/lib/reports";
 import { refreshAdminViews, usePendingVariables } from "@/lib/query";
 import type { PreviewTarget } from "@/app/(app)/admin/excel-preview-dialog";
 
@@ -15,7 +15,7 @@ export function useReportActions() {
   const queryClient = useQueryClient();
   const approve = useMutation({
     mutationKey: ["toggle-complete"],
-    mutationFn: ({ report, adminNotes = "" }: { report: Report; adminNotes?: string }) => toggleComplete(report.id, adminNotes),
+    mutationFn: ({ report, adminNotes = "" }: { report: ReportSummary; adminNotes?: string }) => toggleComplete(report.id, adminNotes),
     onSuccess: (meta, { report: r }) => {
       // The server decides (another admin may have approved it first, and this click undid that), so say what it did.
       const result = meta.status === "needs_revision" ? "needs revision" : meta.status ? "approved" : meta.completed ? "approved" : "unapproved";
@@ -31,10 +31,10 @@ export function useReportActions() {
       toast.error(errorText(err, "Could not update the report. Try again."));
     },
   });
-  const busy = usePendingVariables<{ report: Report }>(["toggle-complete"]).map(({ report }) => report.id);
+  const busy = usePendingVariables<{ report: ReportSummary }>(["toggle-complete"]).map(({ report }) => report.id);
   const bulkToggle = useMutation({
     mutationKey: ["bulk-toggle-complete"],
-    mutationFn: async ({ reports, action, adminNotes = "" }: { reports: Report[]; action: "approve" | "unapprove"; adminNotes?: string }) => {
+    mutationFn: async ({ reports, action, adminNotes = "" }: { reports: ReportSummary[]; action: "approve" | "unapprove"; adminNotes?: string }) => {
       const eligible = reports.filter((r) => action === "approve" ? !r.completed && r.status !== "approved" : r.completed || r.status === "approved");
       let changed = 0;
       let failed = 0;
@@ -75,14 +75,14 @@ export function useReportActions() {
   });
   const revision = useMutation({
     mutationKey: ["request-revision"],
-    mutationFn: ({ report, adminNotes = "" }: { report: Report; adminNotes?: string }) => requestRevision(report.id, adminNotes),
+    mutationFn: ({ report, adminNotes = "" }: { report: ReportSummary; adminNotes?: string }) => requestRevision(report.id, adminNotes),
     // Unlike approve (a server-side toggle), a revision always lands on the same state, so the row can show it at once.
-    onMutate: async ({ report, adminNotes = "" }) => {
+    onMutate: async ({ report }) => {
       await queryClient.cancelQueries({ queryKey: ["reports"] });
-      const previous = queryClient.getQueriesData<Page<Report>>({ queryKey: ["reports"] });
-      queryClient.setQueriesData<Page<Report>>({ queryKey: ["reports"] }, (old) => old && {
+      const previous = queryClient.getQueriesData<Page<ReportSummary>>({ queryKey: ["reports"] });
+      queryClient.setQueriesData<Page<ReportSummary>>({ queryKey: ["reports"] }, (old) => old && {
         ...old,
-        data: old.data.map((r) => (r.id === report.id ? { ...r, status: "needs_revision", completed: false, admin_notes: adminNotes } : r)),
+        data: old.data.map((r) => (r.id === report.id ? { ...r, status: "needs_revision", completed: false } : r)),
       });
       return { previous };
     },
@@ -93,7 +93,7 @@ export function useReportActions() {
     },
     onSettled: () => Promise.all([refreshAdminViews(queryClient), queryClient.invalidateQueries({ queryKey: ["reports"] })]),
   });
-  const revisionBusy = usePendingVariables<{ report: Report }>(["request-revision"]).map(({ report }) => report.id);
+  const revisionBusy = usePendingVariables<{ report: ReportSummary }>(["request-revision"]).map(({ report }) => report.id);
 
   // Excel downloads, keyed "bulk" or by a row's id, so each button waits for its own file.
   const download = useMutation({

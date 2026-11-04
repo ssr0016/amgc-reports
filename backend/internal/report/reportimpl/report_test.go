@@ -202,7 +202,10 @@ func TestReportService_Create(t *testing.T) {
 func TestReportService_Current(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
-	created, err := f.svc.Create(ctx, alice, "", req("April"))
+	input := req("April")
+	value := json.Number("7")
+	input.Metrics = map[string]report.MetricWeeks{"outreach": {Week1: &value}}
+	created, err := f.svc.Create(ctx, alice, "", input)
 	require.NoError(t, err)
 
 	got, err := f.svc.Current(ctx, alice)
@@ -210,6 +213,8 @@ func TestReportService_Current(t *testing.T) {
 	assert.Equal(t, created.ID, got.ID)
 	assert.Equal(t, "April", got.Month)
 	assert.Equal(t, 2026, got.Year)
+	assert.Equal(t, created.NarrativeReport, got.NarrativeReport)
+	assert.Equal(t, created.Metrics, got.Metrics)
 
 	_, err = f.svc.Current(ctx, bob)
 	assert.ErrorIs(t, err, report.ErrReportNotFound)
@@ -585,7 +590,18 @@ func TestReportService_FieldVisibility(t *testing.T) {
 			got, total, err := f.svc.List(ctx, tc.user, report.ListReportsParams{}, pg)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, total)
-			check(t, &got[0])
+			require.Len(t, got, 1)
+			assert.Equal(t, mine.ID, got[0].ID)
+			assert.Equal(t, alice, got[0].CreatedBy)
+			assert.Equal(t, "April", got[0].Month)
+			assert.Equal(t, "Ana", got[0].Worker)
+			body, err := json.Marshal(got[0])
+			require.NoError(t, err)
+			var fields map[string]any
+			require.NoError(t, json.Unmarshal(body, &fields))
+			for _, key := range []string{"metrics", "names", "narrative_report", "challenges", "prayer_request", "admin_notes", "user_notes"} {
+				assert.NotContains(t, fields, key)
+			}
 		})
 	}
 
