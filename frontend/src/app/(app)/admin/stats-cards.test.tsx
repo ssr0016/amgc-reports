@@ -70,7 +70,7 @@ describe("StatsCards", () => {
     h.getStats.mockResolvedValue(stats());
     renderCards();
 
-    expect(await screen.findByRole("region", { name: "Overview" })).toBeInTheDocument();
+    expect(await screen.findByText("Total Users", { selector: "[data-slot=card-description]" })).toBeInTheDocument();
     expect(within(card("Total Users")).getByText("7")).toBeInTheDocument();
     expect(within(card("Expected Reports")).getByText("5")).toBeInTheDocument();
     expect(within(card("Expected Reports")).getByText("September 2026")).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe("StatsCards", () => {
   it("shows zero as 0, not blank", async () => {
     h.getStats.mockResolvedValue(stats({ users_total: 0, expected_reports: 0, no_report: 0, churches_total: 0 }));
     renderCards();
-    await screen.findByRole("region", { name: "Overview" });
+    await screen.findByText("Total Users", { selector: "[data-slot=card-description]" });
     for (const label of ["Total Users", "Expected Reports", "No Report", "Total Churches"]) {
       expect(within(card(label)).getByText("0")).toBeInTheDocument();
     }

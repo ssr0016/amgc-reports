@@ -135,8 +135,8 @@ describe("Excel preview dialog", () => {
     expect(within(table).getByText("September")).toBeInTheDocument();
     expect(within(table).getByText("No Report Submitted")).toBeInTheDocument();
     expect(within(table).getByText("Approved")).toBeInTheDocument();
-    expect(within(table).getByText("No Report Submitted")).toHaveClass("bg-red-100", "text-red-800");
-    expect(within(table).getByText("Approved")).toHaveClass("bg-green-100", "text-green-800");
+    expect(within(table).getByText("No Report Submitted")).toHaveClass("bg-red-100", "text-red-900");
+    expect(within(table).getByText("Approved")).toHaveClass("bg-green-100", "text-green-900");
     expect(screen.getByText("2 approved")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveClass("border-slate-700");
     expect(screen.getByRole("button", { name: "Download" })).toHaveClass("bg-slate-950");

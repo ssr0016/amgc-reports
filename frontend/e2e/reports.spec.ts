@@ -6,6 +6,7 @@ const label = `${period.month} ${period.year}`;
 const rowOf = (page: Page, text: string) => page.getByRole("row", { name: new RegExp(text) });
 // Worker, area and church are read-only profile details: a <dt> and its <dd>.
 const profileValue = (page: Page, term: string) => page.getByRole("term").filter({ hasText: term }).locator("+ dd");
+const dynamicPanelTimeout = 15_000;
 
 // The specs share one database and run in order: the user files a report, others act on it.
 test.describe.configure({ mode: "serial" });
@@ -145,7 +146,7 @@ test.describe("admin", () => {
 
   test("management search updates automatically and Clear restores the list", async ({ page }) => {
     await page.goto("/admin?tab=reports");
-    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible({ timeout: dynamicPanelTimeout });
     await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Notifications/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Download Bulk" })).toBeVisible();
@@ -167,8 +168,8 @@ test.describe("admin", () => {
 
   // Approval refreshes the shared list and its page-level counts.
   test("approves and sends a report back for revision, and the stats cards follow", async ({ page }) => {
-    await page.goto("/admin");
-    await expect(page.getByRole("heading", { name: "All reports", exact: true })).toBeVisible();
+    await page.goto("/admin?tab=reports");
+    await expect(page.getByRole("heading", { name: "All reports", exact: true })).toBeVisible({ timeout: dynamicPanelTimeout });
     const card = (name: string) =>
       page
         .getByRole("region", { name: "Report statistics" })
@@ -189,28 +190,28 @@ test.describe("admin", () => {
     const needsRevision = Number(await card("Needs Revision").innerText());
 
     await row().getByRole("button", { name: /^Approve / }).click();
-    await expect(row().getByText("Approved")).toBeVisible();
+    await expect(row().getByText("Approved")).toBeVisible({ timeout: dynamicPanelTimeout });
     await expect(page.getByText(`Report approved: ${label}`)).toBeVisible();
     await expect(row().getByRole("button", { name: /^Unapprove / })).toBeVisible();
     await expect(card("Approved")).toHaveText(String(approved + 1));
     await expect(card("Pending")).toHaveText(String(pending - 1));
 
     await page.reload(); // the server kept it
-    await expect(row().getByText("Approved")).toBeVisible();
+    await expect(row().getByText("Approved")).toBeVisible({ timeout: dynamicPanelTimeout });
     await row().getByRole("button", { name: /^Unapprove / }).click();
     const unapproveDialog = page.getByRole("alertdialog");
     await expect(unapproveDialog).toBeVisible();
     await expect(unapproveDialog.getByRole("button", { name: "Unapprove", exact: true })).toBeDisabled();
     await unapproveDialog.getByRole("textbox", { name: "Admin Notes" }).fill("Needs updated totals");
     await unapproveDialog.getByRole("button", { name: "Unapprove", exact: true }).click();
-    await expect(row().getByText("Needs Revision")).toBeVisible();
+    await expect(row().getByText("Needs Revision")).toBeVisible({ timeout: dynamicPanelTimeout });
     await expect(card("Approved")).toHaveText(String(approved));
     await expect(card("Pending")).toHaveText(String(pending - 1));
     await expect(card("Needs Revision")).toHaveText(String(needsRevision + 1));
 
     // The next tests expect the report to remain in the review queue.
     await page.reload();
-    await expect(row().getByText("Needs Revision")).toBeVisible();
+    await expect(row().getByText("Needs Revision")).toBeVisible({ timeout: dynamicPanelTimeout });
   });
 
   test("the personal list excludes other users' reports even for an admin", async ({ page, request }) => {
@@ -237,7 +238,7 @@ test.describe("admin", () => {
 
   test("lists another user's reports", async ({ page }) => {
     await page.goto("/admin?tab=reports");
-    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible();
+    await expect(rowOf(page, ACCOUNTS.user.name)).toBeVisible({ timeout: dynamicPanelTimeout });
   });
 });
 

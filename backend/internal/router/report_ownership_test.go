@@ -197,30 +197,59 @@ func TestReportsVisibility(t *testing.T) {
 		{"editor", editorUser, true},
 		{"reader", readerUser, false},
 	}
-	for _, path := range []string{"/api/v1/reports/1", "/api/v1/reports"} {
-		for _, tc := range cases {
-			t.Run(tc.name+" "+path, func(t *testing.T) {
-				e := ownershipServer()
-				if got := reportRequestAs(e, http.MethodPost, "/api/v1/reports", body, ownerUser); got != http.StatusCreated {
-					t.Fatalf("seed POST: status = %d, want 201", got)
+	for _, tc := range cases {
+		t.Run(tc.name+" detail", func(t *testing.T) {
+			e := ownershipServer()
+			if got := reportRequestAs(e, http.MethodPost, "/api/v1/reports", body, ownerUser); got != http.StatusCreated {
+				t.Fatalf("seed POST: status = %d, want 201", got)
+			}
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/reports/1", strings.NewReader(""))
+			req.Header.Set("X-Test-User", tc.user)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, body = %s", rec.Code, rec.Body)
+			}
+			out := rec.Body.String()
+			for _, hidden := range []string{"secret", "pray", "tithes_offering"} {
+				if got := strings.Contains(out, hidden); got != tc.full {
+					t.Errorf("body contains %q = %v, want %v", hidden, got, tc.full)
 				}
-				req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, strings.NewReader(""))
-				req.Header.Set("X-Test-User", tc.user)
-				rec := httptest.NewRecorder()
-				e.ServeHTTP(rec, req)
-				if rec.Code != http.StatusOK {
-					t.Fatalf("status = %d, body = %s", rec.Code, rec.Body)
-				}
-				out := rec.Body.String()
-				for _, hidden := range []string{"secret", "pray", "tithes_offering"} {
-					if got := strings.Contains(out, hidden); got != tc.full {
-						t.Errorf("body contains %q = %v, want %v", hidden, got, tc.full)
-					}
-				}
-				if !strings.Contains(out, "outreach") {
-					t.Errorf("other metrics must stay visible: %s", out)
-				}
-			})
-		}
+			}
+			if !strings.Contains(out, "outreach") {
+				t.Errorf("other metrics must stay visible: %s", out)
+			}
+		})
 	}
+
+	t.Run("list returns summary fields", func(t *testing.T) {
+		e := ownershipServer()
+		if got := reportRequestAs(e, http.MethodPost, "/api/v1/reports", body, ownerUser); got != http.StatusCreated {
+			t.Fatalf("seed POST: status = %d, want 201", got)
+		}
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/reports", strings.NewReader(""))
+		req.Header.Set("X-Test-User", ownerUser)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s", rec.Code, rec.Body)
+		}
+		var page struct {
+			Data []struct {
+				ID        int64  `json:"id"`
+				Month     string `json:"month"`
+				Status    string `json:"status"`
+				Completed bool   `json:"completed"`
+			} `json:"data"`
+		}
+		if err := json.NewDecoder(rec.Body).Decode(&page); err != nil {
+			t.Fatalf("decode summary: %v", err)
+		}
+		if len(page.Data) != 1 {
+			t.Fatalf("summary count = %d, want 1", len(page.Data))
+		}
+		if got := page.Data[0]; got.ID != 1 || got.Month != previousMonthName() || got.Status != "pending" || got.Completed {
+			t.Errorf("summary = %+v, want id 1, month %q, pending, incomplete", got, previousMonthName())
+		}
+	})
 }

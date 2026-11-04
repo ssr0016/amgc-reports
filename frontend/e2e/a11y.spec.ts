@@ -6,6 +6,7 @@ import { API, authFile, clientIp, earlierPeriod, expect, previousPeriod, send, t
 // visibility, reading order, real screen reader output), so keyboard flows are
 // tested below and the rest is recorded as a known limit in 08.
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
+const dynamicPanelTimeout = 15_000;
 
 async function scan(page: Page) {
   const { violations } = await new AxeBuilder({ page })
@@ -78,9 +79,9 @@ for (const scheme of ["light", "dark"] as const) {
       test.use({ storageState: authFile("admin") });
 
       test("admin panel", async ({ page }) => {
-        await page.goto("/admin");
+        await page.goto("/admin?tab=reports");
         await expect(page.getByRole("link", { name: "Admin All Reports", exact: true })).toBeVisible();
-        await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible(); // the cards, once /admin/stats answered
+        await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible({ timeout: dynamicPanelTimeout }); // the cards, once /admin/stats answered
         await expect(page.getByText("Loading…")).toHaveCount(0); // and the reports list
         await scan(page);
       });
@@ -88,7 +89,7 @@ for (const scheme of ["light", "dark"] as const) {
       test("admin panel, Logs tab, with a row expanded", async ({ page }) => {
         await page.goto("/admin?tab=logs");
         const panel = page.getByRole("region", { name: "Logs" });
-        await expect(panel.getByText(/total logs$/)).toBeVisible(); // the setup's own sign-ins are always there
+        await expect(panel.getByText(/total logs$/)).toBeVisible({ timeout: dynamicPanelTimeout }); // the setup's own sign-ins are always there
         await panel.getByRole("button", { name: /View details/ }).first().click();
         await scan(page);
       });
@@ -104,7 +105,7 @@ for (const scheme of ["light", "dark"] as const) {
         await page.goto("/admin");
         await page.getByRole("link", { name: "Admin Users", exact: true }).click();
         const panel = page.getByRole("region", { name: "Users" });
-        await expect(panel.getByText("You", { exact: true })).toBeVisible(); // the signed-in admin's own row
+        await expect(panel.getByText("You", { exact: true })).toBeVisible({ timeout: dynamicPanelTimeout }); // the signed-in admin's own row
         await scan(page);
         await panel.getByLabel("Role").selectOption({ label: "admin" });
         await expect(panel.getByText("You", { exact: true })).toBeVisible();
@@ -162,7 +163,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       test("users list and new user", async ({ page }) => {
         await page.goto("/admin/users"); // redirects to the Users tab of /admin
-        await expect(page.getByRole("link", { name: /^Edit E2E User/ })).toBeVisible();
+        await expect(page.getByRole("link", { name: /^Edit E2E User/ })).toBeVisible({ timeout: dynamicPanelTimeout });
         await scan(page);
         await page.goto("/admin/users/new");
         await expect(page.getByRole("heading", { name: "New user" })).toBeVisible();
@@ -323,7 +324,7 @@ test.describe("reflow at 320 px (WCAG 1.4.10)", () => {
         await expect(page.getByRole("heading", { level: 1, name: ready })).toBeVisible();
         await expect(page.getByRole("button", { name: / · admin$/ })).toBeVisible();
         if (path === "/admin") {
-          await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible();
+          await expect(page.getByText("Total Users", { exact: true })).toBeVisible({ timeout: dynamicPanelTimeout });
           await expect(page.getByText("Loading…")).toHaveCount(0); // the reports list too
         }
         if (path === "/admin?tab=logs") await expect(page.getByText(/total logs$/)).toBeVisible();

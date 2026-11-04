@@ -1,4 +1,4 @@
-import { ACCOUNTS, authFile, expect, send, test } from "./support";
+import { ACCOUNTS, API, authFile, expect, send, test } from "./support";
 
 test.describe("in-app notifications", () => {
   test.use({ storageState: authFile("admin") });
@@ -16,7 +16,11 @@ test.describe("in-app notifications", () => {
     expect(report.status(), await report.text()).toBe(201);
     await worker.dispose();
 
+    const notifications = page.waitForResponse(
+      (response) => response.url() === `${API}/notifications` && response.request().method() === "GET" && response.status() === 200,
+    );
     await page.goto("/reports");
+    await notifications;
     const bell = page.getByRole("button", { name: /Notifications, 1 unread/ });
     await expect(bell).toBeVisible();
     await bell.click();

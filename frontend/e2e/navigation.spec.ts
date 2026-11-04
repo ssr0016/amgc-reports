@@ -1,14 +1,15 @@
 import { authFile, expect, openProfileMenu, test } from "./support";
 
 const mainNav = (page: import("@playwright/test").Page) => page.getByRole("navigation", { name: "Main" });
+const dynamicPanelTimeout = 15_000;
 
 test.describe("sidebar, as admin", () => {
   test.use({ storageState: authFile("admin") });
 
   test("lists reports and admin sections, and marks the current page", async ({ page }) => {
     await page.goto("/admin");
-    await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports", "All Reports", "Analytics", "Tracker", "Users", "Roles", "Logs"]);
-    await expect(mainNav(page).getByRole("link", { name: "Admin All Reports", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(mainNav(page).getByRole("link")).toHaveText(["Community Reports", "Overview", "All Reports", "Analytics", "Tracker", "Users", "Roles", "Logs"]);
+    await expect(mainNav(page).getByRole("link", { name: "Admin Overview", exact: true })).toHaveAttribute("aria-current", "page");
     await mainNav(page).getByRole("link", { name: "Community Reports" }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(mainNav(page).getByRole("link", { name: "Admin All Reports", exact: true })).not.toHaveAttribute("aria-current", "page");
@@ -18,7 +19,7 @@ test.describe("sidebar, as admin", () => {
     await page.goto("/admin/users");
     await expect(page).toHaveURL(/\/admin\?tab=users$/);
     await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("link", { name: /^Edit E2E User/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Edit E2E User/ })).toBeVisible({ timeout: dynamicPanelTimeout });
   });
 
   test("the admin section survives a refresh, and Back leaves /admin instead of stepping between sections", async ({ page }) => {

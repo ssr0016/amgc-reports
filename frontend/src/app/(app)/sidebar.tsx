@@ -21,7 +21,7 @@ export function Sidebar({ label = "Main", onNavigate }: { label?: string; onNavi
   const activeAdmin = sections.find((section) => section.value === requested)?.value ?? sections[0]?.value;
   const linkClass = (active: boolean) => cn(
     "flex min-h-11 items-center gap-3 rounded-sm px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-foreground",
-    active ? "bg-accent font-medium text-primary" : "text-muted-foreground",
+    active ? "bg-accent font-medium text-foreground" : "text-muted-foreground",
   );
   return (
     <nav

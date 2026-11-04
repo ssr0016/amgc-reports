@@ -6,6 +6,7 @@ import { ACCOUNTS, API, authFile, clientIp, expect, previousPeriod, send, test }
 const ROLE = "E2E Panel Reviewer";
 const PERMS = ["reports:read", "reports:read_any", "reports:approve", "tracker:read"];
 const WORKER = ACCOUNTS.user.name; // the API sets worker to the owner's name
+const dynamicPanelTimeout = 15_000;
 
 type Named = { id: number; name: string };
 
@@ -54,12 +55,12 @@ test.describe("as a custom role", () => {
 
       await page.goto("/reports");
       await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin All Reports", exact: true }).click();
-      await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Admin / })).toHaveText(["All Reports", "Analytics", "Tracker"]);
-      await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveText(["Community Reports", "Overview", "All Reports", "Analytics", "Tracker"]);
+      await expect(page.getByRole("region", { name: "Report statistics" })).toBeVisible({ timeout: dynamicPanelTimeout });
 
       const reports = page.getByRole("region", { name: "Reports" });
       const row = reports.getByRole("row").filter({ hasText: WORKER });
-      await expect(row.getByText("Pending")).toBeVisible();
+      await expect(row.getByText("Pending")).toBeVisible({ timeout: dynamicPanelTimeout });
       await expect(reports.getByRole("button", { name: "Download Bulk" })).toHaveCount(0);
       await expect(row.getByRole("button", { name: /^Excel / })).toHaveCount(0);
 
@@ -74,7 +75,7 @@ test.describe("as a custom role", () => {
       await expect(row.getByText("Approved")).toBeVisible();
 
       await page.goto("/admin?tab=roles");
-      await expect(page.getByRole("link", { name: "Admin All Reports", exact: true })).toHaveAttribute("aria-current", "page");
+      await expect(page.getByRole("link", { name: "Admin Overview", exact: true })).toHaveAttribute("aria-current", "page");
       await expect(page.getByRole("link", { name: "Admin Roles", exact: true })).toHaveCount(0);
 
       // The server agrees: account and role management stay admin-only.

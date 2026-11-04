@@ -77,8 +77,8 @@ export function StatsCards({ users = false }: { users?: boolean }) {
     { label: "Total Churches", value: data.churches_total, icon: Church, tone: "sky" },
   ];
   return (
-    <section aria-label="Overview" className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
       {cardList(cards)}
-    </section>
+    </div>
   );
 }
