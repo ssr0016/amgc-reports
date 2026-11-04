@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ssr0016/pastoral-reports/backend/internal/email"
+	"github.com/ssr0016/pastoral-reports/backend/internal/email/resend"
 	"github.com/ssr0016/pastoral-reports/backend/internal/report/outbox"
 )
 
@@ -28,6 +29,81 @@ func (s *recordingScheduler) ScheduleDailyDigest(_ context.Context, day time.Tim
 type emptyMailer struct{}
 
 func (emptyMailer) Send(context.Context, email.Message) error { return nil }
+
+type ackQueue struct {
+	emptyQueue
+	ctx   context.Context
+	state string
+}
+
+func (q *ackQueue) MarkSent(ctx context.Context, _ int64, _, _ time.Time) error {
+	q.ctx, q.state = ctx, "sent"
+	return ctx.Err()
+}
+
+func (q *ackQueue) MarkFailed(ctx context.Context, _ int64, _, _ time.Time, _ string) error {
+	q.ctx, q.state = ctx, "failed"
+	return ctx.Err()
+}
+
+func (q *ackQueue) MarkSkipped(ctx context.Context, _ int64, _ time.Time, _ string) error {
+	q.ctx, q.state = ctx, "skipped"
+	return ctx.Err()
+}
+
+type contextMailer func(context.Context, email.Message) error
+
+func (f contextMailer) Send(ctx context.Context, message email.Message) error {
+	return f(ctx, message)
+}
+
+func TestWorker_AcknowledgmentsHaveIndependentDeadlines(t *testing.T) {
+	for _, tt := range []struct {
+		name           string
+		event          string
+		sendErr        error
+		attempts       int
+		waitForTimeout bool
+		wantState      string
+	}{
+		{name: "sent", event: "approved", wantState: "sent"},
+		{name: "failed", event: "approved", sendErr: context.DeadlineExceeded, wantState: "failed"},
+		{name: "permanent error", event: "approved", sendErr: &resend.HTTPError{StatusCode: 400}, wantState: "skipped"},
+		{name: "attempts exhausted", event: "approved", sendErr: context.DeadlineExceeded, attempts: 5, wantState: "skipped"},
+		{name: "render error", event: "unsupported", wantState: "skipped"},
+		{name: "send timeout", event: "approved", waitForTimeout: true, wantState: "failed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			q := &ackQueue{}
+			mailer := contextMailer(func(ctx context.Context, _ email.Message) error {
+				if tt.waitForTimeout {
+					<-ctx.Done()
+					return ctx.Err()
+				}
+				return tt.sendErr
+			})
+			w := New(q, mailer, Options{InFlightTimeout: time.Millisecond})
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			if err := w.process(ctx, &outbox.Job{EventType: tt.event, Attempts: tt.attempts}); err != nil {
+				t.Fatal(err)
+			}
+			if q.state != tt.wantState {
+				t.Fatalf("acknowledged %q, want %q", q.state, tt.wantState)
+			}
+			deadline, ok := q.ctx.Deadline()
+			if !ok {
+				t.Fatal("database acknowledgment has no deadline")
+			}
+			if remaining := time.Until(deadline); remaining <= 0 || remaining > 10*time.Second {
+				t.Fatalf("acknowledgment deadline in %v, want at most 10s", remaining)
+			}
+			if q.ctx.Err() != context.Canceled {
+				t.Fatalf("acknowledgment context not released: %v", q.ctx.Err())
+			}
+		})
+	}
+}
 
 func TestWorker_SchedulesDigestOnceAtEightManilaTime(t *testing.T) {
 	manila, err := time.LoadLocation("Asia/Manila")

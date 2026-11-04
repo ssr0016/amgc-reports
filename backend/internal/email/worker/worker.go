@@ -149,7 +149,9 @@ func (w *Worker) process(_ context.Context, job *outbox.Job) error {
 	defer cancel()
 	err = w.mailer.Send(jobCtx, message)
 	if err == nil {
-		return w.queue.MarkSent(context.Background(), job.ID, job.ClaimedAt, w.now())
+		ackCtx, ackCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer ackCancel()
+		return w.queue.MarkSent(ackCtx, job.ID, job.ClaimedAt, w.now())
 	}
 	if httpErr, ok := err.(*resend.HTTPError); ok && !httpErr.Retryable() {
 		return w.skip(job, httpErr.Error())
@@ -161,11 +163,15 @@ func (w *Worker) process(_ context.Context, job *outbox.Job) error {
 	if httpErr, ok := err.(*resend.HTTPError); ok && httpErr.RetryAfter != nil {
 		delay = *httpErr.RetryAfter
 	}
-	return w.queue.MarkFailed(context.Background(), job.ID, job.ClaimedAt, w.now().Add(delay), err.Error())
+	ackCtx, ackCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer ackCancel()
+	return w.queue.MarkFailed(ackCtx, job.ID, job.ClaimedAt, w.now().Add(delay), err.Error())
 }
 
 func (w *Worker) skip(job *outbox.Job, reason string) error {
-	return w.queue.MarkSkipped(context.Background(), job.ID, job.ClaimedAt, reason)
+	ackCtx, ackCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer ackCancel()
+	return w.queue.MarkSkipped(ackCtx, job.ID, job.ClaimedAt, reason)
 }
 
 func (w *Worker) backoff(attempt int) time.Duration {

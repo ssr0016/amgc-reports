@@ -36,11 +36,27 @@ export function useReportActions() {
     mutationKey: ["bulk-toggle-complete"],
     mutationFn: async ({ reports, action, adminNotes = "" }: { reports: Report[]; action: "approve" | "unapprove"; adminNotes?: string }) => {
       const eligible = reports.filter((r) => action === "approve" ? !r.completed && r.status !== "approved" : r.completed || r.status === "approved");
-      const results = await Promise.allSettled(eligible.map((r) => toggleComplete(r.id, adminNotes)));
+      let changed = 0;
+      let failed = 0;
+      for (const report of eligible) {
+        try {
+          try {
+            await toggleComplete(report.id, adminNotes);
+          } catch (err) {
+            // A 429 is rejected before the toggle runs, so only that response is safe to retry.
+            if (!(err instanceof ApiError) || !err.isRateLimited) throw err;
+            await new Promise((resolve) => setTimeout(resolve, (err.retryAfter ?? 1) * 1000));
+            await toggleComplete(report.id, adminNotes);
+          }
+          changed++;
+        } catch {
+          failed++;
+        }
+      }
       return {
         action,
-        changed: results.filter((r) => r.status === "fulfilled").length,
-        failed: results.filter((r) => r.status === "rejected").length,
+        changed,
+        failed,
         skipped: reports.length - eligible.length,
       };
     },
