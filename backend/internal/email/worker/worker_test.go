@@ -29,25 +29,35 @@ type emptyMailer struct{}
 
 func (emptyMailer) Send(context.Context, email.Message) error { return nil }
 
-func TestWorker_SchedulesDigestEveryMinute(t *testing.T) {
-	cases := []struct {
-		name string
-		now  time.Time
-	}{
-		{"before production slot", time.Date(2026, 11, 2, 23, 59, 0, 0, time.UTC)},
-		{"UTC midnight", time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)},
-		{"after production slot", time.Date(2026, 11, 3, 8, 5, 0, 0, time.FixedZone("UTC", 0))},
+func TestWorker_SchedulesDigestOnceAtEightManilaTime(t *testing.T) {
+	manila, err := time.LoadLocation("Asia/Manila")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			scheduler := &recordingScheduler{}
-			w := New(emptyQueue{}, emptyMailer{}, Options{Now: func() time.Time { return tc.now }, DigestScheduler: scheduler})
-			if err := w.RunOnce(context.Background()); err != nil {
-				t.Fatal(err)
-			}
-			if len(scheduler.calls) != 1 {
-				t.Fatalf("scheduled %d digests, want 1", len(scheduler.calls))
-			}
-		})
+	now := time.Date(2026, time.November, 3, 7, 59, 0, 0, manila)
+	scheduler := &recordingScheduler{}
+	w := New(emptyQueue{}, emptyMailer{}, Options{Now: func() time.Time { return now }, DigestScheduler: scheduler})
+
+	if err := w.RunOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(scheduler.calls) != 0 {
+		t.Fatalf("scheduled %d digests at 07:59, want 0", len(scheduler.calls))
+	}
+
+	now = time.Date(2026, time.November, 3, 8, 0, 0, 0, manila)
+	if err := w.RunOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(scheduler.calls) != 1 {
+		t.Fatalf("scheduled %d digests at 08:00, want 1", len(scheduler.calls))
+	}
+
+	now = time.Date(2026, time.November, 3, 8, 1, 0, 0, manila)
+	if err := w.RunOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(scheduler.calls) != 1 {
+		t.Fatalf("scheduled %d digests at 08:01, want 1", len(scheduler.calls))
 	}
 }

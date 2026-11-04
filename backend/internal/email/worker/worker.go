@@ -41,6 +41,7 @@ type Worker struct {
 	digestScheduler outbox.DigestScheduler
 	reportsURL      string
 	manila          *time.Location
+	lastDigestDay   string
 }
 
 func New(queue outbox.Queue, mailer email.Mailer, options Options) *Worker {
@@ -103,8 +104,12 @@ func (w *Worker) Run(ctx context.Context) error {
 func (w *Worker) RunOnce(ctx context.Context) error {
 	if w.digestScheduler != nil {
 		now := w.now().In(w.manila)
-		if err := w.digestScheduler.ScheduleDailyDigest(ctx, now, w.reportsURL); err != nil {
-			return err
+		day := now.Format("2006-01-02")
+		if now.Hour() == 8 && w.lastDigestDay != day {
+			if err := w.digestScheduler.ScheduleDailyDigest(ctx, now, w.reportsURL); err != nil {
+				return err
+			}
+			w.lastDigestDay = day
 		}
 	}
 	for {
