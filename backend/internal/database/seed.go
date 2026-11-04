@@ -35,15 +35,16 @@ func SeedData(ctx context.Context, db *DB, log *slog.Logger, admin AdminSeed) er
 		{accesscontrol.DefaultRoleName, "Default user with read-only access"},
 	}
 
+	roleInsert := db.Builder.Insert("roles").Columns("name", "description").Suffix("ON CONFLICT (name) DO NOTHING")
 	for _, r := range roles {
-		_, err := db.Pool.Exec(ctx, `
-			INSERT INTO roles (name, description)
-			VALUES ($1, $2)
-			ON CONFLICT (name) DO NOTHING
-		`, r.Name, r.Description)
-		if err != nil {
-			return fmt.Errorf("seed role %s: %w", r.Name, err)
-		}
+		roleInsert = roleInsert.Values(r.Name, r.Description)
+	}
+	query, args, err := roleInsert.ToSql()
+	if err != nil {
+		return fmt.Errorf("build seed roles: %w", err)
+	}
+	if _, err := db.Pool.Exec(ctx, query, args...); err != nil {
+		return fmt.Errorf("seed roles: %w", err)
 	}
 	log.Info("roles seeded", "count", len(roles))
 
@@ -78,22 +79,23 @@ func SeedData(ctx context.Context, db *DB, log *slog.Logger, admin AdminSeed) er
 		{"users:list", "users", "list"},
 	}
 
+	permissionInsert := db.Builder.Insert("permissions").Columns("name", "resource", "action").Suffix("ON CONFLICT (name) DO NOTHING")
 	for _, p := range permissions {
-		_, err := db.Pool.Exec(ctx, `
-			INSERT INTO permissions (name, resource, action)
-			VALUES ($1, $2, $3)
-			ON CONFLICT (name) DO NOTHING
-		`, p.Name, p.Resource, p.Action)
-		if err != nil {
-			return fmt.Errorf("seed permission %s: %w", p.Name, err)
-		}
+		permissionInsert = permissionInsert.Values(p.Name, p.Resource, p.Action)
+	}
+	query, args, err = permissionInsert.ToSql()
+	if err != nil {
+		return fmt.Errorf("build seed permissions: %w", err)
+	}
+	if _, err := db.Pool.Exec(ctx, query, args...); err != nil {
+		return fmt.Errorf("seed permissions: %w", err)
 	}
 	log.Info("permissions seeded", "count", len(permissions))
 
 	// ============================================================
 	// 3. Role-Permission Assignments
 	// ============================================================
-	_, err := db.Pool.Exec(ctx, `
+	_, err = db.Pool.Exec(ctx, `
 		INSERT INTO role_permissions (role_id, permission_id)
 		SELECT r.id, p.id
 		FROM roles r, permissions p

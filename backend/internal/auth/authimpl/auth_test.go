@@ -14,6 +14,7 @@ import (
 	"github.com/ssr0016/pastoral-reports/backend/internal/accesscontrol"
 	"github.com/ssr0016/pastoral-reports/backend/internal/audit/auditimpl"
 	"github.com/ssr0016/pastoral-reports/backend/internal/auth"
+	"github.com/ssr0016/pastoral-reports/backend/internal/request"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user"
 	"github.com/ssr0016/pastoral-reports/backend/internal/user/userimpl"
 	"github.com/stretchr/testify/require"
@@ -232,6 +233,53 @@ func TestAuthService_Me_NonActiveIsUnauthorized(t *testing.T) {
 	}
 }
 
+func TestAuthService_Me_UsesCaller(t *testing.T) {
+	users := userimpl.NewMockStore()
+	usr := &user.User{ID: 1, Name: "Ed", RoleID: 20, Role: &accesscontrol.Role{Name: "editor"}}
+	caller := &user.Caller{User: usr, Permissions: map[string]bool{"reports:write": true, "reports:read": true}}
+	calls := 0
+	users.GetCallerFunc = func(_ context.Context, id int64) (*user.Caller, error) {
+		require.Equal(t, usr.ID, id)
+		calls++
+		return caller, nil
+	}
+	users.GetWithRoleFunc = func(context.Context, int64) (*user.User, error) {
+		t.Fatal("Me must load user and permissions together")
+		return nil, nil
+	}
+	svc := newService(users, nil, nil, nil, nil, discardLog)
+	got, err := svc.Me(context.Background(), usr.ID)
+	require.NoError(t, err)
+	require.Equal(t, 1, calls)
+	require.Equal(t, "editor", got.Role)
+	require.Equal(t, []string{"reports:read", "reports:write"}, got.Permissions)
+
+	caller.Role.Name = "user"
+	caller.Permissions = nil
+	got, err = svc.Me(context.Background(), usr.ID)
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	require.Equal(t, "user", got.Role)
+	require.NotNil(t, got.Permissions)
+	require.Empty(t, got.Permissions)
+}
+
+func TestAuthService_Me_RejectsDeletedOrRevokedCaller(t *testing.T) {
+	now := time.Now()
+	for _, usr := range []*user.User{
+		{ID: 1, DeletedAt: &now},
+		{ID: 1, TokensValidAfter: now},
+	} {
+		users := userimpl.NewMockStore()
+		users.GetCallerFunc = func(context.Context, int64) (*user.Caller, error) {
+			return &user.Caller{User: usr}, nil
+		}
+		ctx := request.WithUser(context.Background(), request.User{ID: 1, IssuedAt: now.Add(-time.Minute)})
+		_, err := newService(users, nil, nil, nil, nil, discardLog).Me(ctx, 1)
+		require.ErrorIs(t, err, auth.ErrUnauthorized)
+	}
+}
+
 func TestAuthService_Me(t *testing.T) {
 	users := userimpl.NewMockStore()
 	users.GetWithRoleFunc = func(_ context.Context, id int64) (*user.User, error) {
@@ -247,6 +295,7 @@ func TestAuthService_Me(t *testing.T) {
 		return nil, nil
 	}
 	roles := stubRoles{perms: map[int64][]string{20: {"reports:approve", "reports:read"}}}
+	users.Roles = roles
 	svc := newService(users, roles, nil, nil, nil, discardLog)
 	ctx := context.Background()
 
@@ -297,7 +346,7 @@ func TestAuthService_Me(t *testing.T) {
 
 	t.Run("repository errors are returned, not hidden as 401", func(t *testing.T) {
 		boom := errors.New("db down")
-		users.GetWithRoleFunc = func(context.Context, int64) (*user.User, error) { return nil, boom }
+		users.GetCallerFunc = func(context.Context, int64) (*user.Caller, error) { return nil, boom }
 		if _, err := svc.Me(ctx, 1); !errors.Is(err, boom) || errors.Is(err, auth.ErrUnauthorized) {
 			t.Errorf("Me() error = %v, want the repository error", err)
 		}

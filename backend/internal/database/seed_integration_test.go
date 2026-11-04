@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -221,4 +222,37 @@ func TestSeed_Idempotent(t *testing.T) {
 
 	require.NoError(t, database.SeedData(ctx, db, log, admin))
 	assert.Equal(t, before, snapshot(), "reseeding must not duplicate or modify existing rows")
+}
+
+type seedQueryTracer struct {
+	roles, permissions int
+}
+
+func (s *seedQueryTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	switch {
+	case strings.Contains(data.SQL, "INSERT INTO roles "):
+		s.roles++
+	case strings.Contains(data.SQL, "INSERT INTO permissions "):
+		s.permissions++
+	}
+	return ctx
+}
+
+func (*seedQueryTracer) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
+
+func TestSeed_BatchesRolesAndPermissions(t *testing.T) {
+	tdb := testutil.SetupPostgres(t)
+	tdb.MigrateWithGoose(t)
+	app := tdb.AppUserPool(t)
+	config := app.Config()
+	tracer := &seedQueryTracer{}
+	config.ConnConfig.Tracer = tracer
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	seedAs(t, pool)
+
+	assert.Equal(t, 1, tracer.roles, "seed all roles in one statement")
+	assert.Equal(t, 1, tracer.permissions, "seed all permissions in one statement")
 }

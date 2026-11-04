@@ -2,9 +2,26 @@
 package metrics
 
 import (
+	"net/http"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+// Handler samples pool usage on each scrape without issuing a database query.
+func Handler(pool *pgxpool.Pool) http.Handler {
+	handler := promhttp.Handler()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if pool != nil {
+			stats := pool.Stat()
+			DBConnectionsActive.Set(float64(stats.AcquiredConns()))
+			DBConnectionsIdle.Set(float64(stats.IdleConns()))
+		}
+		handler.ServeHTTP(w, r)
+	})
+}
 
 var (
 	// HTTPRequestsTotal counts total HTTP requests by method, path, and status.

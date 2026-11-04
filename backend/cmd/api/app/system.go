@@ -4,14 +4,15 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
 	_ "github.com/ssr0016/pastoral-reports/backend/docs"
 	"github.com/ssr0016/pastoral-reports/backend/internal/config"
 	"github.com/ssr0016/pastoral-reports/backend/internal/router"
+	"github.com/ssr0016/pastoral-reports/backend/pkg/metrics"
 )
 
 // registerSystemRoutes registers the Swagger UI and the observability and
@@ -24,21 +25,21 @@ import (
 //     them. A half-set pair is never served: Validate rejects it at startup,
 //     and this keeps a hand-built Config from failing open.
 //   - /health, /ready and /live are always public.
-func registerSystemRoutes(e *echo.Echo, cfg *config.Config, health *router.HealthHandler) {
+func registerSystemRoutes(e *echo.Echo, cfg *config.Config, health *router.HealthHandler, pool *pgxpool.Pool) {
 	obs := cfg.Observability
 
 	if obs.SwaggerEnabled {
 		e.GET("/swagger/*", echoSwagger.WrapHandler)
 	}
 
-	metrics := echo.WrapHandler(promhttp.Handler())
+	metricsHandler := echo.WrapHandler(metrics.Handler(pool))
 	switch {
 	case obs.MetricsUser != "" && obs.MetricsPassword != "":
-		e.GET("/metrics", metrics, metricsAuth(obs.MetricsUser, obs.MetricsPassword))
+		e.GET("/metrics", metricsHandler, metricsAuth(obs.MetricsUser, obs.MetricsPassword))
 	case obs.MetricsUser != "" || obs.MetricsPassword != "":
 		// half-set pair: fail closed
 	case !cfg.IsProduction():
-		e.GET("/metrics", metrics)
+		e.GET("/metrics", metricsHandler)
 	}
 
 	e.GET("/health", health.HealthCheck)

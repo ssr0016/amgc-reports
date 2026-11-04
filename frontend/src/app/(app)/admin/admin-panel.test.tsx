@@ -29,7 +29,7 @@ describe("AdminPanel", () => {
     h.tab = tab;
     render(<AdminPanel />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`Admin / ${name}`);
-    // findByText: Analytics is loaded with next/dynamic, so it arrives a tick later.
+    // findByText: dynamically loaded sections arrive a tick later.
     expect(await within(screen.getByRole("region", { name })).findByText(text)).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByText("stats") !== null).toBe(["Overview", "Users", "Roles"].includes(name));

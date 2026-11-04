@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strconv"
 	"time"
 
@@ -26,7 +27,6 @@ const (
 
 type service struct {
 	userRepo            user.Store
-	roleRepo            accesscontrol.RoleStore // for Me; nil in callers that never call it
 	verificationService auth.VerificationService
 	audit               audit.Store       // for ChangePassword, Login, StartSession and EndSession; nil in callers that never call them
 	tx                  database.TxRunner // likewise
@@ -57,7 +57,7 @@ func NewService(
 // newService is NewService with the concrete type and no sessions, for tests.
 func newService(
 	userRepo user.Store,
-	roleRepo accesscontrol.RoleStore,
+	_ accesscontrol.RoleStore,
 	verificationService auth.VerificationService,
 	audit audit.Store,
 	tx database.TxRunner,
@@ -65,7 +65,6 @@ func newService(
 ) *service {
 	return &service{
 		userRepo:            userRepo,
-		roleRepo:            roleRepo,
 		verificationService: verificationService,
 		audit:               audit,
 		tx:                  tx,
@@ -77,13 +76,14 @@ func newService(
 // database (a role change shows on the next call). A user that no longer exists
 // is auth.ErrUnauthorized, so a session outliving its user stops working.
 func (s *service) Me(ctx context.Context, userID int64) (*auth.MeResponse, error) {
-	user, err := s.userRepo.GetWithRole(ctx, userID)
+	caller, err := s.userRepo.GetCaller(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	if user == nil || !user.CanSignIn() || accessRevoked(ctx, user) {
+	if caller == nil || !caller.CanSignIn() || accessRevoked(ctx, caller.User) {
 		return nil, auth.ErrUnauthorized
 	}
+	user := caller.User
 	me := &auth.MeResponse{
 		UserID: user.ID, Name: user.Name, Email: user.Email, Permissions: []string{},
 		AreaAssignment: deref(user.AreaAssignment), ChurchName: deref(user.ChurchName),
@@ -92,15 +92,10 @@ func (s *service) Me(ctx context.Context, userID int64) (*auth.MeResponse, error
 	if user.Role != nil {
 		me.Role = user.Role.Name
 	}
-	if user.RoleID != 0 {
-		perms, err := s.roleRepo.GetPermissions(ctx, user.RoleID)
-		if err != nil {
-			return nil, fmt.Errorf("get permissions: %w", err)
-		}
-		for _, p := range perms {
-			me.Permissions = append(me.Permissions, p.Name)
-		}
+	for name := range caller.Permissions {
+		me.Permissions = append(me.Permissions, name)
 	}
+	slices.Sort(me.Permissions)
 	return me, nil
 }
 

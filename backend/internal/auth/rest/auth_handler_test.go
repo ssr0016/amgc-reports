@@ -34,6 +34,7 @@ func (m meRoles) GetPermissions(context.Context, int64) ([]accesscontrol.Permiss
 // serveMe calls GET /auth/me as the given session user (0 = no session).
 func serveMe(t *testing.T, users *userimpl.MockStore, perms []string, userID int64) *httptest.ResponseRecorder {
 	t.Helper()
+	users.Roles = meRoles{perms: perms}
 	h := NewAuthHandler(authimpl.NewService(users, meRoles{perms: perms}, nil, nil, nil, nil, nil, nil, authimpl.TokenSettings{}), nil)
 
 	e := echo.New()

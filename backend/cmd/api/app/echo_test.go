@@ -3,11 +3,14 @@ package app
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/getsentry/sentry-go"
@@ -19,6 +22,56 @@ import (
 	ourmiddleware "github.com/ssr0016/pastoral-reports/backend/internal/middleware"
 	"github.com/ssr0016/pastoral-reports/backend/pkg/metrics"
 )
+
+func TestMiddlewareChain_Gzip(t *testing.T) {
+	large := strings.Repeat("report data ", 1000)
+	for _, tc := range []struct {
+		name, path, target, accept, body string
+		compressed                       bool
+	}{
+		{"large JSON", "/api/v1/reports", "/api/v1/reports", "gzip", large, true},
+		{"small response", "/small", "/small", "gzip", "ok", false},
+		{"without negotiation", "/plain", "/plain", "", large, false},
+		{"Swagger asset", "/swagger/*", "/swagger/swagger-ui.css", "gzip", large, false},
+		{"Excel download", "/api/v1/admin/reports/:id/excel", "/api/v1/admin/reports/1/excel", "gzip", large, false},
+		{"Prometheus handles compression", "/metrics", "/metrics", "gzip", large, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newEcho(&config.Config{}, slog.New(slog.DiscardHandler))
+			e.GET(tc.path, func(c echo.Context) error { return c.JSON(http.StatusOK, map[string]string{"data": tc.body}) })
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, tc.target, nil)
+			req.Header.Set(echo.HeaderAcceptEncoding, tc.accept)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			if got := rec.Header().Get(echo.HeaderContentEncoding) == "gzip"; got != tc.compressed {
+				t.Fatalf("compressed = %v, want %v", got, tc.compressed)
+			}
+			body := rec.Body.Bytes()
+			if tc.compressed {
+				reader, err := gzip.NewReader(rec.Body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					if err := reader.Close(); err != nil {
+						t.Error(err)
+					}
+				}()
+				body, err = io.ReadAll(reader)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			var decoded map[string]string
+			if err := json.Unmarshal(body, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			if rec.Code != http.StatusOK || decoded["data"] != tc.body {
+				t.Fatalf("response changed: status %d, data length %d", rec.Code, len(decoded["data"]))
+			}
+		})
+	}
+}
 
 // postOversize sends a POST whose declared Content-Length is over the body
 // limit through the full global chain and returns the response status and the

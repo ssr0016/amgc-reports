@@ -12,10 +12,10 @@ function setup(props: Partial<React.ComponentProps<typeof ReportForm>> = {}, fak
   const onSubmit = vi.fn().mockResolvedValue(undefined);
   const onCancel = vi.fn();
   const user = userEvent.setup(fakeTimers ? { advanceTimers: vi.advanceTimersByTime } : undefined);
-  render(
+  const view = render(
     <ReportForm initial={initial()} submitLabel="Save report" lockedPeriod={period} onSubmit={onSubmit} onCancel={onCancel} {...props} />,
   );
-  return { user, onSubmit, onCancel };
+  return { ...view, user, onSubmit, onCancel };
 }
 
 const metric = (label: string, week: number) => screen.getByLabelText(`${label}, week ${week}`);
@@ -101,14 +101,151 @@ describe("ReportForm", () => {
 		expect(screen.queryByText(/Auto-saved at/)).not.toBeInTheDocument();
 	});
 
-  it("preserves revision notes in localStorage when another field changes", () => {
+  it("preserves revision notes in localStorage when another field changes", async () => {
+    vi.useFakeTimers();
     setup({ storageKey: "report:April:2026", revision: true });
     fireEvent.change(screen.getByLabelText("Your Notes / Explanation for Revision"), { target: { value: "Updated weekly totals" } });
     fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "x" } });
+    await act(() => vi.advanceTimersByTimeAsync(500));
 
     const saved = JSON.parse(localStorage.getItem("report:April:2026")!);
     expect(saved.user_notes).toBe("Updated weekly totals");
     expect(saved.form.challenges).toBe("x");
+  });
+
+  it("coalesces edits into one draft write after 500 ms without edits", async () => {
+    vi.useFakeTimers();
+    const write = vi.spyOn(Storage.prototype, "setItem");
+    setup({ storageKey: "report:April:2026" });
+
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "First" } });
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "Latest" } });
+    await act(() => vi.advanceTimersByTimeAsync(499));
+    expect(write).not.toHaveBeenCalled();
+
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(write).toHaveBeenCalledOnce();
+    expect(JSON.parse(localStorage.getItem("report:April:2026")!).form.challenges).toBe("Latest");
+  });
+
+  it("flushes the latest pending fields and notes on unmount", async () => {
+    vi.useFakeTimers();
+    const write = vi.spyOn(Storage.prototype, "setItem");
+    const { unmount } = setup({ storageKey: "report:April:2026", revision: true });
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "Latest" } });
+    fireEvent.change(screen.getByLabelText("Your Notes / Explanation for Revision"), { target: { value: "Latest notes" } });
+    expect(write).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(write).toHaveBeenCalledOnce();
+    expect(JSON.parse(localStorage.getItem("report:April:2026")!)).toMatchObject({
+      context: "report:April:2026", form: { challenges: "Latest" }, user_notes: "Latest notes",
+    });
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(write).toHaveBeenCalledOnce();
+  });
+
+  it("flushes a pending draft before a tab close or refresh", () => {
+    vi.useFakeTimers();
+    setup({ storageKey: "report:April:2026" });
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "Keep on refresh" } });
+    expect(localStorage.getItem("report:April:2026")).toBeNull();
+
+    window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
+
+    expect(JSON.parse(localStorage.getItem("report:April:2026")!)).toMatchObject({ form: { challenges: "Keep on refresh" } });
+  });
+
+  it("does not recreate a successfully submitted draft on unmount", async () => {
+    vi.useFakeTimers();
+    const { onSubmit, unmount } = setup({ storageKey: "report:April:2026" });
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "Submitted" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Save report" })));
+    expect(onSubmit).toHaveBeenCalledOnce();
+
+    unmount();
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(localStorage.getItem("report:April:2026")).toBeNull();
+  });
+
+  it("keeps a failed submission available for recovery on unmount", async () => {
+    vi.useFakeTimers();
+    const { unmount } = setup({ storageKey: "report:April:2026", onSubmit: vi.fn().mockRejectedValue(new ApiError(500, "INTERNAL", "Save failed")) });
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "Keep after failure" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Save report" })));
+    expect(screen.getByText("Save failed")).toBeInTheDocument();
+
+    unmount();
+
+    expect(JSON.parse(localStorage.getItem("report:April:2026")!).form.challenges).toBe("Keep after failure");
+  });
+
+  it("does not recreate a discarded recovery on unmount", async () => {
+    vi.useFakeTimers();
+    localStorage.setItem("report:April:2026", JSON.stringify({ context: "report:April:2026", form: { ...initial(), challenges: "Discard me" } }));
+    const { unmount } = setup({ storageKey: "report:April:2026" });
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "Also discard this" } });
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+
+    unmount();
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(localStorage.getItem("report:April:2026")).toBeNull();
+  });
+
+  it("saves the first new edit after discarding recovery", async () => {
+    vi.useFakeTimers();
+    localStorage.setItem("report:April:2026", JSON.stringify({ context: "report:April:2026", form: { ...initial(), challenges: "Discard me" } }));
+    setup({ storageKey: "report:April:2026" });
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "New edit" } });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(JSON.parse(localStorage.getItem("report:April:2026")!).form.challenges).toBe("New edit");
+  });
+
+  it("keeps pending drafts attached to their original storage context", async () => {
+    vi.useFakeTimers();
+    localStorage.setItem("report:May:2026", JSON.stringify({ context: "report:May:2026", form: { ...initial(), challenges: "May draft" } }));
+    const { rerender, unmount } = setup({ storageKey: "report:April:2026" });
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "April edit" } });
+
+    rerender(<ReportForm initial={initial()} storageKey="report:May:2026" submitLabel="Save report" onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByLabelText("Challenges")).toHaveValue("May draft");
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    unmount();
+
+    expect(JSON.parse(localStorage.getItem("report:April:2026")!).form.challenges).toBe("April edit");
+    expect(JSON.parse(localStorage.getItem("report:May:2026")!).form.challenges).toBe("May draft");
+  });
+
+  it("starts clean when changing to a context without a draft", async () => {
+    vi.useFakeTimers();
+    const { rerender, unmount } = setup({ storageKey: "report:April:2026" });
+    fireEvent.change(screen.getByLabelText("Challenges"), { target: { value: "April edit" } });
+
+    rerender(<ReportForm initial={initial()} storageKey="report:May:2026" submitLabel="Save report" onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByLabelText("Challenges")).toHaveValue("");
+    unmount();
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+
+    expect(JSON.parse(localStorage.getItem("report:April:2026")!).form.challenges).toBe("April edit");
+    expect(localStorage.getItem("report:May:2026")).toBeNull();
+  });
+
+  it("does not read or write drafts in read-only mode", async () => {
+    vi.useFakeTimers();
+    localStorage.setItem("report:April:2026", JSON.stringify({ context: "report:April:2026", form: { ...initial(), challenges: "Private draft" } }));
+    const read = vi.spyOn(Storage.prototype, "getItem");
+    const write = vi.spyOn(Storage.prototype, "setItem");
+    const { unmount } = setup({ storageKey: "report:April:2026", readOnly: true });
+    expect(screen.getByLabelText("Challenges")).toHaveValue("");
+    unmount();
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+
+    expect(read).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
   });
 
 	it("explains how to leave inactive weeks blank", () => {

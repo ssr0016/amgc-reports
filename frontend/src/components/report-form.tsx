@@ -44,19 +44,7 @@ const longTexts = [
 const sectionClass = "flex min-w-0 flex-col gap-5 rounded-lg border bg-card p-4 sm:p-6";
 const headingClass = "text-lg font-medium tracking-tight";
 
-export function ReportForm({
-  initial,
-  initialUserNotes = "",
-  submitLabel,
-  storageKey,
-  revision = false,
-  lockedPeriod,
-  readOnly = false,
-  restricted = false,
-  onSubmit,
-  onCancel,
-  endAction,
-}: {
+type ReportFormProps = {
   initial: FormState;
   initialUserNotes?: string;
   submitLabel: string;
@@ -71,7 +59,25 @@ export function ReportForm({
   onSubmit: (input: ReportInput) => Promise<void>;
   onCancel: () => void;
   endAction?: ReactNode;
-}) {
+};
+
+export function ReportForm(props: ReportFormProps) {
+  return <ReportFormFields key={props.storageKey} {...props} />;
+}
+
+function ReportFormFields({
+  initial,
+  initialUserNotes = "",
+  submitLabel,
+  storageKey,
+  revision = false,
+  lockedPeriod,
+  readOnly = false,
+  restricted = false,
+  onSubmit,
+  onCancel,
+  endAction,
+}: ReportFormProps) {
   const [start] = useState(initial);
   const [form, setForm] = useState(initial);
   const [userNotes, setUserNotes] = useState(initialUserNotes);
@@ -83,7 +89,7 @@ export function ReportForm({
   const [saved, setSaved] = useState(false);
   const [hydrated, setHydrated] = useState(!storageKey || readOnly);
   const [recovered, setRecovered] = useState(false);
-  const skipStorageWrite = useRef(false);
+  const pendingDraft = useRef<{ storageKey: string; form: FormState; userNotes: string } | null>(null);
   const [wait, setWait] = useCountdown();
   const [formRef, focusError] = useFocusFirstError<HTMLFormElement>();
   const dirty = !saved && changed.size > 0;
@@ -116,22 +122,35 @@ export function ReportForm({
     setHydrated(true);
   }, [readOnly, storageKey]);
 
+  const flushDraft = useCallback(() => {
+    const draft = pendingDraft.current;
+    if (!draft) return;
+    localStorage.setItem(draft.storageKey, JSON.stringify({ context: draft.storageKey, form: draft.form, user_notes: draft.userNotes }));
+    pendingDraft.current = null;
+  }, []);
+
   useEffect(() => {
-    if (!storageKey || readOnly || !hydrated || !changed.size) return;
-    if (skipStorageWrite.current) {
-      skipStorageWrite.current = false;
+    if (!storageKey || readOnly || !hydrated || !changed.size) {
+      pendingDraft.current = null;
       return;
     }
-    localStorage.setItem(storageKey, JSON.stringify({ context: storageKey, form, user_notes: userNotes }));
-  }, [changed.size, form, hydrated, readOnly, storageKey, userNotes]);
+    pendingDraft.current = { storageKey, form, userNotes };
+    const timer = setTimeout(flushDraft, 500);
+    return () => clearTimeout(timer);
+  }, [changed.size, flushDraft, form, hydrated, readOnly, storageKey, userNotes]);
+
+  useEffect(() => flushDraft, [flushDraft]);
 
   // Covers closing the tab or refreshing; in-app navigation is guarded by Cancel.
   useEffect(() => {
     if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    const warn = (e: BeforeUnloadEvent) => {
+      flushDraft();
+      e.preventDefault();
+    };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [dirty, flushDraft]);
 
   // Each updater returns prev when nothing changes, so memoised rows skip the re-render.
   const markChanged = useCallback((key: string, isChanged: boolean) => {
@@ -194,6 +213,7 @@ export function ReportForm({
       input.user_notes = userNotes;
       await onSubmit(input);
       setPending(false);
+      pendingDraft.current = null;
       if (storageKey) localStorage.removeItem(storageKey);
       setSaved(true);
     } catch (err) {
@@ -219,7 +239,7 @@ export function ReportForm({
   }
 
   function discardRecovery() {
-    skipStorageWrite.current = true;
+    pendingDraft.current = null;
     if (storageKey) localStorage.removeItem(storageKey);
     setForm(start);
     setUserNotes("");

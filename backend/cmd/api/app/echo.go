@@ -3,6 +3,7 @@ package app
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	sentryecho "github.com/getsentry/sentry-go/echo"
 	"github.com/labstack/echo/v4"
@@ -43,6 +44,14 @@ func newEcho(cfg *config.Config, log *slog.Logger) *echo.Echo {
 	// Before Recover, so it never sees a panic: it only adds the request's hub and transaction.
 	e.Use(sentryecho.New(sentryecho.Options{}))
 	e.Use(middleware.Recover())
+	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
+		Level:     5,
+		MinLength: 1024,
+		Skipper: func(c echo.Context) bool {
+			// Prometheus negotiates compression itself; Excel is already a ZIP archive.
+			return c.Path() == "/metrics" || strings.HasPrefix(c.Path(), "/swagger/") || strings.HasSuffix(c.Path(), "/excel")
+		},
+	}))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     cfg.CORS.AllowedOrigins,
 		AllowCredentials: true,

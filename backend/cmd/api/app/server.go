@@ -167,7 +167,7 @@ func run() error {
 
 	e := newEcho(cfg, log)
 
-	registerSystemRoutes(e, cfg, healthHandler)
+	registerSystemRoutes(e, cfg, healthHandler, db.Pool)
 
 	// API routes
 	router.Setup(

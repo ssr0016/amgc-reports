@@ -25,7 +25,7 @@ func systemEcho(stage config.Stage, obs config.ObservabilityConfig) *echo.Echo {
 	e := echo.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	cfg := &config.Config{Stage: stage, Observability: obs}
-	registerSystemRoutes(e, cfg, router.NewHealthHandler(nil))
+	registerSystemRoutes(e, cfg, router.NewHealthHandler(nil), nil)
 	return e
 }
 

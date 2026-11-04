@@ -3,20 +3,20 @@
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
-import { AnalyticsSkeleton } from "@/components/loading-skeletons";
+import { AnalyticsSkeleton, TableSkeleton } from "@/components/loading-skeletons";
 import { adminSections } from "@/lib/admin-navigation";
 import { useSession } from "@/lib/session";
-import { reportsTheme } from "@/components/reports-dashboard";
-import { AdminReports } from "./admin-reports";
-import { AuditLogs } from "./audit-logs";
+import { dashboardTheme as reportsTheme } from "@/components/dashboard-theme";
 import { RoleStats, RolesPanel } from "./roles";
 import { StatsCards } from "./stats-cards";
 import { Tracker } from "./tracker";
-import { UsersPanel } from "./users/users-list";
 import { PageHeader, PageShell } from "@/components/page-shell";
 
 // Recharts only downloads when someone opens the Analytics tab.
 const Analytics = dynamic(() => import("./analytics").then((m) => m.Analytics), { loading: () => <AnalyticsSkeleton /> });
+const AdminReports = dynamic(() => import("./admin-reports").then((m) => m.AdminReports), { ssr: false, loading: () => <TableSkeleton /> });
+const AuditLogs = dynamic(() => import("./audit-logs").then((m) => m.AuditLogs), { ssr: false, loading: () => <TableSkeleton /> });
+const UsersPanel = dynamic(() => import("./users/users-list").then((m) => m.UsersPanel), { ssr: false, loading: () => <TableSkeleton /> });
 
 // Sidebar links keep the existing ?tab= URLs and permission fallback order.
 export function AdminPanel() {
