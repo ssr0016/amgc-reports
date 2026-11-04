@@ -18,7 +18,7 @@ type Job struct {
 	ID             int64
 	IdempotencyKey string
 	EventType      string
-	ReportID       int64
+	ReportID       *int64
 	RecipientEmail string
 	ReportMonth    string
 	ReportYear     int
